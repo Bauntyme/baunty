@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: zakirovs_bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./temp_downloads:/app/temp_downloads
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Agar PostgreSQL ishlatmoqchi bo'lsangiz:
+    # depends_on:
+    #   - db
+
+  # Ixtiyoriy: Agar PostgreSQL ishlatmoqchi bo'lsangiz quyidagi izohni oching:
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: zakirovs_postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: zakirovs_db
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: secret_password
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   pgdata:

@@ -1,0 +1,437 @@
+"""
+Ma'lumotlar bazasi bilan ishlash funksiyalari (CRUD)
+"""
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Tuple, Dict, Any
+from sqlalchemy import select, update, delete, func, desc, or_
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.models import User, Movie, SponsorChannel, DownloadLog, BotSetting
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# ==========================================
+# FOYDALANUVCHILAR (USERS)
+# ==========================================
+
+async def get_or_create_user(
+    session: AsyncSession,
+    user_id: int,
+    username: Optional[str] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    is_admin: bool = False,
+) -> Tuple[User, bool]:
+    """Foydalanuvchini oladi yoki yangisini yaratadi. (user, created) qaytaradi."""
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
+
+    if user:
+        # Ma'lumotlarni yangilash
+        changed = False
+        if username and user.username != username:
+            user.username = username
+            changed = True
+        if first_name and user.first_name != first_name:
+            user.first_name = first_name
+            changed = True
+        if last_name and user.last_name != last_name:
+            user.last_name = last_name
+            changed = True
+        user.last_active = utc_now()
+        if changed:
+            await session.flush()
+        return user, False
+    else:
+        new_user = User(
+            id=user_id,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            is_admin=is_admin,
+            is_banned=False,
+            created_at=utc_now(),
+            last_active=utc_now(),
+        )
+        session.add(new_user)
+        await session.flush()
+        return new_user, True
+
+
+async def get_user(session: AsyncSession, user_id: int) -> Optional[User]:
+    """Foydalanuvchini ID bo'yicha olish."""
+    stmt = select(User).where(User.id == user_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def update_user_activity(session: AsyncSession, user_id: int) -> None:
+    """Foydalanuvchining so'nggi faollik vaqtini yangilash."""
+    stmt = update(User).where(User.id == user_id).values(last_active=utc_now())
+    await session.execute(stmt)
+
+
+async def get_total_users_count(session: AsyncSession) -> int:
+    """Jami ro'yxatdan o'tgan foydalanuvchilar soni."""
+    stmt = select(func.count(User.id))
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_today_users_count(session: AsyncSession) -> int:
+    """Bugun qo'shilgan yangi foydalanuvchilar soni."""
+    today_start = utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
+    stmt = select(func.count(User.id)).where(User.created_at >= today_start)
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_active_users_24h_count(session: AsyncSession) -> int:
+    """Oxirgi 24 soatda faol bo'lgan foydalanuvchilar soni."""
+    last_24h = utc_now() - timedelta(hours=24)
+    stmt = select(func.count(User.id)).where(User.last_active >= last_24h)
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_all_user_ids(session: AsyncSession, include_banned: bool = False) -> List[int]:
+    """Barcha foydalanuvchilar ID larini olish (xabarnoma uchun)."""
+    stmt = select(User.id)
+    if not include_banned:
+        stmt = stmt.where(User.is_banned == False)
+    result = await session.execute(stmt)
+    return [row[0] for row in result.fetchall()]
+
+
+async def set_user_ban_status(session: AsyncSession, user_id: int, is_banned: bool) -> bool:
+    """Foydalanuvchini bloklash yoki blokdan chiqarish."""
+    stmt = update(User).where(User.id == user_id).values(is_banned=is_banned)
+    result = await session.execute(stmt)
+    return result.rowcount > 0
+
+
+async def is_user_banned(session: AsyncSession, user_id: int) -> bool:
+    """Foydalanuvchi bloklanganligini tekshirish."""
+    stmt = select(User.is_banned).where(User.id == user_id)
+    result = await session.execute(stmt)
+    return bool(result.scalar_one_or_none())
+
+
+# ==========================================
+# KINOLAR (MOVIES)
+# ==========================================
+
+async def create_movie(
+    session: AsyncSession,
+    code: str,
+    title: str,
+    file_id: str,
+    description: Optional[str] = None,
+    file_type: str = "video",
+    file_size: Optional[int] = None,
+    duration: Optional[int] = None,
+    genres: str = "Barcha",
+    year: Optional[int] = None,
+    rating: Optional[float] = None,
+    poster_file_id: Optional[str] = None,
+) -> Movie:
+    """Yangi kino yaratish."""
+    movie = Movie(
+        code=str(code).strip(),
+        title=title.strip(),
+        file_id=file_id.strip(),
+        description=description.strip() if description else None,
+        file_type=file_type,
+        file_size=file_size,
+        duration=duration,
+        genres=genres.strip() if genres else "Barcha",
+        year=year,
+        rating=rating,
+        poster_file_id=poster_file_id,
+        created_at=utc_now(),
+    )
+    session.add(movie)
+    await session.flush()
+    return movie
+
+
+async def get_movie_by_code(session: AsyncSession, code: str) -> Optional[Movie]:
+    """Kino kodini qidirish (masalan: 123, 405)."""
+    stmt = select(Movie).where(Movie.code == str(code).strip())
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_movie_by_id(session: AsyncSession, movie_id: int) -> Optional[Movie]:
+    """Kinoni ichki ID bo'yicha olish."""
+    stmt = select(Movie).where(Movie.id == movie_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def search_movies_by_title(
+    session: AsyncSession,
+    query: str,
+    limit: int = 10,
+    offset: int = 0
+) -> List[Movie]:
+    """Nomi yoki tavsifi bo'yicha kinolarni qidirish."""
+    search_pattern = f"%{query.strip()}%"
+    stmt = (
+        select(Movie)
+        .where(
+            or_(
+                Movie.title.ilike(search_pattern),
+                Movie.description.ilike(search_pattern),
+                Movie.genres.ilike(search_pattern)
+            )
+        )
+        .order_by(desc(Movie.views_count))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_movies_by_genre(
+    session: AsyncSession,
+    genre: str,
+    limit: int = 10,
+    offset: int = 0
+) -> List[Movie]:
+    """Janr bo'yicha kinolar ro'yxati."""
+    pattern = f"%{genre.strip()}%"
+    stmt = (
+        select(Movie)
+        .where(Movie.genres.ilike(pattern))
+        .order_by(desc(Movie.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_random_movie(session: AsyncSession) -> Optional[Movie]:
+    """Tasodifiy kinoni olish."""
+    stmt = select(Movie).order_by(func.random()).limit(1)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def get_top_movies(session: AsyncSession, limit: int = 10) -> List[Movie]:
+    """Eng ko'p ko'rilgan kinolar ro'yxati."""
+    stmt = (
+        select(Movie)
+        .order_by(desc(Movie.views_count), desc(Movie.downloads_count))
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_all_movies(
+    session: AsyncSession,
+    limit: int = 50,
+    offset: int = 0
+) -> List[Movie]:
+    """Barcha kinolar ro'yxati (admin yoki sahifalash uchun)."""
+    stmt = select(Movie).order_by(desc(Movie.id)).limit(limit).offset(offset)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_total_movies_count(session: AsyncSession) -> int:
+    """Bazada mavjud jami kinolar soni."""
+    stmt = select(func.count(Movie.id))
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def update_movie(
+    session: AsyncSession,
+    code: str,
+    **kwargs: Any
+) -> Optional[Movie]:
+    """Kinoni tahrirlash."""
+    movie = await get_movie_by_code(session, code)
+    if not movie:
+        return None
+
+    for key, value in kwargs.items():
+        if hasattr(movie, key) and value is not None:
+            setattr(movie, key, value)
+
+    await session.flush()
+    return movie
+
+
+async def delete_movie(session: AsyncSession, code: str) -> bool:
+    """Kinoni kod bo'yicha o'chirish."""
+    stmt = delete(Movie).where(Movie.code == str(code).strip())
+    result = await session.execute(stmt)
+    return result.rowcount > 0
+
+
+async def increment_movie_views(session: AsyncSession, movie_id: int) -> None:
+    """Ko'rishlar sonini 1 taga oshirish."""
+    stmt = (
+        update(Movie)
+        .where(Movie.id == movie_id)
+        .values(views_count=Movie.views_count + 1)
+    )
+    await session.execute(stmt)
+
+
+async def increment_movie_downloads(session: AsyncSession, movie_id: int) -> None:
+    """Yuklab olishlar sonini 1 taga oshirish."""
+    stmt = (
+        update(Movie)
+        .where(Movie.id == movie_id)
+        .values(downloads_count=Movie.downloads_count + 1)
+    )
+    await session.execute(stmt)
+
+
+# ==========================================
+# HOMIY KANALLAR (SPONSOR CHANNELS)
+# ==========================================
+
+async def add_sponsor_channel(
+    session: AsyncSession,
+    channel_id: str,
+    title: str,
+    invite_link: str,
+    username: Optional[str] = None,
+) -> SponsorChannel:
+    """Majburiy obuna kanalini qo'shish."""
+    # Agar mavjud bo'lsa yangilash
+    stmt = select(SponsorChannel).where(SponsorChannel.channel_id == str(channel_id).strip())
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+
+    if existing:
+        existing.title = title.strip()
+        existing.invite_link = invite_link.strip()
+        if username:
+            existing.username = username.strip().lstrip("@")
+        existing.is_active = True
+        await session.flush()
+        return existing
+
+    new_channel = SponsorChannel(
+        channel_id=str(channel_id).strip(),
+        title=title.strip(),
+        username=username.strip().lstrip("@") if username else None,
+        invite_link=invite_link.strip(),
+        is_active=True,
+        created_at=utc_now(),
+    )
+    session.add(new_channel)
+    await session.flush()
+    return new_channel
+
+
+async def remove_sponsor_channel(session: AsyncSession, channel_id: str) -> bool:
+    """Majburiy obuna kanalini o'chirish."""
+    stmt = delete(SponsorChannel).where(SponsorChannel.channel_id == str(channel_id).strip())
+    result = await session.execute(stmt)
+    return result.rowcount > 0
+
+
+async def get_active_sponsor_channels(session: AsyncSession) -> List[SponsorChannel]:
+    """Aktiv bo'lgan homiy kanallar ro'yxati."""
+    stmt = (
+        select(SponsorChannel)
+        .where(SponsorChannel.is_active == True)
+        .order_by(SponsorChannel.id)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_all_sponsor_channels(session: AsyncSession) -> List[SponsorChannel]:
+    """Barcha homiy kanallar ro'yxati."""
+    stmt = select(SponsorChannel).order_by(SponsorChannel.id)
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def toggle_sponsor_channel(session: AsyncSession, channel_id: str, is_active: bool) -> bool:
+    """Kanal aktiv holatini yoqish/o'chirish."""
+    stmt = (
+        update(SponsorChannel)
+        .where(SponsorChannel.channel_id == str(channel_id).strip())
+        .values(is_active=is_active)
+    )
+    result = await session.execute(stmt)
+    return result.rowcount > 0
+
+
+# ==========================================
+# YUKLAB OLISH STATISTIKASI (DOWNLOAD LOGS)
+# ==========================================
+
+async def log_download(
+    session: AsyncSession,
+    user_id: int,
+    platform: str,
+    query_or_url: Optional[str] = None,
+) -> DownloadLog:
+    """Yuklab olish amalini qayd qilish."""
+    log = DownloadLog(
+        user_id=user_id,
+        platform=platform.lower(),
+        query_or_url=query_or_url,
+        created_at=utc_now(),
+    )
+    session.add(log)
+    await session.flush()
+    return log
+
+
+async def get_total_downloads_count(session: AsyncSession) -> int:
+    """Jami yuklamalar soni."""
+    stmt = select(func.count(DownloadLog.id))
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_downloads_stats_by_platform(session: AsyncSession) -> Dict[str, int]:
+    """Platformalar bo'yicha yuklamalar statistikasi."""
+    stmt = (
+        select(DownloadLog.platform, func.count(DownloadLog.id))
+        .group_by(DownloadLog.platform)
+    )
+    result = await session.execute(stmt)
+    return {row[0]: row[1] for row in result.fetchall()}
+
+
+# ==========================================
+# BOT SOZLAMALARI (BOT SETTINGS)
+# ==========================================
+
+async def get_setting(session: AsyncSession, key: str, default: str = "") -> str:
+    """Bot sozlamasini olish."""
+    stmt = select(BotSetting.value).where(BotSetting.key == key)
+    result = await session.execute(stmt)
+    val = result.scalar_one_or_none()
+    return val if val is not None else default
+
+
+async def set_setting(session: AsyncSession, key: str, value: str) -> None:
+    """Bot sozlamasini saqlash yoki yangilash."""
+    stmt = select(BotSetting).where(BotSetting.key == key)
+    result = await session.execute(stmt)
+    setting = result.scalar_one_or_none()
+
+    if setting:
+        setting.value = str(value)
+    else:
+        new_setting = BotSetting(key=key, value=str(value))
+        session.add(new_setting)
+    await session.flush()
