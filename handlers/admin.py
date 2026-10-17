@@ -19,10 +19,15 @@ from keyboards.inline import (
     broadcast_confirm_keyboard,
     genre_picker_keyboard,
     movie_list_keyboard,
+    admin_movie_detail_keyboard,
+    movie_edit_keyboard,
+    admin_settings_keyboard,
 )
 from utils.states import (
     MovieAddStates,
     MovieDeleteStates,
+    MovieViewStates,
+    MovieEditStates,
     BroadcastStates,
     SponsorAddStates,
 )
@@ -56,7 +61,7 @@ async def cmd_admin_panel(message: Message, state: FSMContext) -> None:
     sys_info = get_system_stats()
 
     text = (
-        "👑 <b>Zakirovs_bot Boshqaruv Paneli</b>\n\n"
+        f"👑 <b>@{config.BOT_USERNAME.lstrip('@')} Boshqaruv Paneli</b>\n\n"
         "📊 <b>Asosiy statistika:</b>\n"
         f"👥 Jami foydalanuvchilar: <b>{total_users:,}</b> ta\n"
         f"🆕 Bugun qo'shilganlar: <b>{today_users:,}</b> ta\n"
@@ -407,9 +412,13 @@ async def state_delete_movie_confirm(message: Message, state: FSMContext) -> Non
 
 @router.callback_query(F.data.startswith("admin:movie:list:"))
 async def cb_admin_movie_list(callback: CallbackQuery) -> None:
-    """Kinolar ro'yxatini ko'rsatish."""
+    """Kinolar ro'yxatini ko'rsatish va sahifalash."""
     if not is_admin_check(callback.from_user.id):
         return
+
+    import math
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    from aiogram.types import InlineKeyboardButton
 
     page = int(callback.data.split(":")[-1])
     async with get_session() as session:
@@ -421,12 +430,218 @@ async def cb_admin_movie_list(callback: CallbackQuery) -> None:
         await callback.answer()
         return
 
-    lines = [f"📋 <b>Kinolar ro'yxati ({page+1}-sahifa, jami: {total}):</b>\n"]
+    total_pages = max(1, math.ceil(total / 10))
+    lines = [f"📋 <b>Kinolar ro'yxati ({page+1}/{total_pages}-sahifa, jami: {total}):</b>\n"]
     for m in movies:
         lines.append(f"• <code>{m.code}</code> | <b>{m.title}</b> ({m.views_count} ko'rildi)")
 
-    await callback.message.answer("\n".join(lines), parse_mode="HTML")
+    builder = InlineKeyboardBuilder()
+    for m in movies:
+        builder.row(
+            InlineKeyboardButton(
+                text=f"🎬 {m.code} - {m.title[:25]}",
+                callback_data=f"admin:movie:view_direct:{m.code}"
+            )
+        )
+
+    nav_buttons = []
+    if page > 0:
+        nav_buttons.append(InlineKeyboardButton(text="⬅️ Oldingi", callback_data=f"admin:movie:list:{page-1}"))
+    if page < total_pages - 1:
+        nav_buttons.append(InlineKeyboardButton(text="Keyingi ➡️", callback_data=f"admin:movie:list:{page+1}"))
+    if nav_buttons:
+        builder.row(*nav_buttons)
+
+    builder.row(InlineKeyboardButton(text="🔙 Kinolar boshqaruvi", callback_data="admin:movies"))
+
+    try:
+        await callback.message.edit_text("\n".join(lines), parse_mode="HTML", reply_markup=builder.as_markup())
+    except Exception:
+        await callback.message.answer("\n".join(lines), parse_mode="HTML", reply_markup=builder.as_markup())
     await callback.answer()
+
+
+async def show_admin_movie_detail(target_message: Message, code: str, is_edit: bool = False) -> None:
+    """Kino haqidagi batafsil ma'lumotni admin uchun chiqarish."""
+    async with get_session() as session:
+        movie = await crud.get_movie_by_code(session, code)
+    if not movie:
+        await target_message.answer(f"❌ <code>{code}</code> kodli kino topilmadi.", parse_mode="HTML")
+        return
+
+    year_str = str(movie.year) if movie.year else "Noma'lum"
+    rating_str = f"{movie.rating}/10" if movie.rating else "Baholanmagan"
+    desc_str = movie.description or "Mavjud emas"
+    text = (
+        f"🎬 <b>Kino ma'lumotlari:</b>\n\n"
+        f"🔢 Kod: <code>{movie.code}</code>\n"
+        f"📌 Nomi: <b>{movie.title}</b>\n"
+        f"🎭 Janri: {movie.genres}\n"
+        f"📅 Yili: {year_str}\n"
+        f"⭐ Reyting: {rating_str}\n"
+        f"👁️ Ko'rishlar: {movie.views_count}\n"
+        f"📥 Yuklashlar: {movie.downloads_count}\n"
+        f"📁 Fayl turi: {movie.file_type}\n"
+        f"📝 Tavsif: <i>{desc_str[:300]}</i>"
+    )
+    markup = admin_movie_detail_keyboard(movie.code)
+    if is_edit:
+        try:
+            await target_message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+            return
+        except Exception:
+            pass
+    await target_message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data == "admin:movie:view")
+async def cb_admin_movie_view(callback: CallbackQuery, state: FSMContext) -> None:
+    """Kino kodini so'rab ko'rish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    await state.set_state(MovieViewStates.waiting_for_code)
+    await callback.message.answer(
+        "🔍 <b>Ko'rmoqchi bo'lgan kinongiz kodini kiriting:</b>\nMasalan: <code>101</code>",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard()
+    )
+    await callback.answer()
+
+
+@router.message(MovieViewStates.waiting_for_code, F.text)
+async def state_admin_movie_view_code(message: Message, state: FSMContext) -> None:
+    """Kiritilgan kod bo'yicha kinoni ko'rsatish."""
+    code = message.text.strip()
+    await state.clear()
+    await show_admin_movie_detail(message, code)
+
+
+@router.callback_query(F.data.startswith("admin:movie:view_direct:"))
+async def cb_admin_movie_view_direct(callback: CallbackQuery) -> None:
+    """To'g'ridan-to'g'ri kino ma'lumotlarini ko'rsatish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    code = callback.data.split(":")[-1]
+    await show_admin_movie_detail(callback.message, code, is_edit=True)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:movie:del_direct:"))
+async def cb_admin_movie_del_direct(callback: CallbackQuery) -> None:
+    """Kinoni to'g'ridan-to'g'ri o'chirish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    code = callback.data.split(":")[-1]
+    async with get_session() as session:
+        deleted = await crud.delete_movie(session, code)
+    if deleted:
+        await callback.answer(f"✅ {code} kodli kino o'chirildi!", show_alert=True)
+        try:
+            await callback.message.edit_text(
+                f"✅ <b>{code}</b> kodli kino ma'lumotlar bazasidan o'chirildi.",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+    else:
+        await callback.answer("❌ Kino topilmadi", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("admin:movie:edit:"))
+async def cb_admin_movie_edit(callback: CallbackQuery) -> None:
+    """Kinoni tahrirlash menyusini ko'rsatish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    code = callback.data.split(":")[-1]
+    text = f"✏️ <b>{code}</b> kodli kinoning qaysi ma'lumotini o'zgartirmoqchisiz?"
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=movie_edit_keyboard(code))
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=movie_edit_keyboard(code))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:medit:"))
+async def cb_admin_medit_field(callback: CallbackQuery, state: FSMContext) -> None:
+    """Maydonni tahrirlash uchun yangi qiymat so'rash."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    parts = callback.data.split(":")
+    field = parts[2]
+    code = parts[3]
+    await state.update_data(edit_code=code, edit_field=field)
+    await state.set_state(MovieEditStates.waiting_for_new_value)
+
+    field_names = {
+        "title": "yangi nomini",
+        "genres": "yangi janrini (masalan: Jangari, Komediya)",
+        "year": "yangi chiqarilgan yilini (masalan: 2024)",
+        "rating": "yangi reytingini (masalan: 8.5)",
+        "desc": "yangi tavsifini",
+        "media": "yangi video yoki hujjat faylini"
+    }
+    prompt = field_names.get(field, "yangi qiymatni")
+    await callback.message.answer(
+        f"✏️ <b>{code}</b> kodli kino uchun <b>{prompt}</b> kiriting yoki yuboring:",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard()
+    )
+    await callback.answer()
+
+
+@router.message(MovieEditStates.waiting_for_new_value)
+async def state_admin_medit_save(message: Message, state: FSMContext) -> None:
+    """Yangi qiymat kelganda kinoni yangilash."""
+    data = await state.get_data()
+    code = data["edit_code"]
+    field = data["edit_field"]
+    await state.clear()
+
+    update_kwargs = {}
+    if field == "title" and message.text:
+        update_kwargs["title"] = message.text.strip()
+    elif field == "genres" and message.text:
+        update_kwargs["genres"] = message.text.strip()
+    elif field == "year" and message.text:
+        val = message.text.strip()
+        update_kwargs["year"] = int(val) if val.isdigit() else None
+    elif field == "rating" and message.text:
+        val = message.text.strip().replace(",", ".")
+        try:
+            update_kwargs["rating"] = float(val)
+        except ValueError:
+            update_kwargs["rating"] = None
+    elif field == "desc" and message.text:
+        val = message.text.strip()
+        update_kwargs["description"] = None if val.lower() in ["yoq", "yo'q", "-"] else val
+    elif field == "media":
+        if message.video:
+            update_kwargs["file_id"] = message.video.file_id
+            update_kwargs["file_type"] = "video"
+            update_kwargs["duration"] = message.video.duration
+            update_kwargs["file_size"] = message.video.file_size
+        elif message.document:
+            update_kwargs["file_id"] = message.document.file_id
+            update_kwargs["file_type"] = "document"
+            update_kwargs["duration"] = None
+            update_kwargs["file_size"] = message.document.file_size
+        else:
+            await message.reply("❌ Video yoki hujjat fayli yuborilmadi.")
+            return
+
+    async with get_session() as session:
+        updated = await crud.update_movie(session, code, **update_kwargs)
+
+    if updated:
+        await message.reply(
+            f"✅ <b>{code}</b> kodli kino muvaffaqiyatli yangilandi!",
+            parse_mode="HTML",
+            reply_markup=main_menu_keyboard(is_admin=True)
+        )
+        await show_admin_movie_detail(message, code)
+    else:
+        await message.reply(f"❌ <b>{code}</b> kodli kino topilmadi.")
+
 
 
 # ==========================================
@@ -645,3 +860,104 @@ async def cb_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> Non
     await state.clear()
     await callback.answer("Bekor qilindi")
     await callback.message.edit_text("❌ Xabarnoma bekor qilindi.")
+
+
+# ==========================================
+# ADMIN SOZLAMALARI VA REPLY TUGMALAR
+# ==========================================
+
+@router.callback_query(F.data == "admin:settings")
+async def cb_admin_settings(callback: CallbackQuery) -> None:
+    """Admin sozlamalari ko'rinishi."""
+    if not is_admin_check(callback.from_user.id):
+        return
+
+    async with get_session() as session:
+        channel_name = await crud.get_setting(session, "channel_username", config.CHANNEL_USERNAME)
+
+    text = (
+        f"⚙️ <b>@{config.BOT_USERNAME.lstrip('@')} Tizim Sozlamalari:</b>\n\n"
+        f"🤖 <b>Bot nomi:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+        f"🍿 <b>Rasmiy kino kanali:</b> {channel_name}\n"
+        f"💾 <b>Baza turi:</b> <code>{config.DB_TYPE}</code>\n"
+        f"📦 <b>Max yuklash hajmi:</b> {config.MAX_FILE_SIZE_MB} MB\n"
+        f"⚡ <b>Anti-flood oraliq:</b> {config.RATE_LIMIT_SECONDS}s\n"
+        f"👑 <b>Adminlar soni:</b> {len(config.admin_ids)} ta\n"
+    )
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_settings_keyboard())
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=admin_settings_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:set:channel")
+async def cb_admin_set_channel_info(callback: CallbackQuery) -> None:
+    """Kanal sozlamasi haqida ma'lumot."""
+    await callback.answer(f"Hozirgi kanal: {config.CHANNEL_USERNAME}", show_alert=True)
+
+
+# Reply keyboard tugmalari uchun admin handlerlari
+@router.message(F.text == "📊 Statistika")
+async def reply_admin_stats(message: Message, state: FSMContext) -> None:
+    await cmd_admin_panel(message, state)
+
+
+@router.message(F.text == "🎬 Kinolar")
+async def reply_admin_movies(message: Message) -> None:
+    if not is_admin_check(message.from_user.id):
+        return
+    async with get_session() as session:
+        count = await crud.get_total_movies_count(session)
+    text = (
+        "🎬 <b>Kinolar boshqaruvi bo'limi</b>\n\n"
+        f"Bazada jami kinolar soni: <b>{count}</b> ta\n\n"
+        "Kerakli amalni tanlang:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_movies_menu_keyboard())
+
+
+@router.message(F.text == "📢 Xabarnoma")
+async def reply_admin_broadcast(message: Message, state: FSMContext) -> None:
+    if not is_admin_check(message.from_user.id):
+        return
+    await state.set_state(BroadcastStates.waiting_for_message)
+    text = (
+        "📢 <b>Barcha foydalanuvchilarga xabarnoma yuborish</b>\n\n"
+        "Yubormoqchi bo'lgan xabaringizni yuboring (Matn, Rasm, Video, Ovozli xabar yoki Forward):\n"
+        "Bot barcha faol foydalanuvchilarga ushbu xabarni tarqatadi."
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
+
+
+@router.message(F.text == "🔒 Homiylar")
+async def reply_admin_sponsors(message: Message) -> None:
+    if not is_admin_check(message.from_user.id):
+        return
+    async with get_session() as session:
+        channels = await crud.get_all_sponsor_channels(session)
+    text = (
+        "🔒 <b>Homiylar (Majburiy a'zolik kanallari) boshqaruvi:</b>\n\n"
+        "Foydalanuvchilar botdan to'liq foydalanishi uchun ushbu kanallarga obuna bo'lishi shart.\n"
+        "<i>Eslatma: Bot ushbu kanallarda admin bo'lishi kerak!</i>"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_sponsors_menu_keyboard(channels))
+
+
+@router.message(F.text == "⚙️ Sozlamalar")
+async def reply_admin_settings(message: Message) -> None:
+    if not is_admin_check(message.from_user.id):
+        return
+    async with get_session() as session:
+        channel_name = await crud.get_setting(session, "channel_username", config.CHANNEL_USERNAME)
+    text = (
+        f"⚙️ <b>@{config.BOT_USERNAME.lstrip('@')} Tizim Sozlamalari:</b>\n\n"
+        f"🤖 <b>Bot nomi:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+        f"🍿 <b>Rasmiy kino kanali:</b> {channel_name}\n"
+        f"💾 <b>Baza turi:</b> <code>{config.DB_TYPE}</code>\n"
+        f"📦 <b>Max yuklash hajmi:</b> {config.MAX_FILE_SIZE_MB} MB\n"
+        f"⚡ <b>Anti-flood oraliq:</b> {config.RATE_LIMIT_SECONDS}s\n"
+        f"👑 <b>Adminlar soni:</b> {len(config.admin_ids)} ta\n"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_settings_keyboard())
+

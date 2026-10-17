@@ -89,5 +89,29 @@ class MusicService:
         yt_search_url = f"ytsearch1:{search_query} audio"
         return await self.downloader.download_audio(yt_search_url)
 
+    async def recognize_audio(self, file_path: str) -> Optional[Dict[str, Any]]:
+        """
+        Ovozli xabar yoki audio fayldan qo'shiqni aniqlash (Shazam).
+        """
+        try:
+            from shazamio import Shazam
+            shazam = Shazam()
+            out = await shazam.recognize(file_path)
+            track = out.get("track")
+            if not track:
+                return None
+            return {
+                "id": track.get("key", str(hash(track.get("title", "")))),
+                "title": track.get("title", "Noma'lum"),
+                "artist": track.get("subtitle", "Noma'lum"),
+                "genre": track.get("genres", {}).get("primary", "Musiqa"),
+                "cover": track.get("images", {}).get("coverart"),
+                "share_url": track.get("url"),
+                "raw": track,
+            }
+        except Exception as e:
+            logger.error(f"Shazam orqali aniqlashda xatolik: {e}")
+            return None
+
 
 music_service = MusicService()

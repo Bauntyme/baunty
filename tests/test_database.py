@@ -83,17 +83,26 @@ async def test_movie_crud(async_session: AsyncSession):
     assert len(search_res) == 1
     assert search_res[0].code == "101"
 
-    # 4. Janr bo'yicha olish
+    # 4. Janr bo'yicha olish va sanash
     genre_res = await crud.get_movies_by_genre(async_session, "Fantastika")
     assert len(genre_res) == 1
+    genre_cnt = await crud.get_movies_by_genre_count(async_session, "Fantastika")
+    assert genre_cnt == 1
 
-    # 5. Ko'rishlar sonini oshirish
+    # 5. Tahrirlash (update_movie)
+    updated = await crud.update_movie(async_session, "101", title="Avatar: Suv Yo'li", year=2023)
+    await async_session.commit()
+    assert updated is not None
+    assert updated.title == "Avatar: Suv Yo'li"
+    assert updated.year == 2023
+
+    # 6. Ko'rishlar sonini oshirish
     await crud.increment_movie_views(async_session, movie.id)
     await async_session.commit()
     updated_movie = await crud.get_movie_by_code(async_session, "101")
     assert updated_movie.views_count == 1
 
-    # 6. O'chirish
+    # 7. O'chirish
     deleted = await crud.delete_movie(async_session, "101")
     await async_session.commit()
     assert deleted is True
@@ -127,3 +136,37 @@ async def test_sponsor_channel_crud(async_session: AsyncSession):
     await async_session.commit()
     all_ch = await crud.get_all_sponsor_channels(async_session)
     assert len(all_ch) == 0
+
+
+@pytest.mark.asyncio
+async def test_anonymous_message_and_feedback_crud(async_session: AsyncSession):
+    """Anonim xabar va fikr-mulohazalar CRUD amallari testi."""
+    # Anonim xabar yaratish
+    msg = await crud.create_anonymous_message(
+        session=async_session,
+        sender_id=111,
+        recipient_id=222,
+        text="Salom, bu test anonim xabar!"
+    )
+    await async_session.commit()
+    assert msg.id is not None
+    assert msg.sender_id == 111
+    assert msg.recipient_id == 222
+    assert "test anonim" in msg.message_text
+
+    # Xabarni olish
+    fetched = await crud.get_anonymous_message(async_session, msg.id)
+    assert fetched is not None
+    assert fetched.message_text == msg.message_text
+
+    # Feedback yaratish
+    fb = await crud.create_feedback(
+        session=async_session,
+        user_id=111,
+        username="test_author",
+        message="Yaxshi bot ekan, rahmat!"
+    )
+    await async_session.commit()
+    assert fb.id is not None
+    assert fb.user_id == 111
+    assert "Yaxshi bot" in fb.message

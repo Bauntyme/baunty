@@ -31,6 +31,12 @@ class StoryService:
         Instagram story yoki profil videosini anonim yuklab oladi.
         target: username yoki story havolasi
         """
+        target_clean = target.strip()
+        if "instagram.com/stories/" in target_clean and re.search(r"stories/[^/]+/\d+", target_clean):
+            result = await self.downloader.download_video(target_clean)
+            if result.success:
+                return result
+
         username = self.clean_username(target)
         if not username:
             return DownloadResult(success=False, error="Instagram foydalanuvchi nomi noto'g'ri kiritildi.")

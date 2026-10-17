@@ -39,11 +39,10 @@ class MediaDownloader:
 
         # Telegram bot fayl yuborish chegarasi: 50MB
         max_bytes = config.MAX_FILE_SIZE_MB * 1024 * 1024
+        ffmpeg_bin = config.ffmpeg_path
 
         ydl_opts: Dict[str, Any] = {
             "outtmpl": output_template,
-            "format": "best[filesize<=48M]/bestvideo[filesize<=30M]+bestaudio[filesize<=15M]/best[ext=mp4]/best",
-            "merge_output_format": "mp4",
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
@@ -57,11 +56,22 @@ class MediaDownloader:
             },
         }
 
+        if ffmpeg_bin:
+            ydl_opts["ffmpeg_location"] = ffmpeg_bin
+            ydl_opts["format"] = "best[filesize<=48M]/bestvideo[filesize<=30M]+bestaudio[filesize<=15M]/best[ext=mp4]/best"
+            ydl_opts["merge_output_format"] = "mp4"
+        else:
+            ydl_opts["format"] = "best[ext=mp4][filesize<=48M]/best[filesize<=48M]/best"
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if not info:
                     return DownloadResult(success=False, error="Media ma'lumotlarini olib bo'lmadi.")
+
+                # Carousel yoki playlist bo'lsa birinchi elementni olish
+                if info.get("_type") == "playlist" and "entries" in info and info["entries"]:
+                    info = info["entries"][0]
 
                 # Yuklab olingan fayl yo'lini topish
                 downloaded_file = None
@@ -116,17 +126,10 @@ class MediaDownloader:
         file_prefix = str(uuid.uuid4())[:8]
         output_template = str(self.download_dir / f"{file_prefix}_%(title).50s.%(ext)s")
         max_bytes = config.MAX_FILE_SIZE_MB * 1024 * 1024
+        ffmpeg_bin = config.ffmpeg_path
 
         ydl_opts: Dict[str, Any] = {
             "outtmpl": output_template,
-            "format": "bestaudio/best",
-            "postprocessors": [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }
-            ],
             "noplaylist": True,
             "quiet": True,
             "no_warnings": True,
@@ -134,13 +137,29 @@ class MediaDownloader:
             "socket_timeout": 30,
         }
 
+        if ffmpeg_bin:
+            ydl_opts["ffmpeg_location"] = ffmpeg_bin
+            ydl_opts["format"] = "bestaudio/best"
+            ydl_opts["postprocessors"] = [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }
+            ]
+        else:
+            ydl_opts["format"] = "bestaudio[ext=m4a]/bestaudio/best"
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if not info:
                     return DownloadResult(success=False, error="Audio ma'lumotlarini olib bo'lmadi.")
 
-                # MP3 faylni topish
+                if info.get("_type") == "playlist" and "entries" in info and info["entries"]:
+                    info = info["entries"][0]
+
+                # Faylni topish
                 matches = list(self.download_dir.glob(f"{file_prefix}_*.mp3"))
                 if not matches:
                     # Boshqa extension bilan yuklangan bo'lishi mumkin

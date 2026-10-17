@@ -16,10 +16,19 @@ from database.models import SponsorChannel
 def test_main_menu_keyboard_user():
     kb = main_menu_keyboard(is_admin=False)
     button_texts = [btn.text for row in kb.keyboard for btn in row]
+    # 8 ta doimiy reply tugma tekshiruvi:
+    assert "🎬 K I N O — kod orqali qidirish" in button_texts
+    assert "📄 Hujjatlar" in button_texts
+    assert "⭕️ Dumaloq video" in button_texts
+    assert "👀 Anonim story" in button_texts
+    assert "💌 Anonim savollar" in button_texts
+    assert "🎁 Do'st taklif qilish" in button_texts
+    assert "👥 Guruhlarim" in button_texts
+    assert "💬 Xato va fikrlar" in button_texts
+    # Qo'shimchalar
     assert "🎬 Kino" in button_texts
     assert "🎵 Qo'shiq topish" in button_texts
     assert "📥 Media yuklash" in button_texts
-    assert "👀 Anonim story" in button_texts
     assert "👑 Admin Panel" not in button_texts
 
 
@@ -66,3 +75,23 @@ def test_media_download_keyboard():
     kb = media_download_keyboard("tok123")
     callbacks = [btn.callback_data for row in kb.inline_keyboard for btn in row if btn.callback_data]
     assert "dl_audio:tok123" in callbacks
+    assert "dl_shazam:tok123" in callbacks
+
+
+def test_admin_detail_and_edit_keyboards():
+    from keyboards.inline import admin_movie_detail_keyboard, movie_edit_keyboard, admin_settings_keyboard
+    kb_detail = admin_movie_detail_keyboard("105")
+    callbacks_detail = [btn.callback_data for row in kb_detail.inline_keyboard for btn in row if btn.callback_data]
+    assert "admin:movie:edit:105" in callbacks_detail
+    assert "admin:movie:del_direct:105" in callbacks_detail
+    assert "get_movie:105" in callbacks_detail
+
+    kb_edit = movie_edit_keyboard("105")
+    callbacks_edit = [btn.callback_data for row in kb_edit.inline_keyboard for btn in row if btn.callback_data]
+    assert "admin:medit:title:105" in callbacks_edit
+    assert "admin:medit:media:105" in callbacks_edit
+
+    kb_settings = admin_settings_keyboard()
+    callbacks_settings = [btn.callback_data for row in kb_settings.inline_keyboard for btn in row if btn.callback_data]
+    assert "admin:menu" in callbacks_settings
+

@@ -2,7 +2,9 @@
 Media yuklab olish qayta ishlovchisi (Instagram, TikTok, YouTube, Snapchat)
 """
 import logging
+from pathlib import Path
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from config import config
 from database.session import get_session
@@ -37,7 +39,7 @@ async def cmd_media_download_info(message: Message) -> None:
     await message.answer(text, parse_mode="HTML")
 
 
-@router.message(lambda msg: msg.text and extract_media_url(msg.text) is not None)
+@router.message(StateFilter(None), lambda msg: msg.text and extract_media_url(msg.text) is not None)
 async def process_media_url(message: Message) -> None:
     """Xabarda media havolasi aniqlanganda yuklab olish."""
     url = extract_media_url(message.text)
@@ -71,14 +73,30 @@ async def process_media_url(message: Message) -> None:
             f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
         )
 
-        video_file = FSInputFile(result.file_path)
-        await message.reply_video(
-            video=video_file,
-            caption=caption,
-            parse_mode="HTML",
-            duration=result.duration,
-            reply_markup=reply_markup
-        )
+        ext = Path(result.file_path).suffix.lower()
+        if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+            await message.reply_photo(
+                photo=FSInputFile(result.file_path),
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=reply_markup
+            )
+        elif ext in [".mp3", ".m4a", ".ogg", ".wav", ".aac"]:
+            await message.reply_audio(
+                audio=FSInputFile(result.file_path),
+                caption=caption,
+                parse_mode="HTML",
+                duration=result.duration,
+                reply_markup=reply_markup
+            )
+        else:
+            await message.reply_video(
+                video=FSInputFile(result.file_path),
+                caption=caption,
+                parse_mode="HTML",
+                duration=result.duration,
+                reply_markup=reply_markup
+            )
 
         # Holat xabarini tozalash
         try:
@@ -167,3 +185,72 @@ async def process_download_audio_callback(callback: CallbackQuery) -> None:
             await temp_msg.edit_text("❌ <b>Audio ajratishda texnik xatolik yuz berdi.</b>", parse_mode="HTML")
         except Exception:
             pass
+
+
+@router.callback_query(F.data.startswith("dl_shazam:"))
+async def process_shazam_audio_callback(callback: CallbackQuery) -> None:
+    """Videodan musiqa audio sini olib, Shazam orqali original qo'shiqni aniqlash."""
+    cache_key = callback.data.split("dl_shazam:")[-1]
+    url = get_cached_url(cache_key)
+
+    if not url:
+        await callback.answer("⚠️ Havola eskirgan yoki topilmadi.", show_alert=True)
+        return
+
+    await callback.answer("🔍 Original qo'shiq qidirilmoqda...")
+    temp_msg = await callback.message.reply("🎧 <b>Shazam orqali video musiqasi aniqlanmoqda...</b>", parse_mode="HTML")
+
+    try:
+        from services.music_service import music_service
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        from aiogram.types import InlineKeyboardButton
+        from handlers.music import _SEARCH_CACHE
+
+        res = await media_downloader.download_audio(url)
+        if not res.success or not res.file_path:
+            await temp_msg.edit_text("❌ Videoning audio trekini ajratib bo'lmadi.", parse_mode="HTML")
+            return
+
+        track = await music_service.recognize_audio(res.file_path)
+        safe_remove_file(res.file_path)
+
+        if not track:
+            await temp_msg.edit_text(
+                "😔 <b>Original qo'shiq aniqlanmadi.</b>\n"
+                "Qo'shiq nomi yoki ijrochisi bo'yicha <b>«🎵 Qo'shiq topish»</b> menyusidan qidirishingiz mumkin.",
+                parse_mode="HTML"
+            )
+            return
+
+        # Keshga saqlash
+        user_id = callback.from_user.id
+        track_key = f"{user_id}_{track['id']}"
+        _SEARCH_CACHE[track_key] = track
+
+        title = track.get("title", "Noma'lum")
+        artist = track.get("artist", "Noma'lum")
+
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(text=f"📥 «{artist} - {title}» MP3", callback_data=f"dl_track:{track_key}")
+        )
+        builder.row(
+            InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}")
+        )
+
+        await temp_msg.edit_text(
+            f"🎉 <b>Original qo'shiq aniqlandi!</b>\n\n"
+            f"🎵 <b>Nomi:</b> {title}\n"
+            f"👤 <b>Ijrochi:</b> {artist}\n\n"
+            "To'liq MP3 formatida yuklab olish uchun quyidagi tugmani bosing: 👇",
+            parse_mode="HTML",
+            reply_markup=builder.as_markup()
+        )
+
+    except Exception as e:
+        logger.exception(f"Shazam orqali aniqlashda xatolik: {e}")
+        try:
+            await temp_msg.edit_text("❌ Musiqani aniqlashda texnik xatolik yuz berdi.", parse_mode="HTML")
+        except Exception:
+            pass
+

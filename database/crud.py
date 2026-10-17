@@ -1,15 +1,12 @@
 """
 Ma'lumotlar bazasi bilan ishlash funksiyalari (CRUD)
 """
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, update, delete, func, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import User, Movie, SponsorChannel, DownloadLog, BotSetting
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+from database.models import User, Movie, SponsorChannel, DownloadLog, BotSetting, AnonymousMessage, Feedback, utc_now
+from utils.translit import get_both_scripts
 
 
 # ==========================================
@@ -214,6 +211,17 @@ async def get_movies_by_genre(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+async def get_movies_by_genre_count(
+    session: AsyncSession,
+    genre: str
+) -> int:
+    """Janr bo'yicha jami kinolar soni."""
+    pattern = f"%{genre.strip()}%"
+    stmt = select(func.count(Movie.id)).where(Movie.genres.ilike(pattern))
+    result = await session.execute(stmt)
+    return result.scalar() or 0
 
 
 async def get_random_movie(session: AsyncSession) -> Optional[Movie]:
@@ -435,3 +443,152 @@ async def set_setting(session: AsyncSession, key: str, value: str) -> None:
         new_setting = BotSetting(key=key, value=str(value))
         session.add(new_setting)
     await session.flush()
+
+
+# ==========================================
+# REFERALLAR (REFERRALS)
+# ==========================================
+
+async def add_referral(
+    session: AsyncSession,
+    referrer_id: int,
+    new_user_id: int,
+    points: int = 10
+) -> bool:
+    """Yangi foydalanuvchini taklif qilgan odamga referal ball va hisob yozish."""
+    if referrer_id == new_user_id:
+        return False
+
+    stmt = select(User).where(User.id == new_user_id)
+    res = await session.execute(stmt)
+    new_user = res.scalar_one_or_none()
+
+    if not new_user or new_user.referred_by is not None:
+        return False
+
+    stmt_ref = select(User).where(User.id == referrer_id)
+    res_ref = await session.execute(stmt_ref)
+    referrer = res_ref.scalar_one_or_none()
+
+    if not referrer:
+        return False
+
+    new_user.referred_by = referrer_id
+    referrer.referral_count = (referrer.referral_count or 0) + 1
+    referrer.referral_points = (referrer.referral_points or 0) + points
+    await session.flush()
+    return True
+
+
+async def get_referral_stats(session: AsyncSession, user_id: int) -> Tuple[int, int]:
+    """Foydalanuvchining taklif qilgan do'stlari soni va to'plagan ballarini qaytaradi."""
+    stmt = select(User.referral_count, User.referral_points).where(User.id == user_id)
+    res = await session.execute(stmt)
+    row = res.fetchone()
+    if not row:
+        return (0, 0)
+    return (row[0] or 0, row[1] or 0)
+
+
+# ==========================================
+# ANONIM SAVOLLAR VA XABARLAR
+# ==========================================
+
+async def create_anonymous_message(
+    session: AsyncSession,
+    sender_id: int,
+    recipient_id: int,
+    text: str
+) -> AnonymousMessage:
+    """Yangi anonim xabar yaratish."""
+    msg = AnonymousMessage(
+        sender_id=sender_id,
+        recipient_id=recipient_id,
+        message_text=text.strip(),
+        created_at=utc_now(),
+    )
+    session.add(msg)
+    await session.flush()
+    return msg
+
+
+async def get_anonymous_message(session: AsyncSession, msg_id: int) -> Optional[AnonymousMessage]:
+    """ID bo'yicha anonim xabarni olish."""
+    stmt = select(AnonymousMessage).where(AnonymousMessage.id == msg_id)
+    res = await session.execute(stmt)
+    return res.scalar_one_or_none()
+
+
+# ==========================================
+# FIKR VA SHIKOYATLAR (FEEDBACK)
+# ==========================================
+
+async def create_feedback(
+    session: AsyncSession,
+    user_id: int,
+    username: Optional[str],
+    message: str
+) -> Feedback:
+    """Foydalanuvchi fikrini saqlash."""
+    fb = Feedback(
+        user_id=user_id,
+        username=username,
+        message=message.strip(),
+        created_at=utc_now(),
+    )
+    session.add(fb)
+    await session.flush()
+    return fb
+
+
+# ==========================================
+# AQLLI QIDIRUV (SMART SEARCH: LOTIN + KIRILL)
+# ==========================================
+
+async def smart_search_movies(
+    session: AsyncSession,
+    query: str,
+    limit: int = 20,
+    offset: int = 0
+) -> List[Movie]:
+    """
+    Kino nomi, janri va tavsifi bo'yicha Lotin hamda Kirill yozuvlarida aqlli qidiruv.
+    Masalan: 'forsaj' -> 'Forsaj' va 'Форсаж' ikkalasini ham topadi.
+    """
+    clean_q = query.strip()
+    if not clean_q:
+        return await get_all_movies(session, limit=limit, offset=offset)
+
+    # Agar raqam bo'lsa (kino kodi)
+    if clean_q.isdigit():
+        movie_by_code = await get_movie_by_code(session, clean_q)
+        if movie_by_code:
+            return [movie_by_code]
+
+    lat_q, cyr_q = get_both_scripts(clean_q)
+    pat_orig = f"%{clean_q}%"
+    pat_lat = f"%{lat_q}%"
+    pat_cyr = f"%{cyr_q}%"
+
+    conditions = [
+        Movie.title.ilike(pat_orig),
+        Movie.title.ilike(pat_lat),
+        Movie.title.ilike(pat_cyr),
+        Movie.description.ilike(pat_orig),
+        Movie.description.ilike(pat_lat),
+        Movie.description.ilike(pat_cyr),
+        Movie.genres.ilike(pat_orig),
+        Movie.genres.ilike(pat_lat),
+        Movie.genres.ilike(pat_cyr),
+    ]
+
+    stmt = (
+        select(Movie)
+        .where(or_(*conditions))
+        .order_by(desc(Movie.views_count), desc(Movie.rating))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+

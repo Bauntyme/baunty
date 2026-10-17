@@ -80,15 +80,98 @@ async def state_process_music_query(message: Message, state: FSMContext) -> None
         await status_msg.edit_text("❌ Musiqa qidirishda texnik xatolik yuz berdi.", parse_mode="HTML")
 
 
-@router.message(F.voice | F.audio)
-async def process_voice_or_audio(message: Message) -> None:
-    """Ovozli xabar yoki audio kelganda javob berish."""
-    text = (
-        "🎙️ <b>Ovozli xabaringiz qabul qilindi!</b>\n\n"
-        "Qo'shiqni aniqroq topish uchun uning so'zlarini yoki ijrochisini matn sifatida yuboring:\n"
-        "<i>«🎵 Qo'shiq topish» tugmasidan foydalaning.</i>"
+import uuid
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+
+@router.message(F.voice | F.audio | F.video_note)
+async def process_voice_or_audio(message: Message, state: FSMContext) -> None:
+    """Ovozli xabar, audio yoki video note kelganda Shazam orqali qo'shiqni aniqlash."""
+    await state.clear()
+    status_msg = await message.reply(
+        "🎧 <b>Ovozli xabar eshitilmoqda va qo'shiq aniqlanmoqda...</b>\n<i>Iltimos, kuting...</i>",
+        parse_mode="HTML"
     )
-    await message.reply(text, parse_mode="HTML")
+
+    media_obj = message.voice or message.audio or message.video_note
+    if not media_obj:
+        await status_msg.edit_text("❌ Audio fayl topilmadi.")
+        return
+
+    ext = ".ogg" if message.voice else (".mp3" if message.audio else ".mp4")
+    temp_file = str(config.download_path / f"rec_{uuid.uuid4().hex[:8]}{ext}")
+
+    try:
+        await message.bot.download(media_obj, destination=temp_file)
+        track = await music_service.recognize_audio(temp_file)
+        safe_remove_file(temp_file)
+
+        if not track:
+            fail_text = (
+                "😔 <b>Afsuski, ushbu audio orqali qo'shiqni aniqlab bo'lmadi.</b>\n\n"
+                "💡 <b>Maslahatlar:</b>\n"
+                "• Qo'shiq balandroq va shovqinsiz eshitilayotgan joyini yuboring (kamida 5-10 soniya)\n"
+                "• Yoki <b>«🎵 Qo'shiq topish»</b> tugmasi orqali nomini yozing."
+            )
+            await status_msg.edit_text(fail_text, parse_mode="HTML")
+            return
+
+        # Natijani keshga saqlash
+        user_id = message.from_user.id
+        track_key = f"{user_id}_{track['id']}"
+        _SEARCH_CACHE[track_key] = track
+
+        title = track.get("title", "Noma'lum")
+        artist = track.get("artist", "Noma'lum")
+        genre = track.get("genre", "Musiqa")
+        cover_url = track.get("cover")
+
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(
+                text=f"📥 «{artist} - {title}» MP3 yuklash",
+                callback_data=f"dl_track:{track_key}"
+            )
+        )
+        builder.row(
+            InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}")
+        )
+
+        caption = (
+            "🎉 <b>Qo'shiq muvaffaqiyatli aniqlandi!</b>\n\n"
+            f"🎵 <b>Nomi:</b> {title}\n"
+            f"👤 <b>Ijrochi:</b> {artist}\n"
+            f"🎭 <b>Janr:</b> {genre}\n\n"
+            "To'liq MP3 formatida yuklab olish uchun quyidagi tugmani bosing: 👇"
+        )
+
+        try:
+            await status_msg.delete()
+        except Exception:
+            pass
+
+        if cover_url:
+            try:
+                await message.reply_photo(
+                    photo=cover_url,
+                    caption=caption,
+                    parse_mode="HTML",
+                    reply_markup=builder.as_markup()
+                )
+                return
+            except Exception:
+                pass
+
+        await message.reply(caption, parse_mode="HTML", reply_markup=builder.as_markup())
+
+    except Exception as e:
+        logger.exception(f"Audio aniqlashda kutilmagan xatolik: {e}")
+        safe_remove_file(temp_file)
+        try:
+            await status_msg.edit_text("❌ Qo'shiqni aniqlash jarayonida texnik xatolik yuz berdi.", parse_mode="HTML")
+        except Exception:
+            pass
 
 
 @router.callback_query(F.data.startswith("dl_track:"))

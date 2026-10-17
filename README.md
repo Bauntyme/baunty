@@ -31,13 +31,13 @@
 * **🔥 Eng ommabop:** Eng ko'p ko'rilgan va yuklab olingan top kinolar ro'yxati.
 * **🍿 @ZakirovsKino integratsiyasi:** Bot va rasmiy kino kanali o'rtasida to'liq bog'liqlik.
 
-### 3. 🎵 Qo'shiq Topish (Musiqa Bo'limi)
-* Qo'shiq nomi yoki ijrochisi bo'yicha qidirish (Deezer API integratsiyasi orqali tezkor va aniq natijalar).
-* Natijalardan bitta tugma bilan to'liq MP3 qo'shiqni yuklab olish.
-* Ovozli xabar (voice note) va audio xabarlarni qabul qilish.
+### 3. 🎵 Qo'shiq Topish va Audio Identifier (Musiqa Bo'limi)
+* **Qidiruv:** Qo'shiq nomi yoki ijrochisi bo'yicha qidirish (Deezer API integratsiyasi orqali tezkor va aniq natijalar).
+* **Ovozli xabar orqali aniqlash (Audio Identifier):** Foydalanuvchi ovozli xabar (voice note), audio yoki video note yuborganida Shazam algoritmi orqali qo'shiq nomi, ijrochisi va janrini soniyalar ichida aniqlash.
+* **MP3 yuklash:** Aniqlov yoki qidiruv natijalaridan bitta tugma bilan to'liq MP3 qo'shiqni YouTube audio oqimi orqali yuklab olish.
 
 ### 4. 👀 Anonim Instagram Story
-* Foydalanuvchi nomini kiritish orqali uning so'nggi faol hikoyalarini (stories) anonim, sezdirmasdan yuklab olish.
+* Foydalanuvchi nomini yoki to'g'ridan-to'g'ri story havolasini kiritish orqali uning so'nggi faol hikoyalarini (stories — foto va video) anonim, sezdirmasdan yuklab olish.
 
 ### 5. 🔒 Majburiy A'zolik (Homiylar Tizimi)
 * Botdan foydalanishdan oldin admin kiritgan homiy kanallarga a'zo bo'lish talab qilinadi.
@@ -46,9 +46,10 @@
 
 ### 6. 👑 To'liq Admin Paneli (`/admin`)
 * **📊 Jonli statistika:** Jami foydalanuvchilar, bugun qo'shilganlar, 24 soatlik faollar, yuklangan kinolar soni, platformalar bo'yicha yuklamalar va server parametrlari.
-* **🎬 Kinolarni boshqarish:** Yangi kino qo'shish (FSM orqali: kod, nom, video, janr, yil, reyting, tavsif), kinolarni o'chirish va ro'yxatni ko'rish.
+* **🎬 Kinolarni to'liq boshqarish:** Yangi kino qo'shish (FSM orqali: kod, nom, video, janr, yil, reyting, tavsif), kinolarni kod bo'yicha ko'rish, ma'lumotlarini tahrirlash (Nomi, Janri, Yili, Reytingi, Tavsifi, Video fayli) va butunlay o'chirish.
 * **📢 Global xabarnoma (Broadcast):** Barcha foydalanuvchilarga matn, rasm, video yoki forward xabarlarni yuborish (jonli foiz ko'rsatkichi bilan).
 * **🔒 Homiylar boshqaruvi:** Yangi homiy kanallar qo'shish, o'chirish yoki vaqtincha to'xtatish.
+* **⚙️ Bot sozlamalari:** Tizim parametrlari va rasmiy kanalni ko'rish hamda boshqarish.
 
 ---
 
@@ -149,10 +150,27 @@ zakirovs_bot/
    ```bash
    python main.py
    ```
+   > `python main.py` ham Telegram botni (polling), ham Mini App aiohttp web serverini (`0.0.0.0:${PORT:-8080}`) bitta asinxron event loopda parallel to'liq ishga tushiradi!
 
 ---
 
-### 2-usul: Docker va Docker Compose orqali
+### 2-usul: Render.com va Bulutli Hostinglarda ishga tushirish
+
+1. Yangi Web Service yarating va repository'ni ulang.
+2. Build command:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start command:
+   ```bash
+   python main.py
+   ```
+4. Health Check Path: `/health`
+5. Render.com `PORT` va `RENDER_EXTERNAL_URL` muhit o'zgaruvchilarini avtomatik taqdim etadi. Bot ularni avtomatik tarzda aniqlaydi va pastki «📱 Ilova» (`MenuButtonWebApp`) tugmasini sozlaydi.
+
+---
+
+### 3-usul: Docker va Docker Compose orqali
 
 Docker o'rnatilgan serverda bitta buyruq bilan ishga tushirish mumkin:
 
@@ -164,6 +182,31 @@ Loglarni ko'rish:
 ```bash
 docker compose logs -f
 ```
+
+---
+
+## 📱 Telegram Mini App — «Kinolar katalogi»
+
+Mini App `webapp/` papkasida Single Page Application (HTML5, CSS3, JavaScript) ko'rinishida yaratilgan bo'lib, 6 ta to'liq funktsional bo'limdan iborat:
+1. 🎬 **Kinolar:** 180+ film va seriallar, Lotin va Kirill yozuvlarida aqlli qidiruv, janrlar, modal kartochka va «▶️ Tomosha qilish» tugmasi orqali chatga to'g'ridan-to'g'ri yuborish.
+2. 🎧 **Musiqa:** Top 50 trek, O'zbek xitlari, kayfiyatlar filtri, to'liq pleyer (progress bar, shuffle, prev/next), Shazam mikrofoni va «📤 Chat» orqali MP3 yuborish.
+3. 📺 **Jonli TV:** 114 ta telekanal katalogi, toifalar (Sport, Yangiliklar, Kinolar, Musiqa va h.k.) va HLS m3u8 jonli video pleyeri.
+4. 🎮 **O'yinlar:** 50 ta mini HTML5 web o'yin, Web Audio API ovoz effektlari, sovg'a sandig'i (chest) va Dumboq virtual uy hayvoni.
+5. 👻 **Story:** Instagram/Telegram akkauntlari hikoyalarini to'liq anonim ko'rish va yuklab olish.
+6. 📄 **Hujjatlar:** Kirill ⇄ Lotin o'girish, rasmiy PDF 1.4 generatsiya qilish, matn tahlili va tarjima vositalari.
+
+---
+
+## 🔘 Bot Chatidagi 8 ta Doimiy Reply Tugma
+
+1. `🎬 K I N O — kod orqali qidirish` — Kino menyusi va kod bo'yicha qidirish.
+2. `📄 Hujjatlar` — Kirill-Lotin, PDF, Tarjima va Matn tahlili.
+3. `⭕️ Dumaloq video` — Istalgan videodan Telegram doiraviy video xabari (video note) tayyorlash.
+4. `👀 Anonim story` — Instagram hikoyalarini ko'rish.
+5. `💌 Anonim savollar` — NGL uslubidagi shaxsiy havola (`?start=q_...`) va javob qaytarish.
+6. `🎁 Do'st taklif qilish` — Referal tizimi (`?start=r_...`) va ballar statistikasi.
+7. `👥 Guruhlarim` — Botni guruhlarga administrator qilib qo'shish.
+8. `💬 Xato va fikrlar` — Fikr-mulohaza yoki nosozliklar haqida adminlarga xabar yo'llash.
 
 ---
 

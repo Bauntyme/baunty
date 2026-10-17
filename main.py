@@ -44,11 +44,40 @@ async def set_default_commands(bot: Bot) -> None:
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
 
 
+async def set_webapp_menu_button(bot: Bot) -> None:
+    """Pastki '📱 Ilova' menyu tugmasini (MenuButtonWebApp) sozlash."""
+    app_url = config.webapp_url_resolved
+    logger = logging.getLogger("main")
+    try:
+        if app_url and app_url.startswith("https://"):
+            from aiogram.types import MenuButtonWebApp, WebAppInfo
+            await bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(
+                    text="📱 Ilova",
+                    web_app=WebAppInfo(url=app_url)
+                )
+            )
+            logger.info(f"MenuButtonWebApp muvaffaqiyatli o'rnatildi: {app_url}")
+        else:
+            from aiogram.types import MenuButtonDefault
+            await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
+            if app_url:
+                logger.warning(
+                    f"MenuButtonWebApp faqat HTTPS havolalarni qabul qiladi ('{app_url}'). "
+                    "Render.com da RENDER_EXTERNAL_URL avtomatik olinadi, yoki .env da WEBAPP_URL=https://... sozlang. "
+                    "Default menyu tugmasi o'rnatildi."
+                )
+            else:
+                logger.info("WEBAPP_URL sozlanmagan. Default menyu tugmasi o'rnatildi.")
+    except Exception as e:
+        logger.warning(f"MenuButtonWebApp sozlashda xatolik: {e}")
+
+
 async def main() -> None:
-    """Botni to'liq ishga tushirish funksiyasi."""
+    """Bot va Mini App web serverini parallel ishga tushirish funksiyasi."""
     setup_logging()
     logger = logging.getLogger("main")
-    logger.info("Zakirovsfilms_bot ishga tushirilmoqda...")
+    logger.info("Zakirovsfilms_bot va Mini App ishga tushirilmoqda...")
 
     # Bot ob'ekti
     bot = Bot(
@@ -67,17 +96,31 @@ async def main() -> None:
     # Routerlarni ulash
     dp.include_router(setup_routers())
 
+    # Mini App aiohttp web serverini ishga tushirish (Render.com portlari bilan)
+    from aiohttp import web
+    from services.web_server import create_web_app, set_bot_instance
+    set_bot_instance(bot)
+    web_app = create_web_app()
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, host=config.HOST, port=config.PORT)
+    await site.start()
+    logger.info(f"Mini App va Web API serveri ishga tushdi: http://{config.HOST}:{config.PORT}")
+    logger.info(f"Render health check manzili: http://{config.HOST}:{config.PORT}/health")
+
     # Startup va shutdown hodisalari
     async def on_startup():
         logger.info("Baza va xizmatlar ishga tushirilmoqda...")
         await init_db()
         await set_default_commands(bot)
+        await set_webapp_menu_button(bot)
         await notify_admins_on_startup(bot)
         logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{config.BOT_USERNAME}")
 
     async def on_shutdown():
-        logger.info("Bot to'xtatilmoqda...")
+        logger.info("Bot va web server to'xtatilmoqda...")
         await notify_admins_on_shutdown(bot)
+        await runner.cleanup()
         await close_db()
         await bot.session.close()
         logger.info("Bot to'xtatildi.")
@@ -89,7 +132,9 @@ async def main() -> None:
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
+        await runner.cleanup()
         await bot.session.close()
+
 
 
 if __name__ == "__main__":

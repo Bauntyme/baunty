@@ -6,8 +6,11 @@ from config import config
 
 
 def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
-    """Asosiy menyu klaviaturasi."""
+    """Asosiy menyu klaviaturasi (8 ta doimiy reply tugma va qo'shimchalar)."""
     buttons = [
+        [
+            KeyboardButton(text="🎬 K I N O — kod orqali qidirish"),
+        ],
         [
             KeyboardButton(text="🎬 Kino"),
             KeyboardButton(text="🎵 Qo'shiq topish"),
@@ -17,8 +20,16 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
             KeyboardButton(text="👀 Anonim story"),
         ],
         [
-            KeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}"),
-            KeyboardButton(text="ℹ️ Bot haqida"),
+            KeyboardButton(text="📄 Hujjatlar"),
+            KeyboardButton(text="⭕️ Dumaloq video"),
+        ],
+        [
+            KeyboardButton(text="💌 Anonim savollar"),
+            KeyboardButton(text="🎁 Do'st taklif qilish"),
+        ],
+        [
+            KeyboardButton(text="👥 Guruhlarim"),
+            KeyboardButton(text="💬 Xato va fikrlar"),
         ],
     ]
 
@@ -28,7 +39,7 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=buttons,
         resize_keyboard=True,
-        input_field_placeholder="Quyidagi tugmalardan birini tanlang yoki havola/kod yuboring...",
+        input_field_placeholder="Quyidagi tugmalardan birini tanlang yoki kino kodi yuboring...",
     )
 
 

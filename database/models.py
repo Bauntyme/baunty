@@ -15,7 +15,8 @@ Base = declarative_base()
 
 
 def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    """Offset-naive UTC datetime — PostgreSQL va SQLite uchun 100% mos."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class User(Base):
@@ -27,11 +28,41 @@ class User(Base):
     last_name = Column(String(128), nullable=True)
     is_admin = Column(Boolean, default=False, nullable=False)
     is_banned = Column(Boolean, default=False, nullable=False)
+    referral_count = Column(Integer, default=0, nullable=False)
+    referral_points = Column(Integer, default=0, nullable=False)
+    referred_by = Column(BigInteger, nullable=True)
     created_at = Column(DateTime, default=utc_now, nullable=False)
     last_active = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
     def __repr__(self):
         return f"<User id={self.id} username={self.username} is_admin={self.is_admin}>"
+
+
+class AnonymousMessage(Base):
+    __tablename__ = "anonymous_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sender_id = Column(BigInteger, index=True, nullable=False)
+    recipient_id = Column(BigInteger, index=True, nullable=False)
+    message_text = Column(Text, nullable=False)
+    reply_text = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<AnonymousMessage from={self.sender_id} to={self.recipient_id}>"
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    username = Column(String(128), nullable=True)
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<Feedback user={self.user_id}>"
 
 
 class Movie(Base):

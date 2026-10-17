@@ -23,6 +23,15 @@ class MovieDeleteStates(StatesGroup):
     waiting_for_code = State()
 
 
+class MovieViewStates(StatesGroup):
+    waiting_for_code = State()
+
+
+class MovieEditStates(StatesGroup):
+    waiting_for_code = State()
+    waiting_for_new_value = State()
+
+
 class MusicStates(StatesGroup):
     waiting_for_query = State()
 
@@ -44,3 +53,24 @@ class SponsorAddStates(StatesGroup):
 
 class AdminUserStates(StatesGroup):
     waiting_for_user_id = State()
+
+
+class AnonQuestionStates(StatesGroup):
+    waiting_for_message = State()
+    waiting_for_reply = State()
+
+
+class FeedbackStates(StatesGroup):
+    waiting_for_feedback = State()
+
+
+class RoundVideoStates(StatesGroup):
+    waiting_for_video = State()
+
+
+class DocsStates(StatesGroup):
+    waiting_for_translit = State()
+    waiting_for_pdf = State()
+    waiting_for_ocr = State()
+    waiting_for_translate = State()
+

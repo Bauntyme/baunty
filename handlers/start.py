@@ -44,28 +44,67 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await message.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
             return
 
-    # Deep linking tekshiruvi (masalan: /start movie_123)
+    # Deep linking tekshiruvi (masalan: /start movie_123, /start q_12345, /start r_12345)
     args = message.text.split(maxsplit=1)
-    if len(args) > 1 and args[1].startswith("movie_"):
-        movie_code = args[1].replace("movie_", "").strip()
-        async with get_session() as session:
-            movie = await movie_service.find_by_code(session, movie_code)
-            if movie:
-                await movie_service.send_movie_to_user(
-                    bot=message.bot,
-                    chat_id=message.chat.id,
-                    movie=movie,
-                    session=session,
-                    reply_to_message_id=message.message_id
-                )
-                return
-            else:
-                await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
-                return
+    if len(args) > 1:
+        param = args[1].strip()
+        if param.startswith("movie_"):
+            movie_code = param.replace("movie_", "").strip()
+            async with get_session() as session:
+                movie = await movie_service.find_by_code(session, movie_code)
+                if movie:
+                    await movie_service.send_movie_to_user(
+                        bot=message.bot,
+                        chat_id=message.chat.id,
+                        movie=movie,
+                        session=session,
+                        reply_to_message_id=message.message_id
+                    )
+                    return
+                else:
+                    await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
+                    return
+
+        elif param.startswith("q_"):
+            target_id_str = param.replace("q_", "").strip()
+            if target_id_str.isdigit():
+                target_id = int(target_id_str)
+                if target_id == user.id:
+                    await message.answer("⚠️ <b>Siz o'zingizga anonim savol yubora olmaysiz!</b>", parse_mode="HTML")
+                else:
+                    from utils.states import AnonQuestionStates
+                    from keyboards.default import cancel_keyboard
+                    await state.set_state(AnonQuestionStates.waiting_for_message)
+                    await state.update_data(anon_target_id=target_id)
+                    await message.answer(
+                        "💌 <b>Foydalanuvchiga anonim xabar yozing:</b>\n\n"
+                        "Sizning shaxsingiz 100% sir tutiladi va xabar egasiga oshkor qilinmaydi 🤫\n\n"
+                        "Xabaringizni yozing:",
+                        parse_mode="HTML",
+                        reply_markup=cancel_keyboard()
+                    )
+                    return
+
+        elif param.startswith("r_"):
+            ref_id_str = param.replace("r_", "").strip()
+            if ref_id_str.isdigit() and int(ref_id_str) != user.id:
+                referrer_id = int(ref_id_str)
+                async with get_session() as session:
+                    added = await crud.add_referral(session, referrer_id=referrer_id, new_user_id=user.id, points=10)
+                    if added:
+                        try:
+                            await message.bot.send_message(
+                                chat_id=referrer_id,
+                                text=f"🎉 <b>Tabriklaymiz!</b> Sizning taklif havolangiz orqali yangi do'stingiz ({user.first_name}) botga qo'shildi! (+10 ball)",
+                                parse_mode="HTML"
+                            )
+                        except Exception:
+                            pass
+
 
     welcome_text = (
         f"👋 <b>Assalomu alaykum, {user.first_name or 'qadrdon'}!</b>\n\n"
-        f"🤖 <b>Zakirovsfilms_bot</b> ga xush kelibsiz!\n\n"
+        f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')}</b> ga xush kelibsiz!\n\n"
         "Men quyidagi imkoniyatlarga egaman:\n"
         "📥 <b>Media yuklash:</b> Instagram, TikTok, YouTube, Snapchat (suv belgisiz)\n"
         "🎬 <b>Kino:</b> Kod orqali tezkor topish va yuklab olish\n"

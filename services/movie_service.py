@@ -24,13 +24,19 @@ class MovieService:
 
     @staticmethod
     async def search_by_title(session: AsyncSession, title: str, limit: int = 10) -> List[Movie]:
-        """Nomi bo'yicha kinolarni qidirish."""
-        return await crud.search_movies_by_title(session, title, limit=limit)
+        """Nomi va tavsifi bo'yicha kinolarni aqlli qidirish (Lotin + Kirill)."""
+        return await crud.smart_search_movies(session, title, limit=limit)
+
 
     @staticmethod
-    async def get_by_genre(session: AsyncSession, genre: str, limit: int = 10) -> List[Movie]:
+    async def get_by_genre(session: AsyncSession, genre: str, limit: int = 10, offset: int = 0) -> List[Movie]:
         """Janr bo'yicha kinolar ro'yxati."""
-        return await crud.get_movies_by_genre(session, genre, limit=limit)
+        return await crud.get_movies_by_genre(session, genre, limit=limit, offset=offset)
+
+    @staticmethod
+    async def get_genre_count(session: AsyncSession, genre: str) -> int:
+        """Janr bo'yicha kinolar soni."""
+        return await crud.get_movies_by_genre_count(session, genre)
 
     @staticmethod
     async def get_random(session: AsyncSession) -> Optional[Movie]:
@@ -98,13 +104,20 @@ class MovieService:
                 await crud.increment_movie_views(session, movie.id)
                 return True
             except Exception as e2:
-                logger.error(f"Document sifatida ham yuborib bo'lmadi: {e2}")
-                await bot.send_message(
-                    chat_id=chat_id,
-                    text="❌ Kechirasiz, kino faylini yuborishda texnik xatolik yuz berdi. Iltimos keyinroq urinib ko'ring.",
-                    reply_to_message_id=reply_to_message_id
-                )
-                return False
+                logger.info(f"Fayl sifatida yuborib bo'lmadi ({e2}), kino tafsilotlari kartochka sifatida yuborilmoqda.")
+                try:
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=caption,
+                        parse_mode="HTML",
+                        reply_markup=reply_markup,
+                        reply_to_message_id=reply_to_message_id
+                    )
+                    await crud.increment_movie_views(session, movie.id)
+                    return True
+                except Exception as e3:
+                    logger.error(f"Kino kartochkasini ham yuborib bo'lmadi: {e3}")
+                    return False
 
 
 movie_service = MovieService()

@@ -41,6 +41,12 @@ def subscription_keyboard(channels: List[SponsorChannel]) -> InlineKeyboardMarku
 def movie_menu_keyboard() -> InlineKeyboardMarkup:
     """Kino asosiy menyusi."""
     builder = InlineKeyboardBuilder()
+    app_url = config.webapp_url_resolved
+    if app_url and app_url.startswith("https://"):
+        from aiogram.types import WebAppInfo
+        builder.row(
+            InlineKeyboardButton(text="📱 Kinolar katalogi (Mini App)", web_app=WebAppInfo(url=app_url))
+        )
     builder.row(
         InlineKeyboardButton(text="🔢 Kod orqali qidirish", callback_data="movie:by_code"),
         InlineKeyboardButton(text="🔍 Nomi bo'yicha qidirish", callback_data="movie:by_title"),
@@ -85,6 +91,12 @@ def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),
     )
+    app_url = config.webapp_url_resolved
+    if app_url and app_url.startswith("https://"):
+        from aiogram.types import WebAppInfo
+        builder.row(
+            InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=app_url))
+        )
     return builder.as_markup()
 
 
@@ -116,13 +128,14 @@ def movie_list_keyboard(movies: List[Movie], page: int = 0, total_pages: int = 1
 
 
 def media_download_keyboard(cache_key: str) -> InlineKeyboardMarkup:
-    """Yuklab olingan video ostidagi tugmalar (MP3 ajratish va ulashish)."""
+    """Yuklab olingan video ostidagi tugmalar (Video musiqasi va Original qo'shiq)."""
     builder = InlineKeyboardBuilder()
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}&text=Tezkor video yuklovchi bot!"
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
     builder.row(
-        InlineKeyboardButton(text="🎵 Musiqasini yuklash (MP3)", callback_data=f"dl_audio:{cache_key}"),
+        InlineKeyboardButton(text="🎵 Video musiqasi", callback_data=f"dl_audio:{cache_key}"),
+        InlineKeyboardButton(text="🔍 Original qo'shiq", callback_data=f"dl_shazam:{cache_key}"),
     )
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
@@ -228,3 +241,52 @@ def genre_picker_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="✅ Tanlashni tugatish", callback_data="pick_genre:done")
     )
     return builder.as_markup()
+
+
+def admin_movie_detail_keyboard(movie_code: str) -> InlineKeyboardMarkup:
+    """Admin kino batafsil ma'lumotlari ostidagi tugmalar."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✏️ Tahrirlash", callback_data=f"admin:movie:edit:{movie_code}"),
+        InlineKeyboardButton(text="🗑️ O'chirish", callback_data=f"admin:movie:del_direct:{movie_code}"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="▶️ Kinoni ko'rish", callback_data=f"get_movie:{movie_code}"),
+        InlineKeyboardButton(text="📋 Kinolar ro'yxati", callback_data="admin:movie:list:0"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Kinolar boshqaruvi", callback_data="admin:movies")
+    )
+    return builder.as_markup()
+
+
+def movie_edit_keyboard(movie_code: str) -> InlineKeyboardMarkup:
+    """Kinoni tahrirlash maydonlari klaviaturasi."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✏️ Nomi", callback_data=f"admin:medit:title:{movie_code}"),
+        InlineKeyboardButton(text="🎭 Janri", callback_data=f"admin:medit:genres:{movie_code}"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="📅 Yili", callback_data=f"admin:medit:year:{movie_code}"),
+        InlineKeyboardButton(text="⭐ Reytingi", callback_data=f"admin:medit:rating:{movie_code}"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="📝 Tavsifi", callback_data=f"admin:medit:desc:{movie_code}"),
+        InlineKeyboardButton(text="📹 Video fayli", callback_data=f"admin:medit:media:{movie_code}"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Ortga", callback_data=f"admin:movie:view_direct:{movie_code}")
+    )
+    return builder.as_markup()
+
+
+def admin_settings_keyboard() -> InlineKeyboardMarkup:
+    """Admin sozlamalar menyusi."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🔄 Kanalni yangilash", callback_data="admin:set:channel"),
+        InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"),
+    )
+    return builder.as_markup()
+

@@ -2,6 +2,7 @@
 Anonim Instagram Story ko'rish bo'limi
 """
 import logging
+from pathlib import Path
 from aiogram import Router, F
 from aiogram.types import Message, FSInputFile
 from aiogram.fsm.context import FSMContext
@@ -59,18 +60,26 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
             await state.clear()
             return
 
-        video_file = FSInputFile(result.file_path)
+        media_file = FSInputFile(result.file_path)
         caption = (
             f"👀 <b>@{username} ning yangi videosi/hikoyasi</b>\n\n"
             f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar:</b> {config.CHANNEL_USERNAME}"
         )
 
-        await message.reply_video(
-            video=video_file,
-            caption=caption,
-            parse_mode="HTML"
-        )
+        ext = Path(result.file_path).suffix.lower()
+        if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+            await message.reply_photo(
+                photo=media_file,
+                caption=caption,
+                parse_mode="HTML"
+            )
+        else:
+            await message.reply_video(
+                video=media_file,
+                caption=caption,
+                parse_mode="HTML"
+            )
 
         try:
             await status_msg.delete()

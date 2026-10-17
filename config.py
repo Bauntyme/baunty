@@ -30,12 +30,25 @@ class Settings(BaseSettings):
     DOWNLOAD_DIR: str = Field(default="temp_downloads")
     MAX_FILE_SIZE_MB: int = Field(default=50)
     RATE_LIMIT_SECONDS: float = Field(default=1.0)
+    # Web Server & Mini App (Render.com mosligi)
+    PORT: int = Field(default=8080)
+    HOST: str = Field(default="0.0.0.0")
+    WEBAPP_URL: str = Field(default="")
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore"
     )
+
+    @property
+    def webapp_url_resolved(self) -> str:
+        """Render.com yoki muhit o'zgaruvchilaridan WebApp HTTPS URLini aniqlaydi."""
+        url = self.WEBAPP_URL.strip() if self.WEBAPP_URL else os.getenv("RENDER_EXTERNAL_URL", "").strip()
+        if url:
+            if not url.startswith("http://") and not url.startswith("https://"):
+                url = f"https://{url}"
+        return url
 
     @property
     def admin_ids(self) -> List[int]:
@@ -54,6 +67,12 @@ class Settings(BaseSettings):
         """Ma'lumotlar bazasi ulanish URLini aniqlaydi."""
         if self.DATABASE_URL and self.DATABASE_URL.strip():
             url = self.DATABASE_URL.strip()
+            if url.startswith("postgres://"):
+                url = "postgresql+asyncpg://" + url[len("postgres://"):]
+            elif url.startswith("postgresql://") and not url.startswith("postgresql+asyncpg://"):
+                url = "postgresql+asyncpg://" + url[len("postgresql://"):]
+            if "sslmode=" in url:
+                url = url.replace("sslmode=require", "ssl=require").replace("sslmode=prefer", "ssl=prefer")
             if "sqlite" in url:
                 # sqlite:///path yoki sqlite+aiosqlite:///path ni to'g'ri absolute qilish
                 prefix = "sqlite+aiosqlite:///" if "aiosqlite" in url else "sqlite:///"
@@ -82,6 +101,19 @@ class Settings(BaseSettings):
     def is_admin(self, user_id: int) -> bool:
         """Foydalanuvchi admin ekanligini tekshiradi."""
         return user_id in self.admin_ids
+
+    @property
+    def ffmpeg_path(self) -> Optional[str]:
+        """ffmpeg ijro fayli yo'lini topadi (PATH yoki imageio-ffmpeg)."""
+        import shutil
+        found = shutil.which("ffmpeg")
+        if found:
+            return found
+        try:
+            import imageio_ffmpeg
+            return imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            return None
 
 
 # Global konfiguratsiya ob'ekti

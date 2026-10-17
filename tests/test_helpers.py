@@ -11,6 +11,7 @@ from utils.helpers import (
     format_movie_not_found,
 )
 from database.models import Movie
+from config import config
 
 
 def test_extract_media_url_instagram():
@@ -19,6 +20,7 @@ def test_extract_media_url_instagram():
         "https://instagram.com/p/ABCDEFGHIJ/",
         "Qarang: https://www.instagram.com/reel/Cxyz987/ zo'r ekan",
         "https://instagr.am/reel/DA123456/",
+        "https://www.instagram.com/stories/cristiano/3214567890123456789/",
     ]
     for text in urls:
         extracted = extract_media_url(text)
@@ -32,12 +34,14 @@ def test_extract_media_url_tiktok():
         "https://www.tiktok.com/@user/video/7123456789012345678",
         "https://vm.tiktok.com/ZMxxxxxx/",
         "https://vt.tiktok.com/ZSxxxxxx/",
+        "https://www.tiktok.com/t/ZT8xxxxxx/",
     ]
     for text in urls:
         extracted = extract_media_url(text)
         assert extracted is not None
         assert "tiktok.com" in extracted
         assert detect_platform(extracted) == "TikTok"
+        assert not extracted.endswith("/t")
 
 
 def test_extract_media_url_youtube():
@@ -93,13 +97,13 @@ def test_movie_caption_formatting():
     assert "Jangari" in caption
     assert "2023" in caption
     assert "7.5" in caption
-    assert "@ZakirovsKino" in caption
+    assert config.CHANNEL_USERNAME in caption
 
 
 def test_movie_not_found_formatting():
     text = format_movie_not_found("999")
     assert "999" in text
-    assert "@ZakirovsKino" in text
+    assert config.CHANNEL_USERNAME in text
 
 
 def test_extract_media_url_edge_cases():

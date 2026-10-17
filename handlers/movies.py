@@ -2,7 +2,10 @@
 Kino bo'limi qayta ishlovchisi (Kino kodi, qidiruv, janrlar, tasodifiy kino)
 """
 import logging
+import math
+from typing import Optional
 from aiogram import Router, F
+from aiogram.filters import StateFilter
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from config import config
@@ -23,7 +26,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="movies_router")
 
 
-@router.message(F.text == "🎬 Kino")
+@router.message(F.text.in_(["🎬 Kino", "🎬 K I N O — kod orqali qidirish"]))
 async def cmd_movies_menu(message: Message, state: FSMContext) -> None:
     """Kino bo'limi asosiy menyusi."""
     await state.clear()
@@ -117,7 +120,8 @@ async def cb_select_genre(callback: CallbackQuery) -> None:
     await callback.answer(f"🎭 {genre} janri...")
 
     async with get_session() as session:
-        movies = await movie_service.get_by_genre(session, genre, limit=10)
+        total = await movie_service.get_genre_count(session, genre)
+        movies = await movie_service.get_by_genre(session, genre, limit=10, offset=0)
         if not movies:
             await callback.message.answer(
                 f"😔 <b>«{genre}»</b> janrida hozircha kinolar topilmadi.\n"
@@ -126,9 +130,34 @@ async def cb_select_genre(callback: CallbackQuery) -> None:
             )
             return
 
-        text = f"🎭 <b>«{genre}» janridagi kinolar:</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
-        markup = movie_list_keyboard(movies)
+        total_pages = max(1, math.ceil(total / 10))
+        text = f"🎭 <b>«{genre}» janridagi kinolar (1/{total_pages}-sahifa):</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
+        markup = movie_list_keyboard(movies, page=0, total_pages=total_pages, prefix=f"genre_page:{genre}")
         await callback.message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("genre_page:"))
+async def cb_genre_page(callback: CallbackQuery) -> None:
+    """Janr bo'yicha pagination."""
+    parts = callback.data.split(":")
+    genre = parts[1]
+    page = int(parts[2])
+    await callback.answer()
+
+    async with get_session() as session:
+        total = await movie_service.get_genre_count(session, genre)
+        total_pages = max(1, math.ceil(total / 10))
+        movies = await movie_service.get_by_genre(session, genre, limit=10, offset=page * 10)
+
+        if not movies:
+            return
+
+        text = f"🎭 <b>«{genre}» janridagi kinolar ({page+1}/{total_pages}-sahifa):</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
+        markup = movie_list_keyboard(movies, page=page, total_pages=total_pages, prefix=f"genre_page:{genre}")
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        except Exception:
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=markup)
 
 
 @router.callback_query(F.data == "movie:top")
@@ -145,8 +174,23 @@ async def cb_movie_top(callback: CallbackQuery) -> None:
             return
 
         text = "🔥 <b>Eng ommabop va ko'p ko'rilgan kinolar:</b>"
-        markup = movie_list_keyboard(movies)
+        markup = movie_list_keyboard(movies, page=0, total_pages=1, prefix="top_page")
         await callback.message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("top_page:"))
+async def cb_top_page(callback: CallbackQuery) -> None:
+    """Top kinolar pagination."""
+    await callback.answer()
+    async with get_session() as session:
+        movies = await movie_service.get_top(session, limit=10)
+        text = "🔥 <b>Eng ommabop va ko'p ko'rilgan kinolar:</b>"
+        markup = movie_list_keyboard(movies, page=0, total_pages=1, prefix="top_page")
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        except Exception:
+            pass
+
 
 
 @router.callback_query(F.data.startswith("get_movie:"))
@@ -221,13 +265,31 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
             )
 
 
-@router.message(lambda msg: msg.text and msg.text.strip().isdigit())
+def extract_movie_code(text: str) -> Optional[str]:
+    """
+    Kino kodini matndan ajratib oladi.
+    Qo'llab-quvvatlanadi: 101, #101, №101, 'kod 101', 'kod: 101', 'код 101'
+    """
+    if not text:
+        return None
+    clean = text.strip()
+    if "kino — kod orqali qidirish" in clean.lower() or clean.startswith("http") or len(clean) > 30:
+        return None
+    cleaned = clean.lstrip("#№").lower().replace("kino", "").replace("kod", "").replace("код", "").replace(":", "").strip()
+    if cleaned.isdigit() and len(cleaned) <= 10:
+        return cleaned
+    return None
+
+
+@router.message(StateFilter(None), lambda msg: msg.text and extract_movie_code(msg.text) is not None)
 async def process_numeric_movie_code(message: Message) -> None:
     """
-    Foydalanuvchi faqat raqam (kino kodi) yuborganida avtomatik kinoni topib berish.
-    Masalan: 123, 405, 1002
+    Foydalanuvchi faqat raqam yoki kod (masalan: 123, #123, kod 123) yuborganida avtomatik kinoni topib berish.
     """
-    code = message.text.strip()
+    code = extract_movie_code(message.text)
+    if not code:
+        return
+
     async with get_session() as session:
         movie = await movie_service.find_by_code(session, code)
         if movie:

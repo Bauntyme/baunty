@@ -13,11 +13,11 @@ from config import config
 
 # URL larni aniqlash uchun regex andozalari
 INSTAGRAM_PATTERN = re.compile(
-    r"https?://(?:www\.)?(?:instagram\.com|instagr\.am)/(?:p|reel|reels|tv|stories|share)/[a-zA-Z0-9_\-]+",
+    r"https?://(?:www\.)?(?:instagram\.com|instagr\.am)/(?:p|reel|reels|tv|stories|share)/[a-zA-Z0-9_\-]+(?:/[a-zA-Z0-9_\-]+)?/?",
     re.IGNORECASE
 )
 TIKTOK_PATTERN = re.compile(
-    r"https?://(?:www\.|vm\.|vt\.|m\.)?tiktok\.com/(?:@[a-zA-Z0-9_\.]+/video/\d+|[a-zA-Z0-9_\-]+|v/\d+)",
+    r"https?://(?:www\.|vm\.|vt\.|m\.)?tiktok\.com/(?:@[a-zA-Z0-9_\.]+/video/\d+|t/[a-zA-Z0-9_\-]+|v/\d+|[a-zA-Z0-9_\-]+)/?",
     re.IGNORECASE
 )
 YOUTUBE_PATTERN = re.compile(
