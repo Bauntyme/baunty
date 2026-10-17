@@ -198,18 +198,29 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
     """Ro'yxatdan tanlangan kinoni yuborish."""
     code = callback.data.split("get_movie:")[-1]
     await callback.answer("🎬 Kino yuklanmoqda...")
+    delivered = await movie_service.deliver_movie(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        code=code,
+        part=1
+    )
+    if not delivered:
+        await callback.message.answer(format_movie_not_found(code), parse_mode="HTML")
 
-    async with get_session() as session:
-        movie = await movie_service.find_by_code(session, code)
-        if movie:
-            await movie_service.send_movie_to_user(
-                bot=callback.bot,
-                chat_id=callback.message.chat.id,
-                movie=movie,
-                session=session
-            )
-        else:
-            await callback.message.answer(format_movie_not_found(code), parse_mode="HTML")
+
+@router.callback_query(F.data.startswith("watch_part:"))
+async def cb_watch_part(callback: CallbackQuery) -> None:
+    """Ko'p qismli serialda qismni tanlash."""
+    parts = callback.data.split(":")
+    code = parts[1]
+    part = int(parts[2])
+    await callback.answer(f"📺 {part}-qism yuklanmoqda...")
+    await movie_service.deliver_movie(
+        bot=callback.bot,
+        chat_id=callback.message.chat.id,
+        code=code,
+        part=part
+    )
 
 
 @router.message(MovieSearchStates.waiting_for_code)
@@ -217,23 +228,19 @@ async def state_process_code(message: Message, state: FSMContext) -> None:
     """FSM holatida kiritilgan kodni qidirish."""
     code = message.text.strip()
     await state.clear()
-
-    async with get_session() as session:
-        movie = await movie_service.find_by_code(session, code)
-        if movie:
-            await movie_service.send_movie_to_user(
-                bot=message.bot,
-                chat_id=message.chat.id,
-                movie=movie,
-                session=session,
-                reply_to_message_id=message.message_id
-            )
-        else:
-            await message.reply(
-                format_movie_not_found(code),
-                parse_mode="HTML",
-                reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
-            )
+    delivered = await movie_service.deliver_movie(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        code=code,
+        part=1,
+        reply_to_message_id=message.message_id
+    )
+    if not delivered:
+        await message.reply(
+            format_movie_not_found(code),
+            parse_mode="HTML",
+            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+        )
 
 
 @router.message(MovieSearchStates.waiting_for_title)
@@ -290,15 +297,12 @@ async def process_numeric_movie_code(message: Message) -> None:
     if not code:
         return
 
-    async with get_session() as session:
-        movie = await movie_service.find_by_code(session, code)
-        if movie:
-            await movie_service.send_movie_to_user(
-                bot=message.bot,
-                chat_id=message.chat.id,
-                movie=movie,
-                session=session,
-                reply_to_message_id=message.message_id
-            )
-        else:
-            await message.reply(format_movie_not_found(code), parse_mode="HTML")
+    delivered = await movie_service.deliver_movie(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        code=code,
+        part=1,
+        reply_to_message_id=message.message_id
+    )
+    if not delivered:
+        await message.reply(format_movie_not_found(code), parse_mode="HTML")

@@ -386,3 +386,49 @@ def test_movie_code_extraction():
     assert extract_movie_code("код 101") == "101"
     assert extract_movie_code("Salom dunyo") is None
     assert extract_movie_code("https://instagram.com/p/12345") is None
+
+
+@pytest.mark.asyncio
+async def test_poster_proxy_and_catalog_api():
+    """Poster proxy va sanitizatsiya qilingan oq brend katalog API testi."""
+    from config import config
+    from services.web_server import create_web_app
+    from aiohttp.test_utils import TestServer, TestClient
+
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # 1. Katalog API
+        resp_cat = await client.get("/api/catalog")
+        assert resp_cat.status == 200
+        cat_data = await resp_cat.json()
+        assert "items" in cat_data
+        assert len(cat_data["items"]) >= 170
+        assert cat_data["channel"] == config.CHANNEL_USERNAME
+        assert cat_data["bot"] == config.BOT_USERNAME.lstrip("@")
+
+        # Barcha tavsiflarda Zakirovlar olib tashlanganligini tekshirish
+        for it in cat_data["items"]:
+            desc = it.get("d", "")
+            assert "@Zakirovsfilms_bot" not in desc
+            assert "@ZakirovsKino" not in desc
+
+        # 2. Poster proxy API
+        resp_poster = await client.get("/p/284_s.webp")
+        assert resp_poster.status == 200
+        assert "image/webp" in resp_poster.headers.get("Content-Type", "")
+        img_bytes = await resp_poster.read()
+        assert len(img_bytes) > 1000
+
+        # 3. Watch API
+        resp_watch = await client.post("/api/watch", json={"code": 284, "part": 1})
+        assert resp_watch.status == 200
+        watch_data = await resp_watch.json()
+        assert watch_data["ok"] is True
+        assert watch_data["code"] == "284"
+    finally:
+        await client.close()
+

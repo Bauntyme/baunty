@@ -66,16 +66,110 @@ def extract_user_id_from_init_data(init_data: str) -> Optional[int]:
     return None
 
 
-async def handle_get_catalog(request: web.Request) -> web.Response:
-    """Mini Appning rasmiy 180+ kinolar katalogi API (@Zakirovsfilms_bot ga 1v1 ulanish)."""
-    catalog_path = BASE_DIR / "data" / "catalog.json"
-    if catalog_path.exists():
-        with open(catalog_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    else:
-        data = {"items": []}
+_CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0}
 
-    # Foydalanuvchi boti va kanali bilan avtomatik dinamik sinxronlash
+
+def sanitize_catalog_text(text: str) -> str:
+    """Barcha tashqi bot/kanal havolalarini @Bauntyfilmsbot va @BauntyFilms ga almashtirish."""
+    if not text:
+        return ""
+    text = text.replace("@Zakirovsfilms_bot", f"@{config.BOT_USERNAME.lstrip('@')}")
+    text = text.replace("@ZakirovsKino", config.CHANNEL_USERNAME)
+    text = text.replace("@dilbarzakirova", config.CHANNEL_USERNAME)
+    text = text.replace("Zakirovs Films", "Baunty Films")
+    text = text.replace("Zakirovs_bot", config.BOT_USERNAME.lstrip('@'))
+    text = text.replace("Zakirovs", "Baunty")
+    text = text.replace("zakirovs", "baunty")
+    return text
+
+
+async def handle_poster_proxy(request: web.Request) -> web.Response:
+    """Kino posterlarini keshlab uzatish (161-97-96-58.sslip.io ga 1v1 proxy)."""
+    filename = request.match_info.get("filename", "")
+    clean_name = os.path.basename(filename)
+    if not clean_name or not (clean_name.endswith(".webp") or clean_name.endswith(".jpg") or clean_name.endswith(".png")):
+        return web.Response(status=404, text="Topilmadi")
+
+    posters_dir = BASE_DIR / "data" / "posters"
+    posters_dir.mkdir(parents=True, exist_ok=True)
+    local_path = posters_dir / clean_name
+
+    if local_path.exists():
+        with open(local_path, "rb") as f:
+            content = f.read()
+        return web.Response(
+            body=content,
+            content_type="image/webp",
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+
+    # Upstream serverdan yuklab olish
+    upstream_url = f"https://161-97-96-58.sslip.io/p/{clean_name}"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    content = await resp.read()
+                    with open(local_path, "wb") as pf:
+                        pf.write(content)
+                    return web.Response(
+                        body=content,
+                        content_type="image/webp",
+                        headers={
+                            "Cache-Control": "public, max-age=604800, immutable",
+                            "Access-Control-Allow-Origin": "*",
+                        }
+                    )
+    except Exception as e:
+        logger.warning(f"Posterni yuklab bo'lmadi ({clean_name}): {e}")
+
+    return web.Response(status=404, text="Poster topilmadi")
+
+
+async def handle_get_catalog(request: web.Request) -> web.Response:
+    """Mini Appning rasmiy kinolar katalogi API (Real-time va to'liq oq brendlangan)."""
+    now = time.time()
+    if _CATALOG_CACHE["data"] and (now - _CATALOG_CACHE["ts"] < 120):
+        return web.json_response(_CATALOG_CACHE["data"])
+
+    data = None
+    # 1. Real-time upstreamdan olishga urinish
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://161-97-96-58.sslip.io/api/catalog", timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+                if resp.status == 200:
+                    raw_data = await resp.json()
+                    if isinstance(raw_data, dict) and "items" in raw_data:
+                        for it in raw_data.get("items", []):
+                            if "d" in it:
+                                it["d"] = sanitize_catalog_text(it["d"])
+                            if "t" in it:
+                                it["t"] = sanitize_catalog_text(it["t"])
+                        data = raw_data
+                        try:
+                            cat_file = BASE_DIR / "data" / "catalog.json"
+                            with open(cat_file, "w", encoding="utf-8") as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                        except Exception:
+                            pass
+    except Exception as e:
+        logger.info(f"Upstream katalog ulanishida kutilmagan holat ({e}), lokal kesh ishlatiladi.")
+
+    # 2. Agar upstream bo'lmasa, lokal fayldan o'qish
+    if not data:
+        catalog_path = BASE_DIR / "data" / "catalog.json"
+        if catalog_path.exists():
+            with open(catalog_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = {"items": []}
+
+    # Foydalanuvchi boti va kanali bilan dinamik sinxronlash
     data["channel"] = config.CHANNEL_USERNAME
     data["bot"] = config.BOT_USERNAME.lstrip("@")
     data["tv"] = True
@@ -84,6 +178,9 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     data["docs"] = True
     data["games"] = True
     data["story"] = True
+
+    _CATALOG_CACHE["data"] = data
+    _CATALOG_CACHE["ts"] = now
     return web.json_response(data)
 
 
@@ -95,36 +192,22 @@ async def handle_watch(request: web.Request) -> web.Response:
         body = {}
 
     code = str(body.get("code", "")).strip()
-    part = body.get("part", 1)
+    part = int(body.get("part", 1))
     init_data = request.headers.get("X-Init-Data", "")
     user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id")
 
     if not code:
-        return web.json_response({"ok": False, "error": "Kino kodi yo'q"})
+        return web.json_response({"ok": False, "error": "not_found"})
 
     if _bot_instance and user_id:
         try:
             chat_id = int(user_id)
-            async with get_session() as session:
-                movie = await crud.get_movie_by_code(session, code)
-                if movie:
-                    await movie_service.send_movie_to_user(
-                        bot=_bot_instance,
-                        chat_id=chat_id,
-                        movie=movie,
-                        session=session
-                    )
-                else:
-                    caption = (
-                        f"🎬 <b>Kino kodi: #{code}</b> (Qism: {part})\n\n"
-                        f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali buyurtma qilindi!\n"
-                        f"🍿 {config.CHANNEL_USERNAME}"
-                    )
-                    await _bot_instance.send_message(
-                        chat_id=chat_id,
-                        text=caption,
-                        parse_mode="HTML"
-                    )
+            await movie_service.deliver_movie(
+                bot=_bot_instance,
+                chat_id=chat_id,
+                code=code,
+                part=part
+            )
         except Exception as e:
             logger.error(f"Watch so'rovida chatga yuborishda xatolik: {e}")
 
@@ -517,7 +600,9 @@ def create_web_app() -> web.Application:
     app.router.add_post("/api/docs/pdf", handle_doc_pdf)
     app.router.add_post("/api/send_to_chat", handle_send_to_chat)
 
-    # Statik fayllarni ulash (CSS, JS, Assetlar)
+    app.router.add_get("/p/{filename}", handle_poster_proxy)
+
+    # Statik fayllarni ulash (CSS, JS, Assetlar, Shriftlar)
     webapp_dir = BASE_DIR / "webapp"
     webapp_dir.mkdir(exist_ok=True)
     app.router.add_static("/webapp", webapp_dir, name="webapp")
@@ -527,6 +612,9 @@ def create_web_app() -> web.Application:
     js_dir = webapp_dir / "js"
     if js_dir.exists():
         app.router.add_static("/js", js_dir, name="js")
+    f_dir = webapp_dir / "f"
+    if f_dir.exists():
+        app.router.add_static("/f", f_dir, name="fonts")
 
     # Asosiy Mini App papkasidagi yordamchi fayllarni root orqali ham berish
     for fname in ["music.js", "docs.js", "games.js", "story.js", "music.css", "docs.css", "games.css", "story.css"]:

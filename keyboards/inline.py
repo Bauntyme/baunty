@@ -84,9 +84,37 @@ def genres_keyboard() -> InlineKeyboardMarkup:
 def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
     """Kino xabari ostidagi tugmalar."""
     builder = InlineKeyboardBuilder()
-    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=movie_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
+    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
+    builder.row(
+        InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
+        InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),
+    )
+    app_url = config.webapp_url_resolved
+    if app_url and app_url.startswith("https://"):
+        from aiogram.types import WebAppInfo
+        builder.row(
+            InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=app_url))
+        )
+    return builder.as_markup()
+
+
+def movie_parts_keyboard(movie_code: str, total_parts: int, current_part: int = 1) -> InlineKeyboardMarkup:
+    """Ko'p qismli seriallar uchun qismlar tugmalari ([1] [2] ... [N]) va ulashish."""
+    builder = InlineKeyboardBuilder()
+    row = []
+    for p in range(1, total_parts + 1):
+        btn_text = f"▶️ {p}" if p == current_part else str(p)
+        row.append(InlineKeyboardButton(text=btn_text, callback_data=f"watch_part:{movie_code}:{p}"))
+        if len(row) == 5:
+            builder.row(*row)
+            row = []
+    if row:
+        builder.row(*row)
+
+    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
+    channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),

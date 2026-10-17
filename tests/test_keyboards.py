@@ -68,7 +68,16 @@ def test_genres_keyboard():
 def test_movie_item_keyboard():
     kb = movie_item_keyboard("101")
     urls = [btn.url for row in kb.inline_keyboard for btn in row if btn.url]
-    assert any("movie_101" in u for u in urls)
+    assert any("kino_101" in u or "movie_101" in u for u in urls)
+
+
+def test_movie_parts_keyboard():
+    from keyboards.inline import movie_parts_keyboard
+    kb = movie_parts_keyboard("101", total_parts=8, current_part=2)
+    buttons = [btn.text for row in kb.inline_keyboard for btn in row]
+    assert "▶️ 2" in buttons
+    assert "1" in buttons
+    assert "8" in buttons
 
 
 def test_media_download_keyboard():

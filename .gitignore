@@ -11,3 +11,5 @@ venv/
 *.log
 logs/
 scratch/
+data/posters/*.webp
+

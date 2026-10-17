@@ -48,22 +48,18 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     args = message.text.split(maxsplit=1)
     if len(args) > 1:
         param = args[1].strip()
-        if param.startswith("movie_"):
-            movie_code = param.replace("movie_", "").strip()
-            async with get_session() as session:
-                movie = await movie_service.find_by_code(session, movie_code)
-                if movie:
-                    await movie_service.send_movie_to_user(
-                        bot=message.bot,
-                        chat_id=message.chat.id,
-                        movie=movie,
-                        session=session,
-                        reply_to_message_id=message.message_id
-                    )
-                    return
-                else:
-                    await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
-                    return
+        if param.startswith("kino_") or param.startswith("movie_"):
+            movie_code = param.replace("kino_", "").replace("movie_", "").strip()
+            delivered = await movie_service.deliver_movie(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=movie_code,
+                part=1,
+                reply_to_message_id=message.message_id
+            )
+            if not delivered:
+                await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
+            return
 
         elif param.startswith("q_"):
             target_id_str = param.replace("q_", "").strip()
