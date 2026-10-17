@@ -65,8 +65,10 @@ async def test_audio_recognition_parsing(monkeypatch):
         async def recognize(self, file_path):
             return mock_out
 
-    import shazamio
-    monkeypatch.setattr(shazamio, "Shazam", MockShazam)
+    import sys, types
+    mock_mod = types.ModuleType("shazamio")
+    mock_mod.Shazam = MockShazam
+    monkeypatch.setitem(sys.modules, "shazamio", mock_mod)
 
     res = await music_service.recognize_audio("fake_path.ogg")
     assert res is not None
@@ -83,8 +85,10 @@ async def test_audio_recognition_none_when_no_match(monkeypatch):
         async def recognize(self, file_path):
             return {}
 
-    import shazamio
-    monkeypatch.setattr(shazamio, "Shazam", MockShazamEmpty)
+    import sys, types
+    mock_mod = types.ModuleType("shazamio")
+    mock_mod.Shazam = MockShazamEmpty
+    monkeypatch.setitem(sys.modules, "shazamio", mock_mod)
 
     res = await music_service.recognize_audio("ambient_noise.ogg")
     assert res is None

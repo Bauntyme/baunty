@@ -109,6 +109,9 @@ class MusicService:
                 "share_url": track.get("url"),
                 "raw": track,
             }
+        except ImportError:
+            logger.info("Shazamio moduli o'rnatilmagan (yengil rejim). Audio aniqlash o'tkazib yuborildi.")
+            return None
         except Exception as e:
             logger.error(f"Shazam orqali aniqlashda xatolik: {e}")
             return None
