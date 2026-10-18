@@ -512,6 +512,14 @@ body {
     max-height: 220px;
     display: block;
     background: #000;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    filter: contrast(1.08) saturate(1.05) brightness(1.02);
+    -webkit-filter: contrast(1.08) saturate(1.05) brightness(1.02);
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 .tv-player-meta {

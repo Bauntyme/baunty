@@ -23,39 +23,54 @@ class MusicService:
 
     async def search_tracks(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """
-        Tarona, Deezer va iTunes ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (1-2 soniyada).
-        Dastlab Tarona va Deezer orqali, so'ngra iTunes va lokal kesh orqali natijalarni to'ldiradi.
+        Tarona, Deezer, iTunes va Invidious ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
+        Phonk, EDM, ruscha, xorijiy va o'zbek musiqalari uchun eng mos manbalarni birlashtiradi.
         """
         clean_q = str(query or "").strip()
         if not clean_q:
             return []
 
-        # 1. Tarona, Deezer va iTunes ochiq API larini parallel (bir vaqtda) ishga tushirish
+        # 1. Tarona, Deezer, iTunes va Invidious ochiq API larini parallel (bir vaqtda) ishga tushirish
         tasks = [
             self._search_tarona(clean_q, limit=limit),
             self._search_deezer(clean_q, limit=limit),
             self._search_itunes(clean_q, limit=limit),
+            self._search_invidious_music(clean_q, limit=min(limit, 10)),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         tarona_tracks = results[0] if isinstance(results[0], list) else []
         deezer_tracks = results[1] if isinstance(results[1], list) else []
         itunes_tracks = results[2] if isinstance(results[2], list) else []
+        invidious_tracks = results[3] if isinstance(results[3], list) else []
 
         # 2. Lokal katalog (data/music_home.json) qidiruvi
         local_tracks = self._search_local_home(clean_q, limit=limit)
+
+        # Phonk, EDM, remiks yoki xorijiy so'rovlar uchun Deezer/iTunes/Invidious ni birinchi o'ringa qo'yish
+        is_phonk_or_foreign = any(
+            w in clean_q.lower()
+            for w in ["phonk", "edm", "remix", "bass", "drill", "rap", "trap", "club", "house", "nightcore", "speed up", "slowed", "drift"]
+        )
+        if is_phonk_or_foreign:
+            source_lists = [deezer_tracks, itunes_tracks, invidious_tracks, tarona_tracks, local_tracks]
+        else:
+            source_lists = [tarona_tracks, deezer_tracks, itunes_tracks, invidious_tracks, local_tracks]
 
         # Barcha manbalarni birlashtirish va takrorlarni olib tashlash
         seen_keys = set()
         merged: List[Dict[str, Any]] = []
 
-        for tr in (tarona_tracks or []) + (deezer_tracks or []) + (itunes_tracks or []) + (local_tracks or []):
-            k = f"{tr.get('artist', '').lower()}|{tr.get('title', '').lower()}"
-            if k not in seen_keys:
-                seen_keys.add(k)
-                merged.append(tr)
-                if len(merged) >= limit:
-                    break
+        for slist in source_lists:
+            for tr in (slist or []):
+                k = f"{tr.get('artist', '').lower()}|{tr.get('title', '').lower()}"
+                if k not in seen_keys:
+                    seen_keys.add(k)
+                    merged.append(tr)
+                    if len(merged) >= limit:
+                        break
+            if len(merged) >= limit:
+                break
 
         if merged:
             return merged
@@ -323,6 +338,73 @@ class MusicService:
             logger.debug(f"iTunes qidiruv xatosi: {e}")
         return []
 
+    async def _search_invidious_music(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Invidious ochiq API orqali musiqa qidirish (YouTube Music ma'lumotlari)."""
+        clean_q = query.strip()
+        if not clean_q:
+            return []
+
+        hosts = [
+            "https://invidious.jing.rocks",
+            "https://inv.nadeko.net",
+            "https://invidious.drgns.space",
+            "https://vid.puffyan.us",
+        ]
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "application/json",
+        }
+
+        for host in hosts:
+            try:
+                url = f"{host}/api/v1/search"
+                params = {"q": f"{clean_q} audio", "type": "video"}
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if isinstance(data, list) and data:
+                                tracks = []
+                                for item in data[:limit]:
+                                    vid = item.get("videoId")
+                                    if not vid:
+                                        continue
+                                    raw_title = item.get("title", "Musiqa")
+                                    author = item.get("author", "Noma'lum")
+                                    dur_sec = item.get("lengthSeconds", 0)
+                                    song_title = raw_title
+                                    song_artist = author
+                                    if " - " in raw_title:
+                                        parts = raw_title.split(" - ", 1)
+                                        song_artist = parts[0].strip()
+                                        song_title = parts[1].strip()
+
+                                    thumbs = item.get("videoThumbnails", [])
+                                    cover = thumbs[0].get("url") if thumbs else f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg"
+                                    tracks.append({
+                                        "id": f"yt_{vid}",
+                                        "title": song_title,
+                                        "artist": song_artist,
+                                        "duration": dur_sec,
+                                        "preview": None,
+                                        "cover": cover,
+                                        "link": f"https://www.youtube.com/watch?v={vid}",
+                                        "t": song_title,
+                                        "a": song_artist,
+                                        "d": dur_sec,
+                                        "c": cover,
+                                        "u": None,
+                                        "y": vid,
+                                        "s": "yt",
+                                        "m": 1,
+                                    })
+                                if tracks:
+                                    return tracks
+            except Exception as e:
+                logger.debug(f"Invidious music search xatosi ({host}): {e}")
+
+        return []
+
     def _search_local_home(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """data/music_home.json dagi xit qo'shiqlar orasidan qidirish."""
         home_path = BASE_DIR / "data" / "music_home.json"
@@ -474,9 +556,6 @@ class MusicService:
                     return direct_res
 
         # 5. Tarona bazasidan to'liq MP3 qidirib yuklab olish
-        tarona_fallback = await self._download_tarona_mp3(search_query, title=track_title)
-        if tarona_fallback and tarona_fallback.success:
-            return tarona_fallback
         tarona_fallback = await self._download_tarona_mp3(search_query, title=track_title)
         if tarona_fallback and tarona_fallback.success:
             return tarona_fallback

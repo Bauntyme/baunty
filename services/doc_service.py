@@ -120,6 +120,71 @@ class DocService:
         return output_path
 
     @staticmethod
+    def images_to_pdf(image_paths: list, output_path: str) -> str:
+        """Rasmlarni (JPG, PNG, WebP) sifatli PDF hujjatiga aylantiradi."""
+        from PIL import Image
+        images = []
+        for p in image_paths:
+            if not p or not Path(p).exists():
+                continue
+            img = Image.open(p)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            images.append(img)
+        if not images:
+            raise ValueError("Kamida bitta yaroqli rasm fayli talab qilinadi")
+
+        images[0].save(
+            output_path,
+            "PDF",
+            resolution=100.0,
+            save_all=True,
+            append_images=images[1:]
+        )
+        return output_path
+
+    @staticmethod
+    async def ocr_image(image_path: str, language: str = "eng") -> str:
+        """Rasmdagi matnni aniqlash va o'qish (OCR)."""
+        if not image_path or not Path(image_path).exists():
+            return "Rasm fayli topilmadi."
+
+        # 1. Pytesseract agar o'rnatilgan bo'lsa
+        try:
+            import pytesseract
+            from PIL import Image
+            img = Image.open(image_path)
+            res = pytesseract.image_to_string(img)
+            if res and res.strip():
+                return res.strip()
+        except Exception:
+            pass
+
+        # 2. Ochiq OCR xizmati
+        try:
+            import aiohttp
+            with open(image_path, "rb") as f:
+                img_data = f.read()
+            form = aiohttp.FormData()
+            form.add_field("file", img_data, filename="ocr_image.jpg", content_type="image/jpeg")
+            form.add_field("language", language)
+            form.add_field("apikey", "helloworld")
+            form.add_field("isOverlayRequired", "false")
+            async with aiohttp.ClientSession() as session:
+                async with session.post("https://api.ocr.space/parse/image", data=form, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        parsed = data.get("ParsedResults", [])
+                        if parsed:
+                            extracted = parsed[0].get("ParsedText", "").strip()
+                            if extracted:
+                                return extracted
+        except Exception:
+            pass
+
+        return "Suratdagi yozuvni aniqlab bo'lmadi yoki rasmda aniq matn topilmadi."
+
+    @staticmethod
     def simple_translate(text: str, target_lang: str = "uz") -> str:
         """
         Tezkor tarjimon (Uzbek, English, Russian).

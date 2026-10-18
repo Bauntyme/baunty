@@ -217,12 +217,18 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
     code = parts[1]
     part = int(parts[2])
     await callback.answer(f"📺 {part}-qism yuklanmoqda...")
-    await movie_service.deliver_movie(
+    delivered = await movie_service.deliver_movie(
         bot=callback.bot,
         chat_id=callback.message.chat.id,
         code=code,
         part=part
     )
+    if not delivered:
+        await callback.message.answer(
+            f"❌ <b>#{code}</b> serialining <b>{part}-qismi</b> topilmadi.\n"
+            f"🍿 Barcha premyerlar kanalimizda: {config.CHANNEL_USERNAME}",
+            parse_mode="HTML"
+        )
 
 
 @router.callback_query(F.data.startswith("parts_page:"))
@@ -249,18 +255,25 @@ async def cb_parts_page(callback: CallbackQuery) -> None:
 @router.message(MovieSearchStates.waiting_for_code)
 async def state_process_code(message: Message, state: FSMContext) -> None:
     """FSM holatida kiritilgan kodni qidirish."""
-    code = message.text.strip()
+    raw_code = message.text.strip()
     await state.clear()
+    extracted = extract_movie_code_and_part(raw_code)
+    if extracted:
+        code, part = extracted
+    else:
+        code, part = raw_code, 1
+
     delivered = await movie_service.deliver_movie(
         bot=message.bot,
         chat_id=message.chat.id,
         code=code,
-        part=1,
+        part=part,
         reply_to_message_id=message.message_id
     )
     if not delivered:
+        code_disp = f"{code} ({part}-qism)" if part > 1 else code
         await message.reply(
-            format_movie_not_found(code),
+            format_movie_not_found(code_disp),
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
         )
@@ -295,40 +308,69 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
             )
 
 
+def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
+    """
+    Kino kodi va qism raqamini matndan ajratib oladi.
+    Masalan:
+    '101' -> ('101', 1)
+    '289 2' -> ('289', 2)
+    '289-2' -> ('289', 2)
+    '289_2' -> ('289', 2)
+    '289 2-qism' -> ('289', 2)
+    'kod 289 2' -> ('289', 2)
+    """
+    if not text:
+        return None
+    clean = text.strip()
+    if "kino — kod orqali qidirish" in clean.lower() or clean.startswith("http") or len(clean) > 35:
+        return None
+
+    cleaned = clean.lstrip("#№").strip()
+    cleaned = re.sub(r'^(?:kino|film|код|kod|code)\s*:?\s*', '', cleaned, flags=re.IGNORECASE).strip()
+
+    # Pattern: code + part (e.g. "289 2", "289-2", "289_2", "289p2", "289 2-qism", "289 2 qism")
+    m = re.match(r'^(\d{1,8})[\s_\-pP]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep))?$', cleaned, re.IGNORECASE)
+    if m:
+        return m.group(1), int(m.group(2))
+
+    # Pattern: just code digits (e.g. "101", "#101", "kod: 101")
+    if cleaned.isdigit() and len(cleaned) <= 10:
+        return cleaned, 1
+
+    return None
+
+
 def extract_movie_code(text: str) -> Optional[str]:
     """
     Kino kodini matndan ajratib oladi.
     Qo'llab-quvvatlanadi: 101, #101, №101, 'kod 101', 'kod: 101', 'код 101'
     """
-    if not text:
-        return None
-    clean = text.strip()
-    if "kino — kod orqali qidirish" in clean.lower() or clean.startswith("http") or len(clean) > 30:
-        return None
-    cleaned = clean.lstrip("#№").lower().replace("kino", "").replace("kod", "").replace("код", "").replace(":", "").strip()
-    if cleaned.isdigit() and len(cleaned) <= 10:
-        return cleaned
+    res = extract_movie_code_and_part(text)
+    if res:
+        return res[0]
     return None
 
 
-@router.message(StateFilter(None), lambda msg: msg.text and extract_movie_code(msg.text) is not None)
+@router.message(StateFilter(None), lambda msg: msg.text and extract_movie_code_and_part(msg.text) is not None)
 async def process_numeric_movie_code(message: Message) -> None:
     """
-    Foydalanuvchi faqat raqam yoki kod (masalan: 123, #123, kod 123) yuborganida avtomatik kinoni topib berish.
+    Foydalanuvchi faqat raqam yoki kod (masalan: 123, #123, kod 123, 289 2) yuborganida avtomatik kinoni topib berish.
     """
-    code = extract_movie_code(message.text)
-    if not code:
+    extracted = extract_movie_code_and_part(message.text)
+    if not extracted:
         return
 
+    code, part = extracted
     delivered = await movie_service.deliver_movie(
         bot=message.bot,
         chat_id=message.chat.id,
         code=code,
-        part=1,
+        part=part,
         reply_to_message_id=message.message_id
     )
     if not delivered:
-        await message.reply(format_movie_not_found(code), parse_mode="HTML")
+        code_disp = f"{code} ({part}-qism)" if part > 1 else code
+        await message.reply(format_movie_not_found(code_disp), parse_mode="HTML")
 
 
 def extract_code_from_caption(text: Optional[str]) -> Optional[str]:

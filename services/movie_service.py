@@ -284,6 +284,13 @@ class MovieService:
             clean_code = clean_code[2:]
         elif clean_code.startswith("m") and len(clean_code) > 1 and clean_code[1:].isdigit():
             clean_code = clean_code[1:]
+
+        # Agar code ichida part bo'lsa (masalan: 289_2, 289-2, 289p2) va part == 1 bo'lsa
+        m_part_code = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
+        if m_part_code and part == 1:
+            clean_code = m_part_code.group(1)
+            part = int(m_part_code.group(2))
+
         cat_item = MovieService.get_catalog_item(clean_code)
 
         title = ""
@@ -295,7 +302,25 @@ class MovieService:
             description = cat_item.get("d", "").strip()
 
         db_movie = None
-        part_codes = [f"{clean_code}_{part}", f"{clean_code}-{part}", f"{clean_code}p{part}"] if part > 1 else [f"{clean_code}_1", f"{clean_code}-1", f"{clean_code}p1", clean_code]
+        if part > 1:
+            part_codes = [
+                f"{clean_code}_{part}",
+                f"{clean_code}-{part}",
+                f"{clean_code}p{part}",
+                f"{clean_code}_part{part}",
+                f"{clean_code}_qism{part}",
+                f"{clean_code} {part}",
+            ]
+        else:
+            part_codes = [
+                clean_code,
+                f"{clean_code}_1",
+                f"{clean_code}-1",
+                f"{clean_code}p1",
+                f"{clean_code}_part1",
+                f"{clean_code}_qism1",
+            ]
+
         for p_code in part_codes:
             if session:
                 db_movie = await crud.get_movie_by_code(session, p_code)
@@ -306,11 +331,30 @@ class MovieService:
             if db_movie:
                 break
 
+        # Part > 1 bo'lganda, agar db_movie topilmagan bo'lsa yoki title/description bo'sh bo'lsa,
+        # asosiy kino kodidan (clean_code) sarlavha va tavsifni olamiz
+        if not title or not description:
+            base_movie = None
+            if session:
+                base_movie = await crud.get_movie_by_code(session, clean_code)
+            else:
+                from database.session import get_session
+                async with get_session() as s:
+                    base_movie = await crud.get_movie_by_code(s, clean_code)
+            if base_movie:
+                if not title:
+                    title = base_movie.title
+                if not description:
+                    description = base_movie.description
+
         if db_movie:
             if not title:
                 title = db_movie.title
             if not description:
                 description = db_movie.description
+
+        if part > total_parts:
+            total_parts = part
 
         # Agar na katalogda, na bazada kino mavjud bo'lmasa — @Zakirovsfilms_bot dan tezkor sinxronlashga urinish
         if not cat_item and not db_movie:
@@ -397,12 +441,17 @@ class MovieService:
             )
 
         caption = (
-            f"🎬 <b>{title}{part_suffix}</b>{desc_text}{watch_note}\n\n"
+            f"🎬 <b>{title}{part_suffix}</b> (4K Ultra HD){desc_text}{watch_note}\n\n"
             f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
             f"🤖 Bot: {bot_user}"
         )
         if total_parts > 1:
-            reply_markup = movie_parts_keyboard(clean_code, total_parts=total_parts, current_part=part)
+            reply_markup = movie_parts_keyboard(
+                clean_code,
+                total_parts=total_parts,
+                current_part=part,
+                page=max(0, (part - 1) // 20)
+            )
         else:
             reply_markup = movie_item_keyboard(clean_code)
         if has_real_video:

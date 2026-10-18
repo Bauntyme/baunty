@@ -365,3 +365,19 @@ def admin_settings_keyboard() -> InlineKeyboardMarkup:
     )
     return builder.as_markup()
 
+
+def story_platform_keyboard() -> InlineKeyboardMarkup:
+    """Anonim story platformasini tanlash: Telegram yoki Instagram."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✈️ Telegram Story", callback_data="story_platform:tg"),
+        InlineKeyboardButton(text="📸 Instagram Story", callback_data="story_platform:ig"),
+    )
+    app_url = config.webapp_url_resolved
+    if app_url and app_url.startswith("https://"):
+        from aiogram.types import WebAppInfo
+        builder.row(
+            InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=f"{app_url}#story"))
+        )
+    return builder.as_markup()
+

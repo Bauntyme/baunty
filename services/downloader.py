@@ -37,6 +37,13 @@ class MediaDownloader:
 
     def __init__(self, download_dir: Optional[Path] = None):
         self.download_dir = download_dir or config.download_path
+        self._sem: Optional[asyncio.Semaphore] = None
+
+    @property
+    def semaphore(self) -> asyncio.Semaphore:
+        if self._sem is None:
+            self._sem = asyncio.Semaphore(8)
+        return self._sem
 
     def _sync_download_video(self, url: str) -> DownloadResult:
         """Sinxron video yuklab olish funksiyasi (thread ichida bajariladi)."""
@@ -57,7 +64,7 @@ class MediaDownloader:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "tvhtml5", "web_creator", "mweb"],
+                    "player_client": ["android", "ios", "tv", "tvhtml5", "web_creator", "mweb"],
                     "player_skip": ["configs", "webpage"]
                 },
                 "tiktok": {
@@ -250,7 +257,7 @@ class MediaDownloader:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "tvhtml5", "web_creator", "mweb"],
+                    "player_client": ["android", "ios", "tv", "tvhtml5", "web_creator", "mweb"],
                     "player_skip": ["configs", "webpage"]
                 }
             },
@@ -479,12 +486,15 @@ class MediaDownloader:
             "https://invidious.nerdvpn.de",
             "https://inv.tux.pizza",
             "https://invidious.privacydev.net",
+            "https://yewtu.be",
             "https://vid.puffyan.us",
             "https://invidious.private.coffee",
+            "https://invidious.jing.rocks",
             "https://invidious.f5.si",
             "https://invidious.projectsegfau.lt",
             "https://invidious.drgns.space",
             "https://iv.melmac.space",
+            "https://invidious.no-vo.org",
         ]
         for host in invidious_hosts:
             try:
@@ -730,12 +740,18 @@ class MediaDownloader:
         return DownloadResult(success=False, error="Audio yuklab olinmadi.")
 
     async def download_video(self, url: str) -> DownloadResult:
-        """Asinxron video yuklab olish."""
-        return await asyncio.to_thread(self._sync_download_video, url)
+        """Asinxron video yuklab olish (Semaphore bilan yuqori yuklamadan himoyalangan)."""
+        if self._sem is None:
+            self._sem = asyncio.Semaphore(8)
+        async with self._sem:
+            return await asyncio.to_thread(self._sync_download_video, url)
 
     async def download_audio(self, url: str) -> DownloadResult:
-        """Asinxron audio yuklab olish."""
-        return await asyncio.to_thread(self._sync_download_audio, url)
+        """Asinxron audio yuklab olish (Semaphore bilan yuqori yuklamadan himoyalangan)."""
+        if self._sem is None:
+            self._sem = asyncio.Semaphore(8)
+        async with self._sem:
+            return await asyncio.to_thread(self._sync_download_audio, url)
 
     async def update_from_git(self) -> bool:
         """yt-dlp ni git master manbasidan asinxron yangilash."""

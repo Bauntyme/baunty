@@ -65,12 +65,17 @@ class StoryService:
             error="Hikoyalar (story) topilmadi yoki profil yopiq."
         )
 
-    async def fetch_stories(self, target: str, limit: int = 5) -> List[DownloadResult]:
+    async def fetch_stories(self, target: str, limit: int = 5, platform: str = "auto") -> List[DownloadResult]:
         """
-        Instagram hikoyalarini (rasm va videolar) yuklab oladi.
+        Instagram yoki Telegram hikoyalarini (rasm va videolar) yuklab oladi.
         Bir nechta story bo'lsa, ularning ro'yxatini qaytaradi.
         """
         target_clean = str(target or "").strip()
+
+        # Telegram hikoyalari
+        if platform == "tg" or "t.me/" in target_clean or "telegram.me/" in target_clean:
+            return await self.fetch_telegram_stories(target_clean, limit=limit)
+
         # 1. Agar to'g'ridan-to'g'ri story ID si bo'lgan havola bo'lsa
         if "instagram.com/stories/" in target_clean and re.search(r"stories/[^/]+/\d+", target_clean):
             res = await self.downloader.download_video(target_clean)
@@ -104,6 +109,77 @@ class StoryService:
             return [res_profile]
         elif res_profile.error:
             return [res_profile]
+
+        return []
+
+    async def fetch_telegram_stories(self, target: str, limit: int = 5) -> List[DownloadResult]:
+        """
+        Telegram kanal hikoyalari yoki postlarini yuklab olish.
+        """
+        target_clean = str(target or "").strip()
+        if "t.me/" in target_clean or "telegram.me/" in target_clean:
+            res = await self.downloader.download_video(target_clean)
+            if res.success:
+                return [res]
+
+        username = self.clean_username(target_clean)
+        if not username:
+            return [DownloadResult(success=False, error="Telegram foydalanuvchi yoki kanal nomi noto'g'ri kiritildi.")]
+
+        def _scrape_tg():
+            results: List[DownloadResult] = []
+            try:
+                url = f"https://t.me/s/{username}"
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    if resp.status == 200:
+                        html = resp.read().decode("utf-8", errors="ignore")
+                        video_matches = re.findall(r'<video[^>]+src="([^">]+)"', html)
+                        photo_matches = re.findall(r'background-image:url\(\'([^\']+)\'\)', html)
+
+                        media_urls = []
+                        for vm in reversed(video_matches):
+                            if vm not in [m[0] for m in media_urls]:
+                                media_urls.append((vm, False))
+                            if len(media_urls) >= limit:
+                                break
+                        if len(media_urls) < limit:
+                            for pm in reversed(photo_matches):
+                                if pm not in [m[0] for m in media_urls] and "tgme" not in pm:
+                                    media_urls.append((pm, True))
+                                if len(media_urls) >= limit:
+                                    break
+
+                        for m_url, is_img in media_urls:
+                            dl = self.downloader._download_direct_stream(
+                                url=m_url,
+                                is_audio=False,
+                                title=f"Telegram_{username}"
+                            )
+                            if dl and dl.success:
+                                results.append(dl)
+            except Exception as e:
+                logger.debug(f"Telegram scraper xatoligi: {e}")
+            return results
+
+        try:
+            results = await asyncio.to_thread(_scrape_tg)
+            if results:
+                return results
+        except Exception as e:
+            logger.debug(f"Telegram fetch xatoligi: {e}")
+
+        # yt-dlp fallback
+        tg_url = f"https://t.me/s/{username}"
+        res = await self.downloader.download_video(tg_url)
+        if res.success:
+            return [res]
 
         return []
 
@@ -233,23 +309,82 @@ class StoryService:
 
         now = time.time()
         avatar_url = f"https://api.dicebear.com/7.x/identicon/svg?seed={clean_u}"
-        items = [
-            {
-                "id": f"tg_{clean_u}_1",
-                "k": "video",
-                "t": avatar_url,
-                "u": "",
-                "d": 10,
-                "ts": int(now - 3600),
-                "a": 1,
-            }
-        ]
-        return {
+        items = []
+        ch_title = clean_u
+
+        def _scrape_info():
+            nonlocal avatar_url, ch_title, items
+            try:
+                url = f"https://t.me/s/{clean_u}"
+                req = urllib.request.Request(
+                    url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=4) as resp:
+                    if resp.status == 200:
+                        html = resp.read().decode("utf-8", errors="ignore")
+                        tm = re.search(r'<div class="tgme_page_title"[^>]*><span dir="auto">([^<]+)</span>', html)
+                        if tm:
+                            ch_title = tm.group(1).strip()
+                        pm = re.search(r'<img class="tgme_page_photo_image" src="([^"]+)"', html)
+                        if pm:
+                            avatar_url = pm.group(1).strip()
+                        videos = re.findall(r'<video[^>]+src="([^">]+)"', html)
+                        photos = re.findall(r'background-image:url\(\'([^\']+)\'\)', html)
+                        idx = 1
+                        for v in reversed(videos[-3:]):
+                            items.append({
+                                "id": f"tg_{clean_u}_{idx}_{int(now)}",
+                                "k": "video",
+                                "t": avatar_url,
+                                "u": v,
+                                "d": 15,
+                                "ts": int(now - idx * 1800),
+                            })
+                            idx += 1
+                        for p in reversed(photos[-2:]):
+                            if "tgme" not in p:
+                                items.append({
+                                    "id": f"tg_{clean_u}_{idx}_{int(now)}",
+                                    "k": "image",
+                                    "t": p,
+                                    "u": p,
+                                    "d": 5,
+                                    "ts": int(now - idx * 3600),
+                                })
+                                idx += 1
+            except Exception as e:
+                logger.debug(f"Telegram info scraping failed: {e}")
+
+        try:
+            await asyncio.to_thread(_scrape_info)
+        except Exception:
+            pass
+
+        if not items:
+            items = [
+                {
+                    "id": f"tg_{clean_u}_1",
+                    "k": "video",
+                    "t": avatar_url,
+                    "u": "",
+                    "d": 10,
+                    "ts": int(now - 3600),
+                    "a": 1,
+                }
+            ]
+
+        data = {
             "ok": True,
-            "name": clean_u,
+            "name": ch_title,
+            "pic": avatar_url,
             "pending": False,
             "items": items,
         }
+        self._profile_cache[f"tg_{clean_u}"] = data
+        return data
 
 
 story_service = StoryService()

@@ -4,6 +4,7 @@ Musiqa bo'limi qayta ishlovchisi (Qo'shiq qidirish va MP3 yuklash)
 import logging
 from typing import Dict, Any
 from aiogram import Router, F
+from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 from config import config
@@ -22,15 +23,17 @@ router = Router(name="music_router")
 _SEARCH_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
+@router.message(Command("music"))
 @router.message(F.text == "🎵 Qo'shiq topish")
 async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     """Musiqa qidirish boshlanishi."""
     await state.set_state(MusicStates.waiting_for_query)
     text = (
-        "🎵 <b>Qo'shiq qidirish xizmati!</b>\n\n"
+        "🎵 <b>Tezkor Musiqa qidirish xizmati!</b>\n\n"
         "Qidirayotgan qo'shig'ingiz nomi yoki ijrochisini yozing:\n"
-        "<i>Masalan: Konsta, Jaloliddin Ahmadaliyev, Jah Khalib yoki Rayhon</i>\n\n"
-        "Yoki ovozli xabar (voice) yuborishingiz ham mumkin! 🎙️"
+        "<i>Masalan: Konsta, Jaloliddin, Phonk, Kordhell, EDM, Jah Khalib yoki Rayhon</i>\n\n"
+        "⚡️ <i>Har qanday qo'shiq, phonk, remiks va xitlar 1 soniyada topiladi!</i>\n"
+        "🎙️ Yoki ovozli xabar (voice) yuboring — Shazam orqali aniqlaymiz!"
     )
     await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
 

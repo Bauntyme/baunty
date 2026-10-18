@@ -73,4 +73,6 @@ class DocsStates(StatesGroup):
     waiting_for_pdf = State()
     waiting_for_ocr = State()
     waiting_for_translate = State()
+    waiting_for_analyze = State()
+    waiting_for_img_to_pdf = State()
 
