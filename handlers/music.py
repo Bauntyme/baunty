@@ -199,6 +199,15 @@ async def cb_download_track(callback: CallbackQuery) -> None:
                             _SEARCH_CACHE[track_key] = track_data
             except Exception:
                 pass
+        elif "tarona" in track_key:
+            try:
+                song_part = track_key.split("tarona_")[-1]
+                t_results = await music_service._search_tarona(song_part, limit=1)
+                if t_results:
+                    track_data = t_results[0]
+                    _SEARCH_CACHE[track_key] = track_data
+            except Exception:
+                pass
 
     if not track_data:
         await callback.answer("⚠️ Ma'lumot eskirgan, iltimos qaytadan qidiring.", show_alert=True)

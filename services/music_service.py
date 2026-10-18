@@ -23,22 +23,24 @@ class MusicService:
 
     async def search_tracks(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """
-        Deezer va iTunes ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (1-2 soniyada).
-        Dastlab Deezer orqali, so'ngra iTunes va lokal kesh orqali natijalarni to'ldiradi.
+        Tarona, Deezer va iTunes ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (1-2 soniyada).
+        Dastlab Tarona va Deezer orqali, so'ngra iTunes va lokal kesh orqali natijalarni to'ldiradi.
         """
         clean_q = str(query or "").strip()
         if not clean_q:
             return []
 
-        # 1. Deezer va iTunes ochiq API larini parallel (bir vaqtda) ishga tushirish
+        # 1. Tarona, Deezer va iTunes ochiq API larini parallel (bir vaqtda) ishga tushirish
         tasks = [
+            self._search_tarona(clean_q, limit=limit),
             self._search_deezer(clean_q, limit=limit),
             self._search_itunes(clean_q, limit=limit),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        deezer_tracks = results[0] if isinstance(results[0], list) else []
-        itunes_tracks = results[1] if isinstance(results[1], list) else []
+        tarona_tracks = results[0] if isinstance(results[0], list) else []
+        deezer_tracks = results[1] if isinstance(results[1], list) else []
+        itunes_tracks = results[2] if isinstance(results[2], list) else []
 
         # 2. Lokal katalog (data/music_home.json) qidiruvi
         local_tracks = self._search_local_home(clean_q, limit=limit)
@@ -47,7 +49,7 @@ class MusicService:
         seen_keys = set()
         merged: List[Dict[str, Any]] = []
 
-        for tr in (deezer_tracks or []) + (itunes_tracks or []) + (local_tracks or []):
+        for tr in (tarona_tracks or []) + (deezer_tracks or []) + (itunes_tracks or []) + (local_tracks or []):
             k = f"{tr.get('artist', '').lower()}|{tr.get('title', '').lower()}"
             if k not in seen_keys:
                 seen_keys.add(k)
@@ -60,6 +62,154 @@ class MusicService:
 
         # 3. Agar barcha ochiq API lar bo'sh bo'lsa, YouTube fallback
         return await self._fallback_youtube_search(clean_q, limit=limit)
+
+    async def _search_tarona(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
+        """Tarona / Muzfm o'zbek musiqa bazasi orqali qo'shiqlarni qidirish."""
+        clean_q = query.strip()
+        if not clean_q:
+            return []
+
+        search_urls = [
+            f"https://muzfm.uz/search?q={urllib.parse.quote(clean_q)}",
+            f"https://muzfm.org/search?q={urllib.parse.quote(clean_q)}",
+        ]
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "uz,en;q=0.9",
+        }
+
+        for url in search_urls:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                        if resp.status == 200:
+                            if not hasattr(resp, "text"):
+                                continue
+                            text_raw = resp.text() if callable(resp.text) else resp.text
+                            html = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
+                            if not isinstance(html, str) or len(html) < 200 or "track-item" not in html:
+                                continue
+
+                            track_blocks = re.findall(
+                                r'<div class="track-item[^"]*js-item"[^>]*>.*?(?=<div class="track-item|$)',
+                                html,
+                                re.DOTALL
+                            )
+                            tracks: List[Dict[str, Any]] = []
+                            for b in track_blocks:
+                                id_m = re.search(r'data-songid="([^"]+)"', b)
+                                link_m = re.search(r'<a[^>]+class="track-link"[^>]+href="([^"]+)"', b)
+                                artist_m = re.search(r'<div class="track-subtitle artist[^>]*>\s*([^<]+)\s*</div>', b)
+                                title_m = re.search(r'<div class="track-title song[^>]*>\s*([^<]+)\s*</div>', b)
+                                time_m = re.search(r'<div class="track-time time">\s*([^<]+)\s*</div>', b)
+                                img_m = re.search(r'<img[^>]+src="([^"]+)"', b)
+
+                                if link_m and title_m:
+                                    artist = artist_m.group(1).strip() if artist_m else "Noma'lum"
+                                    title = title_m.group(1).strip()
+                                    link = link_m.group(1).strip()
+                                    song_id = id_m.group(1) if id_m else re.sub(r'[^a-zA-Z0-9_-]', '', link.split('/')[-1])
+                                    dur_str = time_m.group(1).strip() if time_m else "0"
+                                    dur_sec = 0
+                                    if ":" in dur_str:
+                                        parts = dur_str.split(":")
+                                        if len(parts) == 2:
+                                            dur_sec = int(parts[0]) * 60 + int(parts[1])
+                                        elif len(parts) == 3:
+                                            dur_sec = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+
+                                    cover = img_m.group(1).strip() if img_m else None
+                                    tracks.append({
+                                        "id": f"tarona_{song_id}",
+                                        "title": title,
+                                        "artist": artist,
+                                        "duration": dur_sec,
+                                        "preview": link,
+                                        "cover": cover,
+                                        "link": link,
+                                        "t": title,
+                                        "a": artist,
+                                        "d": dur_sec,
+                                        "c": cover,
+                                        "u": link,
+                                        "s": "tarona",
+                                        "m": 1
+                                    })
+                                    if len(tracks) >= limit:
+                                        break
+                            if tracks:
+                                return tracks
+            except Exception as e:
+                logger.debug(f"Tarona qidiruv xatosi ({url}): {e}")
+
+        return []
+
+    async def _resolve_tarona_direct_mp3(self, link_or_track: Any) -> Optional[str]:
+        """Tarona sahifasi havolasidan to'g'ridan-to'g'ri .mp3 audio URL ni ajratib olish."""
+        target_url = link_or_track
+        if isinstance(link_or_track, dict):
+            u = link_or_track.get("u") or link_or_track.get("preview") or link_or_track.get("link")
+            target_url = str(u or "")
+
+        if not target_url or not target_url.startswith("http"):
+            return None
+
+        # Agar allaqachon to'g'ridan-to'g'ri .mp3 havola bo'lsa
+        if ".mp3" in target_url:
+            return target_url
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(target_url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        if hasattr(resp, "text"):
+                            text_raw = resp.text() if callable(resp.text) else resp.text
+                            html = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
+                            mp3_m = re.search(r'href="([^"]+\.mp3[^"]*)"', html)
+                            if not mp3_m:
+                                mp3_m = re.search(r'src="([^"]+\.mp3[^"]*)"', html)
+                            if not mp3_m:
+                                mp3_m = re.search(r'https?://[^\s"\'<>]+\.mp3', html)
+                            if mp3_m:
+                                return mp3_m.group(1) if "(" in str(mp3_m.re) else mp3_m.group(0)
+        except Exception as e:
+            logger.debug(f"Tarona to'g'ridan-to'g'ri MP3 URL topishda xatolik: {e}")
+
+        return None
+
+    async def _download_tarona_mp3(
+        self,
+        search_query_or_track: Any,
+        title: str = "Audio"
+    ) -> DownloadResult:
+        """Tarona bazasidan to'liq MP3 faylini asinxron yuklab olish."""
+        direct_url = None
+        track_title = title
+
+        if isinstance(search_query_or_track, dict):
+            track_title = search_query_or_track.get("title") or search_query_or_track.get("t") or title
+            direct_url = await self._resolve_tarona_direct_mp3(search_query_or_track)
+        elif isinstance(search_query_or_track, str):
+            if search_query_or_track.startswith("http"):
+                direct_url = await self._resolve_tarona_direct_mp3(search_query_or_track)
+            else:
+                track_title = search_query_or_track
+                results = await self._search_tarona(search_query_or_track, limit=1)
+                if results:
+                    direct_url = await self._resolve_tarona_direct_mp3(results[0])
+
+        if direct_url:
+            logger.info(f"Tarona MP3 to'g'ridan-to'g'ri yuklanmoqda: {direct_url}")
+            res = await self.downloader.download_direct_audio(direct_url, title=track_title)
+            if res and res.success:
+                return res
+
+        return DownloadResult(success=False, error="Tarona bazasidan MP3 topilmadi.")
 
     async def _search_deezer(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """Deezer ochiq API orqali qidirish."""
@@ -258,7 +408,13 @@ class MusicService:
             if res.success:
                 return res
 
-        # 2. To'g'ridan-to'g'ri YouTube video URL yoki aniqlangan video ID orqali yuklash
+        # 2. Agar trek Tarona bazasiga tegishli bo'lsa (to'g'ridan-to'g'ri to'liq MP3 olish)
+        if track_info and (track_info.get("s") == "tarona" or str(track_info.get("id", "")).startswith("tarona_")):
+            tarona_res = await self._download_tarona_mp3(track_info, title=track_title)
+            if tarona_res and tarona_res.success:
+                return tarona_res
+
+        # 3. To'g'ridan-to'g'ri YouTube video URL yoki aniqlangan video ID orqali yuklash
         target_yt_url = None
         if yt_id and len(str(yt_id)) == 11:
             target_yt_url = f"https://www.youtube.com/watch?v={yt_id}"
@@ -273,14 +429,19 @@ class MusicService:
         if res.success and res.file_path:
             return res
 
-        # 3. Agar YouTube bot-detection / 429 tufayli ishlamasa va trekda preview bo'lsa:
+        # 4. Agar YouTube bot-detection / 429 tufayli ishlamasa va trekda preview bo'lsa:
         if preview_url and str(preview_url).startswith("http"):
             logger.info(f"YouTube xatosi, mavjud audio preview yuklanmoqda: {preview_url}")
             direct_res = await self.downloader.download_direct_audio(str(preview_url), title=track_title)
             if direct_res.success:
                 return direct_res
 
-        # 4. Deezer qidiruvidan preview topishga urinish
+        # 5. Tarona bazasidan to'liq MP3 qidirib yuklab olish
+        tarona_fallback = await self._download_tarona_mp3(search_query, title=track_title)
+        if tarona_fallback and tarona_fallback.success:
+            return tarona_fallback
+
+        # 6. Deezer qidiruvidan preview topishga urinish
         try:
             deezer_tracks = await self._search_deezer(search_query, limit=1)
             if deezer_tracks and deezer_tracks[0].get("preview"):

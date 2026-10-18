@@ -435,6 +435,13 @@ async def handle_music_play(request: web.Request) -> web.Response:
         body = {}
 
     url = body.get("u") or body.get("preview") or body.get("url")
+
+    # Tarona bazasi bo'lsa, to'g'ridan-to'g'ri .mp3 audio oqim havolasini aniqlash
+    if body.get("s") == "tarona" or (url and "muzfm" in str(url)):
+        direct_tarona = await music_service._resolve_tarona_direct_mp3(body)
+        if direct_tarona:
+            return web.json_response({"ok": True, "url": direct_tarona})
+
     if url and str(url).startswith("http"):
         return web.json_response({"ok": True, "url": url})
 

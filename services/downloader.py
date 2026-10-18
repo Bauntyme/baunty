@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import sys
 import urllib.request
 import urllib.parse
 import uuid
@@ -56,7 +57,8 @@ class MediaDownloader:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "tvhtml5"]
+                    "player_client": ["android", "ios", "tvhtml5", "web_creator", "mweb"],
+                    "player_skip": ["configs", "webpage"]
                 },
                 "tiktok": {
                     "api_hostname": "api22-normal-c-useast2a.tiktokv.com"
@@ -248,7 +250,8 @@ class MediaDownloader:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "tvhtml5"]
+                    "player_client": ["android", "ios", "tvhtml5", "web_creator", "mweb"],
+                    "player_skip": ["configs", "webpage"]
                 }
             },
             "http_headers": {
@@ -480,6 +483,8 @@ class MediaDownloader:
             "https://invidious.private.coffee",
             "https://invidious.f5.si",
             "https://invidious.projectsegfau.lt",
+            "https://invidious.drgns.space",
+            "https://iv.melmac.space",
         ]
         for host in invidious_hosts:
             try:
@@ -537,6 +542,7 @@ class MediaDownloader:
             f"https://api.piped.privacydev.net/streams/{video_id}",
             f"https://piped-api.lunar.icu/streams/{video_id}",
             f"https://api.piped.private.coffee/streams/{video_id}",
+            f"https://pipedapi.leptons.xyz/streams/{video_id}",
         ]
         for ep in piped_endpoints:
             try:
@@ -665,6 +671,7 @@ class MediaDownloader:
             "https://cobalt-api.canine.tools",
             "https://cobalt.xy2.dev/api/json",
             "https://cobalt.slipfox.xyz/api/json",
+            "https://api.cobalt.blackline.app",
         ])
 
         payload: Dict[str, Any] = {
@@ -729,6 +736,29 @@ class MediaDownloader:
     async def download_audio(self, url: str) -> DownloadResult:
         """Asinxron audio yuklab olish."""
         return await asyncio.to_thread(self._sync_download_audio, url)
+
+    async def update_from_git(self) -> bool:
+        """yt-dlp ni git master manbasidan asinxron yangilash."""
+        try:
+            cmd = [
+                sys.executable if "sys" in globals() else "python",
+                "-m", "pip", "install", "--upgrade", "git+https://github.com/yt-dlp/yt-dlp.git@master"
+            ]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode == 0:
+                logger.info("yt-dlp git masterdan muvaffaqiyatli yangilandi.")
+                return True
+            else:
+                logger.warning(f"yt-dlp git yangilash muvaffaqiyatsiz bo'ldi: {stderr.decode(errors='ignore')}")
+                return False
+        except Exception as e:
+            logger.warning(f"yt-dlp git master yangilash xatosi: {e}")
+            return False
 
 
 # Yagona downloader nusxasi

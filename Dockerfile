@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Talablar faylini ko'chirish va o'rnatish

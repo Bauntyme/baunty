@@ -610,3 +610,112 @@ async def test_webapp_api_prefix_aliases():
     finally:
         await client.close()
 
+
+# ----------------- 5. Tarona Musiqa Bazasi Testlari -----------------
+
+@pytest.mark.asyncio
+async def test_tarona_search_and_schema_mapping():
+    """MusicService._search_tarona o'zbek musiqalarini to'g'ri parse qilishi va schema mosligi."""
+    music_srv = MusicService()
+
+    fake_html = '''
+    <div class="track-item song-short fx-row fx-middle js-item" id="music-0O92Mn">
+      <div class="track-img play">
+        <img src="https://muzfm.uz/storage/uploads/images/songs/2026/09/konsta-34_1788928256_100x100.webp" alt="Konsta - 34">
+        <div class="track-play playp playicon js-ctrl js-play" data-songid="0O92Mn" title="Play"></div>
+      </div>
+      <div class="track-desc info fx-1">
+        <a class="track-link" href="https://muzfm.uz/music/konsta-34">
+          <div class="track-subtitle artist nowrap"> Konsta </div>
+          <div class="track-title song nowrap">34</div>
+        </a>
+      </div>
+      <div class="track-time time">02:53</div>
+    </div>
+    '''
+
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.text = AsyncMock(return_value=fake_html)
+
+    mock_resp_cm = MagicMock()
+    mock_resp_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp_cm.__aexit__ = AsyncMock(return_value=None)
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = mock_resp_cm
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        tracks = await music_srv._search_tarona("Konsta", limit=5)
+        assert len(tracks) == 1
+        tr = tracks[0]
+        assert tr["id"] == "tarona_0O92Mn"
+        assert tr["title"] == "34"
+        assert tr["artist"] == "Konsta"
+        assert tr["duration"] == 173
+        assert tr["s"] == "tarona"
+        assert tr["m"] == 1
+        assert "muzfm.uz" in tr["link"]
+
+
+@pytest.mark.asyncio
+async def test_tarona_download_mp3_direct():
+    """MusicService._download_tarona_mp3 sahifadan to'g'ridan-to'g'ri MP3 topib yuklashi."""
+    music_srv = MusicService()
+
+    fake_song_html = '''
+    <html>
+      <body>
+        <a class="btn-download" href="https://muzfm.uz/storage/uploads/music/2026/09/konsta-34.mp3">Download</a>
+      </body>
+    </html>
+    '''
+
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.text = AsyncMock(return_value=fake_song_html)
+
+    mock_resp_cm = MagicMock()
+    mock_resp_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp_cm.__aexit__ = AsyncMock(return_value=None)
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = mock_resp_cm
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    music_srv.downloader.download_direct_audio = AsyncMock(
+        return_value=DownloadResult(success=True, file_path="/tmp/konsta-34.mp3", title="34")
+    )
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        track_info = {
+            "title": "34",
+            "artist": "Konsta",
+            "link": "https://muzfm.uz/music/konsta-34",
+            "s": "tarona"
+        }
+        res = await music_srv._download_tarona_mp3(track_info, title="34")
+        assert res.success is True
+        assert res.file_path == "/tmp/konsta-34.mp3"
+        music_srv.downloader.download_direct_audio.assert_called_once()
+        call_url = music_srv.downloader.download_direct_audio.call_args[0][0]
+        assert "storage/uploads/music" in call_url
+
+
+@pytest.mark.asyncio
+async def test_downloader_update_from_git():
+    """MediaDownloader.update_from_git asinxron chaqiruvini tekshirish."""
+    dl = MediaDownloader()
+
+    mock_proc = AsyncMock()
+    mock_proc.communicate = AsyncMock(return_value=(b"Successfully installed", b""))
+    mock_proc.returncode = 0
+
+    with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+        success = await dl.update_from_git()
+        assert success is True
+
+
