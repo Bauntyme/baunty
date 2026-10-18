@@ -1,5 +1,6 @@
 /* ===================================================================
    🎨 "Samarqand tuni" Dizayn Tizimi va Animatsiyalar (Bauntys Web App)
+   1:1 to'liq integratsiya, WebGL fon, shisha kartalar, oltin elementlar
    =================================================================== */
 
 /* Shriftlar */
@@ -70,37 +71,72 @@
   --zk-acc: #F2B84B;
   --zk-ink: #2A1500;
   --zk-line: rgba(246, 238, 220, 0.14);
+  --zk-mute: rgba(246, 238, 220, 0.64);
+  --zk-dim: rgba(246, 238, 220, 0.42);
+  --zk-glass: rgba(246, 238, 220, 0.075);
+  --zk-glass2: rgba(246, 238, 220, 0.12);
+  --zk-fd: 'Unbounded', -apple-system, "Segoe UI", sans-serif;
+  --zk-fb: 'Manrope', -apple-system, "Segoe UI", Roboto, sans-serif;
+  --zk-blur: blur(18px) saturate(1.3);
 
-  /* Fallback mapping */
-  --bg: var(--zk-night);
-  --bg2: var(--zk-panel);
-  --card: var(--zk-panel2);
+  /* Asosiy o'zgaruvchilar xaritasi */
+  --bg: #070B1F;
+  --bg2: #0E1330;
+  --card: #151B40;
   --text: var(--zk-cream);
   --accent: var(--zk-acc);
   --accent-text: var(--zk-ink);
-  --hint: rgba(246, 238, 220, 0.65);
+  --hint: var(--zk-mute);
   --sep: var(--zk-line);
+  --link: var(--zk-acc);
+  --shade: rgba(246, 238, 220, 0.08);
+
+  color-scheme: dark;
+}
+
+html {
+  background: var(--zk-night);
 }
 
 body.zk {
   background-color: var(--zk-night);
   color: var(--zk-cream);
-  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--zk-fb);
   min-height: 100vh;
   min-height: 100dvh;
   position: relative;
   -webkit-font-smoothing: antialiased;
 }
 
-/* Dot-matrix fon teksturasi (3px nuqtalar) */
+/* WebGL fon kanvasi */
+#zkbg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100lvh;
+  z-index: 0;
+  display: block;
+  pointer-events: none;
+  background: radial-gradient(90% 60% at 15% 5%, #C8344C55, transparent 70%),
+              radial-gradient(80% 60% at 95% 70%, #2440C855, transparent 70%),
+              var(--zk-night);
+}
+
+/* Dot-matrix fon teksturasi (radial-gradient 3px nuqtalar) */
 body.zk::after {
   content: "";
   position: fixed;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
-  background-image: radial-gradient(rgba(246, 238, 220, 0.08) 1.5px, transparent 1.5px);
-  background-size: 20px 20px;
-  z-index: 1;
+  opacity: 0.55;
+  background: radial-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1.2px) 0 0/3px 3px;
+}
+
+body.zk > .top, body.zk > main {
+  position: relative;
+  z-index: 2;
 }
 
 /* ===================================================================
@@ -109,18 +145,16 @@ body.zk::after {
 
 /* 1. Oltin kubik tebranish animatsiyasi */
 @keyframes zkroll {
-  0% { transform: rotate(0deg) scale(1); }
-  20% { transform: rotate(-20deg) scale(1.15); }
-  45% { transform: rotate(20deg) scale(1.22); }
-  65% { transform: rotate(-12deg) scale(1.1); }
-  85% { transform: rotate(10deg) scale(1.05); }
-  100% { transform: rotate(0deg) scale(1); }
+  0%, 84%, 100% { transform: rotate(0deg) scale(1); }
+  88% { transform: rotate(-18deg) scale(1.15); }
+  92% { transform: rotate(14deg) scale(1.2); }
+  96% { transform: rotate(-6deg) scale(1.08); }
 }
 
 /* 2. Kartochkalar kirib kelishi */
 @keyframes zkin {
-  0% { opacity: 0; transform: translateY(18px) scale(0.95); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* 3. Shimmer yuklanish animatsiyasi */
@@ -141,38 +175,57 @@ body.zk::after {
 
 /* 5. Sakrovchi ekvalayzer barlari */
 @keyframes zkeq {
-  0%, 100% { height: 4px; }
-  50% { height: 20px; }
+  0%, 100% { transform: scaleY(0.25); height: 4px; }
+  50% { transform: scaleY(1); height: 20px; }
 }
 
 /* 6. Splash ochilish effektlari */
 @keyframes zkdraw {
-  from { stroke-dashoffset: 600; }
+  from { stroke-dashoffset: 1; }
   to { stroke-dashoffset: 0; }
 }
 @keyframes zkturn {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(180deg); }
 }
 @keyframes zslogo {
-  0% { transform: scale(0.65); opacity: 0; filter: blur(14px); }
-  50% { transform: scale(1.08); opacity: 1; filter: blur(0); }
-  100% { transform: scale(1); opacity: 1; }
+  0% { opacity: 0; transform: scale(0.55) rotate(-10deg); filter: blur(10px) brightness(1.6); }
+  100% { opacity: 1; transform: none; filter: none; }
 }
 @keyframes zsshine {
-  0% { transform: translateX(-160%) rotate(25deg); opacity: 0; }
-  30% { opacity: 0.85; }
-  100% { transform: translateX(200%) rotate(25deg); opacity: 0; }
+  0% { left: -60%; opacity: 0; }
+  40% { opacity: 0.9; }
+  100% { left: 140%; opacity: 0; }
 }
 @keyframes zkring {
-  0% { transform: scale(0.75); opacity: 0.85; }
-  100% { transform: scale(1.75); opacity: 0; }
+  0% { transform: translate(-50%, -50%) scale(0.95); opacity: 0.75; }
+  100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
+}
+@keyframes zkword {
+  from { opacity: 0; letter-spacing: 6px; }
+  to { opacity: 1; letter-spacing: 1.5px; }
+}
+@keyframes zkfade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* 7. Slide-down paneli */
 @keyframes zkdrop {
   from { transform: translateY(-100%); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+@keyframes dkglow {
+  to { transform: scale(1.15); }
+}
+@keyframes zkpop {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes zkbeat {
+  0%, 60%, 100% { transform: scale(1); }
+  20% { transform: scale(1.25); }
+  40% { transform: scale(0.95); }
 }
 
 /* ===================================================================
@@ -183,9 +236,9 @@ body.zk::after {
   position: sticky;
   top: 0;
   z-index: 25;
-  background: rgba(7, 11, 31, 0.94);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(7, 11, 31, 0.88);
+  backdrop-filter: var(--zk-blur);
+  -webkit-backdrop-filter: var(--zk-blur);
   border-bottom: 1px solid var(--zk-line);
   padding: 10px 16px 8px;
 }
@@ -245,7 +298,7 @@ body.zk::after {
 }
 
 .zk-brand-name {
-  font-family: 'Unbounded', sans-serif;
+  font-family: var(--zk-fd);
   font-size: 19px;
   font-weight: 800;
   line-height: 1.15;
@@ -260,7 +313,7 @@ body.zk::after {
 .zk-pro-badge {
   font-size: 10px;
   font-weight: 900;
-  padding: 2px 5px;
+  padding: 2px 6px;
   border-radius: 5px;
   background: linear-gradient(135deg, #F2B84B, #FF8C00);
   color: var(--zk-ink);
@@ -284,11 +337,11 @@ body.zk::after {
   gap: 6px;
   padding: 7px 12px;
   border-radius: 999px;
-  background: var(--zk-panel2);
+  background: var(--zk-glass);
   border: 1px solid var(--zk-line);
   font-size: 13px;
   font-weight: 700;
-  color: var(--zk-acc);
+  color: var(--zk-cream);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: transform 0.12s, background 0.15s;
 }
@@ -306,50 +359,57 @@ body.zk::after {
   overflow: visible;
 }
 
-.seg {
+.zk :is(#seg, .m-seg, .bx-seg, .sx-seg, .gx-seg, .dx-seg) {
   position: relative;
   display: inline-flex;
-  background: var(--zk-panel);
-  border: 1px solid var(--zk-line);
-  border-radius: 14px;
-  padding: 3px;
   gap: 2px;
+  padding: 4px;
+  border-radius: 17px;
+  background: rgba(7, 11, 31, 0.65);
+  border: 1px solid var(--zk-line);
+  box-shadow: inset 0 0 0 1px var(--zk-line), 0 10px 30px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: var(--zk-blur);
+  backdrop-filter: var(--zk-blur);
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+  isolation: isolate;
 }
-.seg::-webkit-scrollbar { display: none; }
+.zk :is(#seg, .m-seg, .bx-seg, .sx-seg, .gx-seg, .dx-seg)::-webkit-scrollbar { display: none; }
 
-.seg button {
+.zk :is(#seg, .m-seg, .bx-seg, .sx-seg, .gx-seg, .dx-seg) button {
   position: relative;
-  z-index: 2;
-  padding: 7px 12px;
-  border-radius: 11px;
-  font-weight: 700;
-  font-size: 14px;
-  color: rgba(246, 238, 220, 0.75);
-  background: transparent;
-  transition: color 0.18s ease;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 13px;
+  font: 800 13.5px var(--zk-fb);
+  color: var(--zk-mute);
   white-space: nowrap;
+  background: none !important;
+  box-shadow: none;
+  transition: color 0.3s ease, padding 0.3s ease;
   flex: none;
 }
-.seg button.on {
-  color: var(--zk-ink);
+.zk :is(#seg, .m-seg, .bx-seg, .sx-seg, .gx-seg, .dx-seg) button.on {
+  color: var(--zk-ink) !important;
   font-weight: 800;
 }
 
 /* Siljuvchi Indikator */
-.zk-ind {
+.zk-ind, .zk :is(#seg, .m-seg, .bx-seg, .sx-seg, .gx-seg, .dx-seg) .zk-ind {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
+  top: 4px;
+  bottom: 4px;
   left: 0;
   width: 0;
-  border-radius: 11px;
+  border-radius: 13px;
   background: linear-gradient(135deg, #F2B84B, #FFA500);
-  box-shadow: 0 2px 10px rgba(242, 184, 75, 0.5);
-  z-index: 1;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--zk-acc) 45%, transparent);
+  z-index: 0;
   pointer-events: none;
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -368,22 +428,22 @@ body.zk::after {
 }
 .search input {
   width: 100%;
-  height: 42px;
-  border: 1px solid var(--zk-line);
-  border-radius: 13px;
-  background: var(--zk-panel);
+  height: 44px;
+  border: 1.5px solid var(--zk-line);
+  border-radius: 14px;
+  background: rgba(246, 238, 220, 0.08);
   color: var(--zk-cream);
-  padding: 0 40px 0 40px;
+  padding: 0 46px 0 42px;
   font-size: 15px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 .search input:focus {
   border-color: var(--zk-acc);
-  box-shadow: 0 0 12px rgba(242, 184, 75, 0.25);
+  box-shadow: 0 0 16px rgba(242, 184, 75, 0.3);
 }
 .search input::placeholder {
-  color: rgba(246, 238, 220, 0.45);
+  color: var(--zk-dim);
 }
 
 .zk-dice {
@@ -397,14 +457,17 @@ body.zk::after {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(242, 184, 75, 0.45);
-  transition: transform 0.12s, box-shadow 0.15s;
+  box-shadow: 0 6px 18px rgba(242, 184, 75, 0.45);
+  transition: transform 0.15s, box-shadow 0.15s;
   border: 0;
   padding: 0;
 }
 .zk-dice:active {
-  animation: zkroll 0.45s ease-in-out;
-  box-shadow: 0 2px 6px rgba(242, 184, 75, 0.6);
+  transform: scale(0.92);
+  box-shadow: 0 2px 8px rgba(242, 184, 75, 0.6);
+}
+.zk-dice svg {
+  animation: zkroll 6s ease-in-out infinite;
 }
 
 /* Chips Filterlar */
@@ -422,19 +485,22 @@ body.zk::after {
   flex: none;
   padding: 7px 14px;
   border-radius: 999px;
-  background: var(--zk-panel2);
+  background: var(--zk-glass);
   border: 1px solid var(--zk-line);
   font-size: 13.5px;
   font-weight: 600;
   color: var(--zk-cream);
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+}
+.chip:active {
+  transform: scale(0.95);
 }
 .chip.on {
   background: var(--zk-acc);
   color: var(--zk-ink);
   border-color: var(--zk-acc);
   font-weight: 800;
-  box-shadow: 0 2px 10px rgba(242, 184, 75, 0.35);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--zk-acc) 40%, transparent);
 }
 
 /* ===================================================================
@@ -448,11 +514,11 @@ body.zk::after {
   margin: 18px 0 10px;
 }
 .sec-h.zk-top10-h h2 {
-  font-family: 'Unbounded', sans-serif;
+  font-family: var(--zk-fd);
   font-size: 19px;
   margin: 0;
   font-weight: 800;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.02em;
   color: #fff;
 }
 .sec-h.zk-top10-h span {
@@ -489,21 +555,21 @@ body.zk::after {
 }
 .zk-flow .card.zk-mid .pst {
   border: 2px solid var(--zk-acc);
-  box-shadow: 0 0 28px rgba(242, 184, 75, 0.55), 0 12px 30px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 0 0 2px var(--zk-acc), 0 18px 40px rgba(0, 0, 0, 0.65), 0 0 28px rgba(242, 184, 75, 0.5);
 }
 
 /* Katta oltin raqamlar (.rank 1..10, 44px Unbounded font, -webkit-text-stroke: 2px var(--zk-acc)) */
-.zk-flow .rank {
+.zk-flow .rank, .zk .rank {
   position: absolute;
   bottom: -6px;
   right: 4px;
   font-size: 44px;
-  font-family: 'Unbounded', sans-serif;
+  font-family: var(--zk-fd);
   font-weight: 900;
   line-height: 1;
-  color: var(--zk-night);
+  color: transparent;
   -webkit-text-stroke: 2px var(--zk-acc);
-  text-shadow: 0 4px 14px rgba(242, 184, 75, 0.45);
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
   z-index: 6;
   pointer-events: none;
 }
@@ -521,10 +587,11 @@ body.zk::after {
 .pst {
   position: relative;
   aspect-ratio: 2/3;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
-  background: var(--zk-panel);
+  background: var(--zk-panel2);
   border: 1px solid var(--zk-line);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .pst img {
@@ -544,12 +611,12 @@ body.zk::after {
   font-weight: 800;
   line-height: 1;
   padding: 4px 7px;
-  border-radius: 7px;
+  border-radius: 8px;
   background: rgba(7, 11, 31, 0.78);
   color: #fff;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(246, 238, 220, 0.12);
+  border: 1px solid rgba(246, 238, 220, 0.14);
   z-index: 3;
 }
 .badge {
@@ -564,13 +631,13 @@ body.zk::after {
 .seen {
   top: 6px;
   right: 6px;
-  background: rgba(30, 160, 60, 0.85);
+  background: rgba(30, 160, 60, 0.88);
   border: 0;
 }
 .ttl {
   margin-top: 7px;
   font-size: 13.5px;
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.25;
   color: var(--zk-cream);
   display: -webkit-box;
@@ -594,7 +661,7 @@ body.zk::after {
   pointer-events: none;
   transition: opacity 0.25s ease;
 }
-.zk-slot.open {
+.zk-slot.open, .zk-slot.on {
   opacity: 1;
   pointer-events: auto;
 }
@@ -605,9 +672,9 @@ body.zk::after {
 .zk-slot-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(7, 11, 31, 0.88);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(4, 6, 18, 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 
 .zk-slot-modal {
@@ -619,7 +686,7 @@ body.zk::after {
   border-radius: 26px;
   padding: 22px 18px;
   text-align: center;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.8), 0 0 35px rgba(242, 184, 75, 0.35);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.85), 0 0 35px rgba(242, 184, 75, 0.35);
   animation: zkdrop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -639,25 +706,25 @@ body.zk::after {
 }
 
 .zk-slot-header h2 {
-  font-family: 'Unbounded', sans-serif;
+  font-family: var(--zk-fd);
   font-size: 20px;
   margin: 6px 0 2px;
   color: var(--zk-acc);
 }
 .zk-slot-header p {
-  color: rgba(246, 238, 220, 0.7);
+  color: var(--zk-mute);
   font-size: 13px;
   margin: 0 0 16px;
 }
 
-.zk-slot-window {
+.zk-slot-window, .zk-slot-w {
   position: relative;
   height: 220px;
   border-radius: 18px;
   background: var(--zk-night);
   border: 1.5px solid var(--zk-line);
   overflow: hidden;
-  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.85);
 }
 .zk-slot-window::before,
 .zk-slot-window::after {
@@ -693,21 +760,20 @@ body.zk::after {
   box-shadow: 0 0 20px rgba(242, 184, 75, 0.25);
 }
 
-.zk-slot-reel {
+.zk-slot-reel, .zk-slot-s {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
   padding: 20px 0;
-  transition: transform 3.2s cubic-bezier(0.12, 0.8, 0.18, 1);
 }
 
-.zk-slot-item {
+.zk-slot-item, .zk-slot-i {
   width: 110px;
   height: 160px;
   flex: none;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
   background: var(--zk-panel2);
   border: 1px solid var(--zk-line);
@@ -715,12 +781,12 @@ body.zk::after {
   flex-direction: column;
   position: relative;
 }
-.zk-slot-item img {
+.zk-slot-item img, .zk-slot-i img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.zk-slot-item .ph {
+.zk-slot-item .ph, .zk-slot-i span {
   padding: 8px;
   font-size: 12px;
 }
@@ -745,124 +811,479 @@ body.zk::after {
    👑 Splash Ochilish Ekrani (#zksplash)
    =================================================================== */
 
-.zk-splash {
+#zksplash, .zk-splash {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: #070B1F;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: opacity 0.4s ease, visibility 0.4s ease;
-}
-.zk-splash.hide {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-
-.zk-splash-box {
-  position: relative;
+  z-index: 200;
+  background: var(--zk-night);
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  justify-content: center;
+  gap: 24px;
+  transition: opacity 0.55s ease, transform 0.55s ease;
+  overflow: hidden;
 }
-
-.zk-splash-rings {
-  position: absolute;
-  top: 50px;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 120px;
-  height: 120px;
+#zksplash.hide, #zksplash.out {
+  opacity: 0;
+  transform: scale(1.08);
   pointer-events: none;
 }
-.zk-ring {
+#zksplash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 44%, #EDB54E40, transparent 42%),
+              radial-gradient(circle at 15% 8%, #C8344C40, transparent 50%),
+              radial-gradient(circle at 88% 92%, #2440C855, transparent 50%);
+  animation: zkfade 1.2s ease both;
+}
+
+.zs-logo, .zk-splash-logo-wrap {
+  position: relative;
+  z-index: 1;
+  width: min(64vw, 250px);
+  aspect-ratio: 1;
+}
+.zs-logo svg {
+  position: absolute;
+  inset: -22%;
+  width: 144%;
+  height: 144%;
+  overflow: visible;
+  color: #EDB54E;
+  opacity: 0.9;
+}
+.zs-logo rect {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  animation: zkdraw 1s cubic-bezier(0.6, 0, 0.2, 1) forwards;
+}
+.zs-logo rect + rect {
+  animation-delay: 0.18s;
+}
+.zs-logo g {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: zkturn 2.2s 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.zs-logo img, .zk-splash-logo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 0 3px #EDB54E, 0 0 60px #EDB54E88, 0 30px 70px rgba(0, 0, 0, 0.6);
+  opacity: 0;
+  transform: scale(0.55) rotate(-10deg);
+  filter: blur(10px) brightness(1.6);
+  animation: zslogo 0.9s 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) forwards;
+}
+.zs-shine, .zk-splash-shine {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid var(--zk-acc);
-  opacity: 0;
-  animation: zkring 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
-}
-.zk-ring.r2 { animation-delay: 0.7s; }
-.zk-ring.r3 { animation-delay: 1.4s; }
-
-.zk-splash-logo-wrap {
-  position: relative;
-  width: 100px;
-  height: 100px;
-  border-radius: 30px;
-  background: var(--zk-panel);
-  border: 2px solid var(--zk-acc);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 35px rgba(242, 184, 75, 0.45);
   overflow: hidden;
-  animation: zslogo 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-}
-
-.zk-splash-shine {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 50px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
-  animation: zsshine 2.5s infinite;
   pointer-events: none;
 }
-
-.zk-splash-logo {
-  width: 76px;
-  height: 76px;
-  object-fit: contain;
+.zs-shine::after, .zk-splash-shine::after {
+  content: "";
+  position: absolute;
+  top: -20%;
+  bottom: -20%;
+  width: 35%;
+  left: -60%;
+  transform: skewX(-18deg);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.65), transparent);
+  animation: zsshine 1.1s 1.25s ease-in-out forwards;
 }
 
+#zksplash .zs-ring, .zk-splash-rings .zk-ring {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 24px);
+  width: min(64vw, 250px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%) scale(0.9);
+  border-radius: 50%;
+  border: 2px solid #EDB54E;
+  opacity: 0;
+  animation: zkring 1.8s 1.1s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+#zksplash .zs-ring:nth-child(2), .zk-ring.r2 { animation-delay: 1.5s; }
+#zksplash .zs-ring:nth-child(3), .zk-ring.r3 { animation-delay: 1.9s; }
+
 .zk-splash-title {
-  font-family: 'Unbounded', sans-serif;
+  font-family: var(--zk-fd);
   font-size: 26px;
   font-weight: 800;
   color: #fff;
   letter-spacing: -0.5px;
-  margin-top: 20px;
-  text-shadow: 0 2px 14px rgba(242, 184, 75, 0.4);
-}
-
-.zk-splash-sub {
-  color: var(--zk-acc);
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  margin-top: 4px;
-}
-
-.zk-splash-loader {
-  width: 140px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(246, 238, 220, 0.12);
-  margin-top: 24px;
-  overflow: hidden;
+  margin-top: 14px;
   position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 14px rgba(242, 184, 75, 0.45);
 }
-.zk-splash-bar {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, #F2B84B, #FF8C00);
-  animation: msh 1.2s infinite ease-in-out;
+.zk-splash-sub, #zksplash small {
+  position: relative;
+  z-index: 1;
+  font: 800 13px var(--zk-fb);
+  letter-spacing: 1.5px;
+  color: var(--zk-mute);
+  opacity: 0;
+  animation: zkword 0.8s 1.15s ease forwards;
 }
 
 /* ===================================================================
-   🎧 Vinil Grammofon (.m-deck, .dk-disc, .dk-arm)
+   🎧 Vinil Grammofon va Musiqa Pleyerlari
    =================================================================== */
 
+/* Musiqa bosh sahifasidagi vinil dek (.m-deck) */
 .m-deck {
+  margin: 16px 18px 0;
+  padding: 14px;
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
   position: relative;
+  overflow: hidden;
+  background: rgba(246, 238, 220, 0.07);
+  box-shadow: inset 0 0 0 1px var(--zk-line), 0 18px 40px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: var(--zk-blur);
+  backdrop-filter: var(--zk-blur);
+  animation: zkin 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.m-deck::before {
+  content: "";
+  position: absolute;
+  left: -40px;
+  top: -40px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--zk-acc) 28%, transparent), transparent 70%);
+  opacity: 0.5;
+  transition: opacity 0.6s;
+}
+.m-deck.on::before, .m-deck.playing::before {
+  opacity: 1;
+  animation: dkglow 1.6s ease-in-out infinite alternate;
+}
+
+.dk-v {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.dk-disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #0b0b12 0 2px, #1a1a24 2px 4px);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.55), 0 0 0 7px rgba(255, 255, 255, 0.04);
+  animation: zkspin 3.6s linear infinite;
+  animation-play-state: paused;
+}
+.dk-disc::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 20deg, transparent 0 18%, rgba(255, 255, 255, 0.14) 24%, transparent 30% 68%, rgba(255, 255, 255, 0.09) 74%, transparent 80%);
+}
+.dk-lbl {
+  position: absolute;
+  inset: 36px;
+  border-radius: 50%;
+  background: center/cover;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.35);
+}
+.dk-lbl::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  border-radius: 50%;
+  background: #0b0b12;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+}
+.m-deck.on .dk-disc, .m-deck.playing .dk-disc {
+  animation-play-state: running;
+}
+
+.dk-arm {
+  position: absolute;
+  right: -8px;
+  top: -6px;
+  width: 10px;
+  height: 92px;
+  transform-origin: 5px 6px;
+  transform: rotate(-30deg);
+  transition: transform 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+  pointer-events: none;
+}
+.m-deck.on .dk-arm, .m-deck.playing .dk-arm, .m-deck.load .dk-arm {
+  transform: rotate(2deg);
+}
+.dk-arm::before, .dk-pivot {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #d8d2c4;
+  box-shadow: 0 0 0 4px rgba(216, 210, 196, 0.18);
+}
+.dk-arm::after, .dk-needle {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 7px;
+  width: 4px;
+  height: 78px;
+  border-radius: 2px;
+  background: linear-gradient(#ece6d8, #9a9488);
+  box-shadow: -2px 5px 8px rgba(0, 0, 0, 0.4);
+}
+.dk-arm i {
+  position: absolute;
+  left: -1px;
+  bottom: -12px;
+  width: 12px;
+  height: 17px;
+  border-radius: 3px;
+  background: #2a2a33;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.dk-t {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+.dk-t small {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--zk-acc);
+}
+.dk-t b {
+  display: block;
+  font-size: 17px;
+  font-weight: 800;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dk-t > span:not(.dk-eq) {
+  display: block;
+  font-size: 12.5px;
+  color: var(--zk-mute);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dk-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 24px;
+  margin-top: 10px;
+}
+.dk-eq i {
+  flex: 1;
+  max-width: 4px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--zk-acc);
+  transform-origin: bottom;
+  transform: scaleY(0.12);
+  opacity: 0.55;
+  transition: opacity 0.4s;
+}
+.m-deck.on .dk-eq i, .m-deck.playing .dk-eq i {
+  opacity: 1;
+  animation: zkeq 0.9s ease-in-out infinite;
+}
+.m-deck.on .dk-eq i:nth-child(3n+1) { animation-duration: 0.7s; animation-delay: -0.2s; }
+.m-deck.on .dk-eq i:nth-child(3n+2) { animation-duration: 1.1s; animation-delay: -0.5s; }
+.m-deck.on .dk-eq i:nth-child(4n) { animation-duration: 0.8s; animation-delay: -0.35s; }
+
+.dk-c {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.dk-c button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--zk-glass);
+  box-shadow: inset 0 0 0 1px var(--zk-line);
+  transition: transform 0.15s;
+}
+.dk-c button:active { transform: scale(0.9); }
+.dk-c button svg { width: 16px; height: 16px; }
+.dk-c .pl {
+  width: 52px;
+  height: 52px;
+  background: var(--zk-acc);
+  color: var(--zk-ink);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--zk-acc) 45%, transparent);
+}
+.dk-c .pl svg { width: 22px; height: 22px; }
+
+/* Boshqa bo'limlarda orqa fonda musiqa eshitilayotganda — tepada ingichka panel (.m-top) */
+body.zk:not(.m-on) .m-mini {
+  display: none !important;
+}
+.m-top {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 46;
+  height: calc(48px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 8px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(7, 11, 31, 0.88);
+  backdrop-filter: var(--zk-blur);
+  -webkit-backdrop-filter: var(--zk-blur);
+  box-shadow: 0 1px 0 var(--zk-line);
+  color: var(--zk-cream);
+  font-family: var(--zk-fb);
+  animation: zkdrop 0.45s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+.m-top[hidden] {
+  display: none;
+}
+.m-top .mt-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+}
+.m-top .m-cv {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+  animation: zkspin 6s linear infinite;
+  animation-play-state: paused;
+  box-shadow: 0 0 0 2px var(--zk-acc);
+}
+.m-top.on .m-cv {
+  animation-play-state: running;
+}
+.m-top .mt-tx {
+  min-width: 0;
+  display: block;
+  line-height: 1.2;
+}
+.m-top .mt-tx b {
+  display: block;
+  font-weight: 800;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-top .mt-tx small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--zk-mute);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-top .mt-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+  flex: none;
+}
+.m-top .mt-eq i {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--zk-acc);
+  transform-origin: bottom;
+  transform: scaleY(0.3);
+}
+.m-top.on .mt-eq i {
+  animation: zkeq 0.8s ease-in-out infinite;
+}
+.m-top.on .mt-eq i:nth-child(2) { animation-delay: -0.27s; }
+.m-top.on .mt-eq i:nth-child(3) { animation-delay: -0.53s; }
+
+.m-top .mt-b {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--zk-glass);
+  color: var(--zk-cream);
+  border: 0;
+  padding: 0;
+}
+.m-top .mt-b svg { width: 18px; height: 18px; }
+.m-top .mt-x { background: rgba(246, 238, 220, 0.14); }
+.m-top .mt-x svg { width: 15px; height: 15px; }
+.m-top .mt-pr {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: rgba(246, 238, 220, 0.12);
+}
+.m-top .mt-pr i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--zk-acc);
+}
+
+body.m-np { --zk-np: calc(48px + env(safe-area-inset-top)); }
+body.m-np > .top { top: var(--zk-np); margin-top: var(--zk-np); }
+body.m-np :is(.bx, .sx, .gx, .dx) { top: var(--zk-np); }
+body.m-np .det.open .close, body.m-np .tvp { top: 0; }
+
+/* To'liq ekranda vinil grammofon (#mplayer ichida) */
+.m-player .m-deck {
   width: min(76vw, 300px);
   aspect-ratio: 1;
   margin: 12px auto 16px;
@@ -870,44 +1291,24 @@ body.zk::after {
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 0;
+  background: none;
+  box-shadow: none;
 }
-
-.dk-disc {
-  position: relative;
+.m-player .dk-disc {
   width: 100%;
   height: 100%;
   border-radius: 50%;
   background: radial-gradient(circle, #0a0e1c 0%, #151b2f 35%, #05070e 70%, #000 100%);
   border: 4px solid #1a223a;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
   animation: zkspin 14s linear infinite;
   animation-play-state: paused;
 }
-
-.m-deck.playing .dk-disc {
+.m-player .m-deck.playing .dk-disc {
   animation-play-state: running;
 }
-
-/* Vinil plastinka izlari (grooves) */
-.dk-disc::before {
-  content: "";
-  position: absolute;
-  inset: 16px;
-  border-radius: 50%;
-  border: 1px dashed rgba(246, 238, 220, 0.1);
-  box-shadow: inset 0 0 0 12px rgba(255, 255, 255, 0.02),
-              inset 0 0 0 24px rgba(0, 0, 0, 0.4),
-              inset 0 0 0 38px rgba(255, 255, 255, 0.02),
-              inset 0 0 0 52px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-}
-
-/* Markazdagi miniatyura qopqog'i */
-.dk-disc .m-big {
+.m-player .dk-disc .m-big {
   width: 44%;
   height: 44%;
   border-radius: 50%;
@@ -917,57 +1318,26 @@ body.zk::after {
   z-index: 2;
   margin: 0;
 }
-
-/* Grammofon ignasi (Tonearm) */
-.dk-arm {
-  position: absolute;
+.m-player .dk-arm {
   top: -10px;
   right: -10px;
   width: 48px;
   height: 110px;
-  pointer-events: none;
-  z-index: 5;
   transform-origin: 36px 14px;
   transform: rotate(-15deg);
   transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-
-.m-deck.playing .dk-arm {
+.m-player .m-deck.playing .dk-arm {
   transform: rotate(24deg);
 }
 
-.dk-pivot {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #ffe299 0%, #c48a27 100%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  border: 2px solid #5a3c0e;
-}
+/* ===================================================================
+   📺 4K Live TV Uslublari
+   =================================================================== */
 
-.dk-needle {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 4px;
-  height: 80px;
-  background: linear-gradient(to bottom, #d4af37, #f6eedc, #8c6d23);
-  border-radius: 2px;
-  transform-origin: top center;
-  transform: rotate(-10deg);
-  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.5);
-}
-.dk-needle::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: -3px;
-  width: 10px;
-  height: 14px;
-  border-radius: 3px;
-  background: #2a1500;
-  border: 1px solid var(--zk-acc);
-}
+.zk .tvp { background: var(--zk-night); }
+.zk .tvb { border-radius: 16px; }
+.zk .tvbar { border-color: var(--zk-line); }
+.zk .ib { background: var(--zk-glass); }
+.zk .badb { background: var(--zk-glass); color: var(--zk-mute); }
+.zk .soon-tv { background: var(--zk-glass); }

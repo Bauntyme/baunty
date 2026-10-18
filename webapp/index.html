@@ -7,12 +7,13 @@
 <title>Kinolar katalogi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
-<link rel="stylesheet" href="zk.css">
 <link rel="stylesheet" href="music.css">
 <link rel="stylesheet" href="docs.css">
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="story.css">
 <link rel="stylesheet" href="books.css">
+<link rel="stylesheet" href="zk.css">
+<link rel="preload" as="image" href="logo.svg">
 <link rel="preconnect" href="https://i.ytimg.com">
 <link rel="preconnect" href="https://lh3.googleusercontent.com">
 <style>
@@ -316,18 +317,24 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 }
 </style>
 </head>
-<body class="zk">
+<body class="zk" data-zkm="kino">
 <!-- 👑 Splash Ochilish Ekrani -->
-<div id="zksplash" class="zk-splash">
+<div id="zksplash" class="zk-splash" aria-hidden="true">
   <div class="zk-splash-box">
     <div class="zk-splash-rings">
-      <div class="zk-ring"></div>
-      <div class="zk-ring r2"></div>
-      <div class="zk-ring r3"></div>
+      <div class="zk-ring zs-ring"></div>
+      <div class="zk-ring r2 zs-ring"></div>
+      <div class="zk-ring r3 zs-ring"></div>
     </div>
-    <div class="zk-splash-logo-wrap">
-      <div class="zk-splash-shine"></div>
-      <img src="logo.svg" class="zk-splash-logo" alt="Bauntys">
+    <div class="zs-logo zk-splash-logo-wrap">
+      <svg viewBox="-60 -60 120 120">
+        <g>
+          <rect x="-36" y="-36" width="72" height="72" pathLength="1"/>
+          <rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/>
+        </g>
+      </svg>
+      <img src="logo.svg" class="zk-splash-logo" alt="Bauntys" decoding="async">
+      <div class="zs-shine zk-splash-shine"></div>
     </div>
     <div class="zk-splash-title">Bauntys</div>
     <div class="zk-splash-sub">Filmlar · TV · Musiqa</div>
@@ -429,6 +436,16 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <button class="c" id="mmplay" aria-label="Ijro / pauza"></button>
   <button class="c" id="mmnext" aria-label="Keyingisi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 6.2v11.6a1 1 0 0 0 1.55.83l8.7-5.8a1 1 0 0 0 0-1.66l-8.7-5.8A1 1 0 0 0 5 6.2z"/><rect x="16.6" y="5" width="2.6" height="14" rx="1.2"/></svg></button>
   <div class="pr"><i id="mmpr"></i></div>
+</div>
+<div class="m-top" id="mtop" hidden role="region" aria-label="Hozir ijroda">
+  <button class="mt-open" type="button" aria-label="Pleyerni ochish">
+    <div class="m-cv" id="mtcv"></div>
+    <span class="mt-tx"><b id="mtt"></b><small id="mta"></small></span>
+    <span class="mt-eq"><i></i><i></i><i></i></span>
+  </button>
+  <button class="mt-b" id="mtplay" aria-label="Ijro / pauza"></button>
+  <button class="mt-b mt-x" id="mtx" aria-label="Yopish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  <div class="mt-pr"><i id="mtpr"></i></div>
 </div>
 <section class="m-player" id="mplayer" aria-modal="true">
   <div class="bgc" id="mbgc"></div>
@@ -851,12 +868,18 @@ $("q").addEventListener("input", (e) => {
 $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
 $("clr").onclick = (e) => { e.preventDefault(); $("q").value = ""; query = ""; $("sbox").classList.remove("has"); renderCur(); };
 $("chan").onclick = () => { if (!channel) return; inTg ? tg.openTelegramLink(channel) : window.open(channel); };
-const zkDice = $("zkDice");
+const zkDice = $("zkDice") || $("dice");
 if (zkDice) {
-  zkDice.onclick = () => {
+  zkDice.onclick = (e) => {
+    e && e.preventDefault();
     haptic("hit");
-    if (window.ZK_spin && items && items.length) {
-      window.ZK_spin(items, (chosen) => {
+    const pool = (items || []).filter((x) => x && x.c);
+    if (!pool.length) {
+      toast("Katalog yuklanmoqda…");
+      return;
+    }
+    if (window.ZK_spin) {
+      window.ZK_spin(pool, (chosen) => {
         if (chosen) openDetail(chosen);
       });
     } else {
@@ -1023,6 +1046,7 @@ function setMode(m) {
   if (mode === m) return;
   const was = mode;
   mode = m; haptic();
+  document.body.dataset.zkm = m;
   document.body.classList.toggle("tvsoon", m === "tv" && tvSoon);
   $("seg").querySelectorAll && $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   if (was === "music" && window.ZMusic) ZMusic.close();

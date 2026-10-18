@@ -161,6 +161,8 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
                                 it["d"] = sanitize_catalog_text(it["d"])
                             if "t" in it:
                                 it["t"] = sanitize_catalog_text(it["t"])
+                        raw_data["channel"] = config.CHANNEL_USERNAME
+                        raw_data["bot"] = config.BOT_USERNAME.lstrip("@")
                         data = raw_data
                         try:
                             cat_file = BASE_DIR / "data" / "catalog.json"
@@ -474,14 +476,26 @@ async def handle_music_play(request: web.Request) -> web.Response:
         except Exception as e:
             logger.warning(f"Play search fallback xatosi: {e}")
 
-    # YouTube id bo'lsa
-    yt_id = body.get("y") or (body.get("id") if body.get("s") == "yt" else None)
-    if yt_id:
-        return web.json_response({"ok": True, "url": f"https://www.youtube.com/watch?v={yt_id}"})
+    # YouTube yoki noma'lum manba bo'lsa, avval qidiruv orqali MP3 audio topish
+    query = f"{artist} {title}".strip()
+    if query:
+        try:
+            results = await music_service.search_tracks(query=query, limit=3)
+            for res in results:
+                if res.get("preview") and str(res["preview"]).startswith("http"):
+                    return web.json_response({"ok": True, "url": res["preview"]})
+                if res.get("url") and str(res["url"]).endswith((".mp3", ".m4a", ".ogg")):
+                    return web.json_response({"ok": True, "url": res["url"]})
+        except Exception as e:
+            logger.warning(f"Play search fallback xatosi: {e}")
 
-    # Oxirgi chora: top 50 dan biror ishlaydigan namuna
-    if TOP_50_TRACKS and TOP_50_TRACKS[0].get("url"):
-        return web.json_response({"ok": True, "url": TOP_50_TRACKS[0]["url"]})
+    # Oxirgi chora: top 50 dan biror ishlaydigan audio oqim namunasi
+    if TOP_50_TRACKS:
+        for track in TOP_50_TRACKS:
+            if track.get("url") and str(track["url"]).startswith("http") and not "youtube.com" in str(track["url"]):
+                return web.json_response({"ok": True, "url": track["url"]})
+        if TOP_50_TRACKS[0].get("url"):
+            return web.json_response({"ok": True, "url": TOP_50_TRACKS[0]["url"]})
 
     return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
@@ -1186,14 +1200,13 @@ def create_web_app() -> web.Application:
     if f_dir.exists():
         app.router.add_static("/f", f_dir, name="fonts")
 
-    # Asosiy Mini App papkasidagi yordamchi fayllarni root orqali ham berish
-    for fname in ["music.js", "docs.js", "games.js", "story.js", "books.js", "music.css", "docs.css", "games.css", "story.css", "books.css"]:
-        fpath = webapp_dir / fname
-        if fpath.exists():
+    # Asosiy Mini App papkasidagi barcha statik fayllarni root orqali ham berish
+    for fpath in webapp_dir.iterdir():
+        if fpath.is_file() and fpath.name != "index.html":
             def make_handler(target_path):
                 async def _h(req):
                     return web.FileResponse(target_path)
                 return _h
-            app.router.add_get(f"/{fname}", make_handler(fpath))
+            app.router.add_get(f"/{fpath.name}", make_handler(fpath))
 
     return app

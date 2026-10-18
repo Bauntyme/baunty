@@ -202,3 +202,56 @@ async def test_handle_music_play_always_returns_playable_stream():
         assert "http" in data_dz["url"]
     finally:
         await client.close()
+
+
+@pytest.mark.asyncio
+async def test_root_static_file_serving_for_zk_assets():
+    """/zk.css, /zk.js, /logo.svg, /logo.webp barchasi root orqali 200 OK qaytarishi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        for fname in ["zk.css", "zk.js", "logo.svg", "logo.webp"]:
+            resp = await client.get(f"/{fname}")
+            assert resp.status == 200, f"/{fname} 200 qaytarishi kerak, ammo {resp.status} qaytdi"
+            body = await resp.read()
+            assert len(body) > 0, f"/{fname} bo'sh bo'lmasligi kerak"
+    finally:
+        await client.close()
+
+
+def test_slim_top_player_and_webgl_octagram():
+    """#mtop slim pleyer paneli, paintTop, WebGL #zkbg va zksplash octagram girih yulduzi."""
+    index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
+    zk_css = (BASE_DIR / "webapp" / "zk.css").read_text(encoding="utf-8")
+    zk_js = (BASE_DIR / "webapp" / "zk.js").read_text(encoding="utf-8")
+    music_js = (BASE_DIR / "webapp" / "music.js").read_text(encoding="utf-8")
+
+    # 1. #mtop slim pleyer paneli
+    assert 'id="mtop"' in index_html
+    assert 'class="mt-open"' in index_html
+    assert 'id="mtcv"' in index_html
+    assert 'id="mtt"' in index_html
+    assert 'id="mta"' in index_html
+    assert 'id="mtplay"' in index_html
+    assert 'id="mtx"' in index_html
+    assert 'id="mtpr"' in index_html
+    assert ".m-top" in zk_css
+    assert "paintTop" in music_js
+
+    # 2. Splash octagram girih yulduzi (8 burchakli girih yulduzi: rect + rotate(45))
+    assert 'viewBox="-60 -60 120 120"' in index_html
+    assert 'rotate(45)' in index_html
+    assert "zkdraw" in zk_css
+    assert "zkturn" in zk_css
+
+    # 3. WebGL jonli ipak-girih shaderi
+    assert 'cv.id = "zkbg"' in zk_js or 'getElementById("zkbg")' in zk_js
+    assert "webgl" in zk_js
+    assert "createShader" in zk_js
+    assert "createProgram" in zk_js
+    assert ".zk-bg-canvas" in zk_css or "#zkbg" in zk_css
+
+

@@ -317,7 +317,23 @@ function paintAll() {
   }
   const pi = playing() || isLoading ? ICON.pause : ICON.play;
   if ($("mmplay").innerHTML !== pi) $("mmplay").innerHTML = pi;
+  paintTop();
   paintPlayer();
+}
+function paintTop() {
+  const el = $("mtop"); if (!el) return;
+  const it = cur(), show = !!it && !opened;
+  el.hidden = !show; document.body.classList.toggle("m-np", show);
+  if (!show) return;
+  const k = keyOf(it);
+  if (el.dataset.k !== k) {
+    el.dataset.k = k; const p = parse(it);
+    $("mtcv").outerHTML = coverHTML(it).replace('class="m-cv ', 'id="mtcv" class="m-cv ');
+    $("mtt").textContent = p.song; $("mta").textContent = p.artist;
+  }
+  const pi = playing() || isLoading ? ICON.pause : ICON.play;
+  if ($("mtplay").innerHTML !== pi) $("mtplay").innerHTML = pi;
+  el.classList.toggle("on", playing());
 }
 function paintPlayer() {
   const it = cur(); if (!it) return;
@@ -335,7 +351,10 @@ function paintPlayer() {
   $("mbig").classList.toggle("paused", !playing() && !isLoading);
   const isPl = playing();
   const deck = $("mdeck");
-  if (deck) deck.classList.toggle("playing", isPl);
+  if (deck) {
+    deck.classList.toggle("playing", isPl);
+    deck.classList.toggle("on", isPl);
+  }
   const pi = playing() || isLoading ? ICON.pause : ICON.play;
   if ($("mpplay").innerHTML !== pi) $("mpplay").innerHTML = pi;
   $("mpshuf").classList.toggle("on", shuffle);
@@ -353,6 +372,7 @@ function paintProgress() {
   const d = audio.duration && isFinite(audio.duration) ? audio.duration : (cur()?.d || 0);
   const t = scrubbing ? scrubT : audio.currentTime || 0;
   const f = d ? Math.min(1, t / d) : 0;
+  if ($("mtpr")) $("mtpr").style.width = (f * 100).toFixed(2) + "%";
   $("mmpr").style.width = (f * 100).toFixed(2) + "%";
   if (!$("mplayer").classList.contains("open")) return;
   $("mpcur").textContent = dur(t); $("mpdur").textContent = d ? dur(d) : "--:--";
@@ -955,6 +975,14 @@ function wire() {
     // faqat eng tepada turganda pastga surish pleyerni yopadi (aks holda bu oddiy aylantirish)
     if (e.target.closest(".m-wave") || $("mplayer").querySelector(".m-pbody").scrollTop > 0) { sy = null; return; }
     sy = e.touches[0].clientY; }, {passive: true});
+  const mtop = $("mtop");
+  if (mtop) {
+    mtop.addEventListener("click", (e) => {
+      if (e.target.closest("#mtplay")) { e.stopPropagation(); toggle(); return; }
+      if (e.target.closest("#mtx")) { e.stopPropagation(); audio.pause(); qi = -1; paintAll(); return; }
+      if (e.target.closest(".mt-open")) { openPlayer(); return; }
+    });
+  }
   $("mplayer").addEventListener("touchend", (e) => { if (sy != null && e.changedTouches[0].clientY - sy > 110) closePlayer(); sy = null; }, {passive: true});
 }
 
