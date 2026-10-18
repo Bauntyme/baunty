@@ -56,7 +56,7 @@ class MediaDownloader:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "mweb"]
+                    "player_client": ["android", "ios", "tvhtml5"]
                 },
                 "tiktok": {
                     "api_hostname": "api22-normal-c-useast2a.tiktokv.com"
@@ -68,6 +68,10 @@ class MediaDownloader:
                 "Accept-Language": "en-US,en;q=0.9",
             },
         }
+
+        cookies_file = os.getenv("COOKIES_FILE") or str(config.BASE_DIR / "cookies.txt") if hasattr(config, "BASE_DIR") else "cookies.txt"
+        if os.path.isfile(cookies_file):
+            ydl_opts["cookiefile"] = cookies_file
 
         if ffmpeg_bin:
             ydl_opts["ffmpeg_location"] = ffmpeg_bin
@@ -244,7 +248,7 @@ class MediaDownloader:
             "retries": 3,
             "extractor_args": {
                 "youtube": {
-                    "player_client": ["android", "ios", "mweb"]
+                    "player_client": ["android", "ios", "tvhtml5"]
                 }
             },
             "http_headers": {
@@ -252,6 +256,10 @@ class MediaDownloader:
                 "Accept-Language": "en-US,en;q=0.9",
             },
         }
+
+        cookies_file = os.getenv("COOKIES_FILE") or str(config.BASE_DIR / "cookies.txt") if hasattr(config, "BASE_DIR") else "cookies.txt"
+        if os.path.isfile(cookies_file):
+            ydl_opts["cookiefile"] = cookies_file
 
         if ffmpeg_bin:
             ydl_opts["ffmpeg_location"] = ffmpeg_bin
@@ -465,6 +473,11 @@ class MediaDownloader:
             return None
 
         invidious_hosts = [
+            "https://invidious.nerdvpn.de",
+            "https://inv.tux.pizza",
+            "https://invidious.privacydev.net",
+            "https://vid.puffyan.us",
+            "https://invidious.private.coffee",
             "https://invidious.f5.si",
             "https://invidious.projectsegfau.lt",
         ]
@@ -520,6 +533,9 @@ class MediaDownloader:
 
         # Piped fallback
         piped_endpoints = [
+            f"https://pipedapi.kavin.rocks/streams/{video_id}",
+            f"https://api.piped.privacydev.net/streams/{video_id}",
+            f"https://piped-api.lunar.icu/streams/{video_id}",
             f"https://api.piped.private.coffee/streams/{video_id}",
         ]
         for ep in piped_endpoints:
@@ -567,10 +583,15 @@ class MediaDownloader:
         clean_url = url.strip()
         prefix = file_prefix or str(uuid.uuid4())[:8]
 
-        # 1. Cobalt orqali yuklashga urinish
-        cob_res = self._download_via_cobalt(clean_url, is_audio=False, file_prefix=prefix)
-        if cob_res and cob_res.success:
-            return cob_res
+        # 1. Cobalt orqali faqat aniq media havolalari (/p/, /reel/, /tv/ yoki /stories/user/12345) yuboriladi
+        has_specific_media = (
+            any(x in clean_url for x in ["/p/", "/reel/", "/tv/"])
+            or bool(re.search(r"instagram\.com/stories/[^/]+/\d+", clean_url))
+        )
+        if has_specific_media:
+            cob_res = self._download_via_cobalt(clean_url, is_audio=False, file_prefix=prefix)
+            if cob_res and cob_res.success:
+                return cob_res
 
         # 2. Agar story URL bo'lsa
         m_story = re.search(r"instagram\.com/stories/([a-zA-Z0-9_\.]+)", clean_url)
@@ -626,12 +647,19 @@ class MediaDownloader:
             else:
                 return None
 
+        # Instagram bo'lsa, umumiy profil yoki stories ro'yxati havolalarini Cobalt ga jo'natmaslik (HTTP 400 oldini olish)
+        if "instagram.com" in clean_url:
+            is_valid_ig_media = any(x in clean_url for x in ["/p/", "/reel/", "/tv/"]) or bool(re.search(r"instagram\.com/stories/[^/]+/\d+", clean_url))
+            if not is_valid_ig_media:
+                return None
+
         # Cobalt API manzil(lar)i (faqat tirik va javob beruvchi instancelar)
         cobalt_endpoints = []
         env_cobalt = os.getenv("COBALT_API_URL", "").strip()
         if env_cobalt:
             cobalt_endpoints.append(env_cobalt)
         cobalt_endpoints.extend([
+            "https://cobalt.tools/api/json",
             "https://api.cobalt.tools",
             "https://cobalt.canine.tools",
             "https://cobalt-api.canine.tools",
@@ -646,7 +674,7 @@ class MediaDownloader:
             payload["downloadMode"] = "audio"
             payload["audioFormat"] = "mp3"
         else:
-            payload["downloadMode"] = "auto"
+            payload["videoQuality"] = "1080"
 
         for base_url in cobalt_endpoints:
             try:
@@ -657,7 +685,7 @@ class MediaDownloader:
                 }
                 api_key = os.getenv("COBALT_API_KEY", "").strip()
                 if api_key:
-                    headers["Authorization"] = f"Bearer {api_key}"
+                    headers["Authorization"] = f"Api-Key {api_key}"
 
                 req = urllib.request.Request(
                     base_url,

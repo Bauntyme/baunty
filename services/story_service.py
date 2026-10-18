@@ -92,6 +92,10 @@ class StoryService:
         if res.success:
             return [res]
 
+        # Agar story 429 (Too Many Requests) yoki yopiq hisob bersa, qayta profile_url orqali 429 olmaslik
+        if res.error and ("429" in res.error or "Too Many Requests" in res.error or "yopiq" in res.error.lower()):
+            return [res]
+
         # 4. Agar story bo'lmasa, profilning eng yangi reels yoki postini yuklab berish
         profile_url = f"https://www.instagram.com/{username}/"
         logger.info(f"Story topilmadi, profile orqali harakat qilinmoqda: {profile_url}")
@@ -145,13 +149,6 @@ class StoryService:
                                 results.append(dl)
             except Exception as e:
                 logger.debug(f"Imginn story scraper xatoligi: {e}")
-
-            # Cobalt orqali profil / story yuklashga urinish
-            if not results:
-                story_url = f"https://www.instagram.com/stories/{username}/"
-                cob = self.downloader._download_via_cobalt(story_url, is_audio=False)
-                if cob and cob.success:
-                    results.append(cob)
 
             return results
 

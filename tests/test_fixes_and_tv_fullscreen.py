@@ -148,3 +148,44 @@ def test_webapp_tv_fullscreen_elements():
     assert "toggleTVFullscreen" in content
     assert "requestFullscreen" in content
     assert "orientation.lock" in content
+    assert "bindClickAndTouch" in content
+
+    # CSS Native Fullscreen va Non-overlapping boshqaruv
+    assert ":fullscreen .fs-bar" in content
+    assert "left:14px;bottom:14px" in content  # #unmute must be on left
+    assert "right:14px;bottom:14px" in content  # #vboxfs must be on right
+    assert ".vov#vload{pointer-events:none !important}" in content
+    assert "padding-top:calc(14px + env(safe-area-inset-top" in content
+
+
+def test_cobalt_rejects_generic_instagram_profile_urls():
+    """Cobalt umumiy Instagram profil yoki hikoyalar ro'yxati havolalarini rad etishi (HTTP 400 oldini olish)."""
+    assert media_downloader._download_via_cobalt("https://www.instagram.com/syrex_support/") is None
+    assert media_downloader._download_via_cobalt("https://www.instagram.com/stories/Mc_f65/") is None
+    assert media_downloader._download_via_cobalt("https://www.instagram.com/Mc_f65/") is None
+
+
+@pytest.mark.asyncio
+async def test_story_service_429_early_exit():
+    """Instagram story 429 xatosi berganda qayta profil so'rovi qilinmasligi testi."""
+    from services.story_service import story_service
+
+    called_urls = []
+
+    async def mock_download_video(url):
+        called_urls.append(url)
+        return DownloadResult(
+            success=False,
+            error="Instagram serveri so'rovlarni vaqtincha chekladi (429 Too Many Requests)."
+        )
+
+    with patch.object(story_service.downloader, "download_video", side_effect=mock_download_video):
+        with patch.object(story_service, "_fetch_stories_via_public_endpoints", return_value=[]):
+            results = await story_service.fetch_stories("syrex_support", limit=1)
+
+    assert len(results) == 1
+    assert "429 Too Many Requests" in results[0].error
+    # Faqat 1 marta story URL chaqirilgan bo'lishi kerak, ortiqcha profil chaqirilmagan
+    assert len(called_urls) == 1
+    assert "stories/syrex_support" in called_urls[0]
+
