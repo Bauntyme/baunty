@@ -608,6 +608,10 @@ def test_tv_4k_ultra_hd_data_and_webapp():
     assert "requestFullscreen" in content
     assert "tvpip" in content
     assert "4K UHD" in content
+    assert "maxBufferLength: 45" in content
+    assert "maxMaxBufferLength: 120" in content
+    assert "maxBufferHole: 0.5" in content
+    assert "image-rendering: -webkit-optimize-contrast" in content
     # visibilitychange da vid.pause bo'lmasligi va pauzada !document.hidden to'sig'i bo'lmasligi kerak
     assert "document.hidden && tvCur) vid.pause()" not in content
     assert "tvCur && !vid.ended && !document.hidden" not in content
@@ -643,6 +647,42 @@ def test_sanitize_branding_comprehensive():
     assert "dilbar" not in text.lower()
     assert channel_clean in text
     assert bot_clean in text
+
+
+@pytest.mark.asyncio
+async def test_start_movie_deep_link_variants():
+    """Botga /start m_284 va /start kino_284 yuborilganda kinoni yetkazish testi."""
+    from unittest.mock import AsyncMock, patch
+    import handlers.start as start_handler
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.memory import MemoryStorage
+
+    message = AsyncMock()
+    message.from_user.id = 887766
+    message.from_user.username = "filmuser"
+    message.from_user.first_name = "Film"
+    message.from_user.last_name = "Fan"
+    message.chat.id = 887766
+    message.message_id = 2002
+    message.text = "/start m_284"
+    message.answer = AsyncMock()
+
+    storage = MemoryStorage()
+    state = FSMContext(storage=storage, key=__import__("aiogram.fsm.storage.base", fromlist=["StorageKey"]).StorageKey(
+        bot_id=1, chat_id=887766, user_id=887766
+    ))
+
+    with patch.object(start_handler.movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliver:
+        mock_deliver.return_value = True
+        await start_handler.cmd_start(message, state)
+        assert mock_deliver.called
+        assert mock_deliver.call_args.kwargs["code"] == "284"
+
+        # Shuningdek /start kino_284 varianti
+        message.text = "/start kino_284"
+        await start_handler.cmd_start(message, state)
+        assert mock_deliver.call_count == 2
+
 
 
 

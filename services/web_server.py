@@ -195,24 +195,75 @@ async def handle_watch(request: web.Request) -> web.Response:
     code = str(body.get("code", "")).strip()
     part = int(body.get("part", 1))
     init_data = request.headers.get("X-Init-Data", "")
-    user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id")
+    user_id_raw = (
+        body.get("user_id")
+        or extract_user_id_from_init_data(init_data)
+        or request.query.get("user_id")
+    )
 
     if not code:
         return web.json_response({"ok": False, "error": "not_found"})
 
+    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    clean_code = code.lstrip("#№").strip()
+    bot_url = f"https://t.me/{bot_username}?start=m_{clean_code}"
+
+    user_id = None
+    if user_id_raw is not None:
+        try:
+            user_id = int(user_id_raw)
+        except (ValueError, TypeError):
+            user_id = None
+
+    delivered = False
     if _bot_instance and user_id:
         try:
-            chat_id = int(user_id)
-            await movie_service.deliver_movie(
+            delivered = await movie_service.deliver_movie(
                 bot=_bot_instance,
-                chat_id=chat_id,
-                code=code,
+                chat_id=user_id,
+                code=clean_code,
                 part=part
             )
         except Exception as e:
             logger.error(f"Watch so'rovida chatga yuborishda xatolik: {e}")
+            delivered = False
 
-    return web.json_response({"ok": True, "code": code, "part": part})
+    if user_id and _bot_instance:
+        if delivered:
+            return web.json_response({
+                "ok": True,
+                "code": clean_code,
+                "part": part,
+                "delivered": True
+            })
+        else:
+            return web.json_response({
+                "ok": False,
+                "action": "open_bot",
+                "url": bot_url,
+                "error": "send_failed",
+                "code": clean_code,
+                "part": part
+            })
+    elif user_id and not _bot_instance:
+        return web.json_response({
+            "ok": False,
+            "action": "open_bot",
+            "url": bot_url,
+            "error": "bot_not_connected",
+            "code": clean_code,
+            "part": part
+        })
+    else:
+        # user_id taqdim etilmagan holatda umumiy API mosligi
+        return web.json_response({
+            "ok": True,
+            "action": "open_bot",
+            "url": bot_url,
+            "delivered": False,
+            "code": clean_code,
+            "part": part
+        })
 
 
 async def handle_music_home(request: web.Request) -> web.Response:

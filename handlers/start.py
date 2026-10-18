@@ -48,8 +48,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     args = message.text.split(maxsplit=1)
     if len(args) > 1:
         param = args[1].strip()
-        if param.startswith("kino_") or param.startswith("movie_"):
-            movie_code = param.replace("kino_", "").replace("movie_", "").strip()
+        if param.startswith("kino_") or param.startswith("movie_") or param.startswith("k_"):
+            movie_code = param.replace("kino_", "").replace("movie_", "").replace("k_", "").strip()
             delivered = await movie_service.deliver_movie(
                 bot=message.bot,
                 chat_id=message.chat.id,
@@ -98,7 +98,20 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                             pass
 
         elif param.startswith("m_"):
-            music_id = param.replace("m_", "").strip()
+            clean_param = param.replace("m_", "").strip()
+            # Kino kodi tekshiruvi: katalogda bo'lsa yoki qisqa raqamli kod bo'lsa to'g'ridan-to'g'ri kinoni yetkazish
+            cat_movie = movie_service.get_catalog_item(clean_param)
+            if cat_movie or (clean_param.isdigit() and len(clean_param) <= 4 and int(clean_param) < 5000):
+                delivered = await movie_service.deliver_movie(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    code=clean_param,
+                    part=1,
+                    reply_to_message_id=message.message_id
+                )
+                if delivered:
+                    return
+            music_id = clean_param
             status_msg = await message.answer("🎵 <b>Qo'shiq tayyorlanmoqda...</b>", parse_mode="HTML")
             try:
                 import os

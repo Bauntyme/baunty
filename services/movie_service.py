@@ -275,6 +275,14 @@ class MovieService:
         100% oq brend: @Zakirovs o'rniga @Bauntyfilmsbot va @BauntyFilms.
         """
         clean_code = str(code).strip().lstrip("#№")
+        if clean_code.startswith("kino_"):
+            clean_code = clean_code[5:]
+        elif clean_code.startswith("movie_"):
+            clean_code = clean_code[6:]
+        elif clean_code.startswith("m_") or clean_code.startswith("k_"):
+            clean_code = clean_code[2:]
+        elif clean_code.startswith("m") and len(clean_code) > 1 and clean_code[1:].isdigit():
+            clean_code = clean_code[1:]
         cat_item = MovieService.get_catalog_item(clean_code)
 
         title = ""

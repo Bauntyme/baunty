@@ -409,9 +409,21 @@ const App = {
             this.hls = new window.Hls({
                 testBandwidth: false,
                 startLevel: -1,
-                abrEwmaDefaultEstimate: 20000000,
-                abrEwmaDefaultEstimateMax: 50000000,
-                capLevelToPlayerSize: false
+                abrEwmaDefaultEstimate: 35000000,
+                abrEwmaDefaultEstimateMax: 80000000,
+                capLevelToPlayerSize: false,
+                enableWorker: true,
+                liveSyncDurationCount: 3,
+                liveMaxLatencyDurationCount: 10,
+                maxBufferLength: 45,
+                maxMaxBufferLength: 120,
+                maxBufferSize: 120 * 1024 * 1024,
+                maxBufferHole: 0.5,
+                highBufferWatchdogPeriod: 2,
+                nudgeOffset: 0.1,
+                nudgeMaxRetry: 5,
+                backBufferLength: 15,
+                startFragPrefetch: true
             });
             this.hls.loadSource(targetUrl);
             this.hls.attachMedia(video);

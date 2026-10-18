@@ -198,7 +198,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
   transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:none;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch}
 .tvp.open{transform:none}
 .vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
-.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
+.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering: -webkit-optimize-contrast;image-rendering: crisp-edges;filter: contrast(1.05) saturate(1.04);-webkit-filter: contrast(1.05) saturate(1.04);transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
 .vbox iframe[hidden],.vbox video[hidden]{display:none}
 .badb{display:block;margin:10px 16px 0;width:calc(100% - 32px);padding:10px;border-radius:12px;background:var(--bg2);
   color:var(--hint);font-size:13px;font-weight:650}
@@ -512,42 +512,83 @@ function setBusy(on, part) {
 }
 async function watch(it, part, recheck = false) {
   if (busy) return;
-  if (!inTg) { toast("📱 Kinoni olish uchun katalogni Telegram ichida oching"); return; }
+  const targetBot = botName || "Bauntyfilmsbot";
+  const uid = (inTg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id)
+    || (new URLSearchParams(window.location.search).get("user_id"))
+    || "";
+
+  if (!inTg && !uid) {
+    toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
+    const directUrl = `https://t.me/${targetBot}?start=m_${it.c}`;
+    setTimeout(() => { window.open(directUrl, "_blank"); }, 300);
+    return;
+  }
+
   setBusy(true, part);
   let r;
   try {
-    const res = await fetch("api/watch", {method: "POST",
-      headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData},
-      body: JSON.stringify({code: it.c, part, recheck})});
+    const payload = {
+      code: it.c,
+      part,
+      recheck,
+      user_id: uid ? Number(uid) : undefined
+    };
+    const res = await fetch("api/watch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Init-Data": (inTg && tg.initData) ? tg.initData : ""
+      },
+      body: JSON.stringify(payload)
+    });
     r = await res.json();
-  } catch (e) { r = {ok: false, error: "network"}; }
+  } catch (e) {
+    r = {ok: false, error: "network"};
+  }
   setBusy(false);
-  if (r.ok) {
+
+  // 1. Rostdan ham chatga yetkazilgan bo'lsa
+  if (r.ok && r.delivered) {
     haptic("ok"); markSeen(it.c, part); refreshSeen(it.c);
     if (it.p > 1) {
       document.querySelector(`.pbtn[data-p="${part}"]`)?.classList.add("seen");
       const label = `▶️ ${nextPart(it)}-qismni ko'rish`;
       $("play").textContent = label; tg.MainButton.setText(label);
-      toast(`✅ ${part}-qism chatga yuborildi`);
+      toast(`✅ ${part}-qism bot chatiga yuborildi!`);
     } else {
-      toast("✅ Kino chatga yuborildi");
-      setTimeout(() => tg.close(), 650);
+      toast("✅ Kino bot chatiga yuborildi!");
+      setTimeout(() => inTg && tg.close && tg.close(), 650);
     }
     return;
   }
+
+  // 2. Agar botga yo'naltirish kerak bo'lsa (user_id yo'q yoki bot chat ochilmagan)
+  if (r.action === "open_bot" || r.url || r.error === "need_start") {
+    haptic("ok");
+    toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
+    const targetUrl = r.url || `https://t.me/${targetBot}?start=m_${it.c}`;
+    if (inTg && tg.openTelegramLink) {
+      tg.openTelegramLink(targetUrl);
+    } else {
+      window.open(targetUrl, "_blank");
+    }
+    return;
+  }
+
+  if (r.ok) {
+    toast("✅ Kino bot chatiga yuborildi!");
+    return;
+  }
+
   haptic("err");
   const msg = {
     not_found: "❌ Bu kino olib tashlangan",
     rate: `⏳ Juda ko'p so'rov. ${Math.ceil((r.retry || 600) / 60)} daqiqadan keyin urinib ko'ring`,
     auth: "⚠️ Sessiya eskirgan — katalogni yopib, qayta oching",
     network: "📶 Internet bilan muammo. Qayta urinib ko'ring",
-    send_failed: "⚠️ Yuborib bo'lmadi. Birozdan keyin urinib ko'ring",
+    send_failed: "⚠️ Yuborib bo'lmadi. Bot chatini oching",
   };
   if (r.error === "need_sub") return showSub(it, part, r.channels || []);
-  if (r.error === "need_start") {
-    toast("🤖 Botni ishga tushiryapmiz…");
-    if (botName) return tg.openTelegramLink(`https://t.me/${botName}?start=kino_${it.c}`);
-  }
   toast(msg[r.error] || msg.send_failed, 3200);
 }
 
@@ -639,7 +680,7 @@ function tvInitials(name) {
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
   (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')">` : "");
 const tileHTML = (c) => {
-  const qb = (c.q && c.q.includes("4K")) ? "4K UHD" : (c.q || ((c.c === "uz" || c.i <= 48) ? "4K UHD" : "1080p HD"));
+  const qb = "4K UHD";
   return `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
   <span class="live">LIVE</span><span class="tv-res">${esc(qb)}</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 };
@@ -888,33 +929,44 @@ function attempt(url) {
         if (!Hls.isSupported()) {
           vid.src = streamTarget;
           tryAutoplay();
-        } else {
           hls = new Hls({
             testBandwidth: false,
             startLevel: -1,
-            abrEwmaDefaultEstimate: 20000000,
-            abrEwmaDefaultEstimateMax: 50000000,
+            abrEwmaDefaultEstimate: 35000000,
+            abrEwmaDefaultEstimateMax: 80000000,
             capLevelToPlayerSize: false,
             enableWorker: true,
             liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 8,
-            maxBufferLength: 30,
-            maxMaxBufferLength: 60,
-            maxBufferSize: 60 * 1000 * 1000,
-            backBufferLength: 10,
-            manifestLoadingTimeOut: 8000,
-            manifestLoadingMaxRetry: 2,
-            levelLoadingTimeOut: 8000,
-            levelLoadingMaxRetry: 2,
-            fragLoadingTimeOut: 12000,
-            fragLoadingMaxRetry: 3
+            liveMaxLatencyDurationCount: 10,
+            maxBufferLength: 45,
+            maxMaxBufferLength: 120,
+            maxBufferSize: 120 * 1024 * 1024,
+            maxBufferHole: 0.5,
+            highBufferWatchdogPeriod: 2,
+            nudgeOffset: 0.1,
+            nudgeMaxRetry: 5,
+            backBufferLength: 15,
+            startFragPrefetch: true,
+            manifestLoadingTimeOut: 10000,
+            manifestLoadingMaxRetry: 3,
+            levelLoadingTimeOut: 10000,
+            levelLoadingMaxRetry: 3,
+            fragLoadingTimeOut: 16000,
+            fragLoadingMaxRetry: 4,
+            fragLoadingRetryDelay: 800,
+            fragLoadingMaxRetryTimeout: 64000
           });
+          let netFatalRetries = 0;
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
               if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                fin(bad, "network_fatal");
+                if (++netFatalRetries <= 3) {
+                  try { hls.startLoad(); } catch (err) {}
+                } else {
+                  fin(bad, "network_fatal");
+                }
               } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                hls.recoverMediaError();
+                try { hls.recoverMediaError(); } catch (err) { fin(bad, d.type); }
               } else {
                 fin(bad, d.type);
               }
@@ -964,25 +1016,14 @@ function attempt(url) {
                 hls.nextLoadLevel = bestIdx;
                 hls.minAutoLevel = Math.max(0, bestIdx - 1);
               } catch (e) {}
-              const lvl = data.levels[bestIdx];
               const qBtn = $("tvq");
-              if (qBtn) {
-                const is4k = lvl && (lvl.height >= 2160 || (tvCur && tvCur.q && tvCur.q.includes("4K")));
-                const label = is4k ? "4K UHD" : ((lvl && lvl.height >= 1080) ? "1080p Full HD" : (lvl && lvl.height ? lvl.height + "p HD" : "4K UHD"));
-                qBtn.textContent = label;
-              }
+              if (qBtn) qBtn.textContent = "4K UHD";
             }
             tryAutoplay();
           });
           hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
-            if (hls && hls.levels && hls.levels[data.level]) {
-              const lvl = hls.levels[data.level];
-              const qBtn = $("tvq");
-              if (qBtn && lvl && lvl.height) {
-                const is4k = lvl.height >= 2160 || (tvCur && tvCur.q && tvCur.q.includes("4K"));
-                qBtn.textContent = is4k ? "4K UHD" : (lvl.height >= 1080 ? "1080p Full HD" : lvl.height + "p HD");
-              }
-            }
+            const qBtn = $("tvq");
+            if (qBtn) qBtn.textContent = "4K UHD";
           });
           hls.loadSource(streamTarget);
           hls.attachMedia(vid);
@@ -1046,12 +1087,12 @@ function openTV(c, push = true) {
     } catch (e) {}
   }
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  const qb = (c.q && c.q.includes("4K")) ? "4K UHD" : (c.q || ((c.c === "uz" || c.i <= 48) ? "4K UHD" : "1080p HD"));
+  const qb = "4K UHD";
   $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
   const qBtn = $("tvq");
-  if (qBtn) qBtn.textContent = qb.includes("4K") ? "4K UHD" : "1080p Full HD";
+  if (qBtn) qBtn.textContent = "4K UHD";
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);
   if (same.length < 6) same = same.concat(tvItems.filter((x) => x.c === c.c && x.i !== c.i && !same.includes(x)));
   same = same.slice(0, 60);
@@ -1133,14 +1174,12 @@ if (tvqBtn) {
         }
         hls.currentLevel = best;
         hls.loadLevel = best;
-        const lvl = hls.levels[best];
-        const is4k = lvl && (lvl.height >= 2160 || (tvCur && tvCur.q === "4K UHD"));
-        tvqBtn.textContent = is4k ? "4K UHD" : ((lvl && lvl.height >= 1080) ? "1080p Full HD" : (lvl && lvl.height ? lvl.height + "p HD" : "1080p Full HD"));
-        toast(`Sifat: ${tvqBtn.textContent} (Majburiy)`, 1400);
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Majburiy)", 1400);
       } else {
         hls.currentLevel = -1;
-        tvqBtn.textContent = "Auto Full HD";
-        toast("Sifat: Avto (moslashuvchan)", 1400);
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
       }
       return;
     }
@@ -1149,17 +1188,17 @@ if (tvqBtn) {
       if (curSrc.includes("tracks-v1a1")) {
         const autoUrl = curSrc.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
         attempt(autoUrl).catch(() => {});
-        tvqBtn.textContent = "Auto Full HD";
-        toast("Sifat: Avto (moslashuvchan)", 1400);
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
       } else {
         const directUrl = curSrc.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
         attempt(directUrl).catch(() => {});
-        const is4k = tvCur && tvCur.q === "4K UHD";
-        tvqBtn.textContent = is4k ? "4K UHD" : "1080p Full HD";
-        toast(`Sifat: ${tvqBtn.textContent} (1080p)`, 1400);
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Majburiy)", 1400);
       }
     } else {
-      toast(`Sifat: ${tvqBtn.textContent}`, 1200);
+      tvqBtn.textContent = "4K UHD";
+      toast("Sifat: 4K UHD (Ultra HD)", 1200);
     }
   };
 }
