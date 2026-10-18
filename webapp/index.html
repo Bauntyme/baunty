@@ -7,6 +7,7 @@
 <title>Kinolar katalogi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<link rel="stylesheet" href="zk.css">
 <link rel="stylesheet" href="music.css">
 <link rel="stylesheet" href="docs.css">
 <link rel="stylesheet" href="games.css">
@@ -315,12 +316,43 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 }
 </style>
 </head>
-<body>
-<header class="top">
-  <div class="brand">
-    <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📖 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="tv">📺 TV</button></div>
-      <small id="count">Yuklanmoqda…</small></div>
-    <button class="chan" id="chan" hidden>📢 Kanal</button>
+<body class="zk">
+<!-- 👑 Splash Ochilish Ekrani -->
+<div id="zksplash" class="zk-splash">
+  <div class="zk-splash-box">
+    <div class="zk-splash-rings">
+      <div class="zk-ring"></div>
+      <div class="zk-ring r2"></div>
+      <div class="zk-ring r3"></div>
+    </div>
+    <div class="zk-splash-logo-wrap">
+      <div class="zk-splash-shine"></div>
+      <img src="logo.svg" class="zk-splash-logo" alt="Bauntys">
+    </div>
+    <div class="zk-splash-title">Bauntys</div>
+    <div class="zk-splash-sub">Filmlar · TV · Musiqa</div>
+    <div class="zk-splash-loader">
+      <div class="zk-splash-bar"></div>
+    </div>
+  </div>
+</div>
+
+<header class="top zk-top">
+  <div class="zk-brand-bar">
+    <div class="zk-brand-profile">
+      <div class="zk-brand-avatar-wrap">
+        <div class="zk-avatar-glow"></div>
+        <img src="logo.svg" class="zk-avatar-img" alt="Bauntys">
+      </div>
+      <div class="zk-brand-info">
+        <div class="zk-brand-name">Bauntys <span class="zk-pro-badge">PRO</span></div>
+        <div class="zk-brand-desc" id="count">Kinolar, TV va Musiqa olami</div>
+      </div>
+    </div>
+    <button class="chan zk-chan-btn" id="chan" hidden>📢 Kanal</button>
+  </div>
+  <div class="brand-nav-wrap">
+    <div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📖 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
   </div>
   <div class="search-wrap" id="searchWrap">
     <label class="search" id="sbox">
@@ -406,7 +438,15 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
     <button class="m-ib" id="mpmore" aria-label="Amallar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
   <div class="m-pbody">
-    <div class="m-cv m-big" id="mbig"></div>
+    <div class="m-deck" id="mdeck">
+      <div class="dk-disc" id="dkdisc">
+        <div class="m-cv m-big" id="mbig"></div>
+      </div>
+      <div class="dk-arm" id="dkarm">
+        <div class="dk-pivot"></div>
+        <div class="dk-needle"></div>
+      </div>
+    </div>
     <div class="m-pinfo"><div class="t"><h1 class="m-h" id="mpt"></h1><button class="ar" id="mpa"></button></div>
       <button class="m-heart" id="mpheart" aria-label="Saqlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 7.9 3.6 4.5 7 4.5c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.4 0 5.6 3.4 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg></button></div>
     <div class="m-wave"><canvas id="mwave"></canvas></div>
@@ -457,6 +497,25 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
 
+<!-- 🎲 Oltin Kubik Ruletkasi -->
+<section class="zk-slot" id="zkSlot" aria-modal="true" hidden>
+  <div class="zk-slot-backdrop"></div>
+  <div class="zk-slot-modal">
+    <button class="zk-slot-close" id="zkSlotClose" aria-label="Yopish">✕</button>
+    <div class="zk-slot-header">
+      <div style="font-size:36px;margin-bottom:4px">🎲</div>
+      <h2>Tasodifiy Kino</h2>
+      <p>Omadingizni sinab ko'ring!</p>
+    </div>
+    <div class="zk-slot-window">
+      <div class="zk-slot-pointer"></div>
+      <div class="zk-slot-reel" id="zkSlotReel"></div>
+    </div>
+    <button class="zk-slot-spin-btn" id="zkSlotSpinBtn">🎲 Yana aylantirish</button>
+  </div>
+</section>
+
+<script src="zk.js"></script>
 <script src="music.js"></script>
 <script src="docs.js"></script>
 <script src="games.js"></script>
@@ -544,13 +603,19 @@ function render() {
   let html = "";
   if (tab === "all") {
     const top = [...items].filter((x) => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 10);
-    if (top.length >= 3) html += `<div class="sec-h"><h2>🔥 Top ${top.length}</h2><span>eng ko'p ko'rilgan</span></div>
-      <div class="row">${top.map((x, i) => cardHTML(x, i + 1)).join("")}</div>`;
+    if (top.length >= 3) html += `<div class="sec-h zk-top10-h"><h2>🔥 Top ${top.length}</h2><span>eng ko'p ko'rilgan</span></div>
+      <div class="row zk-flow" id="zkFlow">${top.map((x, i) => cardHTML(x, i + 1)).join("")}</div>`;
   }
   const title = {all: "🆕 Yangi qo'shilganlar", pop: "🔥 Ommabop", film: "🎬 Filmlar", ser: "📺 Seriallar", seen: "✓ Ko'rganlarim"}[tab];
   html += `<div class="sec-h"><h2>${title}</h2><span>${list.length} ta</span></div>
     <div class="grid">${list.map((x) => cardHTML(x)).join("")}</div>`;
   m.innerHTML = html;
+  if (tab === "all") {
+    const flow = $("zkFlow");
+    if (flow && window.ZK && window.ZK.initFlow) {
+      window.ZK.initFlow(flow);
+    }
+  }
 }
 
 // rasm yuklanganda silliq ko'rinadi; topilmasa — nomli fon
@@ -790,14 +855,20 @@ const zkDice = $("zkDice");
 if (zkDice) {
   zkDice.onclick = () => {
     haptic("hit");
-    if (!items || !items.length) {
-      toast("Katalog yuklanmoqda…");
-      return;
-    }
-    const rnd = items[Math.floor(Math.random() * items.length)];
-    if (rnd) {
-      toast(`🎲 Tasodifiy: ${rnd.t}`, 1600);
-      openDetail(rnd);
+    if (window.ZK_spin && items && items.length) {
+      window.ZK_spin(items, (chosen) => {
+        if (chosen) openDetail(chosen);
+      });
+    } else {
+      if (!items || !items.length) {
+        toast("Katalog yuklanmoqda…");
+        return;
+      }
+      const rnd = items[Math.floor(Math.random() * items.length)];
+      if (rnd) {
+        toast(`🎲 Tasodifiy: ${rnd.t}`, 1600);
+        openDetail(rnd);
+      }
     }
   };
 }
@@ -993,10 +1064,24 @@ function setMode(m) {
     $("count").textContent = `${items.length} ta kino · posterini bosing`;
     render();
   }
+  const curBtn = $("seg")?.querySelector(`button[data-m="${m}"]`);
+  if (curBtn && window.ZK && window.ZK.updateIndicator) {
+    window.ZK.updateIndicator(curBtn);
+  }
   window.scrollTo({top: 0});
 }
 const KINO_CHIPS = $("chips").innerHTML;
-$("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
+$("seg").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-m]");
+  if (b) {
+    setMode(b.dataset.m);
+    if (window.ZK && window.ZK.updateIndicator) window.ZK.updateIndicator(b);
+  }
+});
+window.addEventListener("resize", () => {
+  const b = $("seg")?.querySelector(".on");
+  if (b && window.ZK && window.ZK.updateIndicator) window.ZK.updateIndicator(b);
+});
 window.ZK_setMode = setMode;
 window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
@@ -1692,10 +1777,17 @@ async function load() {
     return;
   }
   items.forEach((x) => { x._n = norm(x.t); x._k = x._n + " " + norm(x.d) + " " + x.c; byCode.set(x.c, x); });
+  window.ZK_ITEMS = items;
   if (mode !== "kino") return;
   $("count").textContent = `${items.length} ta kino · posterini bosing`;
   $("chan").hidden = !channel;
   render();
+  setTimeout(() => {
+    const activeBtn = $("seg")?.querySelector(".on");
+    if (activeBtn && window.ZK && window.ZK.updateIndicator) {
+      window.ZK.updateIndicator(activeBtn);
+    }
+  }, 120);
   const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || new URLSearchParams(location.search).get("c") || "";
   if (document.querySelector('#seg [data-m="games"]') && (/^games/i.test(sp) || new URLSearchParams(location.search).has("games"))) {
     const gid = sp.split("_")[1]; setMode("games"); if (gid && window.ZGames && ZGames.ids.includes(gid)) ZGames.open(gid); return; }

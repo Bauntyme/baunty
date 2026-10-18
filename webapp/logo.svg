@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0E1330"/>
+      <stop offset="50%" stop-color="#070B1F"/>
+      <stop offset="100%" stop-color="#050714"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF3D1"/>
+      <stop offset="25%" stop-color="#FAD068"/>
+      <stop offset="60%" stop-color="#F2B84B"/>
+      <stop offset="100%" stop-color="#B8771A"/>
+    </linearGradient>
+    <linearGradient id="goldGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF8E7" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#F2B84B" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="50%" cy="45%" r="65%">
+      <stop offset="0%" stop-color="#F2B84B" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#F2B84B" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#070B1F" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#F2B84B" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)"/>
+  <circle cx="256" cy="240" r="210" fill="url(#sunGlow)"/>
+
+  <!-- Outer Golden Ring -->
+  <circle cx="256" cy="256" r="236" fill="none" stroke="url(#goldGrad)" stroke-width="5" stroke-dasharray="14 8" opacity="0.6"/>
+  <circle cx="256" cy="256" r="226" fill="none" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.85"/>
+
+  <!-- Cinema Reel Holes / Star Details -->
+  <circle cx="256" cy="62" r="6" fill="#F2B84B"/>
+  <circle cx="256" cy="450" r="6" fill="#F2B84B"/>
+  <circle cx="62" cy="256" r="6" fill="#F2B84B"/>
+  <circle cx="450" cy="256" r="6" fill="#F2B84B"/>
+
+  <!-- Crown on top -->
+  <g filter="url(#shadow)">
+    <path d="M196 168 L220 202 L256 150 L292 202 L316 168 L312 216 L200 216 Z" fill="url(#goldGrad)"/>
+    <circle cx="196" cy="164" r="5" fill="#FFF"/>
+    <circle cx="256" cy="144" r="7" fill="#FFF"/>
+    <circle cx="316" cy="164" r="5" fill="#FFF"/>
+  </g>
+
+  <!-- Film Clapper / Camera Shutter Ring around B -->
+  <circle cx="256" cy="286" r="132" fill="#0A0E26" stroke="url(#goldGrad)" stroke-width="7"/>
+
+  <!-- Film Reel Perforations -->
+  <circle cx="256" cy="184" r="14" fill="#070B1F" stroke="url(#goldGrad)" stroke-width="3"/>
+  <circle cx="344" cy="235" r="14" fill="#070B1F" stroke="url(#goldGrad)" stroke-width="3"/>
+  <circle cx="344" cy="337" r="14" fill="#070B1F" stroke="url(#goldGrad)" stroke-width="3"/>
+  <circle cx="256" cy="388" r="14" fill="#070B1F" stroke="url(#goldGrad)" stroke-width="3"/>
+  <circle cx="168" cy="337" r="14" fill="#070B1F" stroke="url(#goldGrad)" stroke-width="3"/>
+  <circle cx="168" cy="235" r="14" fill="#070B1F" stroke="url(#goldGrad)" stroke-width="3"/>
+
+  <!-- Central "B" monogram for Bauntys with Play Arrow & Music Note -->
+  <!-- Stylized B Stem -->
+  <path d="M216 230 C216 226 220 222 225 222 L260 222 C285 222 302 232 302 254 C302 268 292 278 280 282 C296 286 308 298 308 316 C308 340 288 352 260 352 L225 352 C220 352 216 348 216 344 Z" fill="url(#goldGrad)" filter="url(#shadow)"/>
+  <!-- Top Loop Cutout -->
+  <path d="M236 238 L256 238 C270 238 280 244 280 254 C280 264 270 270 256 270 L236 270 Z" fill="#0A0E26"/>
+  <!-- Bottom Loop Cutout with Play Triangle Inside -->
+  <path d="M236 286 L258 286 C274 286 286 293 286 306 C286 319 274 326 258 326 L236 326 Z" fill="#0A0E26"/>
+  <!-- Cinema Play Triangle in Bottom Loop -->
+  <polygon points="250,296 266,306 250,316" fill="url(#goldGrad)"/>
+
+  <!-- Music Note Sparkle Accent on top right -->
+  <path d="M372 136 L372 178 A18 18 0 1 1 354 160 L354 146 L404 136 L404 172 A18 18 0 1 1 386 154 L386 128 Z" fill="url(#goldGrad)" opacity="0.95" filter="url(#shadow)"/>
+
+  <!-- Sparkles -->
+  <path d="M126 142 Q126 158 110 158 Q126 158 126 174 Q126 158 142 158 Q126 158 126 142" fill="#FFF3D1"/>
+  <path d="M410 390 Q410 402 398 402 Q410 402 410 414 Q410 402 422 402 Q410 402 410 390" fill="#FFF3D1"/>
+</svg>

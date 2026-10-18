@@ -1,0 +1,973 @@
+/* ===================================================================
+   🎨 "Samarqand tuni" Dizayn Tizimi va Animatsiyalar (Bauntys Web App)
+   =================================================================== */
+
+/* Shriftlar */
+@font-face {
+  font-family: 'Unbounded';
+  src: url('f/unbounded-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+02BB-02BC, U+2000-206F;
+}
+@font-face {
+  font-family: 'Unbounded';
+  src: url('f/unbounded-800.woff2') format('woff2');
+  font-weight: 800 900;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+02BB-02BC, U+2000-206F;
+}
+@font-face {
+  font-family: 'Unbounded';
+  src: url('f/unbounded-600-cy.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+@font-face {
+  font-family: 'Unbounded';
+  src: url('f/unbounded-800-cy.woff2') format('woff2');
+  font-weight: 800 900;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+
+@font-face {
+  font-family: 'Manrope';
+  src: url('f/manrope-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+02BB-02BC, U+2000-206F;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('f/manrope-700.woff2') format('woff2');
+  font-weight: 700 800;
+  font-display: swap;
+  unicode-range: U+0000-024F, U+02BB-02BC, U+2000-206F;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('f/manrope-500-cy.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+@font-face {
+  font-family: 'Manrope';
+  src: url('f/manrope-700-cy.woff2') format('woff2');
+  font-weight: 700 800;
+  font-display: swap;
+  unicode-range: U+0400-04FF;
+}
+
+/* O'zgaruvchilar va Baza */
+:root, body.zk {
+  --zk-night: #070B1F;
+  --zk-panel: #0E1330;
+  --zk-panel2: #151B40;
+  --zk-cream: #F6EEDC;
+  --zk-acc: #F2B84B;
+  --zk-ink: #2A1500;
+  --zk-line: rgba(246, 238, 220, 0.14);
+
+  /* Fallback mapping */
+  --bg: var(--zk-night);
+  --bg2: var(--zk-panel);
+  --card: var(--zk-panel2);
+  --text: var(--zk-cream);
+  --accent: var(--zk-acc);
+  --accent-text: var(--zk-ink);
+  --hint: rgba(246, 238, 220, 0.65);
+  --sep: var(--zk-line);
+}
+
+body.zk {
+  background-color: var(--zk-night);
+  color: var(--zk-cream);
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Dot-matrix fon teksturasi (3px nuqtalar) */
+body.zk::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(246, 238, 220, 0.08) 1.5px, transparent 1.5px);
+  background-size: 20px 20px;
+  z-index: 1;
+}
+
+/* ===================================================================
+   Barcha Animatsiyalar (@keyframes)
+   =================================================================== */
+
+/* 1. Oltin kubik tebranish animatsiyasi */
+@keyframes zkroll {
+  0% { transform: rotate(0deg) scale(1); }
+  20% { transform: rotate(-20deg) scale(1.15); }
+  45% { transform: rotate(20deg) scale(1.22); }
+  65% { transform: rotate(-12deg) scale(1.1); }
+  85% { transform: rotate(10deg) scale(1.05); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+
+/* 2. Kartochkalar kirib kelishi */
+@keyframes zkin {
+  0% { opacity: 0; transform: translateY(18px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 3. Shimmer yuklanish animatsiyasi */
+@keyframes sh {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes msh {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* 4. Vinil plastinka aylanishi */
+@keyframes zkspin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 5. Sakrovchi ekvalayzer barlari */
+@keyframes zkeq {
+  0%, 100% { height: 4px; }
+  50% { height: 20px; }
+}
+
+/* 6. Splash ochilish effektlari */
+@keyframes zkdraw {
+  from { stroke-dashoffset: 600; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes zkturn {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes zslogo {
+  0% { transform: scale(0.65); opacity: 0; filter: blur(14px); }
+  50% { transform: scale(1.08); opacity: 1; filter: blur(0); }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes zsshine {
+  0% { transform: translateX(-160%) rotate(25deg); opacity: 0; }
+  30% { opacity: 0.85; }
+  100% { transform: translateX(200%) rotate(25deg); opacity: 0; }
+}
+@keyframes zkring {
+  0% { transform: scale(0.75); opacity: 0.85; }
+  100% { transform: scale(1.75); opacity: 0; }
+}
+
+/* 7. Slide-down paneli */
+@keyframes zkdrop {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* ===================================================================
+   👑 Yuqori Qism (Header) va Bauntys Brendi
+   =================================================================== */
+
+.zk-top {
+  position: sticky;
+  top: 0;
+  z-index: 25;
+  background: rgba(7, 11, 31, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--zk-line);
+  padding: 10px 16px 8px;
+}
+
+.zk-brand-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.zk-brand-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  min-width: 0;
+  flex: 1;
+}
+
+.zk-brand-avatar-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  flex: none;
+  background: var(--zk-panel2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--zk-acc);
+  box-shadow: 0 0 16px rgba(242, 184, 75, 0.35);
+}
+
+.zk-avatar-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  background: radial-gradient(circle, rgba(242, 184, 75, 0.4) 0%, transparent 70%);
+  animation: zkring 3s ease-out infinite;
+  pointer-events: none;
+}
+
+.zk-avatar-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 10px;
+  position: relative;
+  z-index: 2;
+}
+
+.zk-brand-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.zk-brand-name {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.3px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-shadow: 0 2px 10px rgba(242, 184, 75, 0.3);
+}
+
+.zk-pro-badge {
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #F2B84B, #FF8C00);
+  color: var(--zk-ink);
+  letter-spacing: 0.5px;
+}
+
+.zk-brand-desc {
+  color: rgba(246, 238, 220, 0.7);
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zk-chan-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--zk-panel2);
+  border: 1px solid var(--zk-line);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--zk-acc);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s, background 0.15s;
+}
+.zk-chan-btn:active {
+  transform: scale(0.95);
+  background: var(--zk-acc);
+  color: var(--zk-ink);
+}
+
+/* Navigatsiya Tablari va Siljuvchi Indikator */
+.brand-nav-wrap {
+  position: relative;
+  width: 100%;
+  margin-bottom: 8px;
+  overflow: visible;
+}
+
+.seg {
+  position: relative;
+  display: inline-flex;
+  background: var(--zk-panel);
+  border: 1px solid var(--zk-line);
+  border-radius: 14px;
+  padding: 3px;
+  gap: 2px;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.seg::-webkit-scrollbar { display: none; }
+
+.seg button {
+  position: relative;
+  z-index: 2;
+  padding: 7px 12px;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 14px;
+  color: rgba(246, 238, 220, 0.75);
+  background: transparent;
+  transition: color 0.18s ease;
+  white-space: nowrap;
+  flex: none;
+}
+.seg button.on {
+  color: var(--zk-ink);
+  font-weight: 800;
+}
+
+/* Siljuvchi Indikator */
+.zk-ind {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 0;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #F2B84B, #FFA500);
+  box-shadow: 0 2px 10px rgba(242, 184, 75, 0.5);
+  z-index: 1;
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Qidiruv Qatori va Oltin Kubik */
+.search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+.search-wrap .search {
+  flex: 1;
+  position: relative;
+}
+.search input {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--zk-line);
+  border-radius: 13px;
+  background: var(--zk-panel);
+  color: var(--zk-cream);
+  padding: 0 40px 0 40px;
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search input:focus {
+  border-color: var(--zk-acc);
+  box-shadow: 0 0 12px rgba(242, 184, 75, 0.25);
+}
+.search input::placeholder {
+  color: rgba(246, 238, 220, 0.45);
+}
+
+.zk-dice {
+  flex: none;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #F2B84B, #FF8C00);
+  color: var(--zk-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(242, 184, 75, 0.45);
+  transition: transform 0.12s, box-shadow 0.15s;
+  border: 0;
+  padding: 0;
+}
+.zk-dice:active {
+  animation: zkroll 0.45s ease-in-out;
+  box-shadow: 0 2px 6px rgba(242, 184, 75, 0.6);
+}
+
+/* Chips Filterlar */
+.chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 10px -16px 0;
+  padding: 0 16px 2px;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--zk-panel2);
+  border: 1px solid var(--zk-line);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--zk-cream);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.chip.on {
+  background: var(--zk-acc);
+  color: var(--zk-ink);
+  border-color: var(--zk-acc);
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(242, 184, 75, 0.35);
+}
+
+/* ===================================================================
+   🔥 Top 10 Kartochkalari va 3D Coverflow
+   =================================================================== */
+
+.sec-h.zk-top10-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 18px 0 10px;
+}
+.sec-h.zk-top10-h h2 {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 19px;
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: #fff;
+}
+.sec-h.zk-top10-h span {
+  color: var(--zk-acc);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.row.zk-flow {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 10px 16px 22px;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+  perspective: 900px;
+  -webkit-perspective: 900px;
+}
+.row.zk-flow::-webkit-scrollbar { display: none; }
+
+.zk-flow .card {
+  width: 142px;
+  flex: none;
+  scroll-snap-align: center;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s ease;
+  transform: scale(0.94) rotateY(8deg);
+  animation: zkin 0.4s ease-out backwards;
+}
+.zk-flow .card.zk-mid {
+  transform: scale(1.08) rotateY(0deg);
+  z-index: 5;
+}
+.zk-flow .card.zk-mid .pst {
+  border: 2px solid var(--zk-acc);
+  box-shadow: 0 0 28px rgba(242, 184, 75, 0.55), 0 12px 30px rgba(0, 0, 0, 0.7);
+}
+
+/* Katta oltin raqamlar (.rank 1..10, 44px Unbounded font, -webkit-text-stroke: 2px var(--zk-acc)) */
+.zk-flow .rank {
+  position: absolute;
+  bottom: -6px;
+  right: 4px;
+  font-size: 44px;
+  font-family: 'Unbounded', sans-serif;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--zk-night);
+  -webkit-text-stroke: 2px var(--zk-acc);
+  text-shadow: 0 4px 14px rgba(242, 184, 75, 0.45);
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* Kartochkalar Dizayni */
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-self: start;
+  text-align: left;
+  min-width: 0;
+  width: 100%;
+}
+.pst {
+  position: relative;
+  aspect-ratio: 2/3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--zk-panel);
+  border: 1px solid var(--zk-line);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.pst img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.pst img.ok {
+  opacity: 1;
+}
+
+.badge, .parts, .seen {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: rgba(7, 11, 31, 0.78);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(246, 238, 220, 0.12);
+  z-index: 3;
+}
+.badge {
+  top: 6px;
+  left: 6px;
+  color: var(--zk-acc);
+}
+.parts {
+  bottom: 6px;
+  left: 6px;
+}
+.seen {
+  top: 6px;
+  right: 6px;
+  background: rgba(30, 160, 60, 0.85);
+  border: 0;
+}
+.ttl {
+  margin-top: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--zk-cream);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ===================================================================
+   🎲 Oltin Kubik Ruletkasi (.zk-slot)
+   =================================================================== */
+
+.zk-slot {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.zk-slot.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+.zk-slot[hidden] {
+  display: none;
+}
+
+.zk-slot-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 11, 31, 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.zk-slot-modal {
+  position: relative;
+  z-index: 2;
+  width: min(90vw, 360px);
+  background: var(--zk-panel);
+  border: 1.5px solid var(--zk-acc);
+  border-radius: 26px;
+  padding: 22px 18px;
+  text-align: center;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.8), 0 0 35px rgba(242, 184, 75, 0.35);
+  animation: zkdrop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zk-slot-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--zk-panel2);
+  color: var(--zk-cream);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zk-slot-header h2 {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 20px;
+  margin: 6px 0 2px;
+  color: var(--zk-acc);
+}
+.zk-slot-header p {
+  color: rgba(246, 238, 220, 0.7);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+
+.zk-slot-window {
+  position: relative;
+  height: 220px;
+  border-radius: 18px;
+  background: var(--zk-night);
+  border: 1.5px solid var(--zk-line);
+  overflow: hidden;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+}
+.zk-slot-window::before,
+.zk-slot-window::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 3;
+  pointer-events: none;
+}
+.zk-slot-window::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--zk-night), transparent);
+}
+.zk-slot-window::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--zk-night), transparent);
+}
+
+.zk-slot-pointer {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 180px;
+  transform: translateY(-50%);
+  border-top: 2px solid var(--zk-acc);
+  border-bottom: 2px solid var(--zk-acc);
+  background: rgba(242, 184, 75, 0.08);
+  z-index: 2;
+  pointer-events: none;
+  box-shadow: 0 0 20px rgba(242, 184, 75, 0.25);
+}
+
+.zk-slot-reel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+  transition: transform 3.2s cubic-bezier(0.12, 0.8, 0.18, 1);
+}
+
+.zk-slot-item {
+  width: 110px;
+  height: 160px;
+  flex: none;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--zk-panel2);
+  border: 1px solid var(--zk-line);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.zk-slot-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.zk-slot-item .ph {
+  padding: 8px;
+  font-size: 12px;
+}
+
+.zk-slot-spin-btn {
+  width: 100%;
+  height: 46px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #F2B84B, #FF8C00);
+  color: var(--zk-ink);
+  font-weight: 800;
+  font-size: 16px;
+  margin-top: 16px;
+  box-shadow: 0 4px 16px rgba(242, 184, 75, 0.4);
+  transition: transform 0.12s, box-shadow 0.15s;
+}
+.zk-slot-spin-btn:active {
+  transform: scale(0.96);
+}
+
+/* ===================================================================
+   👑 Splash Ochilish Ekrani (#zksplash)
+   =================================================================== */
+
+.zk-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #070B1F;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+.zk-splash.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.zk-splash-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.zk-splash-rings {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 120px;
+  height: 120px;
+  pointer-events: none;
+}
+.zk-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--zk-acc);
+  opacity: 0;
+  animation: zkring 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+.zk-ring.r2 { animation-delay: 0.7s; }
+.zk-ring.r3 { animation-delay: 1.4s; }
+
+.zk-splash-logo-wrap {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  border-radius: 30px;
+  background: var(--zk-panel);
+  border: 2px solid var(--zk-acc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 35px rgba(242, 184, 75, 0.45);
+  overflow: hidden;
+  animation: zslogo 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.zk-splash-shine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+  animation: zsshine 2.5s infinite;
+  pointer-events: none;
+}
+
+.zk-splash-logo {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+}
+
+.zk-splash-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+  margin-top: 20px;
+  text-shadow: 0 2px 14px rgba(242, 184, 75, 0.4);
+}
+
+.zk-splash-sub {
+  color: var(--zk-acc);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.zk-splash-loader {
+  width: 140px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(246, 238, 220, 0.12);
+  margin-top: 24px;
+  overflow: hidden;
+  position: relative;
+}
+.zk-splash-bar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #F2B84B, #FF8C00);
+  animation: msh 1.2s infinite ease-in-out;
+}
+
+/* ===================================================================
+   🎧 Vinil Grammofon (.m-deck, .dk-disc, .dk-arm)
+   =================================================================== */
+
+.m-deck {
+  position: relative;
+  width: min(76vw, 300px);
+  aspect-ratio: 1;
+  margin: 12px auto 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dk-disc {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #0a0e1c 0%, #151b2f 35%, #05070e 70%, #000 100%);
+  border: 4px solid #1a223a;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: zkspin 14s linear infinite;
+  animation-play-state: paused;
+}
+
+.m-deck.playing .dk-disc {
+  animation-play-state: running;
+}
+
+/* Vinil plastinka izlari (grooves) */
+.dk-disc::before {
+  content: "";
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  border: 1px dashed rgba(246, 238, 220, 0.1);
+  box-shadow: inset 0 0 0 12px rgba(255, 255, 255, 0.02),
+              inset 0 0 0 24px rgba(0, 0, 0, 0.4),
+              inset 0 0 0 38px rgba(255, 255, 255, 0.02),
+              inset 0 0 0 52px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* Markazdagi miniatyura qopqog'i */
+.dk-disc .m-big {
+  width: 44%;
+  height: 44%;
+  border-radius: 50%;
+  border: 3px solid var(--zk-acc);
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.8);
+  position: relative;
+  z-index: 2;
+  margin: 0;
+}
+
+/* Grammofon ignasi (Tonearm) */
+.dk-arm {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 48px;
+  height: 110px;
+  pointer-events: none;
+  z-index: 5;
+  transform-origin: 36px 14px;
+  transform: rotate(-15deg);
+  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.m-deck.playing .dk-arm {
+  transform: rotate(24deg);
+}
+
+.dk-pivot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe299 0%, #c48a27 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  border: 2px solid #5a3c0e;
+}
+
+.dk-needle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 4px;
+  height: 80px;
+  background: linear-gradient(to bottom, #d4af37, #f6eedc, #8c6d23);
+  border-radius: 2px;
+  transform-origin: top center;
+  transform: rotate(-10deg);
+  box-shadow: 2px 4px 8px rgba(0, 0, 0, 0.5);
+}
+.dk-needle::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -3px;
+  width: 10px;
+  height: 14px;
+  border-radius: 3px;
+  background: #2a1500;
+  border: 1px solid var(--zk-acc);
+}

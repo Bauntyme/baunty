@@ -333,6 +333,9 @@ function paintPlayer() {
     $("mpsrc").textContent = qName ? `${qName}` : "Hozir ijroda";
   }
   $("mbig").classList.toggle("paused", !playing() && !isLoading);
+  const isPl = playing();
+  const deck = $("mdeck");
+  if (deck) deck.classList.toggle("playing", isPl);
   const pi = playing() || isLoading ? ICON.pause : ICON.play;
   if ($("mpplay").innerHTML !== pi) $("mpplay").innerHTML = pi;
   $("mpshuf").classList.toggle("on", shuffle);
