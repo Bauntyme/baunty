@@ -18,8 +18,8 @@ import handlers.music as music_handler
 # ----------------- 1. TV Data va HLS Streamlar Testlari -----------------
 
 def test_tv_channels_list_count_and_schema():
-    """CHANNELS_LIST da 114 ta kanal borligi va har ikkala schema (id va i, stream va u) mavjudligi."""
-    assert len(CHANNELS_LIST) == 114
+    """CHANNELS_LIST da 140+ ta kanal borligi va har ikkala schema (id va i, stream va u, logo l) mavjudligi."""
+    assert len(CHANNELS_LIST) >= 140
     for ch in CHANNELS_LIST:
         # Backend schema
         assert "id" in ch
@@ -31,6 +31,8 @@ def test_tv_channels_list_count_and_schema():
         assert "n" in ch
         assert "k" in ch
         assert "c" in ch
+        assert "l" in ch
+        assert ch["l"] is not None and len(ch["l"]) > 5
         assert "u" in ch
         assert isinstance(ch["u"], list)
         assert len(ch["u"]) >= 1
@@ -115,8 +117,8 @@ async def test_api_tv_query_and_category_filtering():
         resp = await client.get("/api/tv?category=all")
         assert resp.status == 200
         data = await resp.json()
-        assert data["total"] == 114
-        assert len(data["items"]) == 114
+        assert data["total"] >= 140
+        assert len(data["items"]) >= 140
         assert len(data["categories"]) >= 8
 
         # Nomi bo'yicha qidirish

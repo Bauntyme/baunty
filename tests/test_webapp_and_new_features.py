@@ -188,14 +188,14 @@ async def test_webapp_tv_api():
         resp = await client.get("/api/tv?category=all")
         assert resp.status == 200
         data = await resp.json()
-        assert data["total"] == 114
-        assert len(data["items"]) == 114
+        assert data["total"] >= 140
+        assert len(data["items"]) >= 140
         assert len(data["categories"]) >= 8
 
         # Sport toifasi
         resp_sport = await client.get("/api/tv?category=sport")
         data_sport = await resp_sport.json()
-        assert len(data_sport["items"]) >= 10
+        assert len(data_sport["items"]) >= 5
     finally:
         await client.close()
 

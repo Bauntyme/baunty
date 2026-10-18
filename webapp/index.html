@@ -621,7 +621,7 @@ function tvInitials(name) {
     style: `background:linear-gradient(135deg,hsl(${h} 60% 45%),hsl(${(h + 40) % 360} 60% 30%))`});
 }
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
-  (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
+  (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')">` : "");
 const tileHTML = (c) => {
   const qb = c.q || (c.i <= 22 || c.i === 37 || c.i === 75 || c.i === 105 || c.i === 106 ? "4K UHD" : "HD");
   return `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
