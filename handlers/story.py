@@ -55,34 +55,20 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
         # Faqat muvaffaqiyatli yuklangan fayllarni olish
         valid_results = [r for r in results if r.success and r.file_path and Path(r.file_path).exists()]
 
-        # Agar to'g'ridan-to'g'ri yuklangan fayllar bo'lmasa, keshdagi ommaviy story oqimlarini tekshirish
-        if not valid_results and username:
-            cached_prof = story_service._profile_cache.get(username)
-            if cached_prof and cached_prof.get("items"):
-                for it in cached_prof["items"][:3]:
-                    m_url = it.get("u")
-                    if m_url and str(m_url).startswith("http"):
-                        caption = (
-                            f"👀 <b>@{username} ning hikoyasi</b>\n\n"
-                            f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
-                            f"🍿 <b>Kinolar:</b> {config.CHANNEL_USERNAME}"
-                        )
-                        try:
-                            if it.get("k") == "video":
-                                await message.reply_video(video=m_url, caption=caption, parse_mode="HTML")
-                            else:
-                                await message.reply_photo(photo=m_url, caption=caption, parse_mode="HTML")
-                            valid_results.append(m_url)
-                        except Exception:
-                            pass
-
         if not valid_results:
+            error_reason = ""
+            for r in results:
+                if not r.success and r.error:
+                    error_reason = r.error
+                    break
+
+            reason_text = f"\n\n<b>Xatolik tafsiloti:</b>\n{error_reason}" if error_reason else ""
             await status_msg.edit_text(
-                f"❌ <b>{display_name} profilida faol hikoyalar topilmadi.</b>\n\n"
+                f"❌ <b>{display_name} profilida faol hikoyalar topilmadi.</b>{reason_text}\n\n"
                 "Mumkin bo'lgan sabablar:\n"
-                "• Foydalanuvchi hozirda hech qanday story joylamagan\n"
-                "• Profil yopiq (shaxsiy / private)\n"
-                "• Foydalanuvchi nomi xato kiritilgan",
+                "• Foydalanuvchi hozirda hech qanday hikoya (story) joylamagan\n"
+                "• Profil yopiq (shaxsiy / private hisob)\n"
+                "• Foydalanuvchi nomi yoki havola noto'g'ri kiritilgan",
                 parse_mode="HTML"
             )
             await state.clear()

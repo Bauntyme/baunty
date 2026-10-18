@@ -145,13 +145,32 @@ class MediaDownloader:
                 return fallback_res
             return DownloadResult(success=False, error=f"Kutilmagan xatolik yuz berdi: {str(e)[:100]}")
 
+    @staticmethod
+    def _is_youtube_url(url: str) -> bool:
+        """Berilgan havola YouTube ekanligini tekshiradi."""
+        clean = (url or "").strip().lower()
+        if "youtube.com" in clean or "youtu.be" in clean:
+            return True
+        if clean.startswith("ytsearch"):
+            return True
+        return False
+
+    @staticmethod
+    def _extract_youtube_id(url: str) -> Optional[str]:
+        """YouTube video ID sini (11 belgili) aniq ajratib oladi."""
+        clean = (url or "").strip()
+        m = re.search(r"(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})", clean)
+        if m:
+            return m.group(1)
+        return None
+
     def _try_video_fallbacks(self, url: str, file_prefix: str, original_err: str) -> DownloadResult:
         """Video yuklab olishda barcha platformalar uchun zaxira mexanizmlar."""
         clean_url = url.strip()
 
-        # 1. YouTube bo'lsa: Invidious va Piped
-        if "youtube.com" in clean_url or "youtu.be" in clean_url:
-            logger.info("YouTube zaxira kanali (Invidious) ishga tushirilmoqda...")
+        # 1. YouTube bo'lsa: Invidious va Piped (faqat va faqat YouTube uchun!)
+        if self._is_youtube_url(clean_url):
+            logger.info("YouTube zaxira kanali (Invidious/Piped) ishga tushirilmoqda...")
             inv_res = self._download_via_invidious(clean_url, is_audio=False, file_prefix=file_prefix)
             if inv_res and inv_res.success:
                 return inv_res
@@ -163,11 +182,31 @@ class MediaDownloader:
             if tik_res and tik_res.success:
                 return tik_res
 
-        # 3. Universal Cobalt API (YouTube, TikTok, Instagram, Snapchat, Facebook)
+        # 3. Instagram bo'lsa: Instagram maxsus zaxiralari
+        if "instagram.com" in clean_url:
+            logger.info("Instagram zaxira kanallari tekshirilmoqda...")
+            ig_res = self._download_via_instagram_fallback(clean_url, file_prefix=file_prefix)
+            if ig_res and ig_res.success:
+                return ig_res
+
+        # 4. Universal Cobalt API
         logger.info("Universal Cobalt zaxira kanali ishga tushirilmoqda...")
         cobalt_res = self._download_via_cobalt(clean_url, is_audio=False, file_prefix=file_prefix)
         if cobalt_res and cobalt_res.success:
             return cobalt_res
+
+        # Maxsus xatolik tavsifi
+        if "instagram.com" in clean_url:
+            if "429" in original_err or "Too Many Requests" in original_err:
+                return DownloadResult(
+                    success=False,
+                    error="Instagram serveri so'rovlarni vaqtincha chekladi (429 Too Many Requests). Iltimos, 1-2 daqiqadan so'ng qayta urinib ko'ring."
+                )
+            if "unreachable" in original_err.lower() or "login" in original_err.lower():
+                return DownloadResult(
+                    success=False,
+                    error="Ushbu Instagram kontenti topilmadi yoki hisob yopiq (shaxsiy / private)."
+                )
 
         return DownloadResult(success=False, error=f"Yuklab olishda xatolik: {original_err[:100]}")
 
@@ -270,8 +309,8 @@ class MediaDownloader:
         """Audio ajratib olishda Invidious, Piped va Cobalt zaxira yo'llari."""
         clean_url = url.strip()
 
-        # Agar YouTube havolasi bo'lsa
-        if "youtube.com" in clean_url or "youtu.be" in clean_url or re.search(r"[a-zA-Z0-9_-]{11}", clean_url):
+        # Agar YouTube havolasi bo'lsa (faqat YouTube!)
+        if self._is_youtube_url(clean_url):
             inv_res = self._download_via_invidious(clean_url, is_audio=True, file_prefix=file_prefix)
             if inv_res and inv_res.success:
                 return inv_res
@@ -412,12 +451,18 @@ class MediaDownloader:
         is_audio: bool = False,
         file_prefix: Optional[str] = None
     ) -> Optional[DownloadResult]:
-        """Invidious va Piped ochiq API lari orqali YouTube dan yuklab olish."""
+        """Invidious va Piped ochiq API lari orqali YouTube dan yuklab olish (faqat YouTube!)."""
         clean_url = url.strip()
-        m = re.search(r"(?:v=|\/|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})", clean_url)
-        if not m:
+        if not self._is_youtube_url(clean_url):
             return None
-        video_id = m.group(1)
+
+        video_id = self._extract_youtube_id(clean_url)
+        if not video_id and clean_url.startswith("ytsearch"):
+            query_part = re.sub(r"^ytsearch\d*:", "", clean_url).replace(" audio", "").strip()
+            video_id = self._find_youtube_video_id(query_part)
+
+        if not video_id:
+            return None
 
         invidious_hosts = [
             "https://invidious.f5.si",
@@ -513,6 +558,57 @@ class MediaDownloader:
 
         return None
 
+    def _download_via_instagram_fallback(
+        self,
+        url: str,
+        file_prefix: Optional[str] = None
+    ) -> Optional[DownloadResult]:
+        """Instagram media/reels/story uchun maxsus ochiq zaxira yuklovchi."""
+        clean_url = url.strip()
+        prefix = file_prefix or str(uuid.uuid4())[:8]
+
+        # 1. Cobalt orqali yuklashga urinish
+        cob_res = self._download_via_cobalt(clean_url, is_audio=False, file_prefix=prefix)
+        if cob_res and cob_res.success:
+            return cob_res
+
+        # 2. Agar story URL bo'lsa
+        m_story = re.search(r"instagram\.com/stories/([a-zA-Z0-9_\.]+)", clean_url)
+        if m_story:
+            username = m_story.group(1)
+            try:
+                imginn_url = f"https://imginn.com/stories/{username}/"
+                req = urllib.request.Request(
+                    imginn_url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    if resp.status == 200:
+                        html = resp.read().decode("utf-8", errors="ignore")
+                        video_matches = re.findall(r'<video[^>]+src="([^">]+)"', html)
+                        if video_matches:
+                            return self._download_direct_stream(
+                                url=video_matches[0],
+                                is_audio=False,
+                                file_prefix=prefix,
+                                title=f"Instagram_Story_{username}"
+                            )
+                        img_matches = re.findall(r'<img[^>]+src="(https://[^">]+scontent[^">]+)"', html)
+                        if img_matches:
+                            return self._download_direct_stream(
+                                url=img_matches[0],
+                                is_audio=False,
+                                file_prefix=prefix,
+                                title=f"Instagram_Story_{username}"
+                            )
+            except Exception as e:
+                logger.debug(f"Imginn story fallback xatoligi: {e}")
+
+        return None
+
     def _download_via_cobalt(
         self,
         url: str,
@@ -538,21 +634,26 @@ class MediaDownloader:
         cobalt_endpoints.extend([
             "https://api.cobalt.tools",
             "https://cobalt.canine.tools",
+            "https://cobalt-api.canine.tools",
+            "https://cobalt.xy2.dev/api/json",
+            "https://cobalt.slipfox.xyz/api/json",
         ])
 
-        payload = {
+        payload: Dict[str, Any] = {
             "url": clean_url,
-            "downloadMode": "audio" if is_audio else "auto",
         }
         if is_audio:
+            payload["downloadMode"] = "audio"
             payload["audioFormat"] = "mp3"
+        else:
+            payload["downloadMode"] = "auto"
 
         for base_url in cobalt_endpoints:
             try:
                 headers = {
                     "Accept": "application/json",
                     "Content-Type": "application/json",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
                 }
                 api_key = os.getenv("COBALT_API_KEY", "").strip()
                 if api_key:
@@ -568,6 +669,8 @@ class MediaDownloader:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         stream_url = data.get("url")
+                        if not stream_url and data.get("picker"):
+                            stream_url = data["picker"][0].get("url")
                         if stream_url:
                             res = self._download_direct_stream(
                                 url=stream_url,
@@ -577,6 +680,8 @@ class MediaDownloader:
                             )
                             if res and res.success:
                                 return res
+            except urllib.error.HTTPError as e:
+                logger.info(f"Cobalt nusxasiga ulanishda xatolik ({base_url}): HTTP Error {e.code}: {e.reason}")
             except Exception as e:
                 logger.info(f"Cobalt nusxasiga ulanishda xatolik ({base_url}): {e}")
 

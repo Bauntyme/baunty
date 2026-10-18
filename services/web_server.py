@@ -44,6 +44,14 @@ async def handle_health(request: web.Request) -> web.Response:
     })
 
 
+async def handle_favicon(request: web.Request) -> web.Response:
+    """Favicon so'rovlariga javob berish (404 xatoliklarining oldini olish)."""
+    fav_file = BASE_DIR / "webapp" / "favicon.ico"
+    if fav_file.exists():
+        return web.FileResponse(fav_file)
+    return web.Response(status=204)
+
+
 async def handle_index(request: web.Request) -> web.FileResponse:
     """Asosiy Mini App sahifasi (index.html)."""
     index_file = BASE_DIR / "webapp" / "index.html"
@@ -965,6 +973,8 @@ def create_web_app() -> web.Application:
 
     # API va sahifa marshrutlari
     app.router.add_get("/health", handle_health)
+    app.router.add_get("/favicon.ico", handle_favicon)
+    app.router.add_get("/webapp/favicon.ico", handle_favicon)
     app.router.add_get("/", handle_index)
     app.router.add_get("/index.html", handle_index)
     app.router.add_get("/webapp", handle_index)

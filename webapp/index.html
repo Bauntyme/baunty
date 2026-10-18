@@ -220,6 +220,66 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .ib{width:40px;height:40px;border-radius:50%;background:var(--bg2);font-size:18px;flex:none}
 .tvmore{padding:6px 16px calc(24px + env(safe-area-inset-bottom))}
 .tv.cur .tvb{box-shadow:0 0 0 3px var(--accent)}
+
+/* ---------- To'liq ekran rejimi (CSS Pseudo-Fullscreen va Native) ---------- */
+.tv-full-screen-mode{
+  position:fixed !important;inset:0 !important;top:0 !important;left:0 !important;
+  width:100vw !important;height:100vh !important;height:100dvh !important;
+  max-width:100vw !important;max-height:100vh !important;max-height:100dvh !important;
+  z-index:9999999 !important;background:#000 !important;margin:0 !important;padding:0 !important;
+  overflow:hidden !important;transform:none !important
+}
+.tv-full-screen-mode .vbox{
+  position:absolute !important;inset:0 !important;width:100vw !important;
+  height:100vh !important;height:100dvh !important;aspect-ratio:auto !important;
+  background:#000 !important;display:flex !important;align-items:center !important;
+  justify-content:center !important;overflow:hidden !important;margin:0 !important;padding:0 !important
+}
+.tv-full-screen-mode .vbox video,.tv-full-screen-mode .vbox iframe{
+  width:100% !important;height:100% !important;max-width:100% !important;max-height:100% !important;
+  object-fit:contain !important
+}
+.tv-full-screen-mode .tvbar,.tv-full-screen-mode .badb,.tv-full-screen-mode .tvmore{
+  display:none !important
+}
+.fs-bar{
+  position:absolute;top:0;left:0;right:0;z-index:25;display:none;align-items:center;
+  justify-content:space-between;padding:14px 16px calc(14px + env(safe-area-inset-top, 0px));
+  background:linear-gradient(to bottom,rgba(0,0,0,.85) 0%,rgba(0,0,0,.35) 65%,transparent 100%);
+  color:#fff;transition:opacity .3s ease;pointer-events:auto
+}
+.tv-full-screen-mode .fs-bar{display:flex !important}
+.fs-bar.fade-out{opacity:0;pointer-events:none}
+.fs-bar .fs-title{display:flex;align-items:center;gap:10px;font-weight:750;font-size:16px;
+  text-shadow:0 1px 4px rgba(0,0,0,.8);min-width:0;flex:1}
+.fs-bar .fs-title span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs-bar .fs-actions{display:flex;align-items:center;gap:10px;flex:none}
+.fs-btn{
+  background:rgba(255,255,255,.22);color:#fff;border:0;border-radius:50%;width:42px;height:42px;
+  display:flex;align-items:center;justify-content:center;font-size:19px;cursor:pointer;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:background .2s,transform .1s;
+  touch-action:manipulation
+}
+.fs-btn:active{transform:scale(.92);background:rgba(255,255,255,.4)}
+.fs-badge{
+  background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:900;font-size:11px;
+  padding:3px 8px;border-radius:6px;letter-spacing:.3px;flex:none
+}
+.vbox-fs-btn{
+  position:absolute;right:12px;bottom:12px;z-index:15;width:44px;height:44px;border-radius:50%;
+  background:rgba(0,0,0,.72);color:#fff;border:1px solid rgba(255,255,255,.25);display:flex;
+  align-items:center;justify-content:center;font-size:22px;cursor:pointer;backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.5);
+  transition:opacity .3s,transform .15s,background .2s;touch-action:manipulation
+}
+.vbox-fs-btn:active{transform:scale(.92);background:rgba(229,72,77,.9)}
+.tv-full-screen-mode .vbox-fs-btn{display:none !important}
+@media (max-width:480px){
+  .tvbar{padding:10px 12px;gap:6px}
+  .tvbar b{font-size:15px}
+  .ib{width:38px;height:38px;font-size:17px}
+  #tvq{padding:0 6px !important;font-size:10px !important}
+}
 </style>
 </head>
 <body>
@@ -261,6 +321,18 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
       <span style="opacity:.8;font-size:13px">Keyinroq urinib ko'ring yoki boshqa kanalni tanlang</span>
       <div style="display:flex;gap:8px"><button class="vbtn" id="vretry">🔄 Qayta</button><button class="vbtn" id="vnext">Keyingi ›</button></div></div>
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
+    <div class="fs-bar" id="fsbar">
+      <div class="fs-title">
+        <span id="fsname">Telekanal</span>
+        <span class="fs-badge">4K UHD</span>
+      </div>
+      <div class="fs-actions">
+        <button class="fs-btn" id="fsq" title="Sifat: 4K UHD">4K</button>
+        <button class="fs-btn" id="fsmute" title="Ovoz">🔊</button>
+        <button class="fs-btn" id="fsclose" title="To'liq ekrandan chiqish" aria-label="Chiqish">✕</button>
+      </div>
+    </div>
+    <button class="vbox-fs-btn" id="vboxfs" aria-label="To'liq ekran" title="To'liq ekran">⛶</button>
   </div>
   <div class="tvbar"><div class="lg" id="tvlogo"></div><div class="grow"><b id="tvname"></b><small>● JONLI EFIR</small></div>
     <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">4K UHD</button>
@@ -1111,6 +1183,7 @@ function openTV(c, push = true) {
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
   const qb = "4K UHD";
   $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
+  if ($("fsname")) $("fsname").textContent = c.n || "Telekanal";
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
   const qBtn = $("tvq");
@@ -1126,6 +1199,7 @@ function openTV(c, push = true) {
 }
 function closeTV(fromPop = false) {
   if (!tvCur) return;
+  if (isTVFullscreen) toggleTVFullscreen(false);
   tvCur = null; tvTry++; userStoppedVideo = true; stopVideo();
   $("tvp").classList.remove("open");
   if (inTg) {
@@ -1232,17 +1306,193 @@ $("tvfav").onclick = () => {
   $("tvfav").textContent = tvFav.includes(id) ? "⭐" : "☆";
   toast(tvFav.includes(id) ? "⭐ Sevimlilarga qo'shildi" : "Sevimlilardan olib tashlandi", 1400);
 };
-$("tvfs").onclick = () => {
-  if (inTg && tg.requestFullscreen) {
-    try { tg.requestFullscreen(); } catch (e) {}
+let isTVFullscreen = false;
+let fsControlTimer = null;
+
+function resetFsTimer() {
+  const fsBar = $("fsbar");
+  if (!fsBar || !isTVFullscreen) return;
+  fsBar.classList.remove("fade-out");
+  clearTimeout(fsControlTimer);
+  fsControlTimer = setTimeout(() => {
+    if (isTVFullscreen && !vid.paused) {
+      fsBar.classList.add("fade-out");
+    }
+  }, 3500);
+}
+
+function updateFullscreenUI() {
+  const tvp = $("tvp");
+  const fsBtn = $("tvfs");
+  const fsName = $("fsname");
+  if (tvCur && fsName) {
+    fsName.textContent = tvCur.n || "Telekanal";
   }
+  if (isTVFullscreen) {
+    tvp.classList.add("tv-full-screen-mode");
+    if (fsBtn) {
+      fsBtn.textContent = "✕";
+      fsBtn.title = "Kichraytirish";
+      fsBtn.style.color = "var(--accent)";
+    }
+    resetFsTimer();
+  } else {
+    tvp.classList.remove("tv-full-screen-mode");
+    const fsBar = $("fsbar");
+    if (fsBar) fsBar.classList.remove("fade-out");
+    clearTimeout(fsControlTimer);
+    if (fsBtn) {
+      fsBtn.textContent = "⛶";
+      fsBtn.title = "To'liq ekran";
+      fsBtn.style.color = "";
+    }
+  }
+}
+
+async function toggleTVFullscreen(forceState) {
+  haptic();
+  const targetState = typeof forceState === "boolean" ? forceState : !isTVFullscreen;
+  isTVFullscreen = targetState;
   const box = $("vbox");
-  try {
-    if (box.requestFullscreen) box.requestFullscreen().then(() => { try { screen.orientation.lock("landscape").catch(() => {}); } catch (e) {} }).catch(() => vid.webkitEnterFullscreen && vid.webkitEnterFullscreen());
-    else if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();
-    else if (vid.requestFullscreen) vid.requestFullscreen().catch(() => {});
-  } catch (e) {}
+
+  if (isTVFullscreen) {
+    updateFullscreenUI();
+    toast("📺 To'liq ekran (4K UHD)", 1200);
+
+    // 1. Telegram 8.0+ WebApp API
+    if (inTg && tg.requestFullscreen) {
+      try { tg.requestFullscreen(); } catch (e) {}
+    }
+
+    // 2. Ekran aylanishi (landscape orientation)
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock("landscape").catch(() => {});
+      }
+    } catch (e) {}
+
+    // 3. HTML5 va Webkit fullscreen
+    try {
+      if (box.requestFullscreen) {
+        await box.requestFullscreen();
+      } else if (vid.webkitEnterFullscreen) {
+        vid.webkitEnterFullscreen();
+      } else if (vid.requestFullscreen) {
+        await vid.requestFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (e) {
+      console.log("Native fullscreen unavailable; CSS pseudo-fullscreen active:", e);
+    }
+  } else {
+    updateFullscreenUI();
+
+    // 1. Native fullscreen dan chiqish
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      }
+    } catch (e) {}
+
+    // 2. Telegram WebApp Fullscreen dan chiqish
+    if (inTg && tg.exitFullscreen) {
+      try { tg.exitFullscreen(); } catch (e) {}
+    }
+
+    // 3. Orientation unlock
+    try {
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock().catch(() => {});
+      }
+    } catch (e) {}
+  }
+}
+
+$("tvfs").onclick = (e) => {
+  e.preventDefault();
+  toggleTVFullscreen();
 };
+
+const vboxfsBtn = $("vboxfs");
+if (vboxfsBtn) {
+  vboxfsBtn.onclick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    toggleTVFullscreen(true);
+  };
+}
+
+const fscloseBtn = $("fsclose");
+if (fscloseBtn) {
+  fscloseBtn.onclick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    toggleTVFullscreen(false);
+  };
+}
+
+const fsmuteBtn = $("fsmute");
+if (fsmuteBtn) {
+  fsmuteBtn.onclick = (e) => {
+    e.stopPropagation();
+    vid.muted = !vid.muted;
+    fsmuteBtn.textContent = vid.muted ? "🔇" : "🔊";
+  };
+}
+
+const fsqBtn = $("fsq");
+if (fsqBtn) {
+  fsqBtn.onclick = (e) => {
+    e.stopPropagation();
+    const tvq = $("tvq");
+    if (tvq) tvq.click();
+  };
+}
+
+// Native fullscreen hodisalarini kuzatish
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && isTVFullscreen) {
+    isTVFullscreen = false;
+    updateFullscreenUI();
+  }
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  if (!document.webkitFullscreenElement && isTVFullscreen) {
+    isTVFullscreen = false;
+    updateFullscreenUI();
+  }
+});
+
+// Fullscreen harakat / bosilganda boshqaruv panelini ko'rsatish
+$("vbox").addEventListener("mousemove", () => { if (isTVFullscreen) resetFsTimer(); });
+$("vbox").addEventListener("touchstart", () => { if (isTVFullscreen) resetFsTimer(); }, {passive: true});
+
+// Ikki marta bosilganda (double tap / double click) to'liq ekranga o'tish
+let lastVidClickTime = 0;
+$("vbox").addEventListener("click", (e) => {
+  if (e.target.closest("button") || e.target.closest(".fs-bar") || e.target.closest(".vov")) return;
+  const now = Date.now();
+  if (now - lastVidClickTime < 320) {
+    toggleTVFullscreen();
+    lastVidClickTime = 0;
+  } else {
+    lastVidClickTime = now;
+    if (isTVFullscreen) resetFsTimer();
+  }
+});
+
+// Desktop klaviatura: 'f' to'liq ekran, 'Escape' chiqish
+window.addEventListener("keydown", (e) => {
+  if (tvCur) {
+    if ((e.key === "f" || e.key === "F") && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+      toggleTVFullscreen();
+    } else if (e.key === "Escape" && isTVFullscreen) {
+      toggleTVFullscreen(false);
+    }
+  }
+});
 const pipBtn = $("tvpip");
 if (pipBtn) {
   pipBtn.onclick = async () => {

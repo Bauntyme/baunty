@@ -7,6 +7,7 @@ from pathlib import Path
 from aiogram import Router, F
 from aiogram.types import Message, FSInputFile
 from aiogram.fsm.context import FSMContext
+from aiogram.exceptions import TelegramBadRequest
 from config import config
 from services.video_service import video_service
 from keyboards.default import cancel_keyboard, main_menu_keyboard
@@ -52,10 +53,29 @@ async def state_process_round_video(message: Message, state: FSMContext) -> None
             return
 
         # Video note sifatida yuborish
-        await message.reply_video_note(
-            video_note=FSInputFile(out_video),
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
-        )
+        try:
+            await message.reply_video_note(
+                video_note=FSInputFile(out_video),
+                reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+            )
+        except TelegramBadRequest as tbe:
+            if "VOICE_MESSAGES_FORBIDDEN" in str(tbe):
+                logger.warning(
+                    f"Foydalanuvchi {message.from_user.id} da video xabarlar taqiqlangan ({tbe}). "
+                    "Video shaklida yuborilmoqda..."
+                )
+                await message.reply_video(
+                    video=FSInputFile(out_video),
+                    caption=(
+                        "⭕️ <b>Dumaloq video tayyor!</b>\n\n"
+                        "<i>Sizda Telegram maxfiylik sozlamalarida video xabar (video note) qabul qilish cheklangani "
+                        "sababli video shaklida yuborildi.</i>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+                )
+            else:
+                raise
         try:
             await status_msg.delete()
         except Exception:

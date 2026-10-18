@@ -98,6 +98,8 @@ class StoryService:
         res_profile = await self.downloader.download_video(profile_url)
         if res_profile.success:
             return [res_profile]
+        elif res_profile.error:
+            return [res_profile]
 
         return []
 
