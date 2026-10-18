@@ -44,13 +44,22 @@ class MovieService:
         def sanitize_branding(text: str) -> str:
             if not text:
                 return ""
-            text = text.replace("@Zakirovsfilms_bot", f"@{config.BOT_USERNAME.lstrip('@')}")
-            text = text.replace("@ZakirovsKino", config.CHANNEL_USERNAME)
-            text = text.replace("@dilbarzakirova", config.CHANNEL_USERNAME)
-            text = text.replace("Zakirovs Films", "Baunty Films")
-            text = text.replace("Zakirovs_bot", config.BOT_USERNAME.lstrip('@'))
-            text = text.replace("Zakirovs", "Baunty")
-            text = text.replace("zakirovs", "baunty")
+            bot_clean = config.BOT_USERNAME.lstrip("@")
+            channel_clean = config.CHANNEL_USERNAME.lstrip("@")
+            # URLs
+            text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
+            text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
+            # Usernames with @
+            text = re.sub(r'@Zakirovsfilms_bot\b', f'@{bot_clean}', text, flags=re.I)
+            text = re.sub(r'@ZakirovsKino\b', f'@{channel_clean}', text, flags=re.I)
+            text = re.sub(r'@dilbarzakirova\b', f'@{channel_clean}', text, flags=re.I)
+            text = re.sub(r'@Zakirovs?\b', f'@{channel_clean}', text, flags=re.I)
+            # Names
+            text = re.sub(r'Zakirovs\s+Films\b', 'Baunty Films', text, flags=re.I)
+            text = re.sub(r'Zakirovs_bot\b', bot_clean, text, flags=re.I)
+            text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
+            text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
+            text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
             return text
 
         raw_items = []
@@ -318,6 +327,32 @@ class MovieService:
                 except Exception as se:
                     logger.debug(f"Live upstream fetch failed: {se}")
 
+        if not db_movie and cat_item:
+            try:
+                t_val = cat_item.get("t", f"Kino #{clean_code}").strip()
+                d_val = cat_item.get("d", "").strip() or None
+                v_val = int(cat_item.get("v", 150))
+                if session:
+                    db_movie, _ = await crud.upsert_movie(
+                        session=session,
+                        code=clean_code,
+                        title=t_val,
+                        description=d_val,
+                        views_count=v_val,
+                    )
+                else:
+                    from database.session import get_session
+                    async with get_session() as s:
+                        db_movie, _ = await crud.upsert_movie(
+                            session=s,
+                            code=clean_code,
+                            title=t_val,
+                            description=d_val,
+                            views_count=v_val,
+                        )
+            except Exception as e:
+                logger.debug(f"Auto-upsert movie on deliver failed: {e}")
+
         if not cat_item and not db_movie:
             return False
 
@@ -385,14 +420,16 @@ class MovieService:
         if not poster_path.exists():
             for size in ["l", "s"]:
                 try:
-                    import urllib.request
+                    import aiohttp
                     url = f"https://161-97-96-58.sslip.io/p/{clean_code}_{size}.webp"
-                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                    with urllib.request.urlopen(req, timeout=4) as resp:
-                        if resp.status == 200:
-                            with open(poster_path, "wb") as pf:
-                                pf.write(resp.read())
-                            break
+                    async with aiohttp.ClientSession() as client:
+                        async with client.get(url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                            if resp.status == 200:
+                                pdata = await resp.read()
+                                if pdata and len(pdata) > 500:
+                                    with open(poster_path, "wb") as pf:
+                                        pf.write(pdata)
+                                    break
                 except Exception:
                     pass
 

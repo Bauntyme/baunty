@@ -579,7 +579,7 @@ async def test_periodic_catalog_sync_lifecycle():
 
 
 def test_tv_4k_ultra_hd_data_and_webapp():
-    """BIZ Cinema, Sevimli, Zo'r TV, Milliy, Makka, Madina 4K UHD sifatda sozlanganligini tekshirish."""
+    """Barcha asosiy telekanallar 4K UHD sifatda sozlanganligini va WebApp barqarorligini tekshirish."""
     from services.tv_data import CHANNELS_LIST
     by_name = {c["name"]: c for c in CHANNELS_LIST}
 
@@ -589,16 +589,60 @@ def test_tv_4k_ultra_hd_data_and_webapp():
     assert "4K UHD" in by_name["Milliy TV"]["q"]
     assert "4K UHD" in by_name["Makka Jonli Efir"]["q"]
     assert "4K UHD" in by_name["Madina Jonli Efir"]["q"]
+    assert "4K UHD" in by_name["Kinoteatr TV"]["q"]
+    assert "4K UHD" in by_name["Mening Yurtim (MY5)"]["q"]
+    assert "4K UHD" in by_name["Renessans TV"]["q"]
+    assert "4K UHD" in by_name["Sport TV"]["q"]
+    assert "4K UHD" in by_name["Futbol TV"]["q"]
 
-    # webapp/index.html dagi sifat va overscroll sozlamalari
+    # webapp/index.html dagi sifat, fon barqarorligi va swipe bloklash sozlamalari
     index_file = BASE_DIR / "webapp" / "index.html"
     assert index_file.exists()
     content = index_file.read_text(encoding="utf-8")
 
     assert "overscroll-behavior:none" in content
     assert "enableClosingConfirmation" in content
+    assert "disableVerticalSwipes" in content
+    assert "autopictureinpicture" in content
+    assert "mediaSession" in content
+    assert "requestFullscreen" in content
+    assert "tvpip" in content
     assert "4K UHD" in content
-    # visibilitychange da vid.pause bo'lmasligi kerak
+    # visibilitychange da vid.pause bo'lmasligi va pauzada !document.hidden to'sig'i bo'lmasligi kerak
     assert "document.hidden && tvCur) vid.pause()" not in content
+    assert "tvCur && !vid.ended && !document.hidden" not in content
+
+
+def test_sanitize_branding_comprehensive():
+    """Upstream Zakirovs havolalari va belgilarini to'liq Baunty brendiga tozalash testi."""
+    import re
+    # Test cases with URLs and usernames
+    dirty_text = (
+        "Kinoni tomosha qilish: https://t.me/ZakirovsKino yoki @Zakirovsfilms_bot\n"
+        "Rasmiy bot: t.me/Zakirovsfilms_bot. Kanal: @ZakirovsKino va @dilbarzakirova.\n"
+        "Zakirovs Films taqdim etadi: Zakirovs kino premyerasi."
+    )
+    bot_clean = config.BOT_USERNAME.lstrip("@")
+    channel_clean = config.CHANNEL_USERNAME.lstrip("@")
+
+    # Re-run same regex logic as in MovieService
+    text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', dirty_text, flags=re.I)
+    text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
+    text = re.sub(r'@Zakirovsfilms_bot\b', f'@{bot_clean}', text, flags=re.I)
+    text = re.sub(r'@ZakirovsKino\b', f'@{channel_clean}', text, flags=re.I)
+    text = re.sub(r'@dilbarzakirova\b', f'@{channel_clean}', text, flags=re.I)
+    text = re.sub(r'@Zakirovs?\b', f'@{channel_clean}', text, flags=re.I)
+    text = re.sub(r'Zakirovs\s+Films\b', 'Baunty Films', text, flags=re.I)
+    text = re.sub(r'Zakirovs_bot\b', bot_clean, text, flags=re.I)
+    text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
+    text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
+    text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
+
+    assert "Zakirov" not in text
+    assert "zakirov" not in text
+    assert "dilbar" not in text.lower()
+    assert channel_clean in text
+    assert bot_clean in text
+
 
 

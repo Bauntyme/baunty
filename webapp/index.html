@@ -254,7 +254,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 
 <section class="tvp" id="tvp" aria-modal="true">
   <div class="vbox" id="vbox">
-    <video id="vid" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="true" autoplay preload="auto"></video>
+    <video id="vid" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="true" autopictureinpicture controlsList="nodownload nofullscreen noremoteplayback" autoplay preload="auto"></video>
     <iframe id="yt" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin"></iframe>
     <div class="vov" id="vload"><div class="spin"></div><span id="vmsg">Efirga ulanmoqda…</span></div>
     <div class="vov" id="verr" hidden><div style="font-size:40px">📡</div><b id="verrt">Bu kanal hozir efirda emas</b>
@@ -263,7 +263,8 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
   </div>
   <div class="tvbar"><div class="lg" id="tvlogo"></div><div class="grow"><b id="tvname"></b><small>● JONLI EFIR</small></div>
-    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">1080p HD</button>
+    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">4K UHD</button>
+    <button class="ib" id="tvpip" aria-label="Kichik oyna (PiP)" title="Picture-in-Picture">⧉</button>
     <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button>
     <button class="ib" id="tvdel" aria-label="Kanalni o'chirish" hidden>🗑</button>
     <button class="ib" id="tvx" aria-label="Yopish" style="display:none">✕</button></div>
@@ -638,7 +639,7 @@ function tvInitials(name) {
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
   (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')">` : "");
 const tileHTML = (c) => {
-  const qb = c.q || (["BIZ Cinema", "Sevimli TV", "Zo'r TV", "Milliy TV", "Makka Jonli Efir", "Madina Jonli Efir", "Insayt TV", "Mening Yurtim (MY5)", "Renessans TV"].includes(c.n) ? "4K UHD" : ((c.c === "uz" || c.i <= 48) ? "1080p HD" : "HD"));
+  const qb = (c.q && c.q.includes("4K")) ? "4K UHD" : (c.q || ((c.c === "uz" || c.i <= 48) ? "4K UHD" : "1080p HD"));
   return `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
   <span class="live">LIVE</span><span class="tv-res">${esc(qb)}</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 };
@@ -800,7 +801,9 @@ function tvState(s, msg) {
   $("vload").hidden = s !== "load"; $("verr").hidden = s !== "err";
   if (msg) (s === "err" ? $("verrt") : $("vmsg")).textContent = msg;
 }
+let userStoppedVideo = false;
 function stopVideo() {
+  userStoppedVideo = true;
   clearTimeout(tvTimer);
   const yt = $("yt"); if (!yt.hidden) { yt.src = "about:blank"; yt.hidden = true; } vid.hidden = false;
   if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
@@ -964,8 +967,8 @@ function attempt(url) {
               const lvl = data.levels[bestIdx];
               const qBtn = $("tvq");
               if (qBtn) {
-                const is4k = lvl && (lvl.height >= 2160 || (tvCur && tvCur.q === "4K UHD"));
-                const label = is4k ? "4K UHD" : ((lvl && lvl.height >= 1080) ? "1080p Full HD" : (lvl && lvl.height ? lvl.height + "p HD" : "1080p Full HD"));
+                const is4k = lvl && (lvl.height >= 2160 || (tvCur && tvCur.q && tvCur.q.includes("4K")));
+                const label = is4k ? "4K UHD" : ((lvl && lvl.height >= 1080) ? "1080p Full HD" : (lvl && lvl.height ? lvl.height + "p HD" : "4K UHD"));
                 qBtn.textContent = label;
               }
             }
@@ -976,7 +979,7 @@ function attempt(url) {
               const lvl = hls.levels[data.level];
               const qBtn = $("tvq");
               if (qBtn && lvl && lvl.height) {
-                const is4k = lvl.height >= 2160 || (tvCur && tvCur.q === "4K UHD");
+                const is4k = lvl.height >= 2160 || (tvCur && tvCur.q && tvCur.q.includes("4K"));
                 qBtn.textContent = is4k ? "4K UHD" : (lvl.height >= 1080 ? "1080p Full HD" : lvl.height + "p HD");
               }
             }
@@ -991,7 +994,10 @@ function attempt(url) {
 let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
-  stopVideo(); tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
+  userStoppedVideo = false;
+  stopVideo();
+  userStoppedVideo = false;
+  tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
   const streamList = Array.isArray(c.u) ? c.u : [[0, c.stream || c.u]];
   for (let n = from; n < streamList.length; n++) {
     const [idx, url] = streamList[n];
@@ -1017,13 +1023,30 @@ async function playTV(c, from = 0) {
 }
 function openTV(c, push = true) {
   tvCur = c; haptic();
+  userStoppedVideo = false;
+  try { vid.autoPictureInPicture = true; } catch (e) {}
   if (inTg) {
     try { tg.expand(); } catch (e) {}
     try { tg.enableClosingConfirmation(); } catch (e) {}
     try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.7") && tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("8.0") && tg.requestFullscreen) tg.requestFullscreen(); } catch (e) {}
+  }
+  if ("mediaSession" in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: (c.n || "Telekanal") + " (Jonli Efir)",
+        artist: "Baunty TV · 4K Ultra HD",
+        album: "Jonli TV",
+        artwork: [{ src: c.l || "favicon.ico", sizes: "512x512", type: "image/png" }]
+      });
+      navigator.mediaSession.playbackState = "playing";
+      navigator.mediaSession.setActionHandler("play", () => { vid.play().catch(() => {}); });
+      navigator.mediaSession.setActionHandler("pause", () => { vid.play().catch(() => {}); });
+    } catch (e) {}
   }
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  const qb = c.q || (["BIZ Cinema", "Sevimli TV", "Zo'r TV", "Milliy TV", "Makka Jonli Efir", "Madina Jonli Efir", "Insayt TV", "Mening Yurtim (MY5)", "Renessans TV"].includes(c.n) ? "4K UHD" : ((c.c === "uz" || c.i <= 48) ? "1080p HD" : "HD"));
+  const qb = (c.q && c.q.includes("4K")) ? "4K UHD" : (c.q || ((c.c === "uz" || c.i <= 48) ? "4K UHD" : "1080p HD"));
   $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
@@ -1040,9 +1063,13 @@ function openTV(c, push = true) {
 }
 function closeTV(fromPop = false) {
   if (!tvCur) return;
-  tvCur = null; tvTry++; stopVideo();
+  tvCur = null; tvTry++; userStoppedVideo = true; stopVideo();
   $("tvp").classList.remove("open");
-  if (inTg) tg.BackButton.hide();
+  if (inTg) {
+    tg.BackButton.hide();
+    try { if (tg.exitFullscreen) tg.exitFullscreen(); } catch (e) {}
+    try { if (tg.enableVerticalSwipes) tg.enableVerticalSwipes(); } catch (e) {}
+  }
   if (!fromPop && tvPushed) history.back();
   tvPushed = false;
   if (mode === "tv") renderTV();
@@ -1145,12 +1172,30 @@ $("tvfav").onclick = () => {
   toast(tvFav.includes(id) ? "⭐ Sevimlilarga qo'shildi" : "Sevimlilardan olib tashlandi", 1400);
 };
 $("tvfs").onclick = () => {
+  if (inTg && tg.requestFullscreen) {
+    try { tg.requestFullscreen(); } catch (e) {}
+  }
   const box = $("vbox");
   try {
-    if (box.requestFullscreen) box.requestFullscreen().then(() => { try { screen.orientation.lock("landscape"); } catch (e) {} }).catch(() => vid.webkitEnterFullscreen && vid.webkitEnterFullscreen());
+    if (box.requestFullscreen) box.requestFullscreen().then(() => { try { screen.orientation.lock("landscape").catch(() => {}); } catch (e) {} }).catch(() => vid.webkitEnterFullscreen && vid.webkitEnterFullscreen());
     else if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();
+    else if (vid.requestFullscreen) vid.requestFullscreen().catch(() => {});
   } catch (e) {}
 };
+const pipBtn = $("tvpip");
+if (pipBtn) {
+  pipBtn.onclick = async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (vid.requestPictureInPicture) {
+        await vid.requestPictureInPicture();
+      }
+    } catch (e) {
+      toast("PiP rejimi", 1200);
+    }
+  };
+}
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-tv]");
   if (!t) return;
@@ -1162,24 +1207,33 @@ document.addEventListener("click", (e) => {
   }
   openTV(c, !tvCur);
 });
-// Fon rejimiga o'tganda yoki ilova qisman surilganda efir to'xtab qolmasin
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && tvCur && vid.paused && !vid.ended) {
+// Fon rejimiga o'tganda yoki ilova qisman surilganda/minimizatsiyada efir to'xtab qolmasin
+const autoResumeStream = () => {
+  if (tvCur && !userStoppedVideo && vid.paused && !vid.ended) {
     vid.play().catch(() => {});
   }
-});
+};
+document.addEventListener("visibilitychange", autoResumeStream);
+window.addEventListener("blur", autoResumeStream);
+window.addEventListener("focus", autoResumeStream);
+window.addEventListener("pageshow", autoResumeStream);
+
 vid.addEventListener("pause", () => {
-  // Agar foydalanuvchi stopVideo chaqirmagan bo'lsa va TV ochiq bo'lsa,
+  // Agar foydalanuvchi stopVideo yoki closeTV chaqirmagan bo'lsa,
   // minimizatsiya yoki pastga tortishda video to'xtab qolishini oldini olish
-  if (tvCur && !vid.ended && !document.hidden) {
-    setTimeout(() => {
-      if (tvCur && vid.paused) vid.play().catch(() => {});
-    }, 150);
+  if (tvCur && !userStoppedVideo && !vid.ended) {
+    setTimeout(autoResumeStream, 80);
   }
 });
 const vboxEl = $("vbox");
 if (vboxEl) {
   vboxEl.addEventListener("touchmove", (e) => {
+    if (e.cancelable) e.preventDefault();
+  }, {passive: false});
+}
+const tvBarEl = document.querySelector(".tvbar");
+if (tvBarEl) {
+  tvBarEl.addEventListener("touchmove", (e) => {
     if (e.cancelable) e.preventDefault();
   }, {passive: false});
 }
