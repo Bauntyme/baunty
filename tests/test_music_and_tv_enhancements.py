@@ -92,14 +92,14 @@ def test_tv_real_working_streams():
     assert biz_music is not None
     assert "fl.biztv.media/music_720" in biz_music["stream"]
 
-    # Makka va Madina Jonli Efir
+    # Makka va Madina Jonli Efir (Real Akamai HLS .m3u8 streams)
     makka = by_name.get("Makka Jonli Efir")
     assert makka is not None
-    assert "youtube.com/watch?v=M2_o3h_72wU" in makka["stream"]
+    assert "saudi_quran" in makka["stream"] and "m3u8" in makka["stream"]
 
     madina = by_name.get("Madina Jonli Efir")
     assert madina is not None
-    assert "youtube.com/watch?v=34dZf4XG_q8" in madina["stream"]
+    assert "saudi_sunnah" in madina["stream"] and "m3u8" in madina["stream"]
 
 
 @pytest.mark.asyncio
@@ -406,3 +406,120 @@ async def test_bot_cb_download_track_fallback():
         audio_kwargs = callback.message.reply_audio.call_args[1]
         assert audio_kwargs["audio"] == "https://example.com/aprel_preview.mp3"
         assert audio_kwargs["title"] == "Aprel"
+
+
+@pytest.mark.asyncio
+async def test_downloader_invidious_fallback(tmp_path):
+    """Downloader da YouTube bot detection holatida Invidious orqali media muvaffaqiyatli yuklanishi."""
+    dl = MediaDownloader(download_dir=tmp_path)
+
+    # Invidious API javobi mock
+    invidious_json = {
+        "title": "Test YouTube Video",
+        "lengthSeconds": 180,
+        "formatStreams": [
+            {"type": 'video/mp4; codecs="avc1"', "url": "https://example.com/stream.mp4"}
+        ]
+    }
+
+    mock_resp = MagicMock()
+    mock_resp.status = 200
+    mock_resp.read.side_effect = [
+        import_json := __import__("json").dumps(invidious_json).encode("utf-8"),
+        b"header" + b"\x00" * 200,
+        b""
+    ]
+    mock_resp.__enter__.return_value = mock_resp
+    mock_resp.__exit__.return_value = None
+
+    with patch("urllib.request.urlopen", return_value=mock_resp):
+        res = dl._download_via_invidious("https://www.youtube.com/watch?v=dQw4w9WgXcQ", is_audio=False)
+        assert res is not None
+        assert res.success is True
+        assert res.title == "Test YouTube Video"
+        assert res.duration == 180
+
+
+@pytest.mark.asyncio
+async def test_start_music_deep_link():
+    """Botga /start m_{id} deep link yuborilganda musiqa yuborilishi."""
+    import handlers.start as start_handler
+    from aiogram.fsm.context import FSMContext
+    from aiogram.fsm.storage.memory import MemoryStorage
+
+    message = AsyncMock()
+    message.from_user.id = 998877
+    message.from_user.username = "testuser"
+    message.from_user.first_name = "Test"
+    message.from_user.last_name = "User"
+    message.chat.id = 998877
+    message.message_id = 1001
+    message.text = "/start m_3135556"
+    message.answer = AsyncMock()
+    message.answer_audio = AsyncMock()
+
+    status_msg = AsyncMock()
+    message.answer.return_value = status_msg
+
+    storage = MemoryStorage()
+    state = FSMContext(storage=storage, key=__import__("aiogram.fsm.storage.base", fromlist=["StorageKey"]).StorageKey(
+        bot_id=1, chat_id=998877, user_id=998877
+    ))
+
+    with patch.object(
+        MusicService, "download_track_mp3",
+        new_callable=AsyncMock
+    ) as mock_dl:
+        mock_dl.return_value = DownloadResult(
+            success=True,
+            file_path=None,
+            duration=210,
+        )
+
+        mock_get_resp = AsyncMock()
+        mock_get_resp.status = 200
+        mock_get_resp.json = AsyncMock(return_value={
+            "title_short": "Harder",
+            "title": "Harder",
+            "artist": {"name": "Daft Punk"},
+            "preview": "https://example.com/preview.mp3",
+            "duration": 210
+        })
+        mock_get_ctx = MagicMock()
+        mock_get_ctx.__aenter__ = AsyncMock(return_value=mock_get_resp)
+        mock_get_ctx.__aexit__ = AsyncMock(return_value=None)
+
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_get_ctx
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            await start_handler.cmd_start(message, state)
+            assert message.answer.called
+
+
+@pytest.mark.asyncio
+async def test_webapp_api_prefix_aliases():
+    """/webapp/api/... va /api/... marshrutlari bir xil muvaffaqiyatli javob qaytarishi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # Standard route
+        r1 = await client.get("/api/tv?category=all")
+        assert r1.status == 200
+
+        # /webapp/ prefixed route
+        r2 = await client.get("/webapp/api/tv?category=all")
+        assert r2.status == 200
+
+        d1 = await r1.json()
+        d2 = await r2.json()
+        assert d1["total"] == d2["total"]
+        assert len(d1["items"]) == len(d2["items"])
+    finally:
+        await client.close()
+

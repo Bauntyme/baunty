@@ -186,7 +186,10 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .live{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#fff;background:#e5484d;
   padding:3px 5px;border-radius:5px;line-height:1}
 .fav{position:absolute;top:5px;right:6px;font-size:13px}
-  padding:3px 5px;border-radius:5px;line-height:1}
+.tv-res{position:absolute;bottom:6px;right:6px;font-size:9px;font-weight:800;letter-spacing:.3px;color:#000;
+  background:linear-gradient(135deg,#FFD700,#FFA500);padding:2px 5px;border-radius:4px;line-height:1}
+.badge-res{background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:900;font-size:11px;
+  padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;display:inline-block}
 .tvn{margin-top:6px;font-size:13px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .tv{width:118px;flex:none;scroll-snap-align:start}
 
@@ -619,8 +622,11 @@ function tvInitials(name) {
 }
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
   (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
-const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
-  <span class="live">LIVE</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
+const tileHTML = (c) => {
+  const qb = c.q || (c.i <= 22 || c.i === 37 || c.i === 75 || c.i === 105 || c.i === 106 ? "4K UHD" : "HD");
+  return `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
+  <span class="live">LIVE</span><span class="tv-res">${esc(qb)}</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
+};
 
 function tvChips() {
   const cc = [...new Set(tvItems.map((x) => x.c))];
@@ -786,7 +792,17 @@ function attempt(url) {
             levelLoadingMaxRetry: 2,
             fragLoadingMaxRetry: 3
           });
-          hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fin(bad, d.type); });
+          hls.on(Hls.Events.ERROR, (_, d) => {
+            if (d.fatal) {
+              if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                hls.startLoad();
+              } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                hls.recoverMediaError();
+              } else {
+                fin(bad, d.type);
+              }
+            }
+          });
           hls.loadSource(url); hls.attachMedia(vid);
         }
       }
@@ -801,10 +817,11 @@ let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
   stopVideo(); tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
-  for (let n = from; n < c.u.length; n++) {
-    const [idx, url] = c.u[n];
+  const streamList = Array.isArray(c.u) ? c.u : [[0, c.stream || c.u]];
+  for (let n = from; n < streamList.length; n++) {
+    const [idx, url] = streamList[n];
     tvN = n;
-    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${c.u.length})…`);
+    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${streamList.length})…`);
     const emb = ytEmbed(url);
     if (emb) {
       vid.hidden = true; const yt = $("yt"); yt.hidden = false;
@@ -826,7 +843,8 @@ async function playTV(c, from = 0) {
 function openTV(c, push = true) {
   tvCur = c; haptic();
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  $("tvname").textContent = c.n;
+  const qb = c.q || (c.i <= 22 || c.i === 37 || c.i === 75 || c.i === 105 || c.i === 106 ? "4K UHD" : "HD");
+  $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);

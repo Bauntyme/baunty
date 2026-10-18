@@ -128,7 +128,10 @@ class MediaDownloader:
             logger.warning(f"yt-dlp yuklab olish xatoligi: {err_msg}")
             # Bot-detection, 429 yoki YouTube bloklanishida Cobalt fallback
             if any(k in err_msg.lower() for k in ["bot", "sign in", "429", "too many requests", "confirm", "login"]):
-                logger.info("YouTube bot-detection aniqlandi. Cobalt zaxira xizmatiga murojaat qilinmoqda...")
+                logger.info("YouTube bot-detection aniqlandi. Invidious/Cobalt zaxira xizmatiga murojaat qilinmoqda...")
+                inv_res = self._download_via_invidious(url, is_audio=False, file_prefix=file_prefix)
+                if inv_res and inv_res.success:
+                    return inv_res
                 cobalt_res = self._download_via_cobalt(url, is_audio=False, file_prefix=file_prefix)
                 if cobalt_res and cobalt_res.success:
                     return cobalt_res
@@ -138,6 +141,9 @@ class MediaDownloader:
             return DownloadResult(success=False, error=f"Yuklab olishda xatolik: {err_msg[:100]}")
         except Exception as e:
             logger.exception(f"Kutilmagan xatolik: {e}")
+            inv_res = self._download_via_invidious(url, is_audio=False, file_prefix=file_prefix)
+            if inv_res and inv_res.success:
+                return inv_res
             cobalt_res = self._download_via_cobalt(url, is_audio=False, file_prefix=file_prefix)
             if cobalt_res and cobalt_res.success:
                 return cobalt_res
@@ -193,6 +199,9 @@ class MediaDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if not info:
+                    inv_res = self._download_via_invidious(url, is_audio=True, file_prefix=file_prefix)
+                    if inv_res and inv_res.success:
+                        return inv_res
                     cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
                     if cobalt_res and cobalt_res.success:
                         return cobalt_res
@@ -207,6 +216,9 @@ class MediaDownloader:
                     matches = list(self.download_dir.glob(f"{file_prefix}_*"))
 
                 if not matches:
+                    inv_res = self._download_via_invidious(url, is_audio=True, file_prefix=file_prefix)
+                    if inv_res and inv_res.success:
+                        return inv_res
                     cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
                     if cobalt_res and cobalt_res.success:
                         return cobalt_res
@@ -225,7 +237,10 @@ class MediaDownloader:
                 )
         except Exception as e:
             err_msg = str(e)
-            logger.warning(f"Audio ajratishda xatolik: {err_msg}. Cobalt fallback tekshirilmoqda...")
+            logger.warning(f"Audio ajratishda xatolik: {err_msg}. Invidious/Cobalt fallback tekshirilmoqda...")
+            inv_res = self._download_via_invidious(url, is_audio=True, file_prefix=file_prefix)
+            if inv_res and inv_res.success:
+                return inv_res
             cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
             if cobalt_res and cobalt_res.success:
                 return cobalt_res
@@ -281,6 +296,113 @@ class MediaDownloader:
         except Exception as e:
             logger.warning(f"To'g'ridan-to'g'ri yuklab olish xatoligi: {e}")
             target_path.unlink(missing_ok=True)
+
+        return None
+
+    def _download_via_invidious(
+        self,
+        url: str,
+        is_audio: bool = False,
+        file_prefix: Optional[str] = None
+    ) -> Optional[DownloadResult]:
+        """Invidious va Piped ochiq API lari orqali YouTube dan yuklab olish."""
+        clean_url = url.strip()
+        m = re.search(r"(?:v=|\/|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})", clean_url)
+        if not m:
+            return None
+        video_id = m.group(1)
+
+        invidious_hosts = [
+            "https://invidious.f5.si",
+            "https://invidious.projectsegfau.lt",
+        ]
+        for host in invidious_hosts:
+            try:
+                api_url = f"{host}/api/v1/videos/{video_id}"
+                req = urllib.request.Request(
+                    api_url,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                        "Accept": "application/json"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        title = data.get("title", "YouTube Media")
+                        duration = data.get("lengthSeconds")
+                        thumbnail = None
+                        if data.get("videoThumbnails"):
+                            thumbnail = data["videoThumbnails"][0].get("url")
+
+                        stream_url = None
+                        if is_audio:
+                            for f in data.get("adaptiveFormats", []):
+                                if "audio" in f.get("type", "") and f.get("url"):
+                                    stream_url = f.get("url")
+                                    break
+                        else:
+                            for f in data.get("formatStreams", []):
+                                if "video/mp4" in f.get("type", "") and f.get("url"):
+                                    stream_url = f.get("url")
+                                    break
+                            if not stream_url:
+                                for f in data.get("adaptiveFormats", []):
+                                    if "video/mp4" in f.get("type", "") and f.get("url"):
+                                        stream_url = f.get("url")
+                                        break
+
+                        if stream_url:
+                            res = self._download_direct_stream(
+                                url=stream_url,
+                                is_audio=is_audio,
+                                file_prefix=file_prefix,
+                                title=title
+                            )
+                            if res and res.success:
+                                res.duration = duration
+                                res.thumbnail = thumbnail
+                                return res
+            except Exception as e:
+                logger.info(f"Invidious yuklab olish xatoligi ({host}): {e}")
+
+        # Piped fallback
+        piped_endpoints = [
+            f"https://api.piped.private.coffee/streams/{video_id}",
+        ]
+        for ep in piped_endpoints:
+            try:
+                req = urllib.request.Request(ep, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=6) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        title = data.get("title", "YouTube Media")
+                        duration = data.get("duration")
+                        thumbnail = data.get("thumbnailUrl")
+                        stream_url = None
+                        if is_audio and data.get("audioStreams"):
+                            stream_url = data["audioStreams"][0].get("url")
+                        elif not is_audio and data.get("videoStreams"):
+                            for vs in data["videoStreams"]:
+                                if not vs.get("videoOnly") and vs.get("url"):
+                                    stream_url = vs["url"]
+                                    break
+                            if not stream_url and data["videoStreams"]:
+                                stream_url = data["videoStreams"][0].get("url")
+
+                        if stream_url:
+                            res = self._download_direct_stream(
+                                url=stream_url,
+                                is_audio=is_audio,
+                                file_prefix=file_prefix,
+                                title=title
+                            )
+                            if res and res.success:
+                                res.duration = duration
+                                res.thumbnail = thumbnail
+                                return res
+            except Exception as e:
+                logger.info(f"Piped yuklab olish xatoligi ({ep}): {e}")
 
         return None
 

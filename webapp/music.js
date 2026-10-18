@@ -660,19 +660,25 @@ function closePlayer() {
 }
 
 // =================================================================== chatga yuborish / ulashish
+const trackToken = (it) => ytOf(it) || (it.id ? String(it.id) : "");
 async function sendToChat(it) {
   if (!inTg) { toast("📱 Telegram ichida oching"); return; }
   haptic();
   let r;
   try { r = await api("api/music/send", {json: slim(it)}); } catch (e) { r = {ok: false, error: "network"}; }
   if (r.ok) { haptic("ok"); toast(r.dup ? "⏳ Allaqachon yuborilmoqda…" : "✅ MP3 chatga yuborilmoqda — botni oching", 2600); return; }
-  if (r.error === "need_start" && bot && ytOf(it)) { tg.openTelegramLink(`https://t.me/${bot}?start=m_${ytOf(it)}`); return; }
+  if (r.error === "need_start" && bot) {
+    const tok = trackToken(it);
+    if (tok) tg.openTelegramLink(`https://t.me/${bot}?start=m_${tok}`);
+    return;
+  }
   haptic("err");
   toast({rate: "⏳ Juda ko'p so'rov — birozdan keyin", auth: "⚠️ Ilovani yopib, qayta oching"}[r.error] || "⚠️ Yuborib bo'lmadi, qayta urinib ko'ring", 3000);
 }
 function share(it) {
-  if (!ytOf(it) || !bot) { toast("Bu qo'shiqni ulashib bo'lmaydi"); return; }
-  const p = parse(it), link = `https://t.me/${bot}?start=m_${ytOf(it)}`;
+  const tok = trackToken(it);
+  if (!tok || !bot) { toast("Bu qo'shiqni ulashib bo'lmaydi"); return; }
+  const p = parse(it), link = `https://t.me/${bot}?start=m_${tok}`;
   const text = `🎧 ${p.artist} — ${p.song}\nBir bosishda tinglang 👇`;
   const u = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
   inTg ? tg.openTelegramLink(u) : window.open(u, "_blank");
@@ -696,7 +702,7 @@ function actionsSheet(it) {
     <button class="m-act" data-act="next">${ICON.addq}Keyingi bo'lib ijro etish</button>
     <button class="m-act" data-act="fav">${ICON.heart}${fav ? "Saqlanganlardan olib tashlash" : "Saqlab qo'yish"}</button>
     <button class="m-act" data-act="artist">${ICON.user}Ijrochi: ${esc(p.artist)}</button>
-    ${ytOf(it) ? `<button class="m-act" data-act="share">${ICON.share}Do'stga yuborish</button>` : ""}`);
+    ${trackToken(it) ? `<button class="m-act" data-act="share">${ICON.share}Do'stga yuborish</button>` : ""}`);
 }
 function queueSheet() {
   const p = pos();

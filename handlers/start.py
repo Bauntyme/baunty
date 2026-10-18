@@ -97,6 +97,89 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                         except Exception:
                             pass
 
+        elif param.startswith("m_"):
+            music_id = param.replace("m_", "").strip()
+            status_msg = await message.answer("🎵 <b>Qo'shiq tayyorlanmoqda...</b>", parse_mode="HTML")
+            try:
+                import os
+                import aiohttp
+                from aiogram.types import FSInputFile
+                from services.music_service import music_service
+                from utils.helpers import safe_remove_file
+
+                track_title = "Musiqa"
+                track_artist = ""
+                track_info = None
+
+                # Agar Deezer track ID bo'lsa
+                if music_id.isdigit():
+                    try:
+                        async with aiohttp.ClientSession() as sess:
+                            async with sess.get(f"https://api.deezer.com/track/{music_id}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                                if resp.status == 200:
+                                    dz_info = await resp.json()
+                                    track_title = dz_info.get("title_short", dz_info.get("title", "Musiqa"))
+                                    track_artist = dz_info.get("artist", {}).get("name", "")
+                                    track_info = {
+                                        "title": track_title,
+                                        "artist": track_artist,
+                                        "preview": dz_info.get("preview"),
+                                        "duration": dz_info.get("duration", 0),
+                                    }
+                    except Exception as e_dz:
+                        logger.warning(f"Deezer track fetch error: {e_dz}")
+
+                query = f"{track_artist} - {track_title}".strip(" -") if track_artist else (track_title if track_title != "Musiqa" else music_id)
+                res = await music_service.download_track_mp3(query, track_info=track_info)
+
+                sent = False
+                caption = (
+                    f"🎵 <b>{track_artist} - {track_title}</b>\n\n"
+                    f"🤖 @{config.BOT_USERNAME.lstrip('@')} orqali yuklandi\n"
+                    f"🍿 {config.CHANNEL_USERNAME}"
+                )
+
+                if res.success and res.file_path and os.path.exists(res.file_path):
+                    await message.answer_audio(
+                        audio=FSInputFile(res.file_path),
+                        title=track_title,
+                        performer=track_artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        duration=res.duration,
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+                    safe_remove_file(res.file_path)
+                    sent = True
+                elif track_info and track_info.get("preview"):
+                    await message.answer_audio(
+                        audio=track_info["preview"],
+                        title=track_title,
+                        performer=track_artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+                    sent = True
+
+                try:
+                    await status_msg.delete()
+                except Exception:
+                    pass
+
+                if not sent:
+                    await message.answer(
+                        f"🎵 <b>«{query}»</b> qo'shig'ini yuklab bo'lmadi.\n"
+                        "«🎵 Qo'shiq topish» tugmasi orqali qidirib ko'ring.",
+                        parse_mode="HTML"
+                    )
+                return
+            except Exception as e_m:
+                logger.exception(f"Deep link musiqa yuklashda xatolik: {e_m}")
+                try:
+                    await status_msg.edit_text("❌ Musiqani yuklashda texnik xatolik yuz berdi.", parse_mode="HTML")
+                except Exception:
+                    pass
+                return
+
 
     welcome_text = (
         f"👋 <b>Assalomu alaykum, {user.first_name or 'qadrdon'}!</b>\n\n"

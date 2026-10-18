@@ -181,6 +181,26 @@ async def cb_download_track(callback: CallbackQuery) -> None:
     track_data = _SEARCH_CACHE.get(track_key)
 
     if not track_data:
+        track_id_part = track_key.split("_")[-1]
+        if track_id_part.isdigit():
+            try:
+                import aiohttp
+                async with aiohttp.ClientSession() as sess:
+                    async with sess.get(f"https://api.deezer.com/track/{track_id_part}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                        if resp.status == 200:
+                            dz_info = await resp.json()
+                            track_data = {
+                                "id": track_id_part,
+                                "title": dz_info.get("title_short", dz_info.get("title", "Musiqa")),
+                                "artist": dz_info.get("artist", {}).get("name", "Noma'lum"),
+                                "preview": dz_info.get("preview"),
+                                "duration": dz_info.get("duration", 0),
+                            }
+                            _SEARCH_CACHE[track_key] = track_data
+            except Exception:
+                pass
+
+    if not track_data:
         await callback.answer("⚠️ Ma'lumot eskirgan, iltimos qaytadan qidiring.", show_alert=True)
         return
 

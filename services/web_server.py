@@ -748,30 +748,41 @@ def create_web_app() -> web.Application:
     app.router.add_get("/index.html", handle_index)
     app.router.add_get("/webapp", handle_index)
     app.router.add_get("/webapp/", handle_index)
-    app.router.add_get("/api/catalog", handle_get_catalog)
-    app.router.add_post("/api/watch", handle_watch)
-    app.router.add_get("/api/movies", handle_get_movies)
-    app.router.add_get("/api/movies/{code}", handle_get_movie_detail)
-    app.router.add_get("/api/music", handle_get_music)
-    app.router.add_get("/api/music/home", handle_music_home)
-    app.router.add_get("/api/music/search", handle_music_search)
-    app.router.add_post("/api/music/play", handle_music_play)
-    app.router.add_post("/api/music/send", handle_music_send)
-    app.router.add_post("/api/music/recognize", handle_music_recognize)
-    app.router.add_post("/api/music/shazam", handle_music_shazam)
-    app.router.add_get("/api/tv", handle_get_tv)
-    app.router.add_post("/api/tv/report", handle_tv_report)
-    app.router.add_get("/api/tv/me", handle_tv_me)
-    app.router.add_post("/api/tv/hide", handle_tv_hide)
-    app.router.add_get("/api/games", handle_get_games)
-    app.router.add_post("/api/games/chest/claim", handle_chest_claim)
-    app.router.add_post("/api/games/pet/action", handle_pet_action)
-    app.router.add_get("/api/story", handle_story)
-    app.router.add_post("/api/docs/convert", handle_doc_convert)
-    app.router.add_post("/api/docs/pdf", handle_doc_pdf)
-    app.router.add_post("/api/send_to_chat", handle_send_to_chat)
+
+    api_routes = [
+        ("GET", "/api/catalog", handle_get_catalog),
+        ("POST", "/api/watch", handle_watch),
+        ("GET", "/api/movies", handle_get_movies),
+        ("GET", "/api/movies/{code}", handle_get_movie_detail),
+        ("GET", "/api/music", handle_get_music),
+        ("GET", "/api/music/home", handle_music_home),
+        ("GET", "/api/music/search", handle_music_search),
+        ("POST", "/api/music/play", handle_music_play),
+        ("POST", "/api/music/send", handle_music_send),
+        ("POST", "/api/music/recognize", handle_music_recognize),
+        ("POST", "/api/music/shazam", handle_music_shazam),
+        ("GET", "/api/tv", handle_get_tv),
+        ("POST", "/api/tv/report", handle_tv_report),
+        ("GET", "/api/tv/me", handle_tv_me),
+        ("POST", "/api/tv/hide", handle_tv_hide),
+        ("GET", "/api/games", handle_get_games),
+        ("POST", "/api/games/chest/claim", handle_chest_claim),
+        ("POST", "/api/games/pet/action", handle_pet_action),
+        ("GET", "/api/story", handle_story),
+        ("POST", "/api/docs/convert", handle_doc_convert),
+        ("POST", "/api/docs/pdf", handle_doc_pdf),
+        ("POST", "/api/send_to_chat", handle_send_to_chat),
+    ]
+    for method, path, handler in api_routes:
+        if method == "GET":
+            app.router.add_get(path, handler)
+            app.router.add_get(f"/webapp{path}", handler)
+        elif method == "POST":
+            app.router.add_post(path, handler)
+            app.router.add_post(f"/webapp{path}", handler)
 
     app.router.add_get("/p/{filename}", handle_poster_proxy)
+    app.router.add_get("/webapp/p/{filename}", handle_poster_proxy)
 
     # Statik fayllarni ulash (CSS, JS, Assetlar, Shriftlar)
     webapp_dir = BASE_DIR / "webapp"

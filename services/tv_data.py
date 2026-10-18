@@ -384,8 +384,9 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "name": "Makka Jonli Efir",
         "category": "xalqaro",
         "logo": "🕋",
-        "desc": "Makkai Mukarrama jonli efiri (24/7 HD)",
-        "stream": "https://www.youtube.com/watch?v=M2_o3h_72wU",
+        "desc": "Makkai Mukarrama jonli efiri (24/7 1080p HD)",
+        "stream": "https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8",
+        "quality": "1080p HD",
         "c": "sa",
         "k": "religious",
         "v": 25000,
@@ -395,8 +396,9 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "name": "Madina Jonli Efir",
         "category": "xalqaro",
         "logo": "🕌",
-        "desc": "Madinai Munavvara jonli efiri (24/7 HD)",
-        "stream": "https://www.youtube.com/watch?v=34dZf4XG_q8",
+        "desc": "Madinai Munavvara jonli efiri (24/7 1080p HD)",
+        "stream": "https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8",
+        "quality": "1080p HD",
         "c": "sa",
         "k": "religious",
         "v": 24000,
@@ -420,3 +422,5 @@ for _ch in CHANNELS_LIST:
     _ch["l"] = _ch.get("l")
     _ch["u"] = _ch.get("u") or [[0, _ch["stream"]]]
     _ch["v"] = _ch.get("v", max(500, 10000 - _ch["id"] * 75))
+    _ch["q"] = _ch.get("quality") or ("4K UHD" if _ch["id"] in (13, 14, 16, 37) else ("1080p HD" if _ch["id"] <= 22 or _ch["id"] in (75, 105, 106) else "HD"))
+
