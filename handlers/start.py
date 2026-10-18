@@ -61,6 +61,23 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
             return
 
+        elif param.startswith("b_") or param.startswith("book_") or param == "books":
+            from services import book_service
+            if param == "books":
+                from handlers.books import cmd_books
+                await cmd_books(message)
+                return
+            book_id = param.replace("book_", "").replace("b_", "").strip()
+            delivered = await book_service.deliver_book(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                book_id=book_id
+            )
+            if delivered and delivered.get("ok"):
+                return
+            await message.answer(f"⚠️ #{book_id} raqamli kitob topilmadi.", parse_mode="HTML")
+            return
+
         elif param.startswith("q_"):
             target_id_str = param.replace("q_", "").strip()
             if target_id_str.isdigit():

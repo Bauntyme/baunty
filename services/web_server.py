@@ -3,6 +3,7 @@ Bauntyfilms Web Server va Mini App API (aiohttp.web)
 Portlar va Render.com mosligi bilan.
 """
 import os
+import re
 import json
 import time
 import random
@@ -188,6 +189,7 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     data["docs"] = True
     data["games"] = True
     data["story"] = True
+    data["books"] = True
 
     _CATALOG_CACHE["data"] = data
     _CATALOG_CACHE["ts"] = now
@@ -969,6 +971,133 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
     return web.json_response({"success": True})
 
 
+# =================================================================== 📚 KITOB (BOOKS) API
+async def handle_books_catalog(request: web.Request) -> web.Response:
+    """Kutubxona katalogi va toifalarini qaytarish."""
+    category = request.query.get("category") or request.query.get("c")
+    query = request.query.get("q", "").strip()
+    try:
+        limit = int(request.query.get("limit", 50))
+    except (ValueError, TypeError):
+        limit = 50
+    try:
+        offset = int(request.query.get("offset", 0))
+    except (ValueError, TypeError):
+        offset = 0
+
+    from services import book_service
+    data = book_service.get_catalog(category=category, query=query, limit=limit, offset=offset)
+    return web.json_response(data)
+
+
+async def handle_books_search(request: web.Request) -> web.Response:
+    """Kitoblarni tezkor qidirish API."""
+    q = request.query.get("q", "").strip()
+    try:
+        limit = int(request.query.get("limit", 25))
+    except (ValueError, TypeError):
+        limit = 25
+    from services import book_service
+    items = book_service.search_books(q, limit=limit)
+    return web.json_response({"ok": True, "items": items, "total": len(items)})
+
+
+async def handle_book_detail(request: web.Request) -> web.Response:
+    """Kitobning to'liq ma'lumotlarini olish."""
+    book_id = request.match_info.get("id", "").strip()
+    from services import book_service
+    book = book_service.get_book_by_id(book_id)
+    if not book:
+        return web.json_response({"ok": False, "error": "not_found"}, status=404)
+    return web.json_response({"ok": True, "book": book})
+
+
+async def handle_book_send(request: web.Request) -> web.Response:
+    """Web Appdan tanlangan kitobni Telegram chatga PDF shaklida yuborish."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    init_data = request.headers.get("X-Init-Data", "")
+    user_id = (
+        extract_user_id_from_init_data(init_data)
+        or request.query.get("user_id")
+        or body.get("user_id")
+    )
+    book_id = str(body.get("id") or body.get("book_id") or "").strip()
+
+    if not book_id:
+        return web.json_response({"ok": False, "error": "not_found"}, status=400)
+
+    from services import book_service
+    book = book_service.get_book_by_id(book_id)
+    if not book:
+        return web.json_response({"ok": False, "error": "not_found"}, status=404)
+
+    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    target_url = f"https://t.me/{bot_username}?start=b_{book_id}"
+
+    if not user_id:
+        return web.json_response({
+            "ok": False,
+            "action": "open_bot",
+            "url": target_url,
+            "error": "need_start"
+        })
+
+    if not _bot_instance:
+        return web.json_response({
+            "ok": False,
+            "action": "open_bot",
+            "url": target_url,
+            "error": "bot_not_connected"
+        })
+
+    try:
+        result = await book_service.deliver_book(
+            bot=_bot_instance,
+            chat_id=int(user_id),
+            book_id=book_id
+        )
+        if result.get("ok"):
+            return web.json_response({"ok": True, "delivered": True, "book": book})
+        else:
+            return web.json_response({
+                "ok": False,
+                "action": "open_bot",
+                "url": target_url,
+                "error": result.get("error", "send_failed")
+            })
+    except Exception as e:
+        logger.error(f"Kitobni chatga yuborishda xatolik: {e}")
+        return web.json_response({
+            "ok": False,
+            "action": "open_bot",
+            "url": target_url,
+            "error": str(e)
+        })
+
+
+async def handle_book_pdf(request: web.Request) -> web.Response:
+    """Kitob PDF mutolaa faylini yuklab berish."""
+    book_id = request.match_info.get("id", "").strip()
+    from services import book_service
+    book = book_service.get_book_by_id(book_id)
+    if not book:
+        return web.Response(status=404, text="Kitob topilmadi")
+    pdf_bytes = book_service.create_book_pdf_sample(book)
+    safe_title = re.sub(r'[^\w\s-]', '', book.get('title', 'kitob')).strip()
+    return web.Response(
+        body=pdf_bytes,
+        content_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{safe_title}.pdf"',
+            "Access-Control-Allow-Origin": "*"
+        }
+    )
+
+
 def create_web_app() -> web.Application:
     """aiohttp web application yaratish va routerlarni sozlash."""
     app = web.Application()
@@ -1024,6 +1153,11 @@ def create_web_app() -> web.Application:
         ("POST", "/api/story/watch", handle_story_watch),
         ("POST", "/api/docs/convert", handle_doc_convert),
         ("POST", "/api/docs/pdf", handle_doc_pdf),
+        ("GET", "/api/books", handle_books_catalog),
+        ("GET", "/api/books/search", handle_books_search),
+        ("GET", "/api/books/{id}", handle_book_detail),
+        ("GET", "/api/books/{id}/pdf", handle_book_pdf),
+        ("POST", "/api/books/send", handle_book_send),
         ("POST", "/api/send_to_chat", handle_send_to_chat),
     ]
     for method, path, handler in api_routes:
@@ -1052,7 +1186,7 @@ def create_web_app() -> web.Application:
         app.router.add_static("/f", f_dir, name="fonts")
 
     # Asosiy Mini App papkasidagi yordamchi fayllarni root orqali ham berish
-    for fname in ["music.js", "docs.js", "games.js", "story.js", "music.css", "docs.css", "games.css", "story.css"]:
+    for fname in ["music.js", "docs.js", "games.js", "story.js", "books.js", "music.css", "docs.css", "games.css", "story.css", "books.css"]:
         fpath = webapp_dir / fname
         if fpath.exists():
             def make_handler(target_path):

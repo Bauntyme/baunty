@@ -14,6 +14,7 @@ from handlers.anon_questions import router as anon_questions_router
 from handlers.referral import router as referral_router
 from handlers.groups import router as groups_router
 from handlers.feedback import router as feedback_router
+from handlers.books import router as books_router
 
 
 _root_router: Router = None
@@ -27,12 +28,13 @@ def setup_routers() -> Router:
 
     _root_router = Router(name="root_router")
 
-    # Tartib: admin -> start -> downloader -> movies -> music -> story -> docs -> round_video -> anon -> referral -> groups -> feedback
+    # Tartib: admin -> start -> downloader -> movies -> music -> books -> story -> docs -> round_video -> anon -> referral -> groups -> feedback
     _root_router.include_router(admin_router)
     _root_router.include_router(start_router)
     _root_router.include_router(downloader_router)
     _root_router.include_router(movies_router)
     _root_router.include_router(music_router)
+    _root_router.include_router(books_router)
     _root_router.include_router(story_router)
     _root_router.include_router(docs_router)
     _root_router.include_router(round_video_router)
@@ -50,6 +52,7 @@ __all__ = [
     "downloader_router",
     "movies_router",
     "music_router",
+    "books_router",
     "story_router",
     "admin_router",
     "docs_router",
