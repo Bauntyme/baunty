@@ -202,10 +202,26 @@ async def cb_download_track(callback: CallbackQuery) -> None:
         elif "tarona" in track_key:
             try:
                 song_part = track_key.split("tarona_")[-1]
-                t_results = await music_service._search_tarona(song_part, limit=1)
-                if t_results:
-                    track_data = t_results[0]
+                direct_url = await music_service._resolve_tarona_direct_mp3(f"https://muzfm.uz/music/{song_part}")
+                if not direct_url:
+                    direct_url = await music_service._resolve_tarona_direct_mp3(f"https://muzfm.uz/index.php?newsid={song_part}")
+                if direct_url:
+                    track_data = {
+                        "id": f"tarona_{song_part}",
+                        "title": song_part.replace("-", " ").title(),
+                        "artist": "Tarona Music",
+                        "preview": direct_url,
+                        "u": direct_url,
+                        "s": "tarona",
+                        "link": f"https://muzfm.uz/music/{song_part}"
+                    }
                     _SEARCH_CACHE[track_key] = track_data
+                else:
+                    clean_search = song_part.replace("-", " ")
+                    t_results = await music_service._search_tarona(clean_search, limit=1)
+                    if t_results:
+                        track_data = t_results[0]
+                        _SEARCH_CACHE[track_key] = track_data
             except Exception:
                 pass
 
@@ -230,23 +246,32 @@ async def cb_download_track(callback: CallbackQuery) -> None:
             # Agar fayl sifatida yuklab bo'lmasa, lekin preview havolasi mavjud bo'lsa
             preview_url = track_data.get("preview") or track_data.get("u")
             if preview_url:
-                caption = (
-                    f"🎵 <b>{artist} - {title}</b>\n\n"
-                    f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
-                    f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
-                )
-                await callback.message.reply_audio(
-                    audio=preview_url,
-                    title=title,
-                    performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-                try:
-                    await status_msg.delete()
-                except Exception:
-                    pass
-                return
+                send_url = str(preview_url)
+                if any(x in send_url for x in ["/music/", ".html", "muzfm", "mp3uz"]):
+                    resolved = await music_service._resolve_tarona_direct_mp3(send_url)
+                    if resolved:
+                        send_url = resolved
+                    else:
+                        send_url = None
+
+                if send_url:
+                    caption = (
+                        f"🎵 <b>{artist} - {title}</b>\n\n"
+                        f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+                        f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
+                    )
+                    await callback.message.reply_audio(
+                        audio=send_url,
+                        title=title,
+                        performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+                    try:
+                        await status_msg.delete()
+                    except Exception:
+                        pass
+                    return
 
             err_msg = res.error if res.error else "Noma'lum xato"
             await status_msg.edit_text(

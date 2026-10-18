@@ -2706,3 +2706,18 @@ CHANNELS_LIST: List[Dict[str, Any]] = [   {   'c': 'uz',
                  [2, 'https://stream3.cinerama.uz/1062/playlist.m3u8'],
                  [3, 'https://stream3.cinerama.uz/1062/mono.m3u8']],
         'v': 4900}]
+
+# Frontend va API mosligi uchun dinamik xususiyatlarni to'ldirish
+for _ch in CHANNELS_LIST:
+    _ch["i"] = _ch.get("id", _ch.get("i", 1))
+    _ch["id"] = _ch["i"]
+    _ch["n"] = _ch.get("name", _ch.get("n", ""))
+    _ch["name"] = _ch["n"]
+    _ch["k"] = _ch.get("k", _ch.get("category", "kino"))
+    _ch["category"] = _ch["k"]
+    _ch["c"] = _ch.get("c", "uz")
+    _ch["l"] = _ch.get("l") or ""
+    _ch["u"] = _ch.get("u") or [[0, _ch.get("stream", "")]]
+    _ch["stream"] = _ch.get("stream") or (_ch["u"][0][1] if _ch["u"] else "")
+    _ch["v"] = _ch.get("v", max(500, 36000 - _ch["id"] * 250))
+    _ch["q"] = _ch.get("q") or _ch.get("quality") or "4K UHD / 1080p 60fps"

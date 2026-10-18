@@ -117,6 +117,8 @@ async def main() -> None:
         await notify_admins_on_startup(bot)
         from services.movie_service import start_periodic_catalog_sync
         start_periodic_catalog_sync()
+        from services.downloader import media_downloader
+        asyncio.create_task(media_downloader.update_from_git())
         logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{config.BOT_USERNAME}")
 
     async def on_shutdown():

@@ -437,12 +437,12 @@ async def handle_music_play(request: web.Request) -> web.Response:
     url = body.get("u") or body.get("preview") or body.get("url")
 
     # Tarona bazasi bo'lsa, to'g'ridan-to'g'ri .mp3 audio oqim havolasini aniqlash
-    if body.get("s") == "tarona" or (url and "muzfm" in str(url)):
+    if body.get("s") == "tarona" or (url and any(d in str(url) for d in ["muzfm", "mp3uz", "/music/"])):
         direct_tarona = await music_service._resolve_tarona_direct_mp3(body)
         if direct_tarona:
             return web.json_response({"ok": True, "url": direct_tarona})
 
-    if url and str(url).startswith("http"):
+    if url and str(url).startswith("http") and not any(p in str(url) for p in ["/music/", ".html", "search?"]):
         return web.json_response({"ok": True, "url": url})
 
     # Deezer ID bo'yicha to'g'ridan-to'g'ri preview olish
@@ -540,24 +540,33 @@ async def handle_music_send(request: web.Request) -> web.Response:
 
     # 2. Agar fayl yuklanmagan bo'lsa, mavjud preview_url orqali audio yuborish
     if not sent_audio and preview_url and str(preview_url).startswith("http"):
-        try:
-            caption = (
-                f"🎵 <b>{artist} - {title}</b>\n\n"
-                f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
-                f"🍿 {config.CHANNEL_USERNAME}"
-            )
-            await _bot_instance.send_audio(
-                chat_id=chat_id,
-                audio=preview_url,
-                title=title,
-                performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
-                duration=duration,
-                caption=caption,
-                parse_mode="HTML"
-            )
-            sent_audio = True
-        except Exception as e_url:
-            logger.warning(f"Preview URL orqali audio yuborishda xatolik: {e_url}")
+        send_url = str(preview_url)
+        if any(x in send_url for x in ["/music/", ".html", "muzfm", "mp3uz"]):
+            resolved = await music_service._resolve_tarona_direct_mp3(send_url)
+            if resolved:
+                send_url = resolved
+            else:
+                send_url = None
+
+        if send_url:
+            try:
+                caption = (
+                    f"🎵 <b>{artist} - {title}</b>\n\n"
+                    f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
+                    f"🍿 {config.CHANNEL_USERNAME}"
+                )
+                await _bot_instance.send_audio(
+                    chat_id=chat_id,
+                    audio=send_url,
+                    title=title,
+                    performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                    duration=duration,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+                sent_audio = True
+            except Exception as e_url:
+                logger.warning(f"Preview URL orqali audio yuborishda xatolik: {e_url}")
 
     # 3. Zaxira xabar
     if not sent_audio:

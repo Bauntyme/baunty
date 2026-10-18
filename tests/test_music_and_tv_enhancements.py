@@ -719,3 +719,140 @@ async def test_downloader_update_from_git():
         assert success is True
 
 
+@pytest.mark.asyncio
+async def test_tarona_direct_mp3_resolution_edge_cases():
+    """_resolve_tarona_direct_mp3 uncaptured regex, relative URL va sluglarni to'g'ri hal qilishi."""
+    music_srv = MusicService()
+
+    # 1. HTML ichida uncaptured regex bo'lsa (guruhi yo'q https://...mp3 pattern)
+    html_uncaptured = """
+    <html>
+      <script>var audioFile = 'https://cdn.example.com/audio/song.mp3';</script>
+    </html>
+    """
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.text = AsyncMock(return_value=html_uncaptured)
+
+    mock_resp_cm = MagicMock()
+    mock_resp_cm.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp_cm.__aexit__ = AsyncMock(return_value=None)
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = mock_resp_cm
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        res = await music_srv._resolve_tarona_direct_mp3("https://muzfm.uz/music/sample-song")
+        assert res == "https://cdn.example.com/audio/song.mp3"
+
+    # 2. Nisbiy URL (/uploads/song.mp3)
+    html_relative = """
+    <div><a href="/uploads/songs/song.mp3">Download</a></div>
+    """
+    mock_resp_rel = AsyncMock()
+    mock_resp_rel.status = 200
+    mock_resp_rel.text = AsyncMock(return_value=html_relative)
+
+    mock_resp_cm_rel = MagicMock()
+    mock_resp_cm_rel.__aenter__ = AsyncMock(return_value=mock_resp_rel)
+    mock_resp_cm_rel.__aexit__ = AsyncMock(return_value=None)
+
+    mock_session_rel = MagicMock()
+    mock_session_rel.get.return_value = mock_resp_cm_rel
+    mock_session_rel.__aenter__ = AsyncMock(return_value=mock_session_rel)
+    mock_session_rel.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("aiohttp.ClientSession", return_value=mock_session_rel):
+        res2 = await music_srv._resolve_tarona_direct_mp3({"link": "https://mp3uz.net/music/sample"})
+        assert res2 == "https://mp3uz.net/uploads/songs/song.mp3"
+
+    # 3. Allaqachon to'g'ridan-to'g'ri .mp3 bo'lsa
+    res3 = await music_srv._resolve_tarona_direct_mp3("https://cdn.example.com/track.mp3")
+    assert res3 == "https://cdn.example.com/track.mp3"
+
+
+@pytest.mark.asyncio
+async def test_tarona_search_mp3uz_format():
+    """Mp3uz.net formati (js-itemsiz, track-item__title va xfsearch artist) to'g'ri tanilishi."""
+    music_srv = MusicService()
+
+    fake_mp3uz_html = """
+    <div class="track-item fx-row fx-middle">
+      <div class="track-desc">
+        <a href="/music/3064-sample-track.html">
+          <div class="track-item__title ws-nowrap">Yulduzlar</div>
+          <div class="track-item__subtitle ws-nowrap">
+            <a href="/xfsearch/Artist/" title="Artist">Sardor Rahimxon</a>
+          </div>
+        </a>
+      </div>
+      <div class="track-time time">03:40</div>
+    </div>
+    """
+    def mock_get(req_url, **kwargs):
+        cm = MagicMock()
+        r = AsyncMock()
+        if "mp3uz" in req_url:
+            r.status = 200
+            r.text = AsyncMock(return_value=fake_mp3uz_html)
+        else:
+            r.status = 503
+            r.text = AsyncMock(return_value="")
+        cm.__aenter__ = AsyncMock(return_value=r)
+        cm.__aexit__ = AsyncMock(return_value=None)
+        return cm
+
+    mock_session = MagicMock()
+    mock_session.get.side_effect = mock_get
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("aiohttp.ClientSession", return_value=mock_session):
+        tracks = await music_srv._search_tarona("Sardor", limit=5)
+        assert len(tracks) >= 1
+        t = tracks[0]
+        assert t["title"] == "Yulduzlar"
+        assert t["artist"] == "Sardor Rahimxon"
+        assert t["duration"] == 220
+        assert "mp3uz.net" in t["link"]
+
+
+@pytest.mark.asyncio
+async def test_handle_music_play_never_leaks_html_page():
+    """handle_music_play web audio pleerga HTML sahifa manzilini berib yubormasligi kerak."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # Tarona sahifasi yuborilganda va direct MP3 hal bo'lsa
+        with patch.object(
+            MusicService, "_resolve_tarona_direct_mp3",
+            new_callable=AsyncMock
+        ) as mock_resolve:
+            mock_resolve.return_value = "https://muzfm.uz/uploads/sample.mp3"
+            resp = await client.post("/api/music/play", json={"s": "tarona", "u": "https://muzfm.uz/music/sample"})
+            assert resp.status == 200
+            data = await resp.json()
+            assert data["ok"] is True
+            assert data["url"] == "https://muzfm.uz/uploads/sample.mp3"
+
+        # HTML sahifasi bo'lib, uning direct MP3 si topilmasa, HTML sahifa URL i o'zi qaytmasligi kerak
+        with patch.object(
+            MusicService, "_resolve_tarona_direct_mp3",
+            new_callable=AsyncMock
+        ) as mock_resolve_none:
+            mock_resolve_none.return_value = None
+            resp_none = await client.post("/api/music/play", json={"s": "tarona", "u": "https://muzfm.uz/music/sample", "t": "Sample", "a": "Artist"})
+            assert resp_none.status == 200
+            data_none = await resp_none.json()
+            # Hech qachon /music/ yoki .html qaytmasligi shart
+            assert "https://muzfm.uz/music/sample" != data_none.get("url")
+    finally:
+        await client.close()
+
+
+

@@ -64,7 +64,7 @@ class MusicService:
         return await self._fallback_youtube_search(clean_q, limit=limit)
 
     async def _search_tarona(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
-        """Tarona / Muzfm o'zbek musiqa bazasi orqali qo'shiqlarni qidirish."""
+        """Tarona / Muzfm / Mp3uz o'zbek musiqa bazalari orqali qo'shiqlarni qidirish."""
         clean_q = query.strip()
         if not clean_q:
             return []
@@ -72,6 +72,7 @@ class MusicService:
         search_urls = [
             f"https://muzfm.uz/search?q={urllib.parse.quote(clean_q)}",
             f"https://muzfm.org/search?q={urllib.parse.quote(clean_q)}",
+            f"https://mp3uz.net/search?q={urllib.parse.quote(clean_q)}",
         ]
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -92,24 +93,38 @@ class MusicService:
                                 continue
 
                             track_blocks = re.findall(
-                                r'<div class="track-item[^"]*js-item"[^>]*>.*?(?=<div class="track-item|$)',
+                                r'<div class="track-item(?:\s+[^"]*)?"[^>]*>.*?(?=<div class="track-item(?:\s+[^"]*)?"|$)',
                                 html,
                                 re.DOTALL
                             )
                             tracks: List[Dict[str, Any]] = []
                             for b in track_blocks:
                                 id_m = re.search(r'data-songid="([^"]+)"', b)
-                                link_m = re.search(r'<a[^>]+class="track-link"[^>]+href="([^"]+)"', b)
-                                artist_m = re.search(r'<div class="track-subtitle artist[^>]*>\s*([^<]+)\s*</div>', b)
-                                title_m = re.search(r'<div class="track-title song[^>]*>\s*([^<]+)\s*</div>', b)
-                                time_m = re.search(r'<div class="track-time time">\s*([^<]+)\s*</div>', b)
+                                link_m = (
+                                    re.search(r'<a[^>]*class="track-link"[^>]*href="([^"]+)"', b)
+                                    or re.search(r'<a[^>]*href="([^"]*music[^"]*)"', b)
+                                    or re.search(r'<a[^>]*href="([^"]+)"', b)
+                                )
+                                artist_m = (
+                                    re.search(r'<div class="track-subtitle[^"]*"[^>]*>\s*([^<]+)\s*</div>', b)
+                                    or re.search(r'<a[^>]*href="/xfsearch/[^"]*"[^>]*>\s*([^<]+)\s*</a>', b)
+                                )
+                                title_m = (
+                                    re.search(r'<div class="track-title[^"]*"[^>]*>\s*([^<]+)\s*</div>', b)
+                                    or re.search(r'<div class="track-item__title[^"]*">\s*([^<]+)\s*</div>', b)
+                                )
+                                time_m = re.search(r'<div class="track-time[^"]*"[^>]*>\s*([^<]+)\s*</div>', b)
                                 img_m = re.search(r'<img[^>]+src="([^"]+)"', b)
 
                                 if link_m and title_m:
                                     artist = artist_m.group(1).strip() if artist_m else "Noma'lum"
                                     title = title_m.group(1).strip()
                                     link = link_m.group(1).strip()
-                                    song_id = id_m.group(1) if id_m else re.sub(r'[^a-zA-Z0-9_-]', '', link.split('/')[-1])
+                                    if link.startswith("/"):
+                                        domain = "https://mp3uz.net" if "mp3uz" in url else "https://muzfm.uz"
+                                        link = domain + link
+
+                                    song_id = id_m.group(1) if id_m else re.sub(r'[^a-zA-Z0-9_-]', '', link.rstrip('/').split('/')[-1])
                                     dur_str = time_m.group(1).strip() if time_m else "0"
                                     dur_sec = 0
                                     if ":" in dur_str:
@@ -120,6 +135,10 @@ class MusicService:
                                             dur_sec = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
 
                                     cover = img_m.group(1).strip() if img_m else None
+                                    if cover and cover.startswith("/"):
+                                        domain = "https://mp3uz.net" if "mp3uz" in url else "https://muzfm.uz"
+                                        cover = domain + cover
+
                                     tracks.append({
                                         "id": f"tarona_{song_id}",
                                         "title": title,
@@ -149,15 +168,23 @@ class MusicService:
         """Tarona sahifasi havolasidan to'g'ridan-to'g'ri .mp3 audio URL ni ajratib olish."""
         target_url = link_or_track
         if isinstance(link_or_track, dict):
-            u = link_or_track.get("u") or link_or_track.get("preview") or link_or_track.get("link")
+            u = link_or_track.get("link") or link_or_track.get("u") or link_or_track.get("preview")
             target_url = str(u or "")
+            if not target_url or not target_url.startswith("http"):
+                tid = str(link_or_track.get("id") or "")
+                if tid.startswith("tarona_"):
+                    slug = tid.replace("tarona_", "")
+                    target_url = f"https://muzfm.uz/music/{slug}"
+        elif isinstance(link_or_track, str) and not link_or_track.startswith("http"):
+            slug = link_or_track.replace("tarona_", "")
+            target_url = f"https://muzfm.uz/music/{slug}"
 
-        if not target_url or not target_url.startswith("http"):
+        if not target_url or not str(target_url).startswith("http"):
             return None
 
         # Agar allaqachon to'g'ridan-to'g'ri .mp3 havola bo'lsa
-        if ".mp3" in target_url:
-            return target_url
+        if ".mp3" in str(target_url):
+            return str(target_url)
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -165,18 +192,23 @@ class MusicService:
         }
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(target_url, headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                async with session.get(str(target_url), headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                     if resp.status == 200:
                         if hasattr(resp, "text"):
                             text_raw = resp.text() if callable(resp.text) else resp.text
                             html = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
-                            mp3_m = re.search(r'href="([^"]+\.mp3[^"]*)"', html)
-                            if not mp3_m:
-                                mp3_m = re.search(r'src="([^"]+\.mp3[^"]*)"', html)
-                            if not mp3_m:
-                                mp3_m = re.search(r'https?://[^\s"\'<>]+\.mp3', html)
+                            mp3_m = (
+                                re.search(r'href="([^"]+\.mp3[^"]*)"', html)
+                                or re.search(r'src="([^"]+\.mp3[^"]*)"', html)
+                                or re.search(r'https?://[^\s"\'<>]+\.mp3', html)
+                            )
                             if mp3_m:
-                                return mp3_m.group(1) if "(" in str(mp3_m.re) else mp3_m.group(0)
+                                res_url = mp3_m.group(1) if mp3_m.groups() else mp3_m.group(0)
+                                if res_url.startswith("/"):
+                                    from urllib.parse import urlparse
+                                    p = urlparse(str(target_url))
+                                    res_url = f"{p.scheme}://{p.netloc}{res_url}"
+                                return res_url
         except Exception as e:
             logger.debug(f"Tarona to'g'ridan-to'g'ri MP3 URL topishda xatolik: {e}")
 
@@ -429,14 +461,22 @@ class MusicService:
         if res.success and res.file_path:
             return res
 
-        # 4. Agar YouTube bot-detection / 429 tufayli ishlamasa va trekda preview bo'lsa:
+        # 4. Agar YouTube bot-detection / 429 tufayli ishlamasa va trekda haqiqiy audio preview bo'lsa:
         if preview_url and str(preview_url).startswith("http"):
-            logger.info(f"YouTube xatosi, mavjud audio preview yuklanmoqda: {preview_url}")
-            direct_res = await self.downloader.download_direct_audio(str(preview_url), title=track_title)
-            if direct_res.success:
-                return direct_res
+            is_real_audio = (
+                str(preview_url).endswith(".mp3")
+                or any(cdn in str(preview_url) for cdn in ["dzcdn.net", "mzstatic.com", "audio-preview"])
+            ) and not any(page in str(preview_url) for page in ["/music/", ".html", "search?"])
+            if is_real_audio:
+                logger.info(f"YouTube xatosi, mavjud audio preview yuklanmoqda: {preview_url}")
+                direct_res = await self.downloader.download_direct_audio(str(preview_url), title=track_title)
+                if direct_res.success:
+                    return direct_res
 
         # 5. Tarona bazasidan to'liq MP3 qidirib yuklab olish
+        tarona_fallback = await self._download_tarona_mp3(search_query, title=track_title)
+        if tarona_fallback and tarona_fallback.success:
+            return tarona_fallback
         tarona_fallback = await self._download_tarona_mp3(search_query, title=track_title)
         if tarona_fallback and tarona_fallback.success:
             return tarona_fallback
