@@ -733,11 +733,14 @@ class MediaDownloader:
         return None
 
     async def download_direct_audio(self, url: str, title: str = "Audio") -> DownloadResult:
-        """To'g'ridan-to'g'ri audio havolasini asinxron yuklab olish."""
-        res = await asyncio.to_thread(self._download_direct_stream, url, True, None, title)
-        if res and res.success:
-            return res
-        return DownloadResult(success=False, error="Audio yuklab olinmadi.")
+        """To'g'ridan-to'g'ri audio havolasini asinxron yuklab olish (Semaphore bilan yuqori yuklamadan himoyalangan)."""
+        if self._sem is None:
+            self._sem = asyncio.Semaphore(8)
+        async with self._sem:
+            res = await asyncio.to_thread(self._download_direct_stream, url, True, None, title)
+            if res and res.success:
+                return res
+            return DownloadResult(success=False, error="Audio yuklab olinmadi.")
 
     async def download_video(self, url: str) -> DownloadResult:
         """Asinxron video yuklab olish (Semaphore bilan yuqori yuklamadan himoyalangan)."""

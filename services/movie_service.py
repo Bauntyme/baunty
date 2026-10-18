@@ -424,6 +424,10 @@ class MovieService:
         )
         has_real_video = bool(db_movie and not is_placeholder)
 
+        # Agar serialning so'ralgan qismi (part > 1) mavjud bo'lmasa, soxta poster yubormasdan False qaytarish
+        if part > 1 and not has_real_video:
+            return False
+
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
         channel_user = config.CHANNEL_USERNAME
@@ -433,7 +437,19 @@ class MovieService:
             if clean_d:
                 desc_text = f"\n\n📝 <b>Tavsif:</b>\n<i>{clean_d}</i>"
 
+        # Qism sarlavhasini tozalash va to'g'ri shakllantirish (takrorlanishlarni bartaraf etish)
+        clean_base_title = re.sub(
+            r"[\s\-—–]+(?:\d+)[\s\-—–]*(?:qism|part|seriya|ep)\b.*$",
+            "",
+            title,
+            flags=re.IGNORECASE
+        ).strip()
+        if not clean_base_title:
+            clean_base_title = title
+
         part_suffix = f" — {part}-qism" if total_parts > 1 else ""
+        display_title = f"{clean_base_title}{part_suffix}"
+
         watch_note = ""
         if not has_real_video:
             watch_note = (
@@ -441,7 +457,7 @@ class MovieService:
             )
 
         caption = (
-            f"🎬 <b>{title}{part_suffix}</b> (4K Ultra HD){desc_text}{watch_note}\n\n"
+            f"🎬 <b>{display_title}</b> (4K Ultra HD){desc_text}{watch_note}\n\n"
             f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
             f"🤖 Bot: {bot_user}"
         )

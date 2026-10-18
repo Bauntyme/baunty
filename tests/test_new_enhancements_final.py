@@ -3,6 +3,8 @@ Qo'shimcha yangi funksiyalar (Anonim story TG/IG tanlovi, musiqa phonk/EDM, hujj
 kinolar ko'p qismli deliver va extract_movie_code_and_part, yuklovchi semaphore) uchun maxsus testlar.
 """
 import io
+import asyncio
+from pathlib import Path
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from PIL import Image
@@ -34,15 +36,14 @@ def test_story_platform_keyboard():
 async def test_story_fetch_tg_and_ig():
     """Story service TG va IG platformalari bo'yicha chaqirilishi testi."""
     with patch.object(story_service, "fetch_telegram_stories", new_callable=AsyncMock) as mock_tg:
-        mock_tg.return_value = {
-            "name": "Kun Uz",
-            "username": "kunuz",
-            "items": [{"type": "photo", "url": "https://example.com/p.jpg"}],
-            "count": 1
-        }
+        mock_tg.return_value = [
+            DownloadResult(success=True, file_path="dummy_tg.mp4", direct_url="https://example.com/tg.mp4")
+        ]
         res_tg = await story_service.fetch_stories("kunuz", platform="tg")
-        assert res_tg["count"] == 1
-        assert res_tg["username"] == "kunuz"
+        assert isinstance(res_tg, list)
+        assert len(res_tg) == 1
+        assert res_tg[0].success is True
+        assert res_tg[0].file_path == "dummy_tg.mp4"
 
     with patch.object(story_service, "_fetch_stories_via_public_endpoints", new_callable=AsyncMock) as mock_ig:
         mock_ig.return_value = [
@@ -172,3 +173,60 @@ async def test_downloader_semaphore_concurrency():
     """Downloader semaphore orqali bir vaqtning o'zida ko'p yuklamalarni cheklashi testi."""
     sem = media_downloader.semaphore if hasattr(media_downloader, "semaphore") else media_downloader._sem
     assert media_downloader._sem is not None or sem is not None
+
+
+@pytest.mark.asyncio
+async def test_music_soundcloud_search_and_aggregation():
+    """Soundcloud qidiruv funksiyasi va aggregator integratsiyasi testi."""
+    mock_tracks = [
+        {
+            "id": "sc_12345",
+            "title": "Neon Blade",
+            "artist": "MoonDeity",
+            "duration": 210,
+            "preview": "https://media.soundcloud.com/stream/preview.mp3",
+            "cover": "https://i1.sndcdn.com/artworks-123.jpg",
+            "link": "https://soundcloud.com/moondeity/neon-blade",
+            "s": "sc",
+        }
+    ]
+    with patch.object(music_service, "_search_soundcloud", new_callable=AsyncMock) as mock_sc:
+        mock_sc.return_value = mock_tracks
+        results = await music_service.search_tracks("phonk drift", limit=5)
+        assert any(t.get("s") == "sc" or "Neon Blade" in t.get("title", "") for t in results)
+
+
+@pytest.mark.asyncio
+async def test_doc_service_cyrillic_pdf(tmp_path):
+    """Cyrillic va o'zbekcha harflar (ў, қ, ғ, ҳ) bilan PDF generatsiya testi."""
+    cyr_title = "Ариза ва тавсифнома"
+    cyr_text = "Ушбу ҳужжат синов мақсадида яратилди. Ўзбекистон ва Тошкент шаҳри."
+    out_pdf = str(tmp_path / "cyr_doc.pdf")
+    res_path = doc_service.create_simple_pdf(cyr_title, cyr_text, out_pdf)
+    assert res_path == out_pdf
+    assert Path(out_pdf).exists()
+    assert Path(out_pdf).stat().st_size > 500
+
+
+@pytest.mark.asyncio
+async def test_movie_deliver_multipart_non_existent():
+    """Mavjud bo'lmagan serial qismi (masalan part=10) so'ralganda False qaytishi testi."""
+    mock_bot = AsyncMock()
+    # Bazada faqat 1-qism bor bo'lsin
+    res = await movie_service.deliver_movie(
+        bot=mock_bot,
+        chat_id=123456,
+        code="999999",
+        part=10
+    )
+    assert res is False
+
+
+@pytest.mark.asyncio
+async def test_downloader_direct_audio_semaphore_guard():
+    """download_direct_audio semaphore orqali himoyalanganligini tekshirish."""
+    with patch.object(asyncio, "to_thread", new_callable=AsyncMock) as mock_thread:
+        mock_thread.return_value = DownloadResult(success=True, file_path="audio.mp3")
+        res = await media_downloader.download_direct_audio("https://example.com/audio.mp3", title="Test")
+        assert res.success is True
+        assert media_downloader._sem is not None

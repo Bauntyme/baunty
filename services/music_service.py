@@ -23,18 +23,19 @@ class MusicService:
 
     async def search_tracks(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """
-        Tarona, Deezer, iTunes va Invidious ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
+        Tarona, Deezer, iTunes, Soundcloud va Invidious ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
         Phonk, EDM, ruscha, xorijiy va o'zbek musiqalari uchun eng mos manbalarni birlashtiradi.
         """
         clean_q = str(query or "").strip()
         if not clean_q:
             return []
 
-        # 1. Tarona, Deezer, iTunes va Invidious ochiq API larini parallel (bir vaqtda) ishga tushirish
+        # 1. Tarona, Deezer, iTunes, Soundcloud va Invidious ochiq API larini parallel (bir vaqtda) ishga tushirish
         tasks = [
             self._search_tarona(clean_q, limit=limit),
             self._search_deezer(clean_q, limit=limit),
             self._search_itunes(clean_q, limit=limit),
+            self._search_soundcloud(clean_q, limit=min(limit, 10)),
             self._search_invidious_music(clean_q, limit=min(limit, 10)),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -42,20 +43,21 @@ class MusicService:
         tarona_tracks = results[0] if isinstance(results[0], list) else []
         deezer_tracks = results[1] if isinstance(results[1], list) else []
         itunes_tracks = results[2] if isinstance(results[2], list) else []
-        invidious_tracks = results[3] if isinstance(results[3], list) else []
+        soundcloud_tracks = results[3] if isinstance(results[3], list) else []
+        invidious_tracks = results[4] if isinstance(results[4], list) else []
 
         # 2. Lokal katalog (data/music_home.json) qidiruvi
         local_tracks = self._search_local_home(clean_q, limit=limit)
 
-        # Phonk, EDM, remiks yoki xorijiy so'rovlar uchun Deezer/iTunes/Invidious ni birinchi o'ringa qo'yish
+        # Phonk, EDM, remiks yoki xorijiy so'rovlar uchun Soundcloud/Deezer/iTunes/Invidious ni birinchi o'ringa qo'yish
         is_phonk_or_foreign = any(
             w in clean_q.lower()
             for w in ["phonk", "edm", "remix", "bass", "drill", "rap", "trap", "club", "house", "nightcore", "speed up", "slowed", "drift"]
         )
         if is_phonk_or_foreign:
-            source_lists = [deezer_tracks, itunes_tracks, invidious_tracks, tarona_tracks, local_tracks]
+            source_lists = [soundcloud_tracks, deezer_tracks, itunes_tracks, invidious_tracks, tarona_tracks, local_tracks]
         else:
-            source_lists = [tarona_tracks, deezer_tracks, itunes_tracks, invidious_tracks, local_tracks]
+            source_lists = [tarona_tracks, deezer_tracks, itunes_tracks, soundcloud_tracks, invidious_tracks, local_tracks]
 
         # Barcha manbalarni birlashtirish va takrorlarni olib tashlash
         seen_keys = set()
@@ -338,6 +340,119 @@ class MusicService:
             logger.debug(f"iTunes qidiruv xatosi: {e}")
         return []
 
+    async def _search_soundcloud(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Soundcloud ochiq API va scraping orqali musiqa qidirish (Phonk, EDM, remikslar uchun a'lo)."""
+        clean_q = query.strip()
+        if not clean_q:
+            return []
+
+        # 1. Soundcloud public v2 API
+        client_ids = [
+            "a3e059563d7fd3372b49b37f00a00bcf",
+            "2t9lo3K2ujrD3NYtvLI64wKV8WuEDAuX",
+            "b4a530f252cf4df2a8a8157790b83e60",
+            "iZIs9mchVcX5lhVRyQGGAYlNPVldzAoX",
+        ]
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+        }
+
+        for cid in client_ids:
+            try:
+                url = "https://api-v2.soundcloud.com/search/tracks"
+                params = {"q": clean_q, "client_id": cid, "limit": str(limit)}
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            collection = data.get("collection", [])
+                            if collection:
+                                tracks = []
+                                for item in collection[:limit]:
+                                    title = item.get("title", "Musiqa")
+                                    user_info = item.get("user")
+                                    if not isinstance(user_info, dict) or not user_info.get("username"):
+                                        continue
+                                    artist = user_info.get("username", "Soundcloud")
+                                    dur_ms = item.get("duration", 0)
+                                    dur_sec = int(dur_ms / 1000) if dur_ms else 0
+                                    cover = item.get("artwork_url") or user_info.get("avatar_url")
+                                    permalink = item.get("permalink_url")
+                                    track_id = item.get("id")
+
+                                    preview = None
+                                    media = item.get("media", {})
+                                    transcodings = media.get("transcodings", [])
+                                    for tc in transcodings:
+                                        if tc.get("format", {}).get("protocol") == "progressive":
+                                            preview = tc.get("url")
+                                            break
+
+                                    tracks.append({
+                                        "id": f"sc_{track_id}" if track_id else str(hash(f"{artist}_{title}")),
+                                        "title": title,
+                                        "artist": artist,
+                                        "duration": dur_sec,
+                                        "preview": preview or permalink,
+                                        "cover": cover,
+                                        "link": permalink,
+                                        "t": title,
+                                        "a": artist,
+                                        "d": dur_sec,
+                                        "c": cover,
+                                        "u": preview or permalink,
+                                        "s": "sc",
+                                        "m": 1,
+                                    })
+                                if tracks:
+                                    return tracks
+            except Exception as e:
+                logger.debug(f"Soundcloud qidiruv xatosi ({cid}): {e}")
+
+        # 2. Ochiq global musiqa tarmog'i fallback (Phonk, EDM, Bass, Drift uchun zaxira)
+        try:
+            url = f"https://discoveryprovider.audius.co/v1/tracks/search?query={urllib.parse.quote(clean_q)}&app_name=baunty"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                    if resp.status == 200:
+                        adata = await resp.json()
+                        tracks_raw = adata.get("data", [])
+                        if tracks_raw:
+                            tracks = []
+                            for it in tracks_raw[:limit]:
+                                title = it.get("title", "Musiqa")
+                                user_info = it.get("user")
+                                if not isinstance(user_info, dict) or not user_info.get("name"):
+                                    continue
+                                artist = user_info.get("name")
+                                dur_sec = it.get("duration", 0)
+                                track_id = it.get("id")
+                                cover_art = it.get("artwork", {}).get("480x480") or it.get("artwork", {}).get("150x150")
+                                permalink = f"https://audius.co{it.get('permalink', '')}"
+                                tracks.append({
+                                    "id": f"sc_{track_id}" if track_id else str(hash(f"{artist}_{title}")),
+                                    "title": title,
+                                    "artist": artist,
+                                    "duration": dur_sec,
+                                    "preview": permalink,
+                                    "cover": cover_art,
+                                    "link": permalink,
+                                    "t": title,
+                                    "a": artist,
+                                    "d": dur_sec,
+                                    "c": cover_art,
+                                    "u": permalink,
+                                    "s": "sc",
+                                    "m": 1,
+                                })
+                            if tracks:
+                                return tracks
+        except Exception as e:
+            logger.debug(f"Soundcloud/Audius fallback xatosi: {e}")
+
+        return []
+
     async def _search_invidious_music(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """Invidious ochiq API orqali musiqa qidirish (YouTube Music ma'lumotlari)."""
         clean_q = query.strip()
@@ -547,7 +662,8 @@ class MusicService:
         if preview_url and str(preview_url).startswith("http"):
             is_real_audio = (
                 str(preview_url).endswith(".mp3")
-                or any(cdn in str(preview_url) for cdn in ["dzcdn.net", "mzstatic.com", "audio-preview"])
+                or str(preview_url).endswith(".m4a")
+                or any(cdn in str(preview_url) for cdn in ["dzcdn.net", "mzstatic.com", "audio-preview", "sndcdn.com", "audius", "media.soundcloud"])
             ) and not any(page in str(preview_url) for page in ["/music/", ".html", "search?"])
             if is_real_audio:
                 logger.info(f"YouTube xatosi, mavjud audio preview yuklanmoqda: {preview_url}")

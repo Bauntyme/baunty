@@ -1,6 +1,7 @@
 """
 Musiqa bo'limi qayta ishlovchisi (Qo'shiq qidirish va MP3 yuklash)
 """
+import html
 import logging
 from typing import Dict, Any
 from aiogram import Router, F
@@ -48,7 +49,7 @@ async def state_process_music_query(message: Message, state: FSMContext) -> None
         tracks = await music_service.search_tracks(query, limit=15)
         if not tracks:
             await status_msg.edit_text(
-                f"❌ <b>«{query}»</b> bo'yicha hech qanday qo'shiq topilmadi.\n"
+                f"❌ <b>«{html.escape(query)}»</b> bo'yicha hech qanday qo'shiq topilmadi.\n"
                 "Iltimos, nomni to'g'ri yozib qayta urinib ko'ring.",
                 parse_mode="HTML"
             )
@@ -61,7 +62,7 @@ async def state_process_music_query(message: Message, state: FSMContext) -> None
             _SEARCH_CACHE[track_key] = t
 
         text = (
-            f"🎵 <b>«{query}» bo'yicha topilgan natijalar:</b>\n"
+            f"🎵 <b>«{html.escape(query)}» bo'yicha topilgan natijalar:</b>\n"
             "Yuklab olmoqchi bo'lgan qo'shiqni tanlang:"
         )
 
@@ -130,10 +131,14 @@ async def process_voice_or_audio(message: Message, state: FSMContext) -> None:
         genre = track.get("genre", "Musiqa")
         cover_url = track.get("cover")
 
+        safe_title = html.escape(str(title))
+        safe_artist = html.escape(str(artist))
+        safe_genre = html.escape(str(genre))
+
         builder = InlineKeyboardBuilder()
         builder.row(
             InlineKeyboardButton(
-                text=f"📥 «{artist} - {title}» MP3 yuklash",
+                text=f"📥 «{artist[:20]} - {title[:20]}» MP3 yuklash",
                 callback_data=f"dl_track:{track_key}"
             )
         )
@@ -143,9 +148,9 @@ async def process_voice_or_audio(message: Message, state: FSMContext) -> None:
 
         caption = (
             "🎉 <b>Qo'shiq muvaffaqiyatli aniqlandi!</b>\n\n"
-            f"🎵 <b>Nomi:</b> {title}\n"
-            f"👤 <b>Ijrochi:</b> {artist}\n"
-            f"🎭 <b>Janr:</b> {genre}\n\n"
+            f"🎵 <b>Nomi:</b> {safe_title}\n"
+            f"👤 <b>Ijrochi:</b> {safe_artist}\n"
+            f"🎭 <b>Janr:</b> {safe_genre}\n\n"
             "To'liq MP3 formatida yuklab olish uchun quyidagi tugmani bosing: 👇"
         )
 
@@ -235,10 +240,13 @@ async def cb_download_track(callback: CallbackQuery) -> None:
     artist = track_data.get("artist", "")
     title = track_data.get("title", "")
     full_search_query = f"{artist} - {title}"
+    safe_query = html.escape(full_search_query)
+    safe_title = html.escape(str(title))
+    safe_artist = html.escape(str(artist))
 
     await callback.answer("⏳ MP3 tayyorlanmoqda...")
     status_msg = await callback.message.reply(
-        f"⏳ <b>«{full_search_query}» yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
+        f"⏳ <b>«{safe_query}» yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
         parse_mode="HTML"
     )
 
@@ -259,7 +267,7 @@ async def cb_download_track(callback: CallbackQuery) -> None:
 
                 if send_url:
                     caption = (
-                        f"🎵 <b>{artist} - {title}</b>\n\n"
+                        f"🎵 <b>{safe_artist} - {safe_title}</b>\n\n"
                         f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
                         f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
                     )
@@ -278,14 +286,14 @@ async def cb_download_track(callback: CallbackQuery) -> None:
 
             err_msg = res.error if res.error else "Noma'lum xato"
             await status_msg.edit_text(
-                f"❌ <b>Qo'shiqni yuklab bo'lmadi:</b>\n{err_msg}",
+                f"❌ <b>Qo'shiqni yuklab bo'lmadi:</b>\n{html.escape(err_msg)}",
                 parse_mode="HTML"
             )
             return
 
         audio_file = FSInputFile(res.file_path)
         caption = (
-            f"🎵 <b>{artist} - {title}</b>\n\n"
+            f"🎵 <b>{safe_artist} - {safe_title}</b>\n\n"
             f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
         )

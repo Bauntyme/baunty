@@ -2,6 +2,7 @@
 Anonim Telegram va Instagram Story ko'rish bo'limi
 """
 import logging
+import html
 from pathlib import Path
 from aiogram import Router, F
 from aiogram.filters import Command
@@ -89,8 +90,9 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
 
     plat_title = "Telegram" if is_tg else "Instagram"
     display_name = f"@{username}" if username else "Ko'rsatilgan profil"
+    safe_display = html.escape(display_name)
     status_msg = await message.reply(
-        f"⏳ <b>{display_name} {plat_title} hikoyalari yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
+        f"⏳ <b>{safe_display} {plat_title} hikoyalari yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
         parse_mode="HTML"
     )
 
@@ -105,12 +107,12 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
             error_reason = ""
             for r in results:
                 if not r.success and r.error:
-                    error_reason = r.error
+                    error_reason = str(r.error)
                     break
 
-            reason_text = f"\n\n<b>Xatolik tafsiloti:</b>\n{error_reason}" if error_reason else ""
+            reason_text = f"\n\n<b>Xatolik tafsiloti:</b>\n{html.escape(error_reason)}" if error_reason else ""
             await status_msg.edit_text(
-                f"❌ <b>{display_name} profilida faol {plat_title} hikoyalari topilmadi.</b>{reason_text}\n\n"
+                f"❌ <b>{safe_display} profilida faol {plat_title} hikoyalari topilmadi.</b>{reason_text}\n\n"
                 "Mumkin bo'lgan sabablar:\n"
                 "• Hozirda hech qanday hikoya (story) mavjud emas\n"
                 "• Profil yopiq (shaxsiy / private hisob)\n"
@@ -120,8 +122,9 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
             await state.clear()
             return
 
+        safe_user = html.escape(username or "user")
         caption = (
-            f"👀 <b>@{username} ning yangi {plat_title} hikoyasi/videosi</b>\n\n"
+            f"👀 <b>@{safe_user} ning yangi {plat_title} hikoyasi/videosi</b>\n\n"
             f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar:</b> {config.CHANNEL_USERNAME}"
         )

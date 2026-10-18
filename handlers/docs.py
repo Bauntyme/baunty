@@ -2,6 +2,7 @@
 Hujjatlar bo'limi handlerlari (PDF, Rasmdan PDF, OCR, Kirill-Lotin, Matn tahlili, Tarjima)
 """
 import uuid
+import html
 import logging
 from pathlib import Path
 from aiogram import Router, F
@@ -91,7 +92,7 @@ async def state_process_translit(message: Message, state: FSMContext) -> None:
 
     response = (
         f"✅ <b>{direction} muvaffaqiyatli o'girildi:</b>\n\n"
-        f"<code>{converted}</code>"
+        f"<code>{html.escape(converted)}</code>"
     )
     await message.reply(
         response,
@@ -130,8 +131,9 @@ async def state_process_pdf(message: Message, state: FSMContext) -> None:
         doc_service.create_simple_pdf(title=title, text=body, output_path=out_file)
         pdf_input = FSInputFile(out_file, filename=f"{title[:25]}.pdf")
 
+        safe_title = html.escape(title)
         caption = (
-            f"📄 <b>{title}</b>\n\n"
+            f"📄 <b>{safe_title}</b>\n\n"
             f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yaratildi</b>"
         )
         await message.reply_document(
@@ -239,9 +241,13 @@ async def state_process_ocr(message: Message, state: FSMContext) -> None:
             return
 
         extracted = await doc_service.ocr_image(temp_img)
+        clean_ocr = (extracted or "Matn topilmadi").strip()
+        if len(clean_ocr) > 3800:
+            clean_ocr = clean_ocr[:3800] + "... (qisqartirildi)"
+
         caption = (
             "🔍 <b>Rasmdan ajratib olingan matn:</b>\n\n"
-            f"<code>{extracted}</code>"
+            f"<code>{html.escape(clean_ocr)}</code>"
         )
         await status_msg.edit_text(caption, parse_mode="HTML")
     except Exception as e:
@@ -274,9 +280,9 @@ async def state_process_translate(message: Message, state: FSMContext) -> None:
 
     res_text = (
         f"🌐 <b>Tarjima natijalari:</b>\n\n"
-        f"🇺🇿 <b>Asl matn:</b> {text}\n"
-        f"🇬🇧 <b>Inglizcha:</b> {en_res}\n"
-        f"🇷🇺 <b>Ruscha:</b> {ru_res}"
+        f"🇺🇿 <b>Asl matn:</b> {html.escape(text)}\n"
+        f"🇬🇧 <b>Inglizcha:</b> {html.escape(en_res)}\n"
+        f"🇷🇺 <b>Ruscha:</b> {html.escape(ru_res)}"
     )
     await message.reply(
         res_text,

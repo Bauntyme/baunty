@@ -43,8 +43,73 @@ class DocService:
     @staticmethod
     def create_simple_pdf(title: str, text: str, output_path: str) -> str:
         """
-        Matndan to'liq valid, standart PDF 1.4 fayl yaratadi (qo'shimcha kutubxonasiz).
+        Matndan to'liq valid, standart PDF fayl yaratadi.
+        Kirill va milliy harflar (ў, қ, ғ, ҳ, а-я, А-Я) bo'lsa Pillow orqali
+        to'liq formatlangan, yuqori sifatli PDF sahifa generatsiya qilinadi.
         """
+        # Matnda kirill yoki kengaytirilgan (non-latin1) belgilar mavjudligini aniqlash
+        has_unicode = any(ord(c) > 127 for c in f"{title}\n{text}")
+        if has_unicode:
+            try:
+                import textwrap
+                from PIL import Image, ImageDraw, ImageFont
+
+                width, height = 1240, 1754
+                margin_x, margin_y = 80, 80
+
+                font_title = None
+                font_body = None
+                for fname in ["arial.ttf", "calibri.ttf", "segoeui.ttf", "C:/Windows/Fonts/arial.ttf"]:
+                    try:
+                        font_title = ImageFont.truetype(fname, 36)
+                        font_body = ImageFont.truetype(fname, 22)
+                        break
+                    except Exception:
+                        continue
+                if not font_title:
+                    font_title = ImageFont.load_default()
+                    font_body = ImageFont.load_default()
+
+                pages = []
+                cur_img = Image.new("RGB", (width, height), (255, 255, 255))
+                cur_draw = ImageDraw.Draw(cur_img)
+                cur_y = margin_y
+
+                # Sarlavha
+                cur_draw.text((margin_x, cur_y), str(title)[:60], fill=(20, 20, 20), font=font_title)
+                cur_y += 60
+
+                # Chiziq (separator)
+                cur_draw.line([(margin_x, cur_y), (width - margin_x, cur_y)], fill=(210, 210, 210), width=2)
+                cur_y += 35
+
+                # Body matn
+                paragraphs = (text or "").split("\n")
+                for para in paragraphs:
+                    if not para.strip():
+                        cur_y += 18
+                        continue
+                    wrapped_lines = textwrap.wrap(para, width=70)
+                    for wline in wrapped_lines:
+                        if cur_y > height - margin_y - 40:
+                            pages.append(cur_img)
+                            cur_img = Image.new("RGB", (width, height), (255, 255, 255))
+                            cur_draw = ImageDraw.Draw(cur_img)
+                            cur_y = margin_y
+                        cur_draw.text((margin_x, cur_y), wline, fill=(40, 40, 40), font=font_body)
+                        cur_y += 32
+                    cur_y += 12
+
+                pages.append(cur_img)
+
+                if len(pages) == 1:
+                    pages[0].save(output_path, "PDF", resolution=150.0)
+                else:
+                    pages[0].save(output_path, "PDF", resolution=150.0, save_all=True, append_images=pages[1:])
+                return output_path
+            except Exception:
+                pass
+
         # Matnni qatorlarga ajratish va qochirish
         clean_title = title.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
         lines = []
