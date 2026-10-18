@@ -78,12 +78,16 @@ def load_books() -> List[Dict[str, Any]]:
 def get_catalog(
     category: Optional[str] = None,
     query: Optional[str] = None,
+    lang: Optional[str] = None,
     limit: int = 50,
     offset: int = 0
 ) -> Dict[str, Any]:
     """Kutubxona katalogi va toifalarini qaytarish."""
     books = load_books()
     filtered = books
+
+    if lang and lang != "all":
+        filtered = [b for b in filtered if b.get("lang") == lang]
 
     if category and category != "all":
         if category == "pop":

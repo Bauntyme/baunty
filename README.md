@@ -1,15 +1,15 @@
-# 🎬 Zakirovs_bot (@Zakirovsfilms_bot)
+# 🎬 Bauntys Bot (@Bauntyfilmsbot)
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![Aiogram](https://img.shields.io/badge/Aiogram-3.x-blue.svg)](https://docs.aiogram.dev/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Zakirovsfilms_bot** — Telegram uchun professional, yuqori tezlikda ishlovchi, ko'p funksiyali universal media yuklovchi va kino boti.
+**Bauntys Bot (@Bauntyfilmsbot)** — Telegram uchun professional, yuqori tezlikda ishlovchi, ko'p funksiyali universal media yuklovchi va kino boti.
 
 > 📥 **Insta, TikTok, YouTube, Snapchat yuklash**  
-> 🎵 **Qo'shiq topish** • 🎬 **Kino** • 👀 **Anonim story**  
-> 🍿 **Kinolar kanali:** [@ZakirovsKino](https://t.me/ZakirovsKino)
+> 🎵 **Qo'shiq topish** • 🎬 **Kino** • 👀 **Anonim story** • 📚 **Kitoblar**  
+> 🍿 **Kinolar kanali:** [@BauntyFilms](https://t.me/BauntyFilms)
 
 ---
 
@@ -29,7 +29,7 @@
 * **🎲 Tasodifiy kino:** Nima ko'rishni bilmayotganlar uchun tasodifiy film taklif qilish.
 * **🎭 Janrlar:** Jangari, Komediya, Drama, Fantastika, Multfilm va boshqa janrlar bo'yicha saralash.
 * **🔥 Eng ommabop:** Eng ko'p ko'rilgan va yuklab olingan top kinolar ro'yxati.
-* **🍿 @ZakirovsKino integratsiyasi:** Bot va rasmiy kino kanali o'rtasida to'liq bog'liqlik.
+* **🍿 @BauntyFilms integratsiyasi:** Bot va rasmiy kino kanali o'rtasida to'liq bog'liqlik.
 
 ### 3. 🎵 Qo'shiq Topish va Audio Identifier (Musiqa Bo'limi)
 * **Qidiruv:** Qo'shiq nomi yoki ijrochisi bo'yicha qidirish (Deezer API integratsiyasi orqali tezkor va aniq natijalar).
@@ -68,7 +68,7 @@
 ## 📂 Loyiha Tuzilishi
 
 ```
-zakirovs_bot/
+baunty_bot/
 ├── config.py             # Asosiy konfiguratsiya (Pydantic Settings)
 ├── main.py               # Botni ishga tushirish (Startup/Shutdown, Polling)
 ├── requirements.txt      # Kerakli Python kutubxonalari
@@ -111,7 +111,7 @@ zakirovs_bot/
 
 1. Loyihani yuklab oling va papkaga kiring:
    ```bash
-   cd zakirovs_bot
+   cd baunty_bot
    ```
 
 2. Virtual muhit (venv) yarating va faollashtiring:
@@ -139,8 +139,8 @@ zakirovs_bot/
    `.env` faylini ochib, o'z Telegram bot tokeningizni va admin ID laringizni yozing:
    ```env
    BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
-   BOT_USERNAME=Zakirovsfilms_bot
-   CHANNEL_USERNAME=@ZakirovsKino
+   BOT_USERNAME=Bauntyfilmsbot
+   CHANNEL_USERNAME=@BauntyFilms
    ADMIN_IDS=123456789
    DB_TYPE=sqlite
    DATABASE_URL=sqlite+aiosqlite:///data/bot.db
@@ -237,4 +237,4 @@ Mini App `webapp/` papkasida Single Page Application (HTML5, CSS3, JavaScript) k
 
 ## 👨‍💻 Muallif
 
-Loyiha maxsus **@Zakirovsfilms_bot** va **@ZakirovsKino** uchun 1-ga-1 to'liq funktsional nusxa sifatida ishlab chiqilgan.
+Loyiha **Bauntys Bot (@Bauntyfilmsbot)** va **@BauntyFilms** uchun 100% oq brendlangan to'liq funktsional ilova sifatida ishlab chiqilgan.

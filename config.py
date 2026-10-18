@@ -1,5 +1,5 @@
 """
-Zakirovs Bot - Asosiy konfiguratsiya moduli
+Bauntys Bot - Asosiy konfiguratsiya moduli
 """
 import os
 from pathlib import Path
@@ -13,8 +13,8 @@ BASE_DIR = Path(__file__).resolve().parent
 class Settings(BaseSettings):
     # Telegram Bot
     BOT_TOKEN: str = Field(default="YOUR_BOT_TOKEN_HERE")
-    BOT_USERNAME: str = Field(default="Zakirovsfilms_bot")
-    CHANNEL_USERNAME: str = Field(default="@ZakirovsKino")
+    BOT_USERNAME: str = Field(default="Bauntyfilmsbot")
+    CHANNEL_USERNAME: str = Field(default="@BauntyFilms")
 
     # Adminlar
     ADMIN_IDS_RAW: str = Field(default="", alias="ADMIN_IDS")
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
             return url
 
         if self.DB_TYPE.lower() == "postgres":
-            return "postgresql+asyncpg://postgres:postgres@localhost:5432/zakirovs_db"
+            return "postgresql+asyncpg://postgres:postgres@localhost:5432/baunty_db"
         else:
             db_path = (BASE_DIR / "data" / "bot.db").resolve()
             db_path.parent.mkdir(parents=True, exist_ok=True)

@@ -44,6 +44,10 @@ img{display:block}
 .chan[hidden],.chips[hidden]{display:none}
 .chan{flex:none;display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
   background:var(--shade);font-size:13px;font-weight:600;color:var(--link)}
+.search-wrap{display:flex;align-items:center;gap:8px;width:100%}
+.search-wrap .search{flex:1}
+.zk-dice{flex:none;width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#f5a623,#ff8c00);color:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(245,166,35,.35);transition:transform .12s,box-shadow .15s;border:0;padding:0}
+.zk-dice:active{transform:scale(.92) rotate(18deg);box-shadow:0 1px 4px rgba(245,166,35,.45)}
 .search{position:relative;display:block}
 .search input::-webkit-search-cancel-button,.search input::-webkit-search-decoration{-webkit-appearance:none;appearance:none}
 .search input{width:100%;height:42px;border:0;border-radius:12px;background:var(--bg2);color:var(--text);
@@ -151,19 +155,19 @@ main{padding:6px 16px calc(28px + env(safe-area-inset-bottom))}
 /* ---------- rejim tanlash: Kinolar | TV ---------- */
 .seg{display:inline-flex;background:var(--bg2);border-radius:12px;padding:3px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .seg::-webkit-scrollbar{display:none}
-.seg button{padding:7px 11px;border-radius:9px;font-weight:750;font-size:14px;color:var(--hint);transition:.15s;white-space:nowrap;flex:none}
+.seg button{padding:7px 11px;border-radius:9px;font-weight:750;font-size:14px;color:var(--hint);background:transparent;transition:.15s;white-space:nowrap;flex:none}
 @media (max-width:374px){.seg button{padding:6px 9px;font-size:13px}.chan{padding:6px 9px;font-size:12px}}
 .brand>div:first-child{min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
 .brand>div:first-child::-webkit-scrollbar{display:none}
 body.seg4 .chan{display:none}
 body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
-.seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.seg button.on{background:#f5a623;color:#000;font-weight:800;border-radius:9px;box-shadow:0 2px 8px rgba(245,166,35,.35)}
 .brand small{margin-top:6px}
 #chips2{margin-top:8px}
 .chip.s{padding:6px 12px;font-size:13px}
 
 /* ---------- 📺 TV ---------- */
-.tvsoon .search{display:none}
+.tvsoon .search-wrap,.tvsoon .search{display:none}
 .soon{text-align:center;padding:56px 24px 40px;max-width:360px;margin:0 auto}
 .soon-tv{position:relative;width:132px;height:100px;margin:0 auto 22px;border-radius:22px;background:var(--bg2);display:flex;align-items:center;justify-content:center}
 .soon-tv i{font-style:normal;font-size:52px;position:relative}
@@ -314,15 +318,22 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 <body>
 <header class="top">
   <div class="brand">
-    <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="tv">📺 TV</button><button data-m="books">📚 Kitob</button></div>
+    <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📖 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="tv">📺 TV</button></div>
       <small id="count">Yuklanmoqda…</small></div>
     <button class="chan" id="chan" hidden>📢 Kanal</button>
   </div>
-  <label class="search" id="sbox">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-    <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search" placeholder="Kino nomi yoki kodi…">
-    <button class="clr" id="clr" type="button" aria-label="Tozalash">✕</button>
-  </label>
+  <div class="search-wrap" id="searchWrap">
+    <label class="search" id="sbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search" placeholder="Kino nomi yoki kodi…">
+      <button class="clr" id="clr" type="button" aria-label="Tozalash">✕</button>
+    </label>
+    <button class="zk-dice" id="zkDice" title="Tasodifiy kino" type="button" aria-label="Tasodifiy kino">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm0 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5-4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm0-9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+      </svg>
+    </button>
+  </div>
   <nav class="chips" id="chips">
     <button class="chip on" data-t="all">Hammasi</button>
     <button class="chip" data-t="pop">🔥 Ommabop</button>
@@ -771,6 +782,21 @@ $("q").addEventListener("input", (e) => {
 $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
 $("clr").onclick = (e) => { e.preventDefault(); $("q").value = ""; query = ""; $("sbox").classList.remove("has"); renderCur(); };
 $("chan").onclick = () => { if (!channel) return; inTg ? tg.openTelegramLink(channel) : window.open(channel); };
+const zkDice = $("zkDice");
+if (zkDice) {
+  zkDice.onclick = () => {
+    haptic("hit");
+    if (!items || !items.length) {
+      toast("Katalog yuklanmoqda…");
+      return;
+    }
+    const rnd = items[Math.floor(Math.random() * items.length)];
+    if (rnd) {
+      toast(`🎲 Tasodifiy: ${rnd.t}`, 1600);
+      openDetail(rnd);
+    }
+  };
+}
 
 // =================================================================== 📺 ONLAYN TV
 const CAT = {
@@ -933,7 +959,17 @@ function setMode(m) {
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
   if (m === "story") { if (window.ZStory) ZStory.open(); return; }
-  if (m === "books") { if (window.ZBooks) ZBooks.open(); return; }
+  if (m === "books") {
+    $("searchWrap") && ($("searchWrap").style.display = "none");
+    $("chips").innerHTML = "";
+    $("chips2").hidden = true;
+    $("chan").hidden = true;
+    $("count").textContent = "3 tilda kitoblar · bepul mutolaa";
+    if (window.ZBooks) ZBooks.open();
+    return;
+  }
+  $("searchWrap") && ($("searchWrap").style.display = "");
+  if ($("zkDice")) $("zkDice").style.display = m === "tv" ? "none" : "";
   $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;

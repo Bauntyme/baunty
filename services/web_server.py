@@ -975,6 +975,7 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
 async def handle_books_catalog(request: web.Request) -> web.Response:
     """Kutubxona katalogi va toifalarini qaytarish."""
     category = request.query.get("category") or request.query.get("c")
+    lang = request.query.get("lang") or request.query.get("l")
     query = request.query.get("q", "").strip()
     try:
         limit = int(request.query.get("limit", 50))
@@ -986,7 +987,7 @@ async def handle_books_catalog(request: web.Request) -> web.Response:
         offset = 0
 
     from services import book_service
-    data = book_service.get_catalog(category=category, query=query, limit=limit, offset=offset)
+    data = book_service.get_catalog(category=category, query=query, lang=lang, limit=limit, offset=offset)
     return web.json_response(data)
 
 

@@ -1,4 +1,4 @@
-/* 📚 Baunty Kutubxonasi — Mini App Books Module (window.ZBooks) */
+/* 📚 Baunty Kutubxonasi — 1:1 Zakirovs Books Module (window.ZBooks) */
 (() => {
   "use strict";
 
@@ -37,7 +37,9 @@
   };
 
   let botName = "Bauntyfilmsbot";
-  let activeCategory = "all";
+  let activeSub = "home"; // "home" (Kutubxona), "search" (Qidiruv), "shelf" (Javonim)
+  let activeLang = "all"; // "all", "uz", "en", "ru"
+  let activeCategory = "all"; // "all", "pop", "badiiy", "biznes", "psixologiya", "diniy", "tarix", "bolalar"
   let searchQuery = "";
   let booksList = [];
   let booksById = new Map();
@@ -63,12 +65,175 @@
     }
   }
 
-  // ---------- DOM yaratish ----------
+  // ---------- Yordamchi kitob kartochkasi HTML ----------
+  function bookCardHTML(b, rank = null) {
+    const isPop = b.popular || (b.views && b.views > 60000);
+    const isFav = savedFavorites.includes(String(b.id));
+    return `
+      <button class="bk-card" data-bid="${esc(b.id)}" type="button">
+        <div class="bk-cover">
+          ${isPop && !rank ? `<span class="bk-badge-pop">🔥 XIT</span>` : ""}
+          <span class="bk-badge-fmt">${esc(b.format || "PDF")}</span>
+          ${isFav ? `<span class="bk-badge-fav">★</span>` : ""}
+          <div class="bk-ph">
+            <span class="bk-ph-icon">📖</span>
+            <span class="bk-ph-title">${esc(b.title)}</span>
+          </div>
+          ${b.cover ? `<img src="${esc(b.cover)}" alt="${esc(b.title)}" loading="lazy" decoding="async" onload="this.classList.add('ok')">` : ""}
+          ${rank ? `<span class="bk-rank">${rank}</span>` : ""}
+        </div>
+        <div class="bk-title">${esc(b.title)}</div>
+        <div class="bk-author">${esc(b.author)}</div>
+        <div class="bk-meta-row">
+          <span class="bk-rating">⭐ ${b.rating || "4.9"}</span>
+          <span>•</span>
+          <span>${b.pages || 200} bet</span>
+        </div>
+      </button>
+    `;
+  }
+
+  // ---------- Gorizontal javon (Carousel) HTML ----------
+  function shelfHTML(title, subtitle, list, isTop10 = false) {
+    if (!list || !list.length) return "";
+    return `
+      <div class="bk-sec">
+        <div class="bk-sec-h">
+          <div>
+            <h2>${title}</h2>
+            ${subtitle ? `<span class="bk-sec-sub">${subtitle}</span>` : ""}
+          </div>
+          <span class="bk-sec-count">${list.length} ta</span>
+        </div>
+        <div class="bk-shelf">
+          ${list.map((b, idx) => bookCardHTML(b, isTop10 ? (idx + 1) : null)).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------- Asosiy DOM Ko'rinishi ----------
   function renderView() {
     const main = $("main");
     if (!main) return;
 
-    // Chips paneli
+    // Pastki Sub-tablar paneli
+    ensureSubTabsBar();
+
+    // 1. Kutubxona bosh sahifasi (Home / Shelves)
+    if (activeSub === "home") {
+      renderHome(main);
+    }
+    // 2. Qidiruv sahifasi (Search / Grid)
+    else if (activeSub === "search") {
+      renderSearchPage(main);
+    }
+    // 3. Mening Javonim (Favorites Shelf)
+    else if (activeSub === "shelf") {
+      renderMyShelf(main);
+    }
+
+    bindCardEvents();
+  }
+
+  // ---------- 1. Kutubxona Javonlari Ko'rinishi ----------
+  function renderHome(container) {
+    // Til filtrlari
+    const langs = [
+      { id: "all", label: "Hammasi" },
+      { id: "uz", label: "🇺🇿 O'zbek" },
+      { id: "en", label: "🇬🇧 English" },
+      { id: "ru", label: "🇷🇺 Русский" }
+    ];
+
+    let langsHtml = langs.map((l) =>
+      `<button class="bk-lang${activeLang === l.id ? " on" : ""}" data-l="${l.id}">${l.label}</button>`
+    ).join("");
+
+    container.innerHTML = `
+      <div class="bk-view">
+        <div class="bk-hero">
+          <div class="bk-hero-info">
+            <h2>Bugun nima o'qiymiz?</h2>
+            <p>Bauntys Kutubxonasi — 3 tilda kitoblar • bepul mutolaa</p>
+          </div>
+          <span class="bk-hero-badge">${booksList.length}+ Kitob</span>
+        </div>
+
+        <label class="bk-search" id="bkSearchBox">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="bkQuery" type="search" inputmode="search" autocomplete="off" placeholder="Kitob, muallif yoki janr..." value="${esc(searchQuery)}">
+          <button class="bk-clr" id="bkClr" type="button" aria-label="Tozalash">✕</button>
+        </label>
+
+        <div class="bk-langs" id="bkLangsBar">${langsHtml}</div>
+
+        <div id="bkContentArea"></div>
+      </div>
+    `;
+
+    bindSearchAndLangInputs();
+    renderHomeShelves();
+  }
+
+  function renderHomeShelves() {
+    const area = $("bkContentArea");
+    if (!area) return;
+
+    // Agar qidiruv kiritilgan bo'lsa, javonlar o'rniga qidiruv natijalarini ko'rsatamiz
+    if (searchQuery) {
+      renderSearchResultsGrid(area);
+      return;
+    }
+
+    let baseList = booksList;
+    if (activeLang !== "all") {
+      baseList = baseList.filter((b) => b.lang === activeLang);
+    }
+
+    // 1. 🔥 Haftalik TOP-10
+    const top10 = [...baseList].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 10);
+
+    // 2. 🇺🇿 O'zbek adabiyoti durdonalari
+    const uzClassic = baseList.filter((b) =>
+      b.lang === "uz" && (b.category === "badiiy" || b.category === "tarix" || [
+        "Abdulla Qodiriy", "Abdulhamid Cho'lpon", "Tohir Malik", "Xudoyberdi To'xtaboyev", "Amir Temur", "Shayx Muhammad Sodiq Muhammad Yusuf", "Ahmad Lutfiy Qozonchi"
+      ].includes(b.author))
+    );
+
+    // 3. 💼 Biznes va Psixologiya
+    const bizPsi = baseList.filter((b) => b.category === "biznes" || b.category === "psixologiya");
+
+    // 4. 🏛 Tarixiy asarlar
+    const historyBooks = baseList.filter((b) =>
+      b.category === "tarix" || (b.category === "diniy" && b.year < 2010) || ["1", "2", "7", "12", "14"].includes(String(b.id))
+    );
+
+    // 5. 🧸 Bolalar adabiyoti
+    const kidsBooks = baseList.filter((b) =>
+      b.category === "bolalar" || ["15", "16", "25", "32"].includes(String(b.id))
+    );
+
+    area.innerHTML = `
+      ${shelfHTML("🔥 Haftalik TOP-10", "eng ko'p mutolaa qilingan sara kitoblar", top10, true)}
+      ${uzClassic.length ? shelfHTML("🇺🇿 O'zbek adabiyoti durdonalari", "milliy adabiyotimizning nodir asarlari", uzClassic) : ""}
+      ${bizPsi.length ? shelfHTML("💼 Biznes va Psixologiya", "shaxsiy rivojlanish, moliya va yetakchilik", bizPsi) : ""}
+      ${historyBooks.length ? shelfHTML("🏛 Tarixiy asarlar", "o'tmish saboqlari va buyuk allomalar merosi", historyBooks) : ""}
+      ${kidsBooks.length ? shelfHTML("🧸 Bolalar adabiyoti", "qiziqarli sarguzashtlar va tarbiyaviy ertaklar", kidsBooks) : ""}
+    `;
+
+    bindCardEvents();
+  }
+
+  // ---------- 2. Qidiruv Sahifasi Ko'rinishi ----------
+  function renderSearchPage(container) {
+    const langs = [
+      { id: "all", label: "Hammasi" },
+      { id: "uz", label: "🇺🇿 O'zbek" },
+      { id: "en", label: "🇬🇧 English" },
+      { id: "ru", label: "🇷🇺 Русский" }
+    ];
+
     const chips = [
       { id: "all", label: "📚 Barchasi" },
       { id: "pop", label: "🔥 Ommabop" },
@@ -77,90 +242,81 @@
       { id: "psixologiya", label: "🧠 Psixologiya" },
       { id: "diniy", label: "🕌 Diniy" },
       { id: "tarix", label: "📜 Tarix" },
-      { id: "bolalar", label: "🧸 Bolalar" },
-      { id: "fav", label: "⭐ Saqlanganlar" },
+      { id: "bolalar", label: "🧸 Bolalar" }
     ];
+
+    let langsHtml = langs.map((l) =>
+      `<button class="bk-lang${activeLang === l.id ? " on" : ""}" data-l="${l.id}">${l.label}</button>`
+    ).join("");
 
     let chipsHtml = chips.map((c) =>
       `<button class="bk-chip${activeCategory === c.id ? " on" : ""}" data-c="${c.id}">${c.label}</button>`
     ).join("");
 
-    main.innerHTML = `
+    container.innerHTML = `
       <div class="bk-view">
-        <div class="bk-hero">
-          <div class="bk-hero-info">
-            <h2>📚 Baunty Kutubxonasi</h2>
-            <p>O'zbek va jahon adabiyoti durdonalari, biznes va psixologiya kitoblari</p>
-          </div>
-          <span class="bk-hero-badge">${booksList.length}+ Kitob</span>
-        </div>
-
         <label class="bk-search" id="bkSearchBox">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-          <input id="bkQuery" type="search" inputmode="search" autocomplete="off" placeholder="Kitob yoki muallif nomi…" value="${esc(searchQuery)}">
-          <button class="bk-clr" id="bkClr" type="button">✕</button>
+          <input id="bkQuery" type="search" inputmode="search" autocomplete="off" placeholder="Kitob, muallif yoki janr..." value="${esc(searchQuery)}">
+          <button class="bk-clr" id="bkClr" type="button" aria-label="Tozalash">✕</button>
         </label>
 
+        <div class="bk-langs" id="bkLangsBar">${langsHtml}</div>
         <div class="bk-chips" id="bkChipsBar">${chipsHtml}</div>
 
-        <div id="bkGrid" class="bk-grid"></div>
+        <div id="bkContentArea"></div>
       </div>
     `;
 
-    // Event listenerlar
-    const inp = $("bkQuery");
-    const clr = $("bkClr");
-    const sBox = $("bkSearchBox");
-
-    if (inp) {
-      if (searchQuery) sBox.classList.add("has");
-      let st;
-      inp.addEventListener("input", (e) => {
-        searchQuery = e.target.value.trim();
-        sBox.classList.toggle("has", !!searchQuery);
-        clearTimeout(st);
-        st = setTimeout(() => { renderGrid(); }, 120);
-      });
-      inp.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") inp.blur();
-      });
-    }
-
-    if (clr) {
-      clr.onclick = (e) => {
-        e.preventDefault();
-        inp.value = "";
-        searchQuery = "";
-        sBox.classList.remove("has");
-        renderGrid();
-      };
-    }
-
-    const chipsBar = $("bkChipsBar");
-    if (chipsBar) {
-      chipsBar.addEventListener("click", (e) => {
-        const btn = e.target.closest(".bk-chip");
-        if (!btn) return;
-        haptic();
-        activeCategory = btn.dataset.c;
-        chipsBar.querySelectorAll(".bk-chip").forEach((b) => b.classList.toggle("on", b === btn));
-        renderGrid();
-      });
-    }
-
-    renderGrid();
+    bindSearchAndLangInputs();
+    bindCategoryChips();
+    renderSearchResultsGrid($("bkContentArea"));
   }
 
-  // ---------- Kartochkalar Gridini render qilish ----------
-  function renderGrid() {
-    const grid = $("bkGrid");
-    if (!grid) return;
+  // ---------- 3. Mening Javonim Sahifasi Ko'rinishi ----------
+  function renderMyShelf(container) {
+    const langs = [
+      { id: "all", label: "Hammasi" },
+      { id: "uz", label: "🇺🇿 O'zbek" },
+      { id: "en", label: "🇬🇧 English" },
+      { id: "ru", label: "🇷🇺 Русский" }
+    ];
+
+    let langsHtml = langs.map((l) =>
+      `<button class="bk-lang${activeLang === l.id ? " on" : ""}" data-l="${l.id}">${l.label}</button>`
+    ).join("");
+
+    container.innerHTML = `
+      <div class="bk-view">
+        <div class="bk-hero">
+          <div class="bk-hero-info">
+            <h2>🔖 Mening Javonim</h2>
+            <p>Saqlangan va mutolaa qilinayotgan sevimli kitoblaringiz</p>
+          </div>
+          <span class="bk-hero-badge">${savedFavorites.length} ta</span>
+        </div>
+
+        <div class="bk-langs" id="bkLangsBar">${langsHtml}</div>
+
+        <div id="bkContentArea"></div>
+      </div>
+    `;
+
+    bindSearchAndLangInputs();
+    renderShelfFavoritesGrid($("bkContentArea"));
+  }
+
+  // ---------- Qidiruv natijalarini Grid ko'rinishida chiqarish ----------
+  function renderSearchResultsGrid(target) {
+    if (!target) return;
 
     let list = booksList;
 
-    if (activeCategory === "fav") {
-      list = list.filter((b) => savedFavorites.includes(String(b.id)));
-    } else if (activeCategory === "pop") {
+    if (activeLang !== "all") {
+      list = list.filter((b) => b.lang === activeLang);
+    }
+
+    if (activeCategory === "pop") {
       list = list.filter((b) => b.popular || (b.views && b.views > 50000));
     } else if (activeCategory !== "all") {
       list = list.filter((b) => b.category === activeCategory);
@@ -175,43 +331,129 @@
       );
     }
 
-    const countEl = $("count");
-    if (countEl) {
-      countEl.textContent = `${list.length} ta kitob · bepul mutolaa`;
-    }
-
     if (!list.length) {
-      grid.innerHTML = activeCategory === "fav"
-        ? `<div class="empty" style="grid-column: 1/-1"><div class="big">⭐</div><b>Hali kitob saqlamadingiz</b>Kitob tanlab, «Saqlash» tugmasini bosing.</div>`
-        : `<div class="empty" style="grid-column: 1/-1"><div class="big">🔍</div><b>Kitob topilmadi</b>Boshqa nom yoki muallif bilan qidirib ko'ring.</div>`;
+      target.innerHTML = `
+        <div class="empty" style="grid-column: 1/-1">
+          <div class="big">🔍</div>
+          <b>Hech qanday kitob topilmadi</b>
+          Boshqa nom yoki muallif bilan qidirib ko'ring.
+        </div>
+      `;
       return;
     }
 
-    grid.innerHTML = list.map((b) => {
-      const isPop = b.popular || (b.views && b.views > 60000);
-      return `
-        <button class="bk-card" data-bid="${esc(b.id)}">
-          <div class="bk-cover">
-            ${isPop ? `<span class="bk-badge-pop">🔥 XIT</span>` : ""}
-            <span class="bk-badge-fmt">${esc(b.format || "PDF")}</span>
-            <div class="bk-ph">
-              <span class="bk-ph-icon">📖</span>
-              <span class="bk-ph-title">${esc(b.title)}</span>
-            </div>
-            ${b.cover ? `<img src="${esc(b.cover)}" alt="${esc(b.title)}" loading="lazy" decoding="async" onload="this.classList.add('ok')">` : ""}
-          </div>
-          <div class="bk-title">${esc(b.title)}</div>
-          <div class="bk-author">${esc(b.author)}</div>
-          <div class="bk-meta-row">
-            <span class="bk-rating">⭐ ${b.rating || "4.9"}</span>
-            <span>•</span>
-            <span>${b.pages || 200} bet</span>
-          </div>
-        </button>
-      `;
-    }).join("");
+    target.innerHTML = `
+      <div class="bk-sec-h">
+        <h2>${searchQuery ? `«${esc(searchQuery)}» bo'yicha natijalar` : "Barcha kitoblar"}</h2>
+        <span class="bk-sec-count">${list.length} ta</span>
+      </div>
+      <div class="bk-grid">
+        ${list.map((b) => bookCardHTML(b)).join("")}
+      </div>
+    `;
 
-    grid.querySelectorAll(".bk-card").forEach((btn) => {
+    bindCardEvents();
+  }
+
+  // ---------- Saqlanganlar Gridi ----------
+  function renderShelfFavoritesGrid(target) {
+    if (!target) return;
+
+    let list = booksList.filter((b) => savedFavorites.includes(String(b.id)));
+
+    if (activeLang !== "all") {
+      list = list.filter((b) => b.lang === activeLang);
+    }
+
+    if (!list.length) {
+      target.innerHTML = `
+        <div class="empty" style="grid-column: 1/-1">
+          <div class="big">🔖</div>
+          <b>Javoningiz hozircha bo'sh</b>
+          Katalogdan kitob tanlab, «Saqlash» tugmasini bosing — barcha sevimli asarlaringiz shu yerda yig'iladi.
+        </div>
+      `;
+      return;
+    }
+
+    target.innerHTML = `
+      <div class="bk-sec-h">
+        <h2>Saqlangan kitoblaringiz</h2>
+        <span class="bk-sec-count">${list.length} ta</span>
+      </div>
+      <div class="bk-grid">
+        ${list.map((b) => bookCardHTML(b)).join("")}
+      </div>
+    `;
+
+    bindCardEvents();
+  }
+
+  // ---------- Qidiruv va Til Filtrlari Hodisalari ----------
+  function bindSearchAndLangInputs() {
+    const inp = $("bkQuery");
+    const clr = $("bkClr");
+    const sBox = $("bkSearchBox");
+
+    if (inp && sBox) {
+      if (searchQuery) sBox.classList.add("has");
+      let st;
+      inp.addEventListener("input", (e) => {
+        searchQuery = e.target.value.trim();
+        sBox.classList.toggle("has", !!searchQuery);
+        clearTimeout(st);
+        st = setTimeout(() => {
+          if (activeSub === "home") renderHomeShelves();
+          else if (activeSub === "search") renderSearchResultsGrid($("bkContentArea"));
+        }, 120);
+      });
+      inp.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") inp.blur();
+      });
+    }
+
+    if (clr && inp && sBox) {
+      clr.onclick = (e) => {
+        e.preventDefault();
+        inp.value = "";
+        searchQuery = "";
+        sBox.classList.remove("has");
+        if (activeSub === "home") renderHomeShelves();
+        else if (activeSub === "search") renderSearchResultsGrid($("bkContentArea"));
+      };
+    }
+
+    const langsBar = $("bkLangsBar");
+    if (langsBar) {
+      langsBar.addEventListener("click", (e) => {
+        const btn = e.target.closest(".bk-lang");
+        if (!btn) return;
+        haptic();
+        activeLang = btn.dataset.l;
+        langsBar.querySelectorAll(".bk-lang").forEach((b) => b.classList.toggle("on", b === btn));
+        if (activeSub === "home") renderHomeShelves();
+        else if (activeSub === "search") renderSearchResultsGrid($("bkContentArea"));
+        else if (activeSub === "shelf") renderShelfFavoritesGrid($("bkContentArea"));
+      });
+    }
+  }
+
+  function bindCategoryChips() {
+    const chipsBar = $("bkChipsBar");
+    if (chipsBar) {
+      chipsBar.addEventListener("click", (e) => {
+        const btn = e.target.closest(".bk-chip");
+        if (!btn) return;
+        haptic();
+        activeCategory = btn.dataset.c;
+        chipsBar.querySelectorAll(".bk-chip").forEach((b) => b.classList.toggle("on", b === btn));
+        renderSearchResultsGrid($("bkContentArea"));
+      });
+    }
+  }
+
+  function bindCardEvents() {
+    document.querySelectorAll(".bk-card[data-bid]").forEach((btn) => {
       btn.onclick = () => {
         const id = btn.dataset.bid;
         const book = booksById.get(String(id));
@@ -220,7 +462,47 @@
     });
   }
 
-  // ---------- Kitob Tafsilotlari Modali ----------
+  // ---------- Pastki Sub-tablar Paneli (Floating Bar) ----------
+  function ensureSubTabsBar() {
+    let bar = $("bkSubTabs");
+    if (!bar) {
+      bar = document.createElement("nav");
+      bar.id = "bkSubTabs";
+      bar.className = "bk-subtabs";
+      document.body.appendChild(bar);
+    }
+
+    const favCount = savedFavorites.length;
+    bar.innerHTML = `
+      <button class="bk-subtab${activeSub === "home" ? " on" : ""}" data-sub="home" type="button">
+        <span class="bk-sub-icon">📚</span>
+        <span class="bk-sub-label">Kutubxona</span>
+      </button>
+      <button class="bk-subtab${activeSub === "search" ? " on" : ""}" data-sub="search" type="button">
+        <span class="bk-sub-icon">🔍</span>
+        <span class="bk-sub-label">Qidiruv</span>
+      </button>
+      <button class="bk-subtab${activeSub === "shelf" ? " on" : ""}" data-sub="shelf" type="button">
+        <span class="bk-sub-icon">🔖</span>
+        <span class="bk-sub-label">Javonim</span>
+        ${favCount > 0 ? `<span class="bk-sub-count" id="bkShelfCount">${favCount}</span>` : ""}
+      </button>
+    `;
+    bar.style.display = "flex";
+
+    bar.querySelectorAll(".bk-subtab").forEach((btn) => {
+      btn.onclick = () => {
+        const target = btn.dataset.sub;
+        if (activeSub === target) return;
+        haptic();
+        activeSub = target;
+        renderView();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+    });
+  }
+
+  // ---------- Kitob Tafsilotlari Modali (Detail Sheet) ----------
   function ensureDetailModal() {
     let det = $("bkDetModal");
     if (det) return det;
@@ -230,7 +512,7 @@
     det.className = "bk-det";
     det.setAttribute("aria-modal", "true");
     det.innerHTML = `
-      <button class="bk-det-close" id="bkDetClose">✕</button>
+      <button class="bk-det-close" id="bkDetClose" type="button">✕</button>
       <div class="bk-det-hero">
         <div class="bk-det-blur" id="bkDetBlur"></div>
         <div class="bk-det-cover">
@@ -243,11 +525,11 @@
         <div class="bk-det-chips" id="bkDetChips"></div>
         <p class="bk-det-desc" id="bkDetDesc"></p>
         <div class="bk-det-actions">
-          <button class="bk-btn-read" id="bkBtnRead">📖 Mutolaa qilish (O'qish)</button>
-          <button class="bk-btn-send" id="bkBtnSend">📥 Bot chatiga olish (PDF)</button>
+          <button class="bk-btn-read" id="bkBtnRead" type="button">📖 Mutolaa qilish (O'qish)</button>
+          <button class="bk-btn-send" id="bkBtnSend" type="button">📥 Bot chatiga olish (PDF)</button>
           <div class="bk-btn-row">
-            <button class="bk-btn-sec" id="bkBtnFav">⭐ Saqlash</button>
-            <button class="bk-btn-sec" id="bkBtnShare">🔗 Do'stlarga ulashish</button>
+            <button class="bk-btn-sec" id="bkBtnFav" type="button">⭐ Saqlash</button>
+            <button class="bk-btn-sec" id="bkBtnShare" type="button">🔗 Do'stlarga ulashish</button>
           </div>
         </div>
       </div>
@@ -323,12 +605,12 @@
     r.setAttribute("aria-modal", "true");
     r.innerHTML = `
       <div class="bk-reader-bar">
-        <button class="bk-tool-btn" id="bkReaderBack">‹ Chiqish</button>
+        <button class="bk-tool-btn" id="bkReaderBack" type="button">‹ Chiqish</button>
         <span class="bk-reader-title" id="bkReaderTitle">Kitob</span>
         <div class="bk-reader-tools">
-          <button class="bk-tool-btn" id="bkFontDown" title="Kichraytirish">A-</button>
-          <button class="bk-tool-btn" id="bkFontUp" title="Kattalashtirish">A+</button>
-          <button class="bk-tool-btn" id="bkThemeToggle" title="Mavzu">🎨</button>
+          <button class="bk-tool-btn" id="bkFontDown" title="Kichraytirish" type="button">A-</button>
+          <button class="bk-tool-btn" id="bkFontUp" title="Kattalashtirish" type="button">A+</button>
+          <button class="bk-tool-btn" id="bkThemeToggle" title="Mavzu" type="button">🎨</button>
         </div>
       </div>
       <div class="bk-reader-content" id="bkReaderContent"></div>
@@ -361,7 +643,7 @@
       <div style="margin-top:40px;padding:20px;border-radius:14px;background:rgba(255,255,255,0.06);text-align:center">
         <b>To'liq asarni bot chatida o'qishni xohlaysizmi?</b><br>
         <span style="font-size:13px;opacity:.8">Quyidagi tugma orqali to'liq PDF kitobni shaxsiy xabarlaringizga qabul qiling:</span><br><br>
-        <button class="cta" id="bkReaderSendBtn" style="max-width:260px;margin:0 auto">📥 Bot chatiga yuborish</button>
+        <button class="bk-btn-read" id="bkReaderSendBtn" style="max-width:260px;margin:0 auto" type="button">📥 Bot chatiga yuborish</button>
       </div>
     `;
 
@@ -471,11 +753,26 @@
     }
     lsSet("baunty_bk_favs", savedFavorites);
     haptic();
+
+    // Pastki sub-tablar belgisini yangilash
+    const countEl = $("bkShelfCount");
+    if (countEl) {
+      if (savedFavorites.length > 0) {
+        countEl.textContent = savedFavorites.length;
+        countEl.hidden = false;
+      } else {
+        countEl.hidden = true;
+      }
+    }
+
+    if (activeSub === "shelf") {
+      renderShelfFavoritesGrid($("bkContentArea"));
+    }
   }
 
   function shareBook(book) {
     haptic();
-    const shareUrl = `https://t.me/share/url?url=https://t.me/${botName}?start=b_${book.id}&text=${encodeURIComponent(book.title + " — ajoyib kitob! Baunty Kutubxonasida bepul o'qing.")}`;
+    const shareUrl = `https://t.me/share/url?url=https://t.me/${botName}?start=b_${book.id}&text=${encodeURIComponent(book.title + " — ajoyib kitob! Bauntys Kutubxonasida bepul o'qing.")}`;
     if (inTg && tg.openTelegramLink) {
       tg.openTelegramLink(shareUrl);
     } else {
@@ -494,6 +791,8 @@
     close: () => {
       closeReader();
       closeDetail();
+      const bar = $("bkSubTabs");
+      if (bar) bar.style.display = "none";
     },
     busy: () => {
       if (isReaderOpen) {
@@ -515,9 +814,8 @@
     },
     search: (query) => {
       searchQuery = query || "";
-      const inp = $("bkQuery");
-      if (inp) inp.value = searchQuery;
-      renderGrid();
+      activeSub = "search";
+      renderView();
     }
   };
 })();

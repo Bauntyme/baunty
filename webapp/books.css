@@ -1,16 +1,17 @@
-/* 📚 Baunty Kutubxonasi — Books Stylesheet */
+/* 📚 Baunty Kutubxonasi — Books Stylesheet (1:1 Zakirovs 100% White-label) */
 :root {
   --bk-accent: #e5484d;
-  --bk-gold: #f59e0b;
-  --bk-spine: rgba(255, 255, 255, 0.12);
+  --bk-gold: #f5a623;
+  --bk-spine: rgba(255, 255, 255, 0.14);
 }
 
 /* ---------- Asosiy Kitoblar Konteyneri ---------- */
 .bk-view {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
   animation: bkFadeIn .22s ease-out;
+  padding-bottom: 96px;
 }
 @keyframes bkFadeIn {
   from { opacity: 0; transform: translateY(6px); }
@@ -22,8 +23,8 @@
   position: relative;
   border-radius: 16px;
   padding: 20px 18px;
-  background: linear-gradient(135deg, rgba(229, 72, 77, 0.18), rgba(245, 158, 11, 0.12), rgba(14, 15, 19, 0.8));
-  border: 1px solid rgba(229, 72, 77, 0.25);
+  background: linear-gradient(135deg, rgba(245, 166, 35, 0.18), rgba(229, 72, 77, 0.12), rgba(14, 15, 19, 0.8));
+  border: 1px solid rgba(245, 166, 35, 0.25);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -37,12 +38,12 @@
   right: -10%;
   width: 140px;
   height: 140px;
-  background: radial-gradient(circle, rgba(229, 72, 77, 0.35), transparent 70%);
+  background: radial-gradient(circle, rgba(245, 166, 35, 0.35), transparent 70%);
   pointer-events: none;
 }
 .bk-hero-info h2 {
   margin: 0 0 6px;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -.3px;
   color: var(--text);
@@ -55,14 +56,15 @@
 }
 .bk-hero-badge {
   flex: none;
-  background: var(--bk-accent);
-  color: #fff;
+  background: #f5a623;
+  color: #000;
   font-size: 11px;
-  font-weight: 800;
-  padding: 6px 10px;
+  font-weight: 850;
+  padding: 6px 12px;
   border-radius: 999px;
   letter-spacing: .3px;
   text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.35);
 }
 
 /* Qidiruv */
@@ -84,7 +86,7 @@
   transition: box-shadow .15s;
 }
 .bk-search input:focus {
-  box-shadow: inset 0 0 0 1.5px var(--bk-accent);
+  box-shadow: inset 0 0 0 1.5px #f5a623;
 }
 .bk-search input::placeholder {
   color: var(--hint);
@@ -115,6 +117,42 @@
   display: block;
 }
 
+/* Til filtrlari (Hammasi | O'zbek | English | Русский) */
+.bk-langs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 0 16px 2px;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+}
+.bk-langs::-webkit-scrollbar {
+  display: none;
+}
+.bk-lang {
+  flex: none;
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: var(--bg2);
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+  transition: background .15s, color .15s, transform .1s;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+.bk-lang:active {
+  transform: scale(.95);
+}
+.bk-lang.on {
+  background: #f5a623;
+  color: #000;
+  font-weight: 800;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.35);
+}
+
 /* Toifalar chips */
 .bk-chips {
   display: flex;
@@ -143,9 +181,64 @@
   transform: scale(.95);
 }
 .bk-chip.on {
-  background: var(--bk-accent);
-  color: #fff;
+  background: #f5a623;
+  color: #000;
+  font-weight: 800;
   border-color: transparent;
+  box-shadow: 0 2px 8px rgba(245, 166, 35, 0.35);
+}
+
+/* ---------- Gorizontal javonlar / Karusellar ---------- */
+.bk-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bk-sec-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 0 0;
+}
+.bk-sec-h h2 {
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bk-sec-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--hint);
+  margin-top: 2px;
+  font-weight: 500;
+}
+.bk-sec-count {
+  font-size: 12.5px;
+  color: var(--hint);
+  font-weight: 600;
+}
+.bk-shelf {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  margin: 0 -16px;
+  padding: 4px 16px 12px;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.bk-shelf::-webkit-scrollbar {
+  display: none;
+}
+.bk-shelf .bk-card {
+  width: 124px;
+  flex: none;
+  scroll-snap-align: start;
 }
 
 /* ---------- Kitoblar Grid ---------- */
@@ -259,6 +352,38 @@
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
+.bk-badge-fav {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  background: #f5a623;
+  color: #000;
+  font-size: 10px;
+  font-weight: 900;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+/* TOP-10 Katta reyting raqami */
+.bk-rank {
+  position: absolute;
+  bottom: -8px;
+  right: 4px;
+  font-size: 42px;
+  font-weight: 900;
+  line-height: 1;
+  color: #fff;
+  -webkit-text-stroke: 2px rgba(0, 0, 0, .6);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, .7);
+  z-index: 4;
+  pointer-events: none;
+  letter-spacing: -1px;
+}
 .bk-title {
   margin-top: 8px;
   font-size: 13.5px;
@@ -287,11 +412,69 @@
   color: var(--hint);
 }
 .bk-rating {
-  color: var(--bk-gold);
+  color: #f5a623;
   font-weight: 750;
   display: inline-flex;
   align-items: center;
   gap: 2px;
+}
+
+/* ---------- Pastki Sub-tablar Bar (📚 Kutubxona | 🔍 Qidiruv | 🔖 Javonim) ---------- */
+.bk-subtabs {
+  position: fixed;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 45;
+  background: rgba(23, 24, 30, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.65);
+  touch-action: manipulation;
+}
+.bk-subtab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--hint);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: all .16s ease;
+  position: relative;
+  white-space: nowrap;
+}
+.bk-subtab:active {
+  transform: scale(.96);
+}
+.bk-subtab.on {
+  background: #f5a623;
+  color: #000;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(245, 166, 35, 0.4);
+}
+.bk-sub-count {
+  background: var(--bk-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  line-height: 1.4;
+}
+.bk-subtab.on .bk-sub-count {
+  background: #000;
+  color: #fff;
 }
 
 /* ---------- Batafsil Modal (Sheet) ---------- */
@@ -412,15 +595,15 @@
   width: 100%;
   height: 50px;
   border-radius: 14px;
-  background: var(--bk-accent);
-  color: #fff;
+  background: #f5a623;
+  color: #000;
   font-size: 16px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--bk-accent) 40%, transparent);
+  box-shadow: 0 6px 20px rgba(245, 166, 35, 0.4);
 }
 .bk-btn-read:active {
   transform: scale(.98);

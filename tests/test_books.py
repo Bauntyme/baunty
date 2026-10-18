@@ -158,3 +158,51 @@ class TestBooksWebServerAPI(AioHTTPTestCase):
         assert data["ok"] is False
         assert data["action"] == "open_bot"
         assert "start=b_1" in data["url"]
+
+    @unittest_run_loop
+    async def test_api_books_language_filter(self):
+        """GET /api/books?lang=en va lang=ru tildagi kitoblarni to'g'ri qaytarishi kerak."""
+        resp_en = await self.client.request("GET", "/api/books?lang=en")
+        assert resp_en.status == 200
+        data_en = await resp_en.json()
+        assert data_en["ok"] is True
+        assert len(data_en["items"]) > 0
+        for b in data_en["items"]:
+            assert b["lang"] == "en"
+
+        resp_ru = await self.client.request("GET", "/api/books?lang=ru")
+        assert resp_ru.status == 200
+        data_ru = await resp_ru.json()
+        assert data_ru["ok"] is True
+        assert len(data_ru["items"]) > 0
+        for b in data_ru["items"]:
+            assert b["lang"] == "ru"
+
+
+def test_books_languages_catalog():
+    """3 tilda kitoblar (uz, en, ru) mavjudligini tekshirish."""
+    uz = book_service.get_catalog(lang="uz")
+    en = book_service.get_catalog(lang="en")
+    ru = book_service.get_catalog(lang="ru")
+
+    assert len(uz["items"]) >= 15, "Kamida 15 ta o'zbekcha kitob bo'lishi kerak"
+    assert len(en["items"]) >= 5, "Kamida 5 ta inglizcha kitob bo'lishi kerak"
+    assert len(ru["items"]) >= 5, "Kamida 5 ta ruscha kitob bo'lishi kerak"
+
+
+def test_webapp_index_structure_and_order():
+    """index.html da segmented bar tartibi va random dice tugmasini tekshirish."""
+    index_path = book_service.BASE_DIR / "webapp" / "index.html"
+    assert index_path.exists()
+    content = index_path.read_text(encoding="utf-8")
+
+    # 1. Segmented bar ketma-ketligi: kino -> music -> books -> games -> story -> docs -> tv
+    seg_match = content.find('data-m="kino"') < content.find('data-m="music"') < \
+                content.find('data-m="books"') < content.find('data-m="games"') < \
+                content.find('data-m="story"') < content.find('data-m="docs"') < \
+                content.find('data-m="tv"')
+    assert seg_match, "Segmented bar tartibi: Kinolar -> Musiqa -> Kitoblar -> O'yinlar -> Story -> Hujjatlar -> TV bo'lishi shart"
+
+    # 2. Random kubik (dice) tugmasi mavjudligi
+    assert "zkDice" in content or "zk-dice" in content
+    assert "openDetail(rnd)" in content or "openDetail(" in content
