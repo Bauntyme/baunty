@@ -46,6 +46,38 @@ class MovieService:
         return None
 
     @staticmethod
+    def search_catalog_by_title(title_query: str) -> Optional[dict]:
+        """Katalog keshidan sarlavha bo'yicha kino qidirish."""
+        global _CATALOG_CACHE
+        if not title_query:
+            return None
+        catalog_path = BASE_DIR / "data" / "catalog.json"
+        if _CATALOG_CACHE is None and catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    _CATALOG_CACHE = json.load(f)
+            except Exception:
+                pass
+
+        if not _CATALOG_CACHE:
+            return None
+
+        q = title_query.lower().strip()
+        items = _CATALOG_CACHE.get("items", [])
+        for it in items:
+            t = it.get("t", "").lower()
+            if q in t:
+                return it
+
+        words = [w for w in q.split() if len(w) >= 3]
+        if words:
+            for it in items:
+                t = it.get("t", "").lower()
+                if any(w in t for w in words):
+                    return it
+        return None
+
+    @staticmethod
     async def find_by_code(session: AsyncSession, code: str) -> Optional[Movie]:
         """Kino kodi orqali kinoni topish."""
         return await crud.get_movie_by_code(session, code)
@@ -126,7 +158,15 @@ class MovieService:
             reply_markup = movie_item_keyboard(clean_code)
 
         # 1. Haqiqiy video mavjud bo'lsa (mock/placeholder bo'lmagan)
-        has_real_video = db_movie and db_movie.file_id and not db_movie.file_id.startswith("mov_") and not db_movie.file_id.startswith("BAACAg")
+        is_placeholder = (
+            not db_movie
+            or not db_movie.file_id
+            or db_movie.file_id.startswith("mov_")
+            or "_placeholder" in db_movie.file_id
+            or "_vid" in db_movie.file_id
+            or len(db_movie.file_id) < 20
+        )
+        has_real_video = bool(db_movie and not is_placeholder)
         if has_real_video:
             try:
                 if db_movie.file_type == "document":
@@ -145,11 +185,16 @@ class MovieService:
                         caption=caption,
                         parse_mode="HTML",
                         duration=db_movie.duration,
+                        supports_streaming=True,
                         reply_markup=reply_markup,
                         reply_to_message_id=reply_to_message_id
                     )
                 if session and db_movie:
                     await crud.increment_movie_views(session, db_movie.id)
+                elif db_movie:
+                    from database.session import get_session
+                    async with get_session() as s:
+                        await crud.increment_movie_views(s, db_movie.id)
                 return True
             except Exception as e:
                 logger.warning(f"Video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")

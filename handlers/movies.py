@@ -3,15 +3,17 @@ Kino bo'limi qayta ishlovchisi (Kino kodi, qidiruv, janrlar, tasodifiy kino)
 """
 import logging
 import math
-from typing import Optional
+import re
+from typing import Optional, Tuple
 from aiogram import Router, F
-from aiogram.filters import StateFilter
+from aiogram.filters import StateFilter, Command
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from config import config
 from database.session import get_session
 from database import crud
-from services.movie_service import movie_service
+from database.models import Movie
+from services.movie_service import movie_service, MovieService
 from keyboards.default import cancel_keyboard, main_menu_keyboard
 from keyboards.inline import (
     movie_menu_keyboard,
@@ -306,3 +308,360 @@ async def process_numeric_movie_code(message: Message) -> None:
     )
     if not delivered:
         await message.reply(format_movie_not_found(code), parse_mode="HTML")
+
+
+def extract_code_from_caption(text: Optional[str]) -> Optional[str]:
+    """Caption yoki matndan kino kodini aniqlash (#284, Kodi: 284, 101...)."""
+    if not text:
+        return None
+    text_clean = text.strip()
+
+    # 1. Kodi: #284, kod: 284, код: 284, code: 284, kino kodi: 284
+    m = re.search(r'(?:kino\s*kodi|kodi?|код|kod|code)[\s:—–\-#№]*(\d+)', text_clean, re.IGNORECASE)
+    if m:
+        return m.group(1)
+
+    # 2. #284 yoki №284
+    m = re.search(r'[#№](\d{1,8})', text_clean)
+    if m:
+        return m.group(1)
+
+    # 3. [284] yoki (284)
+    m = re.search(r'[\[\(](\d{1,8})[\]\)]', text_clean)
+    if m:
+        return m.group(1)
+
+    # 4. Satr boshidagi raqam: masalan "284. Zo'raki folbin" yoki "284 - Zo'raki folbin"
+    for line in text_clean.split("\n"):
+        line_clean = line.strip()
+        m = re.match(r'^(\d{1,8})[\s\.\-—–:]', line_clean)
+        if m:
+            return m.group(1)
+        if line_clean.isdigit() and len(line_clean) <= 8:
+            return line_clean
+
+    # 5. extract_movie_code tekshiruvi
+    code = extract_movie_code(text_clean)
+    if code:
+        return code
+
+    return None
+
+
+def extract_candidate_title(text: Optional[str]) -> Optional[str]:
+    """Captiondan kino sarlavhasi bo'lishi mumkin bo'lgan qatorni ajratish."""
+    if not text:
+        return None
+    lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
+    if not lines:
+        return None
+    first_line = lines[0]
+    # Emojilar va ortiqcha belgilarni tozalash
+    cleaned = re.sub(r'[🎬🍿🎥📽🎞📺⭐️★#№—–\-:]', ' ', first_line)
+    cleaned = re.sub(r'https?://\S+|@\w+', '', cleaned).strip()
+    cleaned = re.sub(r'(?:kino\s*kodi|kodi?|код|kod|code)\s*\d+', '', cleaned, flags=re.IGNORECASE).strip()
+    if len(cleaned) >= 3 and not cleaned.isdigit():
+        return cleaned
+    return None
+
+
+def format_duration_str(seconds: Optional[int]) -> str:
+    """Davomiylikni chiroyli matn shaklida ko'rsatish (masalan: 14:08 yoki 1:08:09)."""
+    if not seconds:
+        return "Noma'lum"
+    m, s = divmod(seconds, 60)
+    h, m = divmod(m, 60)
+    if h > 0:
+        return f"{h}:{m:02d}:{s:02d}"
+    return f"{m:02d}:{s:02d}"
+
+
+def format_file_size_str(size_bytes: Optional[int]) -> str:
+    """Fayl hajmini MB yoki GB da ko'rsatish."""
+    if not size_bytes:
+        return ""
+    mb = size_bytes / (1024 * 1024)
+    if mb >= 1024:
+        return f"{mb / 1024:.2f} GB"
+    return f"{mb:.1f} MB"
+
+
+async def save_or_update_movie_video(
+    session,
+    code: Optional[str],
+    candidate_title: Optional[str],
+    file_id: str,
+    file_type: str = "video",
+    duration: Optional[int] = None,
+    file_size: Optional[int] = None,
+) -> Optional[Movie]:
+    """
+    Kino videosini bazadagi kinoga biriktirish yoki yangi kino sifatida saqlash.
+    """
+    db_movie: Optional[Movie] = None
+    clean_code = str(code).strip().lstrip("#№") if code else None
+    if clean_code:
+        db_movie = await crud.get_movie_by_code(session, clean_code)
+
+    if not db_movie and candidate_title:
+        matches = await crud.smart_search_movies(session, candidate_title, limit=1)
+        if matches:
+            db_movie = matches[0]
+        else:
+            cat_match = MovieService.search_catalog_by_title(candidate_title)
+            if cat_match:
+                cat_code = str(cat_match.get("c"))
+                db_movie = await crud.get_movie_by_code(session, cat_code)
+                if not db_movie:
+                    title = cat_match.get("t", f"Kino #{cat_code}")
+                    description = cat_match.get("d", None)
+                    genres = cat_match.get("g", "Barcha")
+                    year = int(cat_match.get("y", 0)) if cat_match.get("y") else None
+                    rating = float(cat_match.get("r", 0)) if cat_match.get("r") else None
+                    db_movie = await crud.create_movie(
+                        session=session,
+                        code=cat_code,
+                        title=title,
+                        file_id=file_id,
+                        description=description,
+                        file_type=file_type,
+                        file_size=file_size,
+                        duration=duration,
+                        genres=genres,
+                        year=year,
+                        rating=rating,
+                    )
+
+    if not db_movie and clean_code:
+        cat_item = MovieService.get_catalog_item(clean_code)
+        title = cat_item.get("t", f"Kino #{clean_code}") if cat_item else (candidate_title or f"Kino #{clean_code}")
+        description = cat_item.get("d", None) if cat_item else None
+        genres = cat_item.get("g", "Barcha") if cat_item else "Barcha"
+        year = int(cat_item.get("y", 0)) if (cat_item and cat_item.get("y")) else None
+        rating = float(cat_item.get("r", 0)) if (cat_item and cat_item.get("r")) else None
+        db_movie = await crud.create_movie(
+            session=session,
+            code=clean_code,
+            title=title,
+            file_id=file_id,
+            description=description,
+            file_type=file_type,
+            file_size=file_size,
+            duration=duration,
+            genres=genres,
+            year=year,
+            rating=rating,
+        )
+    elif db_movie:
+        db_movie.file_id = file_id
+        db_movie.file_type = file_type
+        if duration:
+            db_movie.duration = duration
+        if file_size:
+            db_movie.file_size = file_size
+
+    if db_movie:
+        await session.commit()
+    return db_movie
+
+
+@router.message(Command("setmovie", "addvideo"))
+async def cmd_set_movie_video(message: Message) -> None:
+    """
+    Admin buyrug'i: /setmovie <kod> yoki /addvideo <kod>
+    Admin ixtiyoriy video xabarga Reply qilib /setmovie 284 deb yozsa,
+    o'sha videoning Telegram file_id sini avtomatik 284-kinoga biriktiradi!
+    """
+    user_id = message.from_user.id if message.from_user else 0
+    if not config.is_admin(user_id):
+        await message.reply("⛔ <b>Ushbu buyruq faqat adminlar uchun!</b>", parse_mode="HTML")
+        return
+
+    args = (message.text or "").split(maxsplit=1)
+    if len(args) < 2 or not args[1].strip():
+        await message.reply(
+            "⚠️ <b>Kino kodini kiriting!</b>\n"
+            "Masalan: video xabarga Reply qilib <code>/setmovie 284</code> deb yozing.",
+            parse_mode="HTML"
+        )
+        return
+
+    raw_code = args[1].strip()
+    code = extract_code_from_caption(raw_code) or raw_code.lstrip("#№")
+    if not code:
+        await message.reply("⚠️ Yaroqsiz kino kodi!", parse_mode="HTML")
+        return
+
+    target_msg = message.reply_to_message or message
+    if not (target_msg.video or target_msg.document):
+        await message.reply(
+            "⚠️ <b>Video topilmadi!</b>\n"
+            "Ushbu buyruqni kino videosiga Reply qilib yuboring:\n"
+            f"<code>/setmovie {code}</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    if target_msg.video:
+        file_id = target_msg.video.file_id
+        file_type = "video"
+        duration = target_msg.video.duration
+        file_size = target_msg.video.file_size
+    else:
+        file_id = target_msg.document.file_id
+        file_type = "document"
+        duration = None
+        file_size = target_msg.document.file_size
+
+    async with get_session() as session:
+        db_movie = await save_or_update_movie_video(
+            session=session,
+            code=code,
+            candidate_title=None,
+            file_id=file_id,
+            file_type=file_type,
+            duration=duration,
+            file_size=file_size,
+        )
+
+    if db_movie:
+        dur_str = format_duration_str(db_movie.duration)
+        size_str = format_file_size_str(db_movie.file_size)
+        size_line = f"📦 <b>Hajmi:</b> {size_str}\n" if size_str else ""
+        text = (
+            "✅ <b>Kino videosi muvaffaqiyatli biriktirildi!</b>\n\n"
+            f"🎬 <b>Nomi:</b> {db_movie.title}\n"
+            f"🔢 <b>Kodi:</b> #{db_movie.code}\n"
+            f"⏱ <b>Davomiyligi:</b> {dur_str}\n"
+            f"{size_line}\n"
+            "Endi botda yoki Web Appda ushbu kino tanlanganda to'liq MP4 video yuboriladi!"
+        )
+        await message.reply(text, parse_mode="HTML")
+    else:
+        await message.reply(f"❌ Kino #{code} ni saqlab bo'lmadi.", parse_mode="HTML")
+
+
+@router.message(StateFilter(None), F.video | F.document)
+async def handle_incoming_movie_video(message: Message) -> None:
+    """
+    Foydalanuvchi yoki admin @Zakirovsfilms_bot dan (yoki boshqa kanaldan) videoni
+    forward qilib yuborganida yoki to'g'ridan-to'g'ri video tashlaganida:
+    - Xabar captionidan kino kodini (#284, 284, 101...) aniqlaydi.
+    - Agar kod bo'lmasa, sarlavha nomini bazadan qidiradi.
+    - Agar kino topilsa: movies jadvalida file_id, file_type, duration, file_size ni yangilaydi.
+    - Foydalanuvchiga tasdiq xabari yuboradi.
+    """
+    if message.video:
+        file_id = message.video.file_id
+        file_type = "video"
+        duration = message.video.duration
+        file_size = message.video.file_size
+    elif message.document:
+        doc = message.document
+        is_video_doc = (
+            (doc.mime_type and doc.mime_type.startswith("video/"))
+            or (doc.file_name and doc.file_name.lower().endswith(
+                (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".ts", ".m4v")
+            ))
+            or extract_code_from_caption(message.caption)
+        )
+        if not is_video_doc:
+            return
+        file_id = doc.file_id
+        file_type = "document"
+        duration = None
+        file_size = doc.file_size
+    else:
+        return
+
+    caption = (message.caption or message.text or "").strip()
+    code = extract_code_from_caption(caption)
+    candidate_title = extract_candidate_title(caption)
+
+    async with get_session() as session:
+        db_movie = await save_or_update_movie_video(
+            session=session,
+            code=code,
+            candidate_title=candidate_title,
+            file_id=file_id,
+            file_type=file_type,
+            duration=duration,
+            file_size=file_size,
+        )
+
+    if db_movie:
+        dur_str = format_duration_str(db_movie.duration)
+        size_str = format_file_size_str(db_movie.file_size)
+        size_line = f"📦 <b>Hajmi:</b> {size_str}\n" if size_str else ""
+        text = (
+            "✅ <b>Kino videosi muvaffaqiyatli saqlandi!</b>\n\n"
+            f"🎬 <b>Nomi:</b> {db_movie.title}\n"
+            f"🔢 <b>Kodi:</b> #{db_movie.code}\n"
+            f"⏱ <b>Davomiyligi:</b> {dur_str}\n"
+            f"{size_line}\n"
+            "Endi botda yoki Web Appda ushbu kino tanlanganda to'liq MP4 video yuboriladi!"
+        )
+        await message.reply(text, parse_mode="HTML")
+    else:
+        await message.reply(
+            "⚠️ <b>Video qabul qilindi, biroq kino kodi yoki nomi aniqlanmadi.</b>\n\n"
+            "Iltimos, ushbu videoga Reply qilib <code>/setmovie &lt;kod&gt;</code> deb yozing "
+            "yoki captionga kino kodini (masalan: <code>#284</code>) qo'shib qayta yuboring.",
+            parse_mode="HTML"
+        )
+
+
+@router.channel_post(F.video | F.document)
+@router.edited_channel_post(F.video | F.document)
+async def handle_channel_movie_post(message: Message) -> None:
+    """
+    Kanal posti handleri: STORAGE_CHANNEL_ID yoki zaxira kino kanaliga video yuklanganda avtomatik indekslash.
+    """
+    if config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
+        storage_id = str(config.STORAGE_CHANNEL_ID).strip()
+        chat_id_str = str(message.chat.id)
+        if chat_id_str != storage_id and chat_id_str.replace("-100", "") != storage_id.replace("-100", ""):
+            return
+
+    if message.video:
+        file_id = message.video.file_id
+        file_type = "video"
+        duration = message.video.duration
+        file_size = message.video.file_size
+    elif message.document:
+        doc = message.document
+        is_video_doc = (
+            (doc.mime_type and doc.mime_type.startswith("video/"))
+            or (doc.file_name and doc.file_name.lower().endswith(
+                (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".ts", ".m4v")
+            ))
+            or extract_code_from_caption(message.caption)
+        )
+        if not is_video_doc:
+            return
+        file_id = doc.file_id
+        file_type = "document"
+        duration = None
+        file_size = doc.file_size
+    else:
+        return
+
+    caption = (message.caption or message.text or "").strip()
+    code = extract_code_from_caption(caption)
+    candidate_title = extract_candidate_title(caption)
+
+    async with get_session() as session:
+        db_movie = await save_or_update_movie_video(
+            session=session,
+            code=code,
+            candidate_title=candidate_title,
+            file_id=file_id,
+            file_type=file_type,
+            duration=duration,
+            file_size=file_size,
+        )
+
+    if db_movie:
+        logger.info(
+            f"Kanal postidan video avtomatik indekslandi: #{db_movie.code} - {db_movie.title} (file_id={file_id})"
+        )
