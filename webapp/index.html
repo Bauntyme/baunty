@@ -776,8 +776,16 @@ function attempt(url) {
         const Hls = await loadHlsLib();
         if (!Hls.isSupported()) { vid.src = url; }
         else {
-          hls = new Hls({maxBufferLength: 20, backBufferLength: 10, liveSyncDurationCount: 3, manifestLoadingMaxRetry: 1,
-            levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 2});
+          hls = new Hls({
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            enableWorker: true,
+            liveSyncDurationCount: 3,
+            backBufferLength: 10,
+            manifestLoadingMaxRetry: 2,
+            levelLoadingMaxRetry: 2,
+            fragLoadingMaxRetry: 3
+          });
           hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fin(bad, d.type); });
           hls.loadSource(url); hls.attachMedia(vid);
         }

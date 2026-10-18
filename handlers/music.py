@@ -42,7 +42,7 @@ async def state_process_music_query(message: Message, state: FSMContext) -> None
     status_msg = await message.reply("🔍 <b>Qo'shiqlar qidirilmoqda...</b>", parse_mode="HTML")
 
     try:
-        tracks = await music_service.search_tracks(query, limit=8)
+        tracks = await music_service.search_tracks(query, limit=15)
         if not tracks:
             await status_msg.edit_text(
                 f"❌ <b>«{query}»</b> bo'yicha hech qanday qo'shiq topilmadi.\n"
@@ -195,9 +195,30 @@ async def cb_download_track(callback: CallbackQuery) -> None:
     )
 
     try:
-        res = await music_service.download_track_mp3(full_search_query)
+        res = await music_service.download_track_mp3(full_search_query, track_info=track_data)
 
         if not res.success or not res.file_path:
+            # Agar fayl sifatida yuklab bo'lmasa, lekin preview havolasi mavjud bo'lsa
+            preview_url = track_data.get("preview") or track_data.get("u")
+            if preview_url:
+                caption = (
+                    f"🎵 <b>{artist} - {title}</b>\n\n"
+                    f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+                    f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
+                )
+                await callback.message.reply_audio(
+                    audio=preview_url,
+                    title=title,
+                    performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+                try:
+                    await status_msg.delete()
+                except Exception:
+                    pass
+                return
+
             err_msg = res.error if res.error else "Noma'lum xato"
             await status_msg.edit_text(
                 f"❌ <b>Qo'shiqni yuklab bo'lmadi:</b>\n{err_msg}",

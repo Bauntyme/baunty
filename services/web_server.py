@@ -14,6 +14,7 @@ from config import config, BASE_DIR
 from database.session import get_session
 from database import crud
 from services.movie_service import movie_service, MovieService
+from services.music_service import music_service
 from services.music_data import TOP_50_TRACKS, MOODS_LIST
 from services.tv_data import CHANNELS_LIST, TV_CATEGORIES
 from services.games_data import GAMES_LIST, PET_DATA, CHEST_DATA
@@ -338,16 +339,182 @@ async def handle_music_shazam(request: web.Request) -> web.Response:
     })
 
 
+async def handle_music_search(request: web.Request) -> web.Response:
+    """Web App va qidiruv uchun musiqa qidirish API."""
+    q = request.query.get("q", "").strip()
+    try:
+        n = int(request.query.get("n", 25))
+    except (ValueError, TypeError):
+        n = 25
+
+    if not q:
+        return web.json_response({"ok": True, "items": []})
+
+    try:
+        tracks = await music_service.search_tracks(query=q, limit=n)
+        return web.json_response({"ok": True, "items": tracks})
+    except Exception as e:
+        logger.error(f"Musiqa qidirishda xatolik: {e}")
+        return web.json_response({"ok": False, "error": str(e), "items": []})
+
+
+async def handle_music_play(request: web.Request) -> web.Response:
+    """Web App musiqa tinglash uchun MP3 oqim havolasini tayyorlash API."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    url = body.get("u") or body.get("preview") or body.get("url")
+    if url and str(url).startswith("http"):
+        return web.json_response({"ok": True, "url": url})
+
+    # Deezer ID bo'yicha to'g'ridan-to'g'ri preview olish
+    track_id = body.get("id")
+    if track_id and body.get("s") == "dz":
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"https://api.deezer.com/track/{track_id}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        dz_data = await resp.json()
+                        preview_mp3 = dz_data.get("preview")
+                        if preview_mp3:
+                            return web.json_response({"ok": True, "url": preview_mp3})
+        except Exception as e:
+            logger.info(f"Deezer preview olishda xatolik: {e}")
+
+    # Qo'shiq va ijrochi nomi bo'yicha Deezer ochiq preview qidirish
+    artist = body.get("a") or body.get("artist") or ""
+    title = body.get("t") or body.get("title") or ""
+    query = f"{artist} {title}".strip()
+    if query:
+        try:
+            results = await music_service.search_tracks(query=query, limit=1)
+            if results and results[0].get("preview"):
+                return web.json_response({"ok": True, "url": results[0]["preview"]})
+        except Exception as e:
+            logger.warning(f"Play search fallback xatosi: {e}")
+
+    # YouTube id bo'lsa
+    yt_id = body.get("y") or (body.get("id") if body.get("s") == "yt" else None)
+    if yt_id:
+        return web.json_response({"ok": True, "url": f"https://www.youtube.com/watch?v={yt_id}"})
+
+    # Oxirgi chora: top 50 dan biror ishlaydigan namuna
+    if TOP_50_TRACKS and TOP_50_TRACKS[0].get("url"):
+        return web.json_response({"ok": True, "url": TOP_50_TRACKS[0]["url"]})
+
+    return web.json_response({"ok": False, "error": "not_found"}, status=404)
+
+
+async def handle_music_send(request: web.Request) -> web.Response:
+    """Web Appdan foydalanuvchining Telegram chatiga haqiqiy MP3 audio yuborish."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    init_data = request.headers.get("X-Init-Data", "")
+    user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id") or body.get("user_id")
+
+    if not user_id:
+        return web.json_response({"ok": False, "error": "auth"}, status=401)
+
+    if not _bot_instance:
+        return web.json_response({"ok": False, "error": "bot_not_ready"}, status=503)
+
+    try:
+        chat_id = int(user_id)
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "invalid_user"}, status=400)
+
+    title = body.get("t") or body.get("title") or "Musiqa"
+    artist = body.get("a") or body.get("artist") or ""
+    duration = body.get("d") or body.get("duration")
+    preview_url = body.get("u") or body.get("preview")
+    full_query = f"{artist} - {title}".strip(" -") or title
+
+    from aiogram.types import FSInputFile
+    from utils.helpers import safe_remove_file
+
+    sent_audio = False
+    # 1. Haqiqiy MP3 faylini yuklab olib yuborish
+    try:
+        res = await music_service.download_track_mp3(full_query, track_info=body)
+        if res.success and res.file_path and os.path.exists(res.file_path):
+            caption = (
+                f"🎵 <b>{artist} - {title}</b>\n\n"
+                f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
+                f"🍿 {config.CHANNEL_USERNAME}"
+            )
+            await _bot_instance.send_audio(
+                chat_id=chat_id,
+                audio=FSInputFile(res.file_path),
+                title=title,
+                performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                duration=res.duration or duration,
+                caption=caption,
+                parse_mode="HTML"
+            )
+            safe_remove_file(res.file_path)
+            sent_audio = True
+    except Exception as e:
+        logger.warning(f"Audio faylini yuborishda xatolik: {e}")
+
+    # 2. Agar fayl yuklanmagan bo'lsa, mavjud preview_url orqali audio yuborish
+    if not sent_audio and preview_url and str(preview_url).startswith("http"):
+        try:
+            caption = (
+                f"🎵 <b>{artist} - {title}</b>\n\n"
+                f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
+                f"🍿 {config.CHANNEL_USERNAME}"
+            )
+            await _bot_instance.send_audio(
+                chat_id=chat_id,
+                audio=preview_url,
+                title=title,
+                performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                duration=duration,
+                caption=caption,
+                parse_mode="HTML"
+            )
+            sent_audio = True
+        except Exception as e_url:
+            logger.warning(f"Preview URL orqali audio yuborishda xatolik: {e_url}")
+
+    # 3. Zaxira xabar
+    if not sent_audio:
+        try:
+            await _bot_instance.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"🎵 <b>{artist} - {title}</b>\n\n"
+                    "Ilovadan tanlangan musiqa!\n\n"
+                    f"🤖 @{config.BOT_USERNAME.lstrip('@')}\n"
+                    f"🍿 {config.CHANNEL_USERNAME}"
+                ),
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
+    return web.json_response({"ok": True, "message": f"«{artist} - {title}» chatga yuborildi!"})
+
+
 async def handle_get_tv(request: web.Request) -> web.Response:
-    """114 ta jonli telekanal ro'yxati."""
+    """114 ta jonli telekanal ro'yxati (Barcha formatlar mosligi bilan)."""
     cat = request.query.get("category", "all").strip()
     q = request.query.get("q", "").strip().lower()
 
     channels = CHANNELS_LIST
     if q:
-        channels = [c for c in channels if q in c["name"].lower() or q in c["desc"].lower()]
+        channels = [
+            c for c in channels
+            if q in c["name"].lower() or q in c.get("desc", "").lower() or q in c.get("n", "").lower()
+        ]
     elif cat and cat != "all":
-        channels = [c for c in channels if c.get("category") == cat]
+        channels = [c for c in channels if c.get("category") == cat or c.get("k") == cat]
 
     return web.json_response({
         "categories": TV_CATEGORIES,
@@ -587,6 +754,9 @@ def create_web_app() -> web.Application:
     app.router.add_get("/api/movies/{code}", handle_get_movie_detail)
     app.router.add_get("/api/music", handle_get_music)
     app.router.add_get("/api/music/home", handle_music_home)
+    app.router.add_get("/api/music/search", handle_music_search)
+    app.router.add_post("/api/music/play", handle_music_play)
+    app.router.add_post("/api/music/send", handle_music_send)
     app.router.add_post("/api/music/recognize", handle_music_recognize)
     app.router.add_post("/api/music/shazam", handle_music_shazam)
     app.router.add_get("/api/tv", handle_get_tv)

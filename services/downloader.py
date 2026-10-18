@@ -3,7 +3,11 @@ Universal media yuklab olish xizmati (yt-dlp asosida)
 Instagram, TikTok, YouTube, Snapchat, Facebook va boshqalar
 """
 import asyncio
+import json
 import logging
+import os
+import re
+import urllib.request
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +53,14 @@ class MediaDownloader:
             "max_filesize": max_bytes,
             "socket_timeout": 30,
             "retries": 3,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios", "mweb"]
+                },
+                "tiktok": {
+                    "api_hostname": "api22-normal-c-useast2a.tiktokv.com"
+                }
+            },
             # Instagram, TikTok va YouTube uchun user-agent
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -114,16 +126,33 @@ class MediaDownloader:
         except yt_dlp.utils.DownloadError as e:
             err_msg = str(e)
             logger.warning(f"yt-dlp yuklab olish xatoligi: {err_msg}")
+            # Bot-detection, 429 yoki YouTube bloklanishida Cobalt fallback
+            if any(k in err_msg.lower() for k in ["bot", "sign in", "429", "too many requests", "confirm", "login"]):
+                logger.info("YouTube bot-detection aniqlandi. Cobalt zaxira xizmatiga murojaat qilinmoqda...")
+                cobalt_res = self._download_via_cobalt(url, is_audio=False, file_prefix=file_prefix)
+                if cobalt_res and cobalt_res.success:
+                    return cobalt_res
+
             if "Private video" in err_msg or "login" in err_msg.lower():
                 return DownloadResult(success=False, error="Ushbu media yopiq (shaxsiy) hisobga tegishli.")
             return DownloadResult(success=False, error=f"Yuklab olishda xatolik: {err_msg[:100]}")
         except Exception as e:
             logger.exception(f"Kutilmagan xatolik: {e}")
+            cobalt_res = self._download_via_cobalt(url, is_audio=False, file_prefix=file_prefix)
+            if cobalt_res and cobalt_res.success:
+                return cobalt_res
             return DownloadResult(success=False, error=f"Kutilmagan xatolik yuz berdi: {str(e)[:100]}")
 
     def _sync_download_audio(self, url: str) -> DownloadResult:
         """Sinxron audio (MP3) ajratib olish funksiyasi."""
         file_prefix = str(uuid.uuid4())[:8]
+
+        # To'g'ridan-to'g'ri MP3/audio havola bo'lsa (masalan Deezer preview yoki to'g'ridan-to'g'ri CDN)
+        if url.startswith("http") and (url.endswith(".mp3") or url.endswith(".m4a") or "preview" in url or "deezer" in url):
+            direct_res = self._download_direct_stream(url, is_audio=True, file_prefix=file_prefix)
+            if direct_res and direct_res.success:
+                return direct_res
+
         output_template = str(self.download_dir / f"{file_prefix}_%(title).50s.%(ext)s")
         max_bytes = config.MAX_FILE_SIZE_MB * 1024 * 1024
         ffmpeg_bin = config.ffmpeg_path
@@ -135,6 +164,16 @@ class MediaDownloader:
             "no_warnings": True,
             "max_filesize": max_bytes,
             "socket_timeout": 30,
+            "retries": 3,
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios", "mweb"]
+                }
+            },
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept-Language": "en-US,en;q=0.9",
+            },
         }
 
         if ffmpeg_bin:
@@ -154,6 +193,9 @@ class MediaDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if not info:
+                    cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
+                    if cobalt_res and cobalt_res.success:
+                        return cobalt_res
                     return DownloadResult(success=False, error="Audio ma'lumotlarini olib bo'lmadi.")
 
                 if info.get("_type") == "playlist" and "entries" in info and info["entries"]:
@@ -162,10 +204,12 @@ class MediaDownloader:
                 # Faylni topish
                 matches = list(self.download_dir.glob(f"{file_prefix}_*.mp3"))
                 if not matches:
-                    # Boshqa extension bilan yuklangan bo'lishi mumkin
                     matches = list(self.download_dir.glob(f"{file_prefix}_*"))
 
                 if not matches:
+                    cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
+                    if cobalt_res and cobalt_res.success:
+                        return cobalt_res
                     return DownloadResult(success=False, error="Audio fayli topilmadi.")
 
                 downloaded_file = str(matches[0])
@@ -180,8 +224,133 @@ class MediaDownloader:
                     thumbnail=info.get("thumbnail"),
                 )
         except Exception as e:
-            logger.exception(f"Audio ajratish xatoligi: {e}")
-            return DownloadResult(success=False, error=f"Audio ajratib olinmadi: {str(e)[:100]}")
+            err_msg = str(e)
+            logger.warning(f"Audio ajratishda xatolik: {err_msg}. Cobalt fallback tekshirilmoqda...")
+            cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
+            if cobalt_res and cobalt_res.success:
+                return cobalt_res
+            return DownloadResult(success=False, error=f"Audio ajratib olinmadi: {err_msg[:100]}")
+
+    def _download_direct_stream(
+        self,
+        url: str,
+        is_audio: bool = True,
+        file_prefix: Optional[str] = None,
+        title: str = "Audio"
+    ) -> Optional[DownloadResult]:
+        """To'g'ridan-to'g'ri MP3/MP4 havolasidan yuklab olish (chunked stream)."""
+        prefix = file_prefix or str(uuid.uuid4())[:8]
+        ext = ".mp3" if is_audio else ".mp4"
+        clean_title = re.sub(r'[\\/*?:"<>|]', "", title)[:40].strip() or ("audio" if is_audio else "video")
+        target_path = self.download_dir / f"{prefix}_{clean_title}{ext}"
+        max_bytes = config.MAX_FILE_SIZE_MB * 1024 * 1024
+
+        try:
+            req = urllib.request.Request(
+                url,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "*/*"
+                }
+            )
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                total_downloaded = 0
+                with open(target_path, "wb") as f:
+                    while True:
+                        chunk = resp.read(64 * 1024)
+                        if not chunk:
+                            break
+                        total_downloaded += len(chunk)
+                        if total_downloaded > max_bytes:
+                            target_path.unlink(missing_ok=True)
+                            return DownloadResult(
+                                success=False,
+                                error=f"Fayl hajmi ({total_downloaded // (1024 * 1024)} MB) Telegram cheklovidan oshib ketdi."
+                            )
+                        f.write(chunk)
+
+            if target_path.exists() and target_path.stat().st_size > 0:
+                file_size = target_path.stat().st_size
+                return DownloadResult(
+                    success=True,
+                    file_path=str(target_path),
+                    title=title,
+                    file_size=file_size,
+                    direct_url=url
+                )
+        except Exception as e:
+            logger.warning(f"To'g'ridan-to'g'ri yuklab olish xatoligi: {e}")
+            target_path.unlink(missing_ok=True)
+
+        return None
+
+    def _download_via_cobalt(
+        self,
+        url: str,
+        is_audio: bool = False,
+        file_prefix: Optional[str] = None
+    ) -> Optional[DownloadResult]:
+        """Cobalt API zaxira xizmati orqali media yuklab olish."""
+        clean_url = url.strip()
+        # Agar ytsearch so'rovi bo'lsa, YouTube havolasi emas
+        if clean_url.startswith("ytsearch"):
+            return None
+
+        # Cobalt API manzil(lar)i
+        cobalt_endpoints = [
+            os.getenv("COBALT_API_URL", "").strip(),
+            "https://api.cobalt.tools",
+        ]
+        cobalt_endpoints = [ep for ep in cobalt_endpoints if ep]
+
+        payload = {
+            "url": clean_url,
+            "downloadMode": "audio" if is_audio else "auto",
+        }
+        if is_audio:
+            payload["audioFormat"] = "mp3"
+
+        for base_url in cobalt_endpoints:
+            try:
+                headers = {
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                }
+                api_key = os.getenv("COBALT_API_KEY", "").strip()
+                if api_key:
+                    headers["Authorization"] = f"Bearer {api_key}"
+
+                req = urllib.request.Request(
+                    base_url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers=headers,
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=12) as resp:
+                    if resp.status == 200:
+                        data = json.loads(resp.read().decode("utf-8"))
+                        stream_url = data.get("url")
+                        if stream_url:
+                            res = self._download_direct_stream(
+                                url=stream_url,
+                                is_audio=is_audio,
+                                file_prefix=file_prefix,
+                                title="Media"
+                            )
+                            if res and res.success:
+                                return res
+            except Exception as e:
+                logger.info(f"Cobalt nusxasiga ulanishda xatolik ({base_url}): {e}")
+
+        return None
+
+    async def download_direct_audio(self, url: str, title: str = "Audio") -> DownloadResult:
+        """To'g'ridan-to'g'ri audio havolasini asinxron yuklab olish."""
+        res = await asyncio.to_thread(self._download_direct_stream, url, True, None, title)
+        if res and res.success:
+            return res
+        return DownloadResult(success=False, error="Audio yuklab olinmadi.")
 
     async def download_video(self, url: str) -> DownloadResult:
         """Asinxron video yuklab olish."""
