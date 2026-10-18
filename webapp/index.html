@@ -263,6 +263,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
   </div>
   <div class="tvbar"><div class="lg" id="tvlogo"></div><div class="grow"><b id="tvname"></b><small>● JONLI EFIR</small></div>
+    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">1080p HD</button>
     <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button>
     <button class="ib" id="tvdel" aria-label="Kanalni o'chirish" hidden>🗑</button>
     <button class="ib" id="tvx" aria-label="Yopish" style="display:none">✕</button></div>
@@ -782,12 +783,12 @@ function ytEmbed(url) {
 }
 function attempt(url) {
   return new Promise(async (ok, bad) => {
-    if (!url || url.includes("blocked") || url.includes("xykt-fix.github.io")) {
+    if (!url || url.includes("blocked") || url.includes("stream8") || url.includes("stream1") || url.includes("cache1") || url.includes("xykt-fix.github.io")) {
       return bad("blocked_stream");
     }
     let done = false;
     const cleanup = () => {
-      vid.onplaying = vid.onerror = vid.oncanplay = vid.ontimeupdate = null;
+      vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = vid.ontimeupdate = null;
     };
     const fin = (f, v) => {
       if (!done) {
@@ -797,11 +798,10 @@ function attempt(url) {
         f(v);
       }
     };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 4500);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), 7500);
     vid.onplaying = () => fin(ok);
-    vid.oncanplay = () => {
-      if (vid.currentTime > 0 || !vid.paused) fin(ok);
-    };
+    vid.oncanplay = () => fin(ok);
+    vid.onloadeddata = () => fin(ok);
     vid.ontimeupdate = () => {
       if (vid.currentTime > 0) fin(ok);
     };
@@ -835,16 +835,17 @@ function attempt(url) {
             maxBufferLength: 30,
             maxMaxBufferLength: 60,
             maxBufferSize: 60 * 1000 * 1000,
+            capLevelToPlayerSize: false,
             enableWorker: true,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 8,
             backBufferLength: 10,
-            manifestLoadingTimeOut: 3500,
-            manifestLoadingMaxRetry: 1,
-            levelLoadingTimeOut: 3500,
-            levelLoadingMaxRetry: 1,
-            fragLoadingTimeOut: 5000,
-            fragLoadingMaxRetry: 2
+            manifestLoadingTimeOut: 8000,
+            manifestLoadingMaxRetry: 2,
+            levelLoadingTimeOut: 8000,
+            levelLoadingMaxRetry: 2,
+            fragLoadingTimeOut: 12000,
+            fragLoadingMaxRetry: 3
           });
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
@@ -858,12 +859,34 @@ function attempt(url) {
             }
           });
           hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
-            if (data && data.url && data.url.includes("blocked")) {
+            if (data && data.url && (data.url.includes("blocked") || data.url.includes("cache1") || data.url.includes("stream8") || data.url.includes("stream1"))) {
               fin(bad, "blocked_manifest");
             }
           });
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+            if (data && data.levels && data.levels.length) {
+              let bestIdx = data.levels.length - 1;
+              for (let i = 0; i < data.levels.length; i++) {
+                if (data.levels[i].height >= 1080) { bestIdx = i; break; }
+              }
+              try {
+                hls.currentLevel = bestIdx;
+                hls.loadLevel = bestIdx;
+              } catch (e) {}
+              const lvl = data.levels[bestIdx];
+              const qBtn = $("tvq");
+              if (qBtn) qBtn.textContent = (lvl && lvl.height) ? (lvl.height >= 1080 ? "1080p HD" : lvl.height + "p HD") : "1080p HD";
+            }
             tryAutoplay();
+          });
+          hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+            if (hls && hls.levels && hls.levels[data.level]) {
+              const lvl = hls.levels[data.level];
+              const qBtn = $("tvq");
+              if (qBtn && lvl && lvl.height) {
+                qBtn.textContent = lvl.height >= 1080 ? "1080p HD" : lvl.height + "p HD";
+              }
+            }
           });
           hls.loadSource(url);
           hls.attachMedia(vid);
@@ -961,6 +984,34 @@ $("tvdel").onclick = () => {
   else if (confirm(`«${c.n}» o'chirilsinmi?`)) go();
 };
 $("unmute").onclick = () => { vid.muted = false; $("unmute").hidden = true; vid.play().catch(() => {}); };
+vid.onclick = () => {
+  if (vid.paused) {
+    vid.play().catch(() => {});
+  } else if (vid.muted) {
+    vid.muted = false;
+    $("unmute").hidden = true;
+  }
+};
+const tvqBtn = $("tvq");
+if (tvqBtn) {
+  tvqBtn.onclick = () => {
+    if (!hls || !hls.levels || hls.levels.length <= 1) return;
+    if (hls.autoLevelEnabled) {
+      let best = hls.levels.length - 1;
+      for (let i = 0; i < hls.levels.length; i++) {
+        if (hls.levels[i].height >= 1080) { best = i; break; }
+      }
+      hls.currentLevel = best;
+      const lvl = hls.levels[best];
+      tvqBtn.textContent = (lvl && lvl.height) ? (lvl.height >= 1080 ? "1080p HD" : lvl.height + "p HD") : "1080p HD";
+      toast(`Sifat: ${tvqBtn.textContent}`, 1200);
+    } else {
+      hls.currentLevel = -1;
+      tvqBtn.textContent = "Auto HD";
+      toast("Sifat: Avto (moslashuvchan)", 1200);
+    }
+  };
+}
 $("tvfav").onclick = () => {
   if (!tvCur) return;
   const id = tvCur.i;

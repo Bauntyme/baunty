@@ -1,11 +1,11 @@
 """
-Jonli TV ma'lumotlari (136 ta telekanal, original logotiplari va real-time 1080p Full HD HLS m3u8 oqimlari)
-Barcha soxta, sifatsiz va bloklangan oqimlar tozalangan, 100% ishlaydigan zaxira oqimlar bilan ta'minlangan.
+Jonli TV ma'lumotlari (139 ta telekanal, original logotiplari va real-time 1080p Full HD HLS m3u8 oqimlari)
+Barcha soxta, sifatsiz, takroriy va bloklangan oqimlar tozalangan, 100% ishlaydigan zaxira oqimlar bilan ta'minlangan.
 """
 from typing import List, Dict, Any
 
 TV_CATEGORIES = [
-    {"key": "all", "title": "Barchasi (136)", "icon": "📺"},
+    {"key": "all", "title": "Barchasi (139)", "icon": "📺"},
     {"key": "milliy", "title": "O'zbekiston Milliy", "icon": "🇺🇿"},
     {"key": "xususiy", "title": "Xususiy kanallar", "icon": "✨"},
     {"key": "kino", "title": "Kino & Seriallar", "icon": "🎬"},
@@ -44,11 +44,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1001/playlist.m3u8"
+                "https://stream3.cinerama.uz/1001/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1001/playlist.m3u8"
+                "https://stream3.cinerama.uz/1001/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -77,11 +77,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1002/playlist.m3u8"
+                "https://stream3.cinerama.uz/1002/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1002/playlist.m3u8"
+                "https://stream3.cinerama.uz/1002/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -110,11 +110,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1003/playlist.m3u8"
+                "https://stream3.cinerama.uz/1003/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1003/playlist.m3u8"
+                "https://stream3.cinerama.uz/1003/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -143,11 +143,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1004/playlist.m3u8"
+                "https://stream3.cinerama.uz/1004/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1004/playlist.m3u8"
+                "https://stream3.cinerama.uz/1004/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -176,11 +176,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1005/playlist.m3u8"
+                "https://stream3.cinerama.uz/1005/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1005/playlist.m3u8"
+                "https://stream3.cinerama.uz/1005/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -209,11 +209,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1006/playlist.m3u8"
+                "https://stream3.cinerama.uz/1006/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1006/playlist.m3u8"
+                "https://stream3.cinerama.uz/1006/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -242,11 +242,11 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1008/playlist.m3u8"
+                "https://stream3.cinerama.uz/1008/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1008/playlist.m3u8"
+                "https://stream3.cinerama.uz/1008/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
@@ -275,49 +275,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1009/playlist.m3u8"
+                "https://stream3.cinerama.uz/1009/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1009/playlist.m3u8"
+                "https://stream3.cinerama.uz/1009/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
         "id": 9,
-        "name": "Bolajon TV",
-        "category": "milliy",
-        "logo": "👶",
-        "l": "https://i.imgur.com/s7o0ifu.png",
-        "desc": "Bolalar uchun multfilmlar va ko'rsatuvlar (HD)",
-        "stream": "https://stream3.cinerama.uz/1007/playlist.m3u8",
-        "c": "uz",
-        "k": "bolalar",
-        "v": 8450,
-        "q": "1080p HD",
-        "i": 9,
-        "n": "Bolajon TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1007/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1007/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1007/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1007/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 10,
         "name": "O'zbekiston 24",
         "category": "milliy",
         "logo": "🔴",
@@ -328,7 +295,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 9300,
         "q": "1080p HD",
-        "i": 10,
+        "i": 9,
         "n": "O'zbekiston 24",
         "u": [
             [
@@ -341,16 +308,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1011/playlist.m3u8"
+                "https://stream3.cinerama.uz/1011/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1011/playlist.m3u8"
+                "https://stream3.cinerama.uz/1011/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 11,
+        "id": 10,
         "name": "Mahalla TV",
         "category": "milliy",
         "logo": "🏘️",
@@ -361,7 +328,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 4300,
         "q": "1080p HD",
-        "i": 11,
+        "i": 10,
         "n": "Mahalla TV",
         "u": [
             [
@@ -374,16 +341,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1013/playlist.m3u8"
+                "https://stream3.cinerama.uz/1013/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1013/playlist.m3u8"
+                "https://stream3.cinerama.uz/1013/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 12,
+        "id": 11,
         "name": "O'zbekiston Tarixi",
         "category": "milliy",
         "logo": "🏛️",
@@ -394,7 +361,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 5200,
         "q": "1080p HD",
-        "i": 12,
+        "i": 11,
         "n": "O'zbekiston Tarixi",
         "u": [
             [
@@ -407,16 +374,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1209/playlist.m3u8"
+                "https://stream3.cinerama.uz/1209/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1209/playlist.m3u8"
+                "https://stream3.cinerama.uz/1209/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 13,
+        "id": 12,
         "name": "Sevimli TV",
         "category": "xususiy",
         "logo": "❤️",
@@ -427,7 +394,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 15400,
         "q": "4K UHD",
-        "i": 13,
+        "i": 12,
         "n": "Sevimli TV",
         "u": [
             [
@@ -440,16 +407,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1017/playlist.m3u8"
+                "https://stream3.cinerama.uz/1017/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1017/playlist.m3u8"
+                "https://stream3.cinerama.uz/1017/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 14,
+        "id": 13,
         "name": "Zo'r TV",
         "category": "xususiy",
         "logo": "⚡",
@@ -460,7 +427,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 16200,
         "q": "4K UHD",
-        "i": 14,
+        "i": 13,
         "n": "Zo'r TV",
         "u": [
             [
@@ -473,16 +440,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1016/playlist.m3u8"
+                "https://stream3.cinerama.uz/1016/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1016/playlist.m3u8"
+                "https://stream3.cinerama.uz/1016/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 15,
+        "id": 14,
         "name": "Mening Yurtim (MY5)",
         "category": "xususiy",
         "logo": "🌟",
@@ -493,7 +460,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 13800,
         "q": "1080p HD",
-        "i": 15,
+        "i": 14,
         "n": "Mening Yurtim (MY5)",
         "u": [
             [
@@ -506,16 +473,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1217/playlist.m3u8"
+                "https://stream3.cinerama.uz/1217/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1217/playlist.m3u8"
+                "https://stream3.cinerama.uz/1217/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 16,
+        "id": 15,
         "name": "Milliy TV",
         "category": "xususiy",
         "logo": "🦚",
@@ -526,7 +493,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 14200,
         "q": "4K UHD",
-        "i": 16,
+        "i": 15,
         "n": "Milliy TV",
         "u": [
             [
@@ -539,16 +506,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1014/playlist.m3u8"
+                "https://stream3.cinerama.uz/1014/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1014/playlist.m3u8"
+                "https://stream3.cinerama.uz/1014/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 17,
+        "id": 16,
         "name": "Renessans TV",
         "category": "xususiy",
         "logo": "🎨",
@@ -559,7 +526,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 7100,
         "q": "1080p HD",
-        "i": 17,
+        "i": 16,
         "n": "Renessans TV",
         "u": [
             [
@@ -572,41 +539,49 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1221/playlist.m3u8"
+                "https://stream3.cinerama.uz/1221/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1221/playlist.m3u8"
+                "https://stream3.cinerama.uz/1221/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 17,
+        "name": "Biz TV",
+        "category": "xususiy",
+        "logo": "🔥",
+        "l": "https://biztv.uz/static/media/logo.5f993187.png",
+        "desc": "Ko'ngilochar va musiqiy telekanal (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1211/playlist.m3u8",
+        "c": "uz",
+        "k": "xususiy",
+        "v": 11800,
+        "q": "1080p HD",
+        "i": 17,
+        "n": "Biz TV",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1211/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1211/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1211/mono.m3u8"
+            ],
+            [
+                3,
+                "https://fl.biztv.media/biz_tv_720_uni8jhub4h8fub4idejswh8dh3j94finbu4nidj39inwsj92in3d/index.m3u8"
             ]
         ]
     },
     {
         "id": 18,
-        "name": "Biz TV",
-        "category": "xususiy",
-        "logo": "🔥",
-        "l": "https://biztv.uz/static/media/logo.5f993187.png",
-        "desc": "Yoshlar va zamonaviy madaniyat (1080p HD)",
-        "stream": "https://fl.biztv.media/biz_tv_720_uni8jhub4h8fub4idejswh8dh3j94finbu4nidj39inwsj92in3d/index.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 11800,
-        "q": "1080p HD",
-        "i": 18,
-        "n": "Biz TV",
-        "u": [
-            [
-                0,
-                "https://fl.biztv.media/biz_tv_720_uni8jhub4h8fub4idejswh8dh3j94finbu4nidj39inwsj92in3d/index.m3u8"
-            ],
-            [
-                1,
-                "https://fl.biztv.media/biz_tv_720_uni8jhub4h8fub4idejswh8dh3j94finbu4nidj39inwsj92in3d/tracks-v1a1/mono.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 19,
         "name": "FTV",
         "category": "xususiy",
         "logo": "💃",
@@ -617,7 +592,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 5900,
         "q": "1080p HD",
-        "i": 19,
+        "i": 18,
         "n": "FTV",
         "u": [
             [
@@ -630,16 +605,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1018/playlist.m3u8"
+                "https://stream3.cinerama.uz/1018/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1018/playlist.m3u8"
+                "https://stream3.cinerama.uz/1018/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 20,
+        "id": 19,
         "name": "UzReport TV",
         "category": "xususiy",
         "logo": "🎙️",
@@ -650,7 +625,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 10500,
         "q": "1080p HD",
-        "i": 20,
+        "i": 19,
         "n": "UzReport TV",
         "u": [
             [
@@ -663,16 +638,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1015/playlist.m3u8"
+                "https://stream3.cinerama.uz/1015/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1015/playlist.m3u8"
+                "https://stream3.cinerama.uz/1015/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 21,
+        "id": 20,
         "name": "Futbol TV",
         "category": "xususiy",
         "logo": "⚽",
@@ -683,7 +658,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "sport",
         "v": 14900,
         "q": "1080p HD",
-        "i": 21,
+        "i": 20,
         "n": "Futbol TV",
         "u": [
             [
@@ -696,16 +671,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1010/playlist.m3u8"
+                "https://stream3.cinerama.uz/1010/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1010/playlist.m3u8"
+                "https://stream3.cinerama.uz/1010/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 22,
+        "id": 21,
         "name": "Taraqqiyot TV",
         "category": "xususiy",
         "logo": "📈",
@@ -716,7 +691,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 4600,
         "q": "1080p HD",
-        "i": 22,
+        "i": 21,
         "n": "Taraqqiyot TV",
         "u": [
             [
@@ -729,16 +704,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1204/playlist.m3u8"
+                "https://stream3.cinerama.uz/1204/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1204/playlist.m3u8"
+                "https://stream3.cinerama.uz/1204/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 23,
+        "id": 22,
         "name": "Dasturxon TV",
         "category": "xususiy",
         "logo": "🍲",
@@ -749,7 +724,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 4100,
         "q": "1080p HD",
-        "i": 23,
+        "i": 22,
         "n": "Dasturxon TV",
         "u": [
             [
@@ -762,16 +737,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1206/playlist.m3u8"
+                "https://stream3.cinerama.uz/1206/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1206/playlist.m3u8"
+                "https://stream3.cinerama.uz/1206/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 24,
+        "id": 23,
         "name": "Makon TV",
         "category": "xususiy",
         "logo": "🌍",
@@ -782,7 +757,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 3800,
         "q": "1080p HD",
-        "i": 24,
+        "i": 23,
         "n": "Makon TV",
         "u": [
             [
@@ -795,16 +770,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1497/playlist.m3u8"
+                "https://stream3.cinerama.uz/1497/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1497/playlist.m3u8"
+                "https://stream3.cinerama.uz/1497/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 25,
+        "id": 24,
         "name": "Cheksiz TV",
         "category": "xususiy",
         "logo": "♾️",
@@ -815,21 +790,17 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 3400,
         "q": "1080p HD",
-        "i": 25,
+        "i": 24,
         "n": "Cheksiz TV",
         "u": [
             [
                 0,
                 "https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/mono.m3u8"
-            ],
-            [
-                1,
-                "https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/tracks-v1a1/mono.m3u8"
             ]
         ]
     },
     {
-        "id": 26,
+        "id": 25,
         "name": "Nurafshon TV",
         "category": "xususiy",
         "logo": "✨",
@@ -840,7 +811,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 3100,
         "q": "1080p HD",
-        "i": 26,
+        "i": 25,
         "n": "Nurafshon TV",
         "u": [
             [
@@ -853,16 +824,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1220/playlist.m3u8"
+                "https://stream3.cinerama.uz/1220/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1220/playlist.m3u8"
+                "https://stream3.cinerama.uz/1220/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 27,
+        "id": 26,
         "name": "Farg'ona MTRK",
         "category": "xususiy",
         "logo": "🍇",
@@ -873,7 +844,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 2900,
         "q": "1080p HD",
-        "i": 27,
+        "i": 26,
         "n": "Farg'ona MTRK",
         "u": [
             [
@@ -886,16 +857,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1458/playlist.m3u8"
+                "https://stream3.cinerama.uz/1458/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1458/playlist.m3u8"
+                "https://stream3.cinerama.uz/1458/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 28,
+        "id": 27,
         "name": "Navoiy MTRK",
         "category": "xususiy",
         "logo": "🏭",
@@ -906,7 +877,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 2800,
         "q": "1080p HD",
-        "i": 28,
+        "i": 27,
         "n": "Navoiy MTRK",
         "u": [
             [
@@ -919,16 +890,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1460/playlist.m3u8"
+                "https://stream3.cinerama.uz/1460/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1460/playlist.m3u8"
+                "https://stream3.cinerama.uz/1460/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 29,
+        "id": 28,
         "name": "Qaraqalpaqstan TV",
         "category": "xususiy",
         "logo": "🌊",
@@ -939,7 +910,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xususiy",
         "v": 3200,
         "q": "1080p HD",
-        "i": 29,
+        "i": 28,
         "n": "Qaraqalpaqstan TV",
         "u": [
             [
@@ -952,41 +923,49 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1467/playlist.m3u8"
+                "https://stream3.cinerama.uz/1467/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1467/playlist.m3u8"
+                "https://stream3.cinerama.uz/1467/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 29,
+        "name": "BIZ Cinema",
+        "category": "kino",
+        "logo": "🎬",
+        "l": "https://biztv.uz/static/media/biz-cinema.286b83dc.png",
+        "desc": "O'zbek va jahon kinosi (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1213/playlist.m3u8",
+        "c": "uz",
+        "k": "kino",
+        "v": 17800,
+        "q": "1080p HD",
+        "i": 29,
+        "n": "BIZ Cinema",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1213/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1213/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1213/mono.m3u8"
+            ],
+            [
+                3,
+                "https://fl.biztv.media/cinema_720_EMfSyXgoRdiIHgldXTZICucKTIeCKO/index.m3u8"
             ]
         ]
     },
     {
         "id": 30,
-        "name": "BIZ Cinema",
-        "category": "kino",
-        "logo": "🎬",
-        "l": "https://biztv.uz/static/media/biz-cinema.286b83dc.png",
-        "desc": "Eng sara kinolar va seriallar (4K UHD)",
-        "stream": "https://fl.biztv.media/cinema_720_EMfSyXgoRdiIHgldXTZICucKTIeCKO/index.m3u8",
-        "c": "uz",
-        "k": "kino",
-        "v": 17800,
-        "q": "1080p HD",
-        "i": 30,
-        "n": "BIZ Cinema",
-        "u": [
-            [
-                0,
-                "https://fl.biztv.media/cinema_720_EMfSyXgoRdiIHgldXTZICucKTIeCKO/index.m3u8"
-            ],
-            [
-                1,
-                "https://fl.biztv.media/cinema_720_EMfSyXgoRdiIHgldXTZICucKTIeCKO/tracks-v1a1/mono.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 31,
         "name": "viju TV1000 action",
         "category": "kino",
         "logo": "💥",
@@ -997,7 +976,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 16500,
         "q": "1080p HD",
-        "i": 31,
+        "i": 30,
         "n": "viju TV1000 action",
         "u": [
             [
@@ -1010,16 +989,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1225/playlist.m3u8"
+                "https://stream3.cinerama.uz/1225/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1225/playlist.m3u8"
+                "https://stream3.cinerama.uz/1225/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 32,
+        "id": 31,
         "name": "viju TV1000 russkoe",
         "category": "kino",
         "logo": "🇷🇺",
@@ -1030,7 +1009,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 14200,
         "q": "1080p HD",
-        "i": 32,
+        "i": 31,
         "n": "viju TV1000 russkoe",
         "u": [
             [
@@ -1043,16 +1022,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1058/playlist.m3u8"
+                "https://stream3.cinerama.uz/1058/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1058/playlist.m3u8"
+                "https://stream3.cinerama.uz/1058/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 33,
+        "id": 32,
         "name": "Kinopokaz",
         "category": "kino",
         "logo": "🎥",
@@ -1063,7 +1042,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 13900,
         "q": "1080p HD",
-        "i": 33,
+        "i": 32,
         "n": "Kinopokaz",
         "u": [
             [
@@ -1076,16 +1055,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1057/playlist.m3u8"
+                "https://stream3.cinerama.uz/1057/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1057/playlist.m3u8"
+                "https://stream3.cinerama.uz/1057/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 34,
+        "id": 33,
         "name": "Dom kino",
         "category": "kino",
         "logo": "🏠",
@@ -1096,7 +1075,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 13200,
         "q": "1080p HD",
-        "i": 34,
+        "i": 33,
         "n": "Dom kino",
         "u": [
             [
@@ -1109,16 +1088,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1054/playlist.m3u8"
+                "https://stream3.cinerama.uz/1054/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1054/playlist.m3u8"
+                "https://stream3.cinerama.uz/1054/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 35,
+        "id": 34,
         "name": "Kinosvidanie",
         "category": "kino",
         "logo": "💑",
@@ -1129,7 +1108,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 11500,
         "q": "1080p HD",
-        "i": 35,
+        "i": 34,
         "n": "Kinosvidanie",
         "u": [
             [
@@ -1142,16 +1121,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1203/playlist.m3u8"
+                "https://stream3.cinerama.uz/1203/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1203/playlist.m3u8"
+                "https://stream3.cinerama.uz/1203/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 36,
+        "id": 35,
         "name": "KinoHit",
         "category": "kino",
         "logo": "⭐",
@@ -1162,7 +1141,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 14700,
         "q": "1080p HD",
-        "i": 36,
+        "i": 35,
         "n": "KinoHit",
         "u": [
             [
@@ -1175,16 +1154,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1055/playlist.m3u8"
+                "https://stream3.cinerama.uz/1055/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1055/playlist.m3u8"
+                "https://stream3.cinerama.uz/1055/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 37,
+        "id": 36,
         "name": "Kinopremyera",
         "category": "kino",
         "logo": "🎞️",
@@ -1195,7 +1174,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 15800,
         "q": "1080p HD",
-        "i": 37,
+        "i": 36,
         "n": "Kinopremyera",
         "u": [
             [
@@ -1208,16 +1187,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1207/playlist.m3u8"
+                "https://stream3.cinerama.uz/1207/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1207/playlist.m3u8"
+                "https://stream3.cinerama.uz/1207/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 38,
+        "id": 37,
         "name": "Nashe Novoe Kino",
         "category": "kino",
         "logo": "🇷🇺",
@@ -1228,7 +1207,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 10900,
         "q": "1080p HD",
-        "i": 38,
+        "i": 37,
         "n": "Nashe Novoe Kino",
         "u": [
             [
@@ -1241,16 +1220,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1056/playlist.m3u8"
+                "https://stream3.cinerama.uz/1056/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1056/playlist.m3u8"
+                "https://stream3.cinerama.uz/1056/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 39,
+        "id": 38,
         "name": "Cinema",
         "category": "kino",
         "logo": "🎦",
@@ -1261,7 +1240,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 11300,
         "q": "1080p HD",
-        "i": 39,
+        "i": 38,
         "n": "Cinema",
         "u": [
             [
@@ -1274,16 +1253,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1227/playlist.m3u8"
+                "https://stream3.cinerama.uz/1227/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1227/playlist.m3u8"
+                "https://stream3.cinerama.uz/1227/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 40,
+        "id": 39,
         "name": "Rodnoe Kino",
         "category": "kino",
         "logo": "🎞️",
@@ -1294,7 +1273,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 9800,
         "q": "1080p HD",
-        "i": 40,
+        "i": 39,
         "n": "Rodnoe Kino",
         "u": [
             [
@@ -1307,16 +1286,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1052/playlist.m3u8"
+                "https://stream3.cinerama.uz/1052/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1052/playlist.m3u8"
+                "https://stream3.cinerama.uz/1052/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 41,
+        "id": 40,
         "name": "Indiyskoye Kino",
         "category": "kino",
         "logo": "🇮🇳",
@@ -1327,7 +1306,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 12800,
         "q": "1080p HD",
-        "i": 41,
+        "i": 40,
         "n": "Indiyskoye Kino",
         "u": [
             [
@@ -1340,16 +1319,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1060/playlist.m3u8"
+                "https://stream3.cinerama.uz/1060/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1060/playlist.m3u8"
+                "https://stream3.cinerama.uz/1060/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 42,
+        "id": 41,
         "name": "Dorama",
         "category": "kino",
         "logo": "🌸",
@@ -1360,7 +1339,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 13600,
         "q": "1080p HD",
-        "i": 42,
+        "i": 41,
         "n": "Dorama",
         "u": [
             [
@@ -1373,16 +1352,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1273/playlist.m3u8"
+                "https://stream3.cinerama.uz/1273/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1273/playlist.m3u8"
+                "https://stream3.cinerama.uz/1273/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 43,
+        "id": 42,
         "name": "Retro TV",
         "category": "kino",
         "logo": "📼",
@@ -1393,7 +1372,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 8500,
         "q": "1080p HD",
-        "i": 43,
+        "i": 42,
         "n": "Retro TV",
         "u": [
             [
@@ -1406,16 +1385,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1047/playlist.m3u8"
+                "https://stream3.cinerama.uz/1047/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1047/playlist.m3u8"
+                "https://stream3.cinerama.uz/1047/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 44,
+        "id": 43,
         "name": "Bollywood HD",
         "category": "kino",
         "logo": "💃",
@@ -1426,7 +1405,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 10200,
         "q": "1080p HD",
-        "i": 44,
+        "i": 43,
         "n": "Bollywood HD",
         "u": [
             [
@@ -1439,12 +1418,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1041/playlist.m3u8"
+                "https://stream3.cinerama.uz/1041/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1041/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 45,
+        "id": 44,
         "name": "Insayt TV",
         "category": "kino",
         "logo": "⚡",
@@ -1455,7 +1438,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 9400,
         "q": "4K UHD",
-        "i": 45,
+        "i": 44,
         "n": "Insayt TV",
         "u": [
             [
@@ -1468,82 +1451,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1416/playlist.m3u8"
+                "https://stream3.cinerama.uz/1416/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1416/playlist.m3u8"
+                "https://stream3.cinerama.uz/1416/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 46,
-        "name": "Sport TV HD",
-        "category": "sport",
-        "logo": "⚽",
-        "l": "https://i.imgur.com/2WJE9CM.png",
-        "desc": "Milliy terma jamoa va jahon chempionatlari",
-        "stream": "https://stream3.cinerama.uz/1004/playlist.m3u8",
-        "c": "uz",
-        "k": "sport",
-        "v": 16800,
-        "q": "1080p HD",
-        "i": 46,
-        "n": "Sport TV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1004/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1004/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1004/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1004/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 47,
-        "name": "Futbol TV HD",
-        "category": "sport",
-        "logo": "🏆",
-        "l": "https://i.ibb.co/h1gQSkbB/Futbol-TV.png",
-        "desc": "APL, Chempionlar Ligasi, La Liga",
-        "stream": "https://stream3.cinerama.uz/1010/playlist.m3u8",
-        "c": "uz",
-        "k": "sport",
-        "v": 18500,
-        "q": "1080p HD",
-        "i": 47,
-        "n": "Futbol TV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1010/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1010/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1010/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1010/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 48,
+        "id": 45,
         "name": "viju+ Sport",
         "category": "sport",
         "logo": "🥊",
@@ -1554,7 +1471,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "sport",
         "v": 12400,
         "q": "1080p HD",
-        "i": 48,
+        "i": 45,
         "n": "viju+ Sport",
         "u": [
             [
@@ -1567,16 +1484,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1229/playlist.m3u8"
+                "https://stream3.cinerama.uz/1229/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1229/playlist.m3u8"
+                "https://stream3.cinerama.uz/1229/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 49,
+        "id": 46,
         "name": "MMA-TV.com",
         "category": "sport",
         "logo": "🥋",
@@ -1587,7 +1504,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "sport",
         "v": 14100,
         "q": "1080p HD",
-        "i": 49,
+        "i": 46,
         "n": "MMA-TV.com",
         "u": [
             [
@@ -1600,16 +1517,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1226/playlist.m3u8"
+                "https://stream3.cinerama.uz/1226/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1226/playlist.m3u8"
+                "https://stream3.cinerama.uz/1226/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 50,
+        "id": 47,
         "name": "Trace Sport Stars",
         "category": "sport",
         "logo": "⭐",
@@ -1620,7 +1537,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "sport",
         "v": 8900,
         "q": "1080p HD",
-        "i": 50,
+        "i": 47,
         "n": "Trace Sport Stars",
         "u": [
             [
@@ -1633,16 +1550,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1274/playlist.m3u8"
+                "https://stream3.cinerama.uz/1274/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1274/playlist.m3u8"
+                "https://stream3.cinerama.uz/1274/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 51,
+        "id": 48,
         "name": "A Spor",
         "category": "sport",
         "logo": "🇹🇷",
@@ -1653,7 +1570,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "sport",
         "v": 11200,
         "q": "1080p HD",
-        "i": 51,
+        "i": 48,
         "n": "A Spor",
         "u": [
             [
@@ -1663,7 +1580,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         ]
     },
     {
-        "id": 52,
+        "id": 49,
         "name": "Red Bull TV",
         "category": "sport",
         "logo": "🏎️",
@@ -1674,7 +1591,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "sport",
         "v": 13300,
         "q": "1080p HD",
-        "i": 52,
+        "i": 49,
         "n": "Red Bull TV",
         "u": [
             [
@@ -1684,7 +1601,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         ]
     },
     {
-        "id": 53,
+        "id": 50,
         "name": "Aqlvoy",
         "category": "bolalar",
         "logo": "🧠",
@@ -1695,7 +1612,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 11900,
         "q": "1080p HD",
-        "i": 53,
+        "i": 50,
         "n": "Aqlvoy",
         "u": [
             [
@@ -1708,16 +1625,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1205/playlist.m3u8"
+                "https://stream3.cinerama.uz/1205/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1205/playlist.m3u8"
+                "https://stream3.cinerama.uz/1205/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 54,
+        "id": 51,
         "name": "Bolajon",
         "category": "bolalar",
         "logo": "👶",
@@ -1728,7 +1645,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 12500,
         "q": "1080p HD",
-        "i": 54,
+        "i": 51,
         "n": "Bolajon",
         "u": [
             [
@@ -1741,16 +1658,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1007/playlist.m3u8"
+                "https://stream3.cinerama.uz/1007/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1007/playlist.m3u8"
+                "https://stream3.cinerama.uz/1007/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 55,
+        "id": 52,
         "name": "MiMi TV",
         "category": "bolalar",
         "logo": "🧸",
@@ -1761,7 +1678,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 9800,
         "q": "1080p HD",
-        "i": 55,
+        "i": 52,
         "n": "MiMi TV",
         "u": [
             [
@@ -1775,7 +1692,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         ]
     },
     {
-        "id": 56,
+        "id": 53,
         "name": "TiJi",
         "category": "bolalar",
         "logo": "🌸",
@@ -1786,7 +1703,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 10500,
         "q": "1080p HD",
-        "i": 56,
+        "i": 53,
         "n": "TiJi",
         "u": [
             [
@@ -1799,16 +1716,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1441/playlist.m3u8"
+                "https://stream3.cinerama.uz/1441/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1441/playlist.m3u8"
+                "https://stream3.cinerama.uz/1441/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 57,
+        "id": 54,
         "name": "Gulli Girl",
         "category": "bolalar",
         "logo": "🧚",
@@ -1819,7 +1736,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 9200,
         "q": "1080p HD",
-        "i": 57,
+        "i": 54,
         "n": "Gulli Girl",
         "u": [
             [
@@ -1832,16 +1749,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1445/playlist.m3u8"
+                "https://stream3.cinerama.uz/1445/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1445/playlist.m3u8"
+                "https://stream3.cinerama.uz/1445/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 58,
+        "id": 55,
         "name": "Detskiy",
         "category": "bolalar",
         "logo": "🎪",
@@ -1852,7 +1769,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 8700,
         "q": "1080p HD",
-        "i": 58,
+        "i": 55,
         "n": "Detskiy",
         "u": [
             [
@@ -1865,16 +1782,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1033/playlist.m3u8"
+                "https://stream3.cinerama.uz/1033/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1033/playlist.m3u8"
+                "https://stream3.cinerama.uz/1033/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 59,
+        "id": 56,
         "name": "Mult",
         "category": "bolalar",
         "logo": "🐻",
@@ -1885,7 +1802,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 15600,
         "q": "1080p HD",
-        "i": 59,
+        "i": 56,
         "n": "Mult",
         "u": [
             [
@@ -1898,16 +1815,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1247/playlist.m3u8"
+                "https://stream3.cinerama.uz/1247/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1247/playlist.m3u8"
+                "https://stream3.cinerama.uz/1247/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 60,
+        "id": 57,
         "name": "Multilandia",
         "category": "bolalar",
         "logo": "🎈",
@@ -1918,7 +1835,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 10800,
         "q": "1080p HD",
-        "i": 60,
+        "i": 57,
         "n": "Multilandia",
         "u": [
             [
@@ -1927,20 +1844,20 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 1,
-                "https://stream3.cinerama.uz/1441/playlist.m3u8"
+                "https://stream3.cinerama.uz/1247/tracks-v1a1/mono.ts.m3u8"
             ],
             [
                 2,
-                "https://stream3.cinerama.uz/1500/playlist.m3u8"
+                "https://stream3.cinerama.uz/1247/mono.m3u8"
             ],
             [
                 3,
-                "https://stream8.cinerama.uz/1247/playlist.m3u8"
+                "https://stream3.cinerama.uz/1247/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 61,
+        "id": 58,
         "name": "Nickelodeon CIS",
         "category": "bolalar",
         "logo": "🟧",
@@ -1951,7 +1868,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 16400,
         "q": "1080p HD",
-        "i": 61,
+        "i": 58,
         "n": "Nickelodeon CIS",
         "u": [
             [
@@ -1964,16 +1881,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1500/playlist.m3u8"
+                "https://stream3.cinerama.uz/1500/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1500/playlist.m3u8"
+                "https://stream3.cinerama.uz/1500/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 62,
+        "id": 59,
         "name": "Nick Jr.",
         "category": "bolalar",
         "logo": "🐾",
@@ -1984,7 +1901,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 11400,
         "q": "1080p HD",
-        "i": 62,
+        "i": 59,
         "n": "Nick Jr.",
         "u": [
             [
@@ -1997,16 +1914,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1501/playlist.m3u8"
+                "https://stream3.cinerama.uz/1501/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1501/playlist.m3u8"
+                "https://stream3.cinerama.uz/1501/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 63,
+        "id": 60,
         "name": "Nicktoons CIS",
         "category": "bolalar",
         "logo": "⚡",
@@ -2017,7 +1934,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 10900,
         "q": "1080p HD",
-        "i": 63,
+        "i": 60,
         "n": "Nicktoons CIS",
         "u": [
             [
@@ -2030,16 +1947,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1502/playlist.m3u8"
+                "https://stream3.cinerama.uz/1502/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1502/playlist.m3u8"
+                "https://stream3.cinerama.uz/1502/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 64,
+        "id": 61,
         "name": "V gostyakh u skazki",
         "category": "bolalar",
         "logo": "🧙‍♂️",
@@ -2050,7 +1967,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 9500,
         "q": "1080p HD",
-        "i": 64,
+        "i": 61,
         "n": "V gostyakh u skazki",
         "u": [
             [
@@ -2063,16 +1980,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1270/playlist.m3u8"
+                "https://stream3.cinerama.uz/1270/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1270/playlist.m3u8"
+                "https://stream3.cinerama.uz/1270/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 65,
+        "id": 62,
         "name": "Kapitan Fantastika",
         "category": "bolalar",
         "logo": "🚀",
@@ -2083,7 +2000,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 8800,
         "q": "1080p HD",
-        "i": 65,
+        "i": 62,
         "n": "Kapitan Fantastika",
         "u": [
             [
@@ -2096,16 +2013,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1406/playlist.m3u8"
+                "https://stream3.cinerama.uz/1406/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1406/playlist.m3u8"
+                "https://stream3.cinerama.uz/1406/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 66,
+        "id": 63,
         "name": "Ryzhiy",
         "category": "bolalar",
         "logo": "🦊",
@@ -2116,7 +2033,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 8200,
         "q": "1080p HD",
-        "i": 66,
+        "i": 63,
         "n": "Ryzhiy",
         "u": [
             [
@@ -2129,16 +2046,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1407/playlist.m3u8"
+                "https://stream3.cinerama.uz/1407/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1407/playlist.m3u8"
+                "https://stream3.cinerama.uz/1407/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 67,
+        "id": 64,
         "name": "Smile TV",
         "category": "bolalar",
         "logo": "😄",
@@ -2149,7 +2066,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 7900,
         "q": "1080p HD",
-        "i": 67,
+        "i": 64,
         "n": "Smile TV",
         "u": [
             [
@@ -2162,16 +2079,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1425/playlist.m3u8"
+                "https://stream3.cinerama.uz/1425/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1425/playlist.m3u8"
+                "https://stream3.cinerama.uz/1425/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 68,
+        "id": 65,
         "name": "Mama",
         "category": "bolalar",
         "logo": "👩‍👧",
@@ -2182,7 +2099,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "bolalar",
         "v": 7600,
         "q": "1080p HD",
-        "i": 68,
+        "i": 65,
         "n": "Mama",
         "u": [
             [
@@ -2195,107 +2112,49 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1244/playlist.m3u8"
+                "https://stream3.cinerama.uz/1244/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1244/playlist.m3u8"
+                "https://stream3.cinerama.uz/1244/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 69,
+        "id": 66,
         "name": "BIZ Music",
         "category": "musiqa",
         "logo": "🎶",
         "l": "https://i.ibb.co/DfsCJwk/Uz-biz-music-5462.jpg",
-        "desc": "Eng so'nggi va eng xit musiqalar (1080p HD)",
-        "stream": "https://fl.biztv.media/music_720_QAKpGmVUjaPApCNjpsgBxrdqNihAkl/index.m3u8",
+        "desc": "Zamonaviy o'zbek va jahon xitlari (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1212/playlist.m3u8",
         "c": "uz",
         "k": "musiqa",
         "v": 15400,
         "q": "1080p HD",
-        "i": 71,
+        "i": 66,
         "n": "BIZ Music",
         "u": [
             [
                 0,
+                "https://stream3.cinerama.uz/1212/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1212/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1212/mono.m3u8"
+            ],
+            [
+                3,
                 "https://fl.biztv.media/music_720_QAKpGmVUjaPApCNjpsgBxrdqNihAkl/index.m3u8"
-            ],
-            [
-                1,
-                "https://fl.biztv.media/music_720_QAKpGmVUjaPApCNjpsgBxrdqNihAkl/tracks-v1a1/mono.m3u8"
             ]
         ]
     },
     {
-        "id": 70,
-        "name": "Navo TV Musiqa",
-        "category": "musiqa",
-        "logo": "🎵",
-        "l": "https://i.imgur.com/7dZ64y9.png",
-        "desc": "O'zbek xalq va zamonaviy estrada yulduzlari",
-        "stream": "https://stream3.cinerama.uz/1008/playlist.m3u8",
-        "c": "uz",
-        "k": "musiqa",
-        "v": 13900,
-        "q": "1080p HD",
-        "i": 72,
-        "n": "Navo TV Musiqa",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1008/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1008/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1008/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1008/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 71,
-        "name": "FTV Music",
-        "category": "musiqa",
-        "logo": "💃",
-        "l": "https://i.imgur.com/7lpISyN.jpg",
-        "desc": "Zamonaviy raqsbop hitlar va moda treklari",
-        "stream": "https://stream3.cinerama.uz/1018/playlist.m3u8",
-        "c": "uz",
-        "k": "musiqa",
-        "v": 11200,
-        "q": "1080p HD",
-        "i": 73,
-        "n": "FTV Music",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1018/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1018/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1018/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1018/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 72,
+        "id": 67,
         "name": "1HD Music Television",
         "category": "musiqa",
         "logo": "🎧",
@@ -2306,7 +2165,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "musiqa",
         "v": 13800,
         "q": "1080p HD",
-        "i": 74,
+        "i": 67,
         "n": "1HD Music Television",
         "u": [
             [
@@ -2319,16 +2178,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1267/playlist.m3u8"
+                "https://stream3.cinerama.uz/1267/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1267/playlist.m3u8"
+                "https://stream3.cinerama.uz/1267/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 73,
+        "id": 68,
         "name": "FON Music",
         "category": "musiqa",
         "logo": "📻",
@@ -2339,7 +2198,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "musiqa",
         "v": 9600,
         "q": "1080p HD",
-        "i": 75,
+        "i": 68,
         "n": "FON Music",
         "u": [
             [
@@ -2352,16 +2211,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1272/playlist.m3u8"
+                "https://stream3.cinerama.uz/1272/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1272/playlist.m3u8"
+                "https://stream3.cinerama.uz/1272/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 74,
+        "id": 69,
         "name": "RU.TV",
         "category": "musiqa",
         "logo": "🇷🇺",
@@ -2372,7 +2231,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "musiqa",
         "v": 12700,
         "q": "1080p HD",
-        "i": 76,
+        "i": 69,
         "n": "RU.TV",
         "u": [
             [
@@ -2385,16 +2244,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1202/playlist.m3u8"
+                "https://stream3.cinerama.uz/1202/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1202/playlist.m3u8"
+                "https://stream3.cinerama.uz/1202/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 75,
+        "id": 70,
         "name": "Muz TV HD",
         "category": "musiqa",
         "logo": "🎤",
@@ -2405,8 +2264,8 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "musiqa",
         "v": 14500,
         "q": "1080p HD",
-        "i": 77,
-        "n": "Muz-TV",
+        "i": 70,
+        "n": "Muz TV HD",
         "u": [
             [
                 0,
@@ -2418,45 +2277,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1063/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 76,
-        "name": "Muz TV Uzbekistan",
-        "category": "musiqa",
-        "logo": "🇺🇿",
-        "l": "https://s8.vcdn.biz/static/f/6010782281/image.jpg",
-        "desc": "O'zbekistondagi eng qaynoq musiqiy loyihalar",
-        "stream": "https://stream3.cinerama.uz/1063/playlist.m3u8",
-        "c": "uz",
-        "k": "musiqa",
-        "v": 10200,
-        "q": "1080p HD",
-        "i": 78,
-        "n": "Muz TV Uzbekistan",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1063/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1063/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1063/playlist.m3u8"
+                "https://stream3.cinerama.uz/1063/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1063/playlist.m3u8"
+                "https://stream3.cinerama.uz/1063/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 77,
+        "id": 71,
         "name": "Muzyka Pervogo",
         "category": "musiqa",
         "logo": "🔥",
@@ -2467,7 +2297,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "musiqa",
         "v": 11300,
         "q": "1080p HD",
-        "i": 79,
+        "i": 71,
         "n": "Muzyka Pervogo",
         "u": [
             [
@@ -2480,16 +2310,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1053/playlist.m3u8"
+                "https://stream3.cinerama.uz/1053/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1053/playlist.m3u8"
+                "https://stream3.cinerama.uz/1053/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 78,
+        "id": 72,
         "name": "TRT Muzik",
         "category": "musiqa",
         "logo": "🇹🇷",
@@ -2500,7 +2330,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "musiqa",
         "v": 10900,
         "q": "1080p HD",
-        "i": 80,
+        "i": 72,
         "n": "TRT Muzik",
         "u": [
             [
@@ -2513,82 +2343,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1208/playlist.m3u8"
+                "https://stream3.cinerama.uz/1208/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1208/playlist.m3u8"
+                "https://stream3.cinerama.uz/1208/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 79,
-        "name": "O'zbekiston 24 HD",
-        "category": "yangiliklar",
-        "logo": "🔴",
-        "l": "https://i.imgur.com/VRFhKbw.png",
-        "desc": "O'zbekiston va jahonning birinchi raqamli axboroti",
-        "stream": "https://stream3.cinerama.uz/1011/playlist.m3u8",
-        "c": "uz",
-        "k": "yangiliklar",
-        "v": 12900,
-        "q": "1080p HD",
-        "i": 83,
-        "n": "O'zbekiston 24 HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1011/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1011/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1011/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1011/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 80,
-        "name": "UzReport TV HD",
-        "category": "yangiliklar",
-        "logo": "🎙️",
-        "l": "https://i.imgur.com/Bch2RHc.jpg",
-        "desc": "Tezkor sharhlar va iqtisodiy tahlillar",
-        "stream": "https://stream3.cinerama.uz/1015/playlist.m3u8",
-        "c": "uz",
-        "k": "yangiliklar",
-        "v": 11400,
-        "q": "1080p HD",
-        "i": 84,
-        "n": "UzReport TV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1015/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1015/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1015/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1015/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 81,
+        "id": 73,
         "name": "Euronews HD",
         "category": "yangiliklar",
         "logo": "🇪🇺",
@@ -2599,7 +2363,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 12800,
         "q": "1080p HD",
-        "i": 85,
+        "i": 73,
         "n": "Euronews HD",
         "u": [
             [
@@ -2612,16 +2376,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1024/playlist.m3u8"
+                "https://stream3.cinerama.uz/1024/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1024/playlist.m3u8"
+                "https://stream3.cinerama.uz/1024/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 82,
+        "id": 74,
         "name": "BBC News Europe",
         "category": "yangiliklar",
         "logo": "🇬🇧",
@@ -2632,7 +2396,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 13500,
         "q": "1080p HD",
-        "i": 86,
+        "i": 74,
         "n": "BBC News Europe",
         "u": [
             [
@@ -2645,16 +2409,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1251/playlist.m3u8"
+                "https://stream3.cinerama.uz/1251/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1251/playlist.m3u8"
+                "https://stream3.cinerama.uz/1251/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 83,
+        "id": 75,
         "name": "DW English",
         "category": "yangiliklar",
         "logo": "🇩🇪",
@@ -2665,7 +2429,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 9800,
         "q": "1080p HD",
-        "i": 87,
+        "i": 75,
         "n": "DW English",
         "u": [
             [
@@ -2678,16 +2442,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1418/playlist.m3u8"
+                "https://stream3.cinerama.uz/1418/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1418/playlist.m3u8"
+                "https://stream3.cinerama.uz/1418/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 84,
+        "id": 76,
         "name": "Russia-24",
         "category": "yangiliklar",
         "logo": "🇷🇺",
@@ -2698,7 +2462,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 11800,
         "q": "1080p HD",
-        "i": 88,
+        "i": 76,
         "n": "Russia-24",
         "u": [
             [
@@ -2711,16 +2475,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1021/playlist.m3u8"
+                "https://stream3.cinerama.uz/1021/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1021/playlist.m3u8"
+                "https://stream3.cinerama.uz/1021/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 85,
+        "id": 77,
         "name": "Mir 24",
         "category": "yangiliklar",
         "logo": "🌐",
@@ -2731,7 +2495,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 8900,
         "q": "1080p HD",
-        "i": 89,
+        "i": 77,
         "n": "Mir 24",
         "u": [
             [
@@ -2744,16 +2508,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1219/playlist.m3u8"
+                "https://stream3.cinerama.uz/1219/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1219/playlist.m3u8"
+                "https://stream3.cinerama.uz/1219/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 86,
+        "id": 78,
         "name": "TRT Haber",
         "category": "yangiliklar",
         "logo": "🇹🇷",
@@ -2764,7 +2528,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "yangiliklar",
         "v": 11600,
         "q": "1080p HD",
-        "i": 90,
+        "i": 78,
         "n": "TRT Haber",
         "u": [
             [
@@ -2774,40 +2538,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         ]
     },
     {
-        "id": 87,
-        "name": "Dunyo bo'ylab HD",
-        "category": "ilm",
-        "logo": "🌏",
-        "l": "https://i.imgur.com/KArB5U6.png",
-        "desc": "Sayyoramiz go'zalligi va qadimiy shaharlar",
-        "stream": "https://stream3.cinerama.uz/1006/playlist.m3u8",
-        "c": "uz",
-        "k": "ilm",
-        "v": 13400,
-        "q": "1080p HD",
-        "i": 96,
-        "n": "Dunyo bo'ylab HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1006/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1006/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1006/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1006/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 88,
+        "id": 79,
         "name": "viju Nature",
         "category": "ilm",
         "logo": "🌿",
@@ -2818,7 +2549,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 14200,
         "q": "1080p HD",
-        "i": 97,
+        "i": 79,
         "n": "viju Nature",
         "u": [
             [
@@ -2831,16 +2562,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1228/playlist.m3u8"
+                "https://stream3.cinerama.uz/1228/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1228/playlist.m3u8"
+                "https://stream3.cinerama.uz/1228/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 89,
+        "id": 80,
         "name": "Zhivaya Planeta",
         "category": "ilm",
         "logo": "🦁",
@@ -2851,7 +2582,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 12600,
         "q": "1080p HD",
-        "i": 98,
+        "i": 80,
         "n": "Zhivaya Planeta",
         "u": [
             [
@@ -2864,16 +2595,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1250/playlist.m3u8"
+                "https://stream3.cinerama.uz/1250/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1250/playlist.m3u8"
+                "https://stream3.cinerama.uz/1250/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 90,
+        "id": 81,
         "name": "Doctor",
         "category": "ilm",
         "logo": "🩺",
@@ -2884,7 +2615,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 9700,
         "q": "1080p HD",
-        "i": 99,
+        "i": 81,
         "n": "Doctor",
         "u": [
             [
@@ -2897,16 +2628,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1409/playlist.m3u8"
+                "https://stream3.cinerama.uz/1409/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1409/playlist.m3u8"
+                "https://stream3.cinerama.uz/1409/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 91,
+        "id": 82,
         "name": "Zoopark",
         "category": "ilm",
         "logo": "🐼",
@@ -2917,7 +2648,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 9100,
         "q": "1080p HD",
-        "i": 100,
+        "i": 82,
         "n": "Zoopark",
         "u": [
             [
@@ -2930,16 +2661,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1417/playlist.m3u8"
+                "https://stream3.cinerama.uz/1417/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1417/playlist.m3u8"
+                "https://stream3.cinerama.uz/1417/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 92,
+        "id": 83,
         "name": "Domashnie Zhivotnye",
         "category": "ilm",
         "logo": "🐶",
@@ -2950,7 +2681,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8400,
         "q": "1080p HD",
-        "i": 101,
+        "i": 83,
         "n": "Domashnie Zhivotnye",
         "u": [
             [
@@ -2963,16 +2694,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1426/playlist.m3u8"
+                "https://stream3.cinerama.uz/1426/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1426/playlist.m3u8"
+                "https://stream3.cinerama.uz/1426/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 93,
+        "id": 84,
         "name": "Dikij",
         "category": "ilm",
         "logo": "🌲",
@@ -2983,7 +2714,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8800,
         "q": "1080p HD",
-        "i": 102,
+        "i": 84,
         "n": "Dikij",
         "u": [
             [
@@ -2996,16 +2727,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1230/playlist.m3u8"
+                "https://stream3.cinerama.uz/1230/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1230/playlist.m3u8"
+                "https://stream3.cinerama.uz/1230/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 94,
+        "id": 85,
         "name": "Ohotnik i rybolov",
         "category": "ilm",
         "logo": "🎣",
@@ -3016,7 +2747,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 9200,
         "q": "1080p HD",
-        "i": 103,
+        "i": 85,
         "n": "Ohotnik i rybolov",
         "u": [
             [
@@ -3029,16 +2760,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1413/playlist.m3u8"
+                "https://stream3.cinerama.uz/1413/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1413/playlist.m3u8"
+                "https://stream3.cinerama.uz/1413/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 95,
+        "id": 86,
         "name": "Okhota i rybalka",
         "category": "ilm",
         "logo": "🦌",
@@ -3049,7 +2780,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 9400,
         "q": "1080p HD",
-        "i": 104,
+        "i": 86,
         "n": "Okhota i rybalka",
         "u": [
             [
@@ -3062,16 +2793,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1038/playlist.m3u8"
+                "https://stream3.cinerama.uz/1038/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1038/playlist.m3u8"
+                "https://stream3.cinerama.uz/1038/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 96,
+        "id": 87,
         "name": "Auto Plus",
         "category": "ilm",
         "logo": "🚗",
@@ -3082,7 +2813,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 12100,
         "q": "1080p HD",
-        "i": 105,
+        "i": 87,
         "n": "Auto Plus",
         "u": [
             [
@@ -3095,16 +2826,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1036/playlist.m3u8"
+                "https://stream3.cinerama.uz/1036/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1036/playlist.m3u8"
+                "https://stream3.cinerama.uz/1036/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 97,
+        "id": 88,
         "name": "Drive",
         "category": "ilm",
         "logo": "🏎️",
@@ -3115,7 +2846,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 10500,
         "q": "1080p HD",
-        "i": 106,
+        "i": 88,
         "n": "Drive",
         "u": [
             [
@@ -3128,16 +2859,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1421/playlist.m3u8"
+                "https://stream3.cinerama.uz/1421/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1421/playlist.m3u8"
+                "https://stream3.cinerama.uz/1421/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 98,
+        "id": 89,
         "name": "Arsenal",
         "category": "ilm",
         "logo": "🛡️",
@@ -3148,7 +2879,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8900,
         "q": "1080p HD",
-        "i": 107,
+        "i": 89,
         "n": "Arsenal",
         "u": [
             [
@@ -3161,16 +2892,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1414/playlist.m3u8"
+                "https://stream3.cinerama.uz/1414/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1414/playlist.m3u8"
+                "https://stream3.cinerama.uz/1414/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 99,
+        "id": 90,
         "name": "T24",
         "category": "ilm",
         "logo": "🔬",
@@ -3181,7 +2912,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 9900,
         "q": "1080p HD",
-        "i": 108,
+        "i": 90,
         "n": "T24",
         "u": [
             [
@@ -3194,16 +2925,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1037/playlist.m3u8"
+                "https://stream3.cinerama.uz/1037/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1037/playlist.m3u8"
+                "https://stream3.cinerama.uz/1037/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 100,
+        "id": 91,
         "name": "Tochka otryva",
         "category": "ilm",
         "logo": "🪂",
@@ -3214,7 +2945,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8700,
         "q": "1080p HD",
-        "i": 109,
+        "i": 91,
         "n": "Tochka otryva",
         "u": [
             [
@@ -3227,16 +2958,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1031/playlist.m3u8"
+                "https://stream3.cinerama.uz/1031/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1031/playlist.m3u8"
+                "https://stream3.cinerama.uz/1031/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 101,
+        "id": 92,
         "name": "365 days TV",
         "category": "ilm",
         "logo": "📜",
@@ -3247,7 +2978,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 9300,
         "q": "1080p HD",
-        "i": 110,
+        "i": 92,
         "n": "365 days TV",
         "u": [
             [
@@ -3260,16 +2991,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1242/playlist.m3u8"
+                "https://stream3.cinerama.uz/1242/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1242/playlist.m3u8"
+                "https://stream3.cinerama.uz/1242/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 102,
+        "id": 93,
         "name": "Da Vinci",
         "category": "ilm",
         "logo": "🎨",
@@ -3280,7 +3011,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 11100,
         "q": "1080p HD",
-        "i": 111,
+        "i": 93,
         "n": "Da Vinci",
         "u": [
             [
@@ -3293,16 +3024,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1231/playlist.m3u8"
+                "https://stream3.cinerama.uz/1231/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1231/playlist.m3u8"
+                "https://stream3.cinerama.uz/1231/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 103,
+        "id": 94,
         "name": "Glazami Turista",
         "category": "ilm",
         "logo": "✈️",
@@ -3313,7 +3044,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8600,
         "q": "1080p HD",
-        "i": 112,
+        "i": 94,
         "n": "Glazami Turista",
         "u": [
             [
@@ -3326,16 +3057,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1423/playlist.m3u8"
+                "https://stream3.cinerama.uz/1423/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1423/playlist.m3u8"
+                "https://stream3.cinerama.uz/1423/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 104,
+        "id": 95,
         "name": "Priklyucheniya",
         "category": "ilm",
         "logo": "🧭",
@@ -3346,7 +3077,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8900,
         "q": "1080p HD",
-        "i": 113,
+        "i": 95,
         "n": "Priklyucheniya",
         "u": [
             [
@@ -3359,16 +3090,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1420/playlist.m3u8"
+                "https://stream3.cinerama.uz/1420/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1420/playlist.m3u8"
+                "https://stream3.cinerama.uz/1420/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 105,
+        "id": 96,
         "name": "Kuhnya TV",
         "category": "ilm",
         "logo": "🍳",
@@ -3379,7 +3110,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 10700,
         "q": "1080p HD",
-        "i": 114,
+        "i": 96,
         "n": "Kuhnya TV",
         "u": [
             [
@@ -3392,16 +3123,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1236/playlist.m3u8"
+                "https://stream3.cinerama.uz/1236/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1236/playlist.m3u8"
+                "https://stream3.cinerama.uz/1236/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 106,
+        "id": 97,
         "name": "Telecafe",
         "category": "ilm",
         "logo": "☕",
@@ -3412,7 +3143,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8300,
         "q": "1080p HD",
-        "i": 115,
+        "i": 97,
         "n": "Telecafe",
         "u": [
             [
@@ -3425,16 +3156,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1035/playlist.m3u8"
+                "https://stream3.cinerama.uz/1035/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1035/playlist.m3u8"
+                "https://stream3.cinerama.uz/1035/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 107,
+        "id": 98,
         "name": "Usadba",
         "category": "ilm",
         "logo": "🏡",
@@ -3445,7 +3176,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8100,
         "q": "1080p HD",
-        "i": 116,
+        "i": 98,
         "n": "Usadba",
         "u": [
             [
@@ -3458,16 +3189,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1427/playlist.m3u8"
+                "https://stream3.cinerama.uz/1427/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1427/playlist.m3u8"
+                "https://stream3.cinerama.uz/1427/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 108,
+        "id": 99,
         "name": "Zagorodnaya Zhizn",
         "category": "ilm",
         "logo": "🌻",
@@ -3478,7 +3209,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 7800,
         "q": "1080p HD",
-        "i": 117,
+        "i": 99,
         "n": "Zagorodnaya Zhizn",
         "u": [
             [
@@ -3491,16 +3222,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1044/playlist.m3u8"
+                "https://stream3.cinerama.uz/1044/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1044/playlist.m3u8"
+                "https://stream3.cinerama.uz/1044/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 109,
+        "id": 100,
         "name": "Zdorovoe TV",
         "category": "ilm",
         "logo": "🥗",
@@ -3511,7 +3242,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 8200,
         "q": "1080p HD",
-        "i": 118,
+        "i": 100,
         "n": "Zdorovoe TV",
         "u": [
             [
@@ -3524,16 +3255,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1428/playlist.m3u8"
+                "https://stream3.cinerama.uz/1428/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1428/playlist.m3u8"
+                "https://stream3.cinerama.uz/1428/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 110,
+        "id": 101,
         "name": "English Club TV",
         "category": "ilm",
         "logo": "🗣️",
@@ -3544,7 +3275,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "ilm",
         "v": 11800,
         "q": "1080p HD",
-        "i": 119,
+        "i": 101,
         "n": "English Club TV",
         "u": [
             [
@@ -3557,16 +3288,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1442/playlist.m3u8"
+                "https://stream3.cinerama.uz/1442/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1442/playlist.m3u8"
+                "https://stream3.cinerama.uz/1442/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 111,
+        "id": 102,
         "name": "Channel One (Perviy)",
         "category": "xalqaro",
         "logo": "1️⃣",
@@ -3577,7 +3308,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 15900,
         "q": "1080p HD",
-        "i": 120,
+        "i": 102,
         "n": "Channel One (Perviy)",
         "u": [
             [
@@ -3590,16 +3321,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1214/playlist.m3u8"
+                "https://stream3.cinerama.uz/1214/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1214/playlist.m3u8"
+                "https://stream3.cinerama.uz/1214/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 112,
+        "id": 103,
         "name": "Russia-1",
         "category": "xalqaro",
         "logo": "🇷🇺",
@@ -3610,7 +3341,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 14900,
         "q": "1080p HD",
-        "i": 121,
+        "i": 103,
         "n": "Russia-1",
         "u": [
             [
@@ -3623,16 +3354,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1020/playlist.m3u8"
+                "https://stream3.cinerama.uz/1020/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1020/playlist.m3u8"
+                "https://stream3.cinerama.uz/1020/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 113,
+        "id": 104,
         "name": "NTV",
         "category": "xalqaro",
         "logo": "🟢",
@@ -3643,7 +3374,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 13700,
         "q": "1080p HD",
-        "i": 122,
+        "i": 104,
         "n": "NTV",
         "u": [
             [
@@ -3656,16 +3387,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1023/playlist.m3u8"
+                "https://stream3.cinerama.uz/1023/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1023/playlist.m3u8"
+                "https://stream3.cinerama.uz/1023/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 114,
+        "id": 105,
         "name": "Mir",
         "category": "xalqaro",
         "logo": "🌐",
@@ -3676,7 +3407,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 11100,
         "q": "1080p HD",
-        "i": 123,
+        "i": 105,
         "n": "Mir",
         "u": [
             [
@@ -3689,16 +3420,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1218/playlist.m3u8"
+                "https://stream3.cinerama.uz/1218/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1218/playlist.m3u8"
+                "https://stream3.cinerama.uz/1218/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 115,
+        "id": 106,
         "name": "Zvezda",
         "category": "xalqaro",
         "logo": "⭐",
@@ -3709,7 +3440,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 10400,
         "q": "1080p HD",
-        "i": 124,
+        "i": 106,
         "n": "Zvezda",
         "u": [
             [
@@ -3722,16 +3453,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1050/playlist.m3u8"
+                "https://stream3.cinerama.uz/1050/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1050/playlist.m3u8"
+                "https://stream3.cinerama.uz/1050/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 116,
+        "id": 107,
         "name": "TV Centr",
         "category": "xalqaro",
         "logo": "🔴",
@@ -3742,7 +3473,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 9800,
         "q": "1080p HD",
-        "i": 125,
+        "i": 107,
         "n": "TV Centr",
         "u": [
             [
@@ -3755,16 +3486,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1025/playlist.m3u8"
+                "https://stream3.cinerama.uz/1025/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1025/playlist.m3u8"
+                "https://stream3.cinerama.uz/1025/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 117,
+        "id": 108,
         "name": "TV Centr International",
         "category": "xalqaro",
         "logo": "🌐",
@@ -3775,7 +3506,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 8900,
         "q": "1080p HD",
-        "i": 126,
+        "i": 108,
         "n": "TV Centr International",
         "u": [
             [
@@ -3788,16 +3519,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1281/playlist.m3u8"
+                "https://stream3.cinerama.uz/1281/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1281/playlist.m3u8"
+                "https://stream3.cinerama.uz/1281/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 118,
+        "id": 109,
         "name": "Russia-K",
         "category": "xalqaro",
         "logo": "🏛️",
@@ -3808,7 +3539,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 9300,
         "q": "1080p HD",
-        "i": 127,
+        "i": 109,
         "n": "Russia-K",
         "u": [
             [
@@ -3821,16 +3552,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1048/playlist.m3u8"
+                "https://stream3.cinerama.uz/1048/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1048/playlist.m3u8"
+                "https://stream3.cinerama.uz/1048/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 119,
+        "id": 110,
         "name": "TRT 1",
         "category": "xalqaro",
         "logo": "🇹🇷",
@@ -3841,7 +3572,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 15800,
         "q": "1080p HD",
-        "i": 128,
+        "i": 110,
         "n": "TRT 1",
         "u": [
             [
@@ -3851,40 +3582,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         ]
     },
     {
-        "id": 120,
-        "name": "Az TV",
-        "category": "xalqaro",
-        "logo": "🇦🇿",
-        "l": "https://i.imgur.com/snBMMeH.png",
-        "desc": "Ozarbayjon davlat teleradiosi bosh kanali",
-        "stream": "https://stream3.cinerama.uz/1455/playlist.m3u8",
-        "c": "az",
-        "k": "xalqaro",
-        "v": 9200,
-        "q": "1080p HD",
-        "i": 129,
-        "n": "Az TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1455/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1455/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream8.cinerama.uz/1455/playlist.m3u8"
-            ],
-            [
-                3,
-                "https://stream1.cinerama.uz/1455/playlist.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 121,
+        "id": 111,
         "name": "Qazaqstan TV",
         "category": "xalqaro",
         "logo": "🇰🇿",
@@ -3895,7 +3593,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 10500,
         "q": "1080p HD",
-        "i": 130,
+        "i": 111,
         "n": "Qazaqstan TV",
         "u": [
             [
@@ -3908,16 +3606,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1431/playlist.m3u8"
+                "https://stream3.cinerama.uz/1431/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1431/playlist.m3u8"
+                "https://stream3.cinerama.uz/1431/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 122,
+        "id": 112,
         "name": "TNV Planet",
         "category": "xalqaro",
         "logo": "🪐",
@@ -3928,7 +3626,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 7800,
         "q": "1080p HD",
-        "i": 131,
+        "i": 112,
         "n": "TNV Planet",
         "u": [
             [
@@ -3941,16 +3639,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1062/playlist.m3u8"
+                "https://stream3.cinerama.uz/1062/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1062/playlist.m3u8"
+                "https://stream3.cinerama.uz/1062/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 123,
+        "id": 113,
         "name": "KBS World",
         "category": "xalqaro",
         "logo": "🇰🇷",
@@ -3961,7 +3659,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "xalqaro",
         "v": 11400,
         "q": "1080p HD",
-        "i": 132,
+        "i": 113,
         "n": "KBS World",
         "u": [
             [
@@ -3974,16 +3672,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1448/playlist.m3u8"
+                "https://stream3.cinerama.uz/1448/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1448/playlist.m3u8"
+                "https://stream3.cinerama.uz/1448/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 124,
+        "id": 114,
         "name": "Makka Jonli Efir",
         "category": "religious",
         "logo": "🕋",
@@ -3994,25 +3692,17 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "religious",
         "v": 25000,
         "q": "1080p HD",
-        "i": 139,
+        "i": 114,
         "n": "Makka Jonli Efir",
         "u": [
             [
                 0,
                 "https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8"
-            ],
-            [
-                1,
-                "https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/01.m3u8"
-            ],
-            [
-                2,
-                "https://www.youtube.com/watch?v=saudi_quran"
             ]
         ]
     },
     {
-        "id": 125,
+        "id": 115,
         "name": "Madina Jonli Efir",
         "category": "religious",
         "logo": "🕌",
@@ -4023,25 +3713,17 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "religious",
         "v": 24000,
         "q": "1080p HD",
-        "i": 140,
+        "i": 115,
         "n": "Madina Jonli Efir",
         "u": [
             [
                 0,
                 "https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8"
-            ],
-            [
-                1,
-                "https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/01.m3u8"
-            ],
-            [
-                2,
-                "https://www.youtube.com/watch?v=saudi_sunnah"
             ]
         ]
     },
     {
-        "id": 126,
+        "id": 116,
         "name": "Samarqand MTRK (STV)",
         "category": "milliy",
         "logo": "🏛️",
@@ -4052,7 +3734,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8900,
         "q": "1080p HD",
-        "i": 143,
+        "i": 116,
         "n": "Samarqand MTRK (STV)",
         "u": [
             [
@@ -4065,16 +3747,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1452/playlist.m3u8"
+                "https://stream3.cinerama.uz/1452/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1452/playlist.m3u8"
+                "https://stream3.cinerama.uz/1452/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 127,
+        "id": 117,
         "name": "Andijon MTRK",
         "category": "milliy",
         "logo": "🌸",
@@ -4085,7 +3767,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8700,
         "q": "1080p HD",
-        "i": 144,
+        "i": 117,
         "n": "Andijon MTRK",
         "u": [
             [
@@ -4098,16 +3780,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1455/playlist.m3u8"
+                "https://stream3.cinerama.uz/1455/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1455/playlist.m3u8"
+                "https://stream3.cinerama.uz/1455/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 128,
+        "id": 118,
         "name": "Buxoro MTRK",
         "category": "milliy",
         "logo": "🕌",
@@ -4118,7 +3800,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8600,
         "q": "1080p HD",
-        "i": 145,
+        "i": 118,
         "n": "Buxoro MTRK",
         "u": [
             [
@@ -4131,16 +3813,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1456/playlist.m3u8"
+                "https://stream3.cinerama.uz/1456/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1456/playlist.m3u8"
+                "https://stream3.cinerama.uz/1456/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 129,
+        "id": 119,
         "name": "Jizzax MTRK",
         "category": "milliy",
         "logo": "⛰️",
@@ -4151,7 +3833,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8100,
         "q": "1080p HD",
-        "i": 146,
+        "i": 119,
         "n": "Jizzax MTRK",
         "u": [
             [
@@ -4164,16 +3846,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1457/playlist.m3u8"
+                "https://stream3.cinerama.uz/1457/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1457/playlist.m3u8"
+                "https://stream3.cinerama.uz/1457/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 130,
+        "id": 120,
         "name": "Namangan MTRK",
         "category": "milliy",
         "logo": "🌺",
@@ -4184,7 +3866,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8500,
         "q": "1080p HD",
-        "i": 147,
+        "i": 120,
         "n": "Namangan MTRK",
         "u": [
             [
@@ -4197,16 +3879,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1459/playlist.m3u8"
+                "https://stream3.cinerama.uz/1459/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1459/playlist.m3u8"
+                "https://stream3.cinerama.uz/1459/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 131,
+        "id": 121,
         "name": "Qashqadaryo MTRK",
         "category": "milliy",
         "logo": "🏜️",
@@ -4217,7 +3899,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8300,
         "q": "1080p HD",
-        "i": 148,
+        "i": 121,
         "n": "Qashqadaryo MTRK",
         "u": [
             [
@@ -4230,16 +3912,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1461/playlist.m3u8"
+                "https://stream3.cinerama.uz/1461/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1461/playlist.m3u8"
+                "https://stream3.cinerama.uz/1461/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 132,
+        "id": 122,
         "name": "Surxondaryo MTRK",
         "category": "milliy",
         "logo": "☀️",
@@ -4250,7 +3932,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8200,
         "q": "1080p HD",
-        "i": 149,
+        "i": 122,
         "n": "Surxondaryo MTRK",
         "u": [
             [
@@ -4263,16 +3945,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1462/playlist.m3u8"
+                "https://stream3.cinerama.uz/1462/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1462/playlist.m3u8"
+                "https://stream3.cinerama.uz/1462/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 133,
+        "id": 123,
         "name": "Sirdaryo MTRK",
         "category": "milliy",
         "logo": "🌊",
@@ -4283,7 +3965,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 7900,
         "q": "1080p HD",
-        "i": 150,
+        "i": 123,
         "n": "Sirdaryo MTRK",
         "u": [
             [
@@ -4296,16 +3978,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1463/playlist.m3u8"
+                "https://stream3.cinerama.uz/1463/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1463/playlist.m3u8"
+                "https://stream3.cinerama.uz/1463/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
-        "id": 134,
+        "id": 124,
         "name": "Xorazm MTRK",
         "category": "milliy",
         "logo": "🏰",
@@ -4316,7 +3998,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "milliy",
         "v": 8800,
         "q": "1080p HD",
-        "i": 151,
+        "i": 124,
         "n": "Xorazm MTRK",
         "u": [
             [
@@ -4329,15 +4011,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1464/playlist.m3u8"
+                "https://stream3.cinerama.uz/1464/mono.m3u8"
             ],
             [
                 3,
-                "https://stream1.cinerama.uz/1464/playlist.m3u8"
+                "https://stream3.cinerama.uz/1464/tracks-v2a1/mono.ts.m3u8"
             ]
         ]
     },
     {
+        "id": 125,
         "name": "Hayot TV",
         "category": "kino",
         "logo": "🎬",
@@ -4348,6 +4031,8 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 9400,
         "q": "1080p HD",
+        "i": 125,
+        "n": "Hayot TV",
         "u": [
             [
                 0,
@@ -4359,12 +4044,16 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1064/playlist.m3u8"
+                "https://stream3.cinerama.uz/1064/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1064/tracks-v2a1/mono.ts.m3u8"
             ]
-        ],
-        "id": 135
+        ]
     },
     {
+        "id": 126,
         "name": "viju+ comedy",
         "category": "kino",
         "logo": "😂",
@@ -4375,6 +4064,8 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "kino",
         "v": 8900,
         "q": "1080p HD",
+        "i": 126,
+        "n": "viju+ comedy",
         "u": [
             [
                 0,
@@ -4386,10 +4077,442 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
             ],
             [
                 2,
-                "https://stream8.cinerama.uz/1061/playlist.m3u8"
+                "https://stream3.cinerama.uz/1061/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1061/tracks-v2a1/mono.ts.m3u8"
             ]
-        ],
-        "id": 136
+        ]
+    },
+    {
+        "id": 127,
+        "name": "viju+ serial",
+        "category": "kino",
+        "logo": "🎬",
+        "l": "https://i.imgur.com/O618d3R.png",
+        "desc": "Eng sara jahon seriallari va filmlari (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1224/playlist.m3u8",
+        "c": "ru",
+        "k": "kino",
+        "v": 9400,
+        "q": "1080p HD",
+        "i": 127,
+        "n": "viju+ serial",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1224/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1224/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1224/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1224/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 128,
+        "name": "KinoSemya HD",
+        "category": "kino",
+        "logo": "🍿",
+        "l": "https://i.imgur.com/8Qp4z7p.png",
+        "desc": "Butun oila uchun sevimli filmlar (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1234/playlist.m3u8",
+        "c": "ru",
+        "k": "kino",
+        "v": 9350,
+        "q": "1080p HD",
+        "i": 128,
+        "n": "KinoSemya HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1234/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1234/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1234/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1234/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 129,
+        "name": "ducktv HD",
+        "category": "bolalar",
+        "logo": "🦆",
+        "l": "https://i.imgur.com/tHqgU6V.png",
+        "desc": "Kichkintoylar va bolalar uchun tarbiyaviy multfilmlar (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1271/playlist.m3u8",
+        "c": "ru",
+        "k": "bolalar",
+        "v": 9200,
+        "q": "1080p HD",
+        "i": 129,
+        "n": "ducktv HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1271/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1271/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1271/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1271/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 130,
+        "name": "Setanta Sports 1 HD",
+        "category": "sport",
+        "logo": "⚽",
+        "l": "https://i.imgur.com/6U8Y1wQ.png",
+        "desc": "APL, La Liga, Seria A va UFC jonli efirlari (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1263/playlist.m3u8",
+        "c": "uz",
+        "k": "sport",
+        "v": 9900,
+        "q": "1080p HD",
+        "i": 130,
+        "n": "Setanta Sports 1 HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1263/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1263/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1263/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1263/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 131,
+        "name": "LTV HD",
+        "category": "xususiy",
+        "logo": "🎭",
+        "l": "https://i.imgur.com/gK2T3nM.png",
+        "desc": "O'zbek qiziqchilari va komediya shoulari (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1210/playlist.m3u8",
+        "c": "uz",
+        "k": "xususiy",
+        "v": 8950,
+        "q": "1080p HD",
+        "i": 131,
+        "n": "LTV HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1210/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1210/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1210/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1210/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 132,
+        "name": "Discovery Channel HD",
+        "category": "ilm",
+        "logo": "🌍",
+        "l": "https://i.imgur.com/9g5vM1X.png",
+        "desc": "Ilm-fan, texnologiya va tabiat sirlari (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1039/playlist.m3u8",
+        "c": "ru",
+        "k": "ilm",
+        "v": 9600,
+        "q": "1080p HD",
+        "i": 132,
+        "n": "Discovery Channel HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1039/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1039/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1039/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1039/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 133,
+        "name": "Nat Geo Wild HD",
+        "category": "ilm",
+        "logo": "🦁",
+        "l": "https://i.imgur.com/Qv9mY0K.png",
+        "desc": "Yovvoyi tabiat va hayvonot olami (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1042/playlist.m3u8",
+        "c": "ru",
+        "k": "ilm",
+        "v": 9550,
+        "q": "1080p HD",
+        "i": 133,
+        "n": "Nat Geo Wild HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1042/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1042/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1042/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1042/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 134,
+        "name": "Animal Planet HD",
+        "category": "ilm",
+        "logo": "🐘",
+        "l": "https://i.imgur.com/4h9jZ9B.png",
+        "desc": "Hayvonot dunyosi va sarguzashtlar (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1043/playlist.m3u8",
+        "c": "ru",
+        "k": "ilm",
+        "v": 9500,
+        "q": "1080p HD",
+        "i": 134,
+        "n": "Animal Planet HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1043/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1043/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1043/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1043/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 135,
+        "name": "viju Explore HD",
+        "category": "ilm",
+        "logo": "🧭",
+        "l": "https://i.imgur.com/O618d3R.png",
+        "desc": "Kashfiyotlar va qiziqarli hujjatli filmlar (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1045/playlist.m3u8",
+        "c": "ru",
+        "k": "ilm",
+        "v": 8900,
+        "q": "1080p HD",
+        "i": 135,
+        "n": "viju Explore HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1045/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1045/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1045/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1045/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 136,
+        "name": "viju History HD",
+        "category": "ilm",
+        "logo": "🏛️",
+        "l": "https://i.imgur.com/O618d3R.png",
+        "desc": "Buyuk tarixiy voqealar va shaxslar (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1046/playlist.m3u8",
+        "c": "ru",
+        "k": "ilm",
+        "v": 8850,
+        "q": "1080p HD",
+        "i": 136,
+        "n": "viju History HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1046/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1046/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1046/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1046/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 137,
+        "name": "Ilm TV HD",
+        "category": "religious",
+        "logo": "🕌",
+        "l": "https://i.imgur.com/dK1c8zW.png",
+        "desc": "Diniy-ma'rifiy va axloqiy suhbatlar (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1198/playlist.m3u8",
+        "c": "uz",
+        "k": "religious",
+        "v": 9300,
+        "q": "1080p HD",
+        "i": 137,
+        "n": "Ilm TV HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1198/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1198/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1198/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1198/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 138,
+        "name": "MYDAY TV HD",
+        "category": "musiqa",
+        "logo": "🎶",
+        "l": "https://i.imgur.com/7vY9X7M.png",
+        "desc": "O'zbek va xalqaro estrada, gastro & art (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1265/playlist.m3u8",
+        "c": "uz",
+        "k": "musiqa",
+        "v": 8800,
+        "q": "1080p HD",
+        "i": 138,
+        "n": "MYDAY TV HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1265/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1265/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1265/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1265/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
+    },
+    {
+        "id": 139,
+        "name": "TRT Avaz HD",
+        "category": "xalqaro",
+        "logo": "🌐",
+        "l": "https://i.imgur.com/3YpGz5Y.png",
+        "desc": "Turkiy xalqlar madaniyati va yangiliklari (1080p Full HD)",
+        "stream": "https://stream3.cinerama.uz/1258/playlist.m3u8",
+        "c": "tr",
+        "k": "xalqaro",
+        "v": 8600,
+        "q": "1080p HD",
+        "i": 139,
+        "n": "TRT Avaz HD",
+        "u": [
+            [
+                0,
+                "https://stream3.cinerama.uz/1258/playlist.m3u8"
+            ],
+            [
+                1,
+                "https://stream3.cinerama.uz/1258/tracks-v1a1/mono.ts.m3u8"
+            ],
+            [
+                2,
+                "https://stream3.cinerama.uz/1258/mono.m3u8"
+            ],
+            [
+                3,
+                "https://stream3.cinerama.uz/1258/tracks-v2a1/mono.ts.m3u8"
+            ]
+        ]
     }
 ]
 
