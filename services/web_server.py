@@ -1,5 +1,5 @@
 """
-Zakirovsfilms Web Server va Mini App API (aiohttp.web)
+Bauntyfilms Web Server va Mini App API (aiohttp.web)
 Portlar va Render.com mosligi bilan.
 """
 import os
@@ -38,7 +38,7 @@ async def handle_health(request: web.Request) -> web.Response:
     return web.json_response({
         "status": "ok",
         "bot": config.BOT_USERNAME,
-        "service": "Zakirovsfilms_bot & Mini App",
+        "service": "Bauntyfilms_bot & Mini App",
         "port": config.PORT,
         "timestamp": time.time(),
     })

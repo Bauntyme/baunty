@@ -333,7 +333,7 @@ function vDone(v) {
   const art = r.text != null ? "" : `<div class="dx-done${cfg.stamp ? "" : " nostamp"}"><div class="halo"></div>
       <div class="p1">${sheet(f && f.thumbs > 1 ? f : null, 1, 200, 272)}</div>
       <div class="p2">${sheet(rf && rf.thumbs ? rf : f, 0, 214, 292)}</div>
-      ${cfg.stamp ? `<div class="stamp${stampOn ? " drop" : ""}"><span class="a">ZAKIROVS</span><span class="b">TAYYOR</span><span class="c">✓ ${label}</span></div>
+      ${cfg.stamp ? `<div class="stamp${stampOn ? " drop" : ""}"><span class="a">BAUNTY</span><span class="b">TAYYOR</span><span class="c">✓ ${label}</span></div>
       ${[[330, 228, 6], [348, 262, 4], [190, 352, 5], [338, 372, 7], [206, 236, 3]].map(([x, y, s]) => `<i class="blot${stampOn ? " on" : ""}" style="left:calc(50% + ${x - 195}px);top:${y}px;width:${s}px;height:${s}px${stampOn ? "" : ";opacity:.55"}"></i>`).join("")}` : ""}</div>`;
   const text = r.text != null ? `<div style="padding-top:8px"></div>${cfg.stamp ? "" : ""}<h1 class="dx-donet" style="padding-top:10px">Matn tayyor</h1>
     <div class="dx-card dx-text" id="dxtext">${esc(r.text || "")}${r.text_len > (r.text || "").length ? "\n…" : ""}</div>` : `<h1 class="dx-donet">${esc(name)}<br>tayyor</h1>`;

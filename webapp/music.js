@@ -277,7 +277,7 @@ function updateMedia(it) {
   if (!("mediaSession" in navigator) || !it) return;
   const p = parse(it), art = thumb(it, true);
   try {
-    navigator.mediaSession.metadata = new MediaMetadata({title: p.song, artist: p.artist, album: qName || "Zakirovs Musiqa",
+    navigator.mediaSession.metadata = new MediaMetadata({title: p.song, artist: p.artist, album: qName || "Baunty Musiqa",
       artwork: art ? [{src: art, sizes: "480x360", type: "image/jpeg"}] : []});
   } catch (e) {}
 }

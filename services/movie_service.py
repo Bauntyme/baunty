@@ -392,9 +392,8 @@ class MovieService:
         part_suffix = f" — {part}-qism" if total_parts > 1 else ""
         watch_note = ""
         if not has_real_video:
-            target_start = f"{clean_code}_{part}" if part > 1 else clean_code
             watch_note = (
-                f"\n\n🍿 <b>Kinoni tomosha qilish:</b> <i>Quyidagi «▶️ Kinoni tomosha qilish (@Zakirovsfilms_bot)» tugmasi orqali videoni bir zumda tomosha qilishingiz mumkin!</i>"
+                f"\n\n🍿 <b>Kinoni tomosha qilish:</b> <i>Quyidagi «▶️ Kinoni tomosha qilish» tugmasi orqali tomosha qilishingiz mumkin!</i>"
             )
 
         caption = (
@@ -524,8 +523,8 @@ _periodic_sync_task: Optional[asyncio.Task] = None
 
 
 async def _periodic_sync_loop(interval_seconds: int = 900) -> None:
-    """Davriy avtomatik sinxronizatsiya sikli: har 15 daqiqada @Zakirovsfilms_bot dan yangi kinolarni bazaga yuklaydi."""
-    logger.info("@Zakirovsfilms_bot bilan davriy avtomatik sinxronizatsiya boshlandi.")
+    """Davriy avtomatik sinxronizatsiya sikli: har 15 daqiqada yangi kinolarni bazaga yuklaydi."""
+    logger.info("Kinolar katalogi bilan davriy avtomatik sinxronizatsiya boshlandi.")
     try:
         await movie_service.sync_catalog_from_upstream()
     except Exception as se:

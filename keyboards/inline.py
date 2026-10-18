@@ -89,8 +89,8 @@ def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
 
     builder.row(
         InlineKeyboardButton(
-            text="▶️ Kinoni tomosha qilish (@Zakirovsfilms_bot)",
-            url=f"https://t.me/Zakirovsfilms_bot?start={movie_code}"
+            text="▶️ Kinoni tomosha qilish",
+            callback_data=f"watch_part:{movie_code}:1"
         )
     )
     builder.row(
@@ -152,10 +152,11 @@ def movie_parts_keyboard(
             builder.row(*nav_row)
 
     target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
+    bot_clean = config.BOT_USERNAME.lstrip('@')
     builder.row(
         InlineKeyboardButton(
-            text=f"▶️ {current_part}-qismni ko'rish (@Zakirovsfilms_bot)",
-            url=f"https://t.me/Zakirovsfilms_bot?start={target_start}"
+            text=f"▶️ {current_part}-qismni ko'rish",
+            url=f"https://t.me/{bot_clean}?start=m_{target_start}"
         )
     )
 

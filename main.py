@@ -1,5 +1,5 @@
 """
-Zakirovsfilms_bot - Asosiy ishga tushirish fayli
+Bauntyfilms_bot - Asosiy ishga tushirish fayli
 Aiogram 3.x + Python 3.12
 """
 import sys
@@ -77,7 +77,7 @@ async def main() -> None:
     """Bot va Mini App web serverini parallel ishga tushirish funksiyasi."""
     setup_logging()
     logger = logging.getLogger("main")
-    logger.info("Zakirovsfilms_bot va Mini App ishga tushirilmoqda...")
+    logger.info("Bauntyfilms_bot va Mini App ishga tushirilmoqda...")
 
     # Bot ob'ekti
     bot = Bot(

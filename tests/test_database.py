@@ -115,8 +115,8 @@ async def test_sponsor_channel_crud(async_session: AsyncSession):
     ch = await crud.add_sponsor_channel(
         session=async_session,
         channel_id="-100123456789",
-        title="Zakirovs Kino",
-        invite_link="https://t.me/ZakirovsKino"
+        title="Baunty Films",
+        invite_link="https://t.me/BauntyFilms"
     )
     await async_session.commit()
     assert ch.channel_id == "-100123456789"

@@ -263,7 +263,7 @@ async def seed_movies_if_empty(session: AsyncSession) -> int:
             existing_codes.add(m["code"])
             inserted += 1
 
-    # 2. Rasmiy @Zakirovsfilms_bot katalogidagi kinolar (data/catalog.json)
+    # 2. Rasmiy katalogdagi kinolar (data/catalog.json)
     catalog_path = Path(__file__).resolve().parent.parent / "data" / "catalog.json"
     if catalog_path.exists():
         try:

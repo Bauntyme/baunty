@@ -1,5 +1,5 @@
 /**
- * Zakirovsfilms Mini App Asosiy Dasturi
+ * Bauntyfilms Mini App Asosiy Dasturi
  * Telegram WebApp integratsiyasi, multimedia pleyerlar va API aloqasi
  */
 

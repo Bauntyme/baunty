@@ -631,13 +631,13 @@ async def cmd_set_movie_video(message: Message) -> None:
 
 @router.message(Command("synckino", "syncmovies"))
 async def cmd_sync_movies(message: Message) -> None:
-    """Admin buyrug'i: @Zakirovsfilms_bot dan barcha yangi kinolarni darhol sinxronlash."""
+    """Admin buyrug'i: barcha yangi kinolarni katalogdan darhol sinxronlash."""
     user_id = message.from_user.id if message.from_user else 0
     if not config.is_admin(user_id):
         await message.reply("⛔ <b>Ushbu buyruq faqat adminlar uchun!</b>", parse_mode="HTML")
         return
 
-    msg = await message.reply("⏳ @Zakirovsfilms_bot katalogi bilan sinxronlash boshlandi...", parse_mode="HTML")
+    msg = await message.reply("⏳ Katalog bilan sinxronlash boshlandi...", parse_mode="HTML")
     count = await movie_service.sync_catalog_from_upstream()
     await msg.edit_text(
         f"✅ <b>Sinxronizatsiya muvaffaqiyatli yakunlandi!</b>\n\n"
@@ -651,7 +651,7 @@ async def cmd_sync_movies(message: Message) -> None:
 @router.message(StateFilter(None), F.video | F.document)
 async def handle_incoming_movie_video(message: Message) -> None:
     """
-    Foydalanuvchi yoki admin @Zakirovsfilms_bot dan (yoki boshqa kanaldan) videoni
+    Foydalanuvchi yoki admin ixtiyoriy kanaldan videoni
     forward qilib yuborganida yoki to'g'ridan-to'g'ri video tashlaganida:
     - Xabar captionidan kino kodini (#284, 284, 101...) aniqlaydi.
     - Agar kod bo'lmasa, sarlavha nomini bazadan qidiradi.

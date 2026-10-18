@@ -125,21 +125,34 @@ def test_youtube_video_id_patterns():
     assert m3 and m3.group(1) == "dQw4w9WgXcQ"
 
 
-def test_movie_keyboards_zakirovsfilms_bot_integration():
-    """Inline tugmalarda @Zakirovsfilms_bot deep-linki mavjudligini tekshirish."""
+def test_movie_keyboards_white_label_branding():
+    """Inline tugmalarda Zakirovs brendi va havolalari butunlay yo'qligini tekshirish."""
     # movie_item_keyboard
     kb = movie_item_keyboard(movie_code="123")
     buttons = [btn for row in kb.inline_keyboard for btn in row]
-    bot_links = [btn.url for btn in buttons if btn.url and "Zakirovsfilms_bot" in btn.url]
-    assert len(bot_links) >= 1
-    assert "start=123" in bot_links[0]
+    for btn in buttons:
+        if btn.url:
+            assert "Zakirov" not in btn.url
+            assert "zakirov" not in btn.url
+        assert "Zakirov" not in btn.text
+        assert "zakirov" not in btn.text
+
+    play_btns = [btn for btn in buttons if btn.callback_data == "watch_part:123:1"]
+    assert len(play_btns) == 1
+    assert "Kinoni tomosha qilish" in play_btns[0].text
 
     # movie_parts_keyboard
     parts_kb = movie_parts_keyboard(movie_code="123", total_parts=3, current_part=1)
     parts_buttons = [btn for row in parts_kb.inline_keyboard for btn in row]
-    part_links = [btn.url for btn in parts_buttons if btn.url and "Zakirovsfilms_bot" in btn.url]
-    assert len(part_links) >= 1
-    assert "start=123" in part_links[0] or "start=123_1" in part_links[0]
+    for btn in parts_buttons:
+        if btn.url:
+            assert "Zakirov" not in btn.url
+            assert "zakirov" not in btn.url
+        assert "Zakirov" not in btn.text
+        assert "zakirov" not in btn.text
+
+    parts_play_btns = [btn for btn in parts_buttons if btn.callback_data == "watch_part:123:1"]
+    assert len(parts_play_btns) >= 1
 
 
 @pytest.mark.asyncio
