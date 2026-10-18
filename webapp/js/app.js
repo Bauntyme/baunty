@@ -399,15 +399,40 @@ const App = {
         const video = document.getElementById('tv-video-player');
         if (!video) return;
 
+        let targetUrl = streamUrl;
+        if (streamUrl.includes('cinerama.uz') && streamUrl.includes('playlist.m3u8')) {
+            targetUrl = streamUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
+        }
+
         if (window.Hls && window.Hls.isSupported()) {
             if (this.hls) this.hls.destroy();
             this.hls = new window.Hls({
+                testBandwidth: false,
                 startLevel: -1,
-                abrEwmaDefaultEstimate: 16000000,
+                abrEwmaDefaultEstimate: 20000000,
+                abrEwmaDefaultEstimateMax: 50000000,
                 capLevelToPlayerSize: false
             });
-            this.hls.loadSource(streamUrl);
+            this.hls.loadSource(targetUrl);
             this.hls.attachMedia(video);
+            this.hls.on(window.Hls.Events.MANIFEST_LOADED, (e, data) => {
+                if (data && data.levels && data.levels.length) {
+                    let bestIdx = 0, maxScore = -1;
+                    for (let i = 0; i < data.levels.length; i++) {
+                        const l = data.levels[i];
+                        const s = (l.height || 0) * 100000 + (l.bitrate || 0);
+                        if (s > maxScore) { maxScore = s; bestIdx = i; }
+                    }
+                    try {
+                        this.hls.startLevel = bestIdx;
+                        this.hls.currentLevel = bestIdx;
+                        this.hls.nextLevel = bestIdx;
+                        this.hls.loadLevel = bestIdx;
+                        this.hls.nextLoadLevel = bestIdx;
+                        this.hls.minAutoLevel = Math.max(0, bestIdx - 1);
+                    } catch (err) {}
+                }
+            });
             this.hls.on(window.Hls.Events.MANIFEST_PARSED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
                     let bestIdx = 0, maxScore = -1;
@@ -421,17 +446,14 @@ const App = {
                         this.hls.currentLevel = bestIdx;
                         this.hls.nextLevel = bestIdx;
                         this.hls.loadLevel = bestIdx;
+                        this.hls.nextLoadLevel = bestIdx;
                         this.hls.minAutoLevel = Math.max(0, bestIdx - 1);
                     } catch (err) {}
                 }
                 video.play().catch(e => console.log('Video autoplay blocked:', e));
             });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            let direct1080 = streamUrl;
-            if (streamUrl.includes('cinerama.uz') && streamUrl.includes('playlist.m3u8')) {
-                direct1080 = streamUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
-            }
-            video.src = direct1080;
+            video.src = targetUrl;
             video.play().catch(e => console.log('Video autoplay blocked:', e));
         }
 

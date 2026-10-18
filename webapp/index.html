@@ -198,7 +198,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
   transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:contain}
 .tvp.open{transform:none}
 .vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%}
-.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0}
+.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering:-webkit-optimize-contrast}
 .vbox iframe[hidden],.vbox video[hidden]{display:none}
 .badb{display:block;margin:10px 16px 0;width:calc(100% - 32px);padding:10px;border-radius:12px;background:var(--bg2);
   color:var(--hint);font-size:13px;font-weight:650}
@@ -662,21 +662,27 @@ function tvFiltered() {
   if (tvCat !== "all") {
     l = l.filter((x) => {
       if (x.k === tvCat || (x.categories && x.categories.includes(tvCat))) return true;
-      if (tvCat === "kino" && (x.is_kino || x.k === "kino" || [
+      if (tvCat === "kino" && (x.is_kino || x.k === "kino" || (x.categories && x.categories.includes("kino")) || [
         "BIZ Cinema", "Kinoteatr TV", "Sevimli TV", "Zo'r TV",
         "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV",
-        "Insayt TV", "Hayot TV", "Biz TV"
+        "Insayt TV", "Hayot TV", "Biz TV", "Makon TV", "Cheksiz TV",
+        "LTV HD", "Yoshlar", "Toshkent", "Dasturxon TV"
       ].includes(x.n))) return true;
-      if (tvCat === "sport" && (x.k === "sport" || ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"].includes(x.n))) return true;
-      if (tvCat === "milliy" && (x.k === "milliy" || (x.c === "uz" && ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"].includes(x.n)))) return true;
-      if (tvCat === "xususiy" && (x.k === "xususiy" || (x.c === "uz" && ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV"].includes(x.n)))) return true;
+      if (tvCat === "sport" && (x.k === "sport" || (x.categories && x.categories.includes("sport")) || ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"].includes(x.n))) return true;
+      if (tvCat === "milliy" && (x.k === "milliy" || (x.categories && x.categories.includes("milliy")) || (x.c === "uz" && ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"].includes(x.n)))) return true;
+      if (tvCat === "xususiy" && (x.k === "xususiy" || (x.categories && x.categories.includes("xususiy")) || (x.c === "uz" && ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV", "Makon TV", "Cheksiz TV", "LTV HD"].includes(x.n)))) return true;
       return false;
     });
   }
   if (query) {
     const q = norm(query), words = q.split(" ").filter(Boolean);
     l = l.filter((x) => words.every((w) => x._k.includes(w)));
-    l = [...l].sort((a, b) => (b._k.startsWith(q) - a._k.startsWith(q)) || (b.v - a.v));
+    l = [...l].sort((a, b) => {
+      const aUz = a.c === "uz" ? 1 : 0;
+      const bUz = b.c === "uz" ? 1 : 0;
+      if (aUz !== bUz) return bUz - aUz;
+      return (b._k.startsWith(q) - a._k.startsWith(q)) || (b.v - a.v);
+    });
   } else {
     // O'zbekiston telekanallari har doim mutlaq 1-o'rinda!
     l = [...l].sort((a, b) => {
@@ -858,23 +864,26 @@ function attempt(url) {
       }
     };
 
+    let streamTarget = url;
+    if (url.includes("cinerama.uz") && url.includes("playlist.m3u8")) {
+      streamTarget = url.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
+    }
+
     try {
       if (nativeHls()) {
-        let streamTarget = url;
-        if (url.includes("cinerama.uz") && url.includes("playlist.m3u8")) {
-          streamTarget = url.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
-        }
         vid.src = streamTarget;
         tryAutoplay();
       } else {
         const Hls = await loadHlsLib();
         if (!Hls.isSupported()) {
-          vid.src = url;
+          vid.src = streamTarget;
           tryAutoplay();
         } else {
           hls = new Hls({
+            testBandwidth: false,
             startLevel: -1,
-            abrEwmaDefaultEstimate: 16000000,
+            abrEwmaDefaultEstimate: 20000000,
+            abrEwmaDefaultEstimateMax: 50000000,
             capLevelToPlayerSize: false,
             enableWorker: true,
             liveSyncDurationCount: 3,
@@ -904,6 +913,26 @@ function attempt(url) {
           hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
             if (data && data.url && (data.url.includes("blocked") || data.url.includes("cache1") || data.url.includes("stream8") || data.url.includes("stream1"))) {
               fin(bad, "blocked_manifest");
+              return;
+            }
+            if (data && data.levels && data.levels.length) {
+              let bestIdx = 0, maxScore = -1;
+              for (let i = 0; i < data.levels.length; i++) {
+                const lvl = data.levels[i];
+                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
+                if (score > maxScore) {
+                  maxScore = score;
+                  bestIdx = i;
+                }
+              }
+              try {
+                hls.startLevel = bestIdx;
+                hls.currentLevel = bestIdx;
+                hls.nextLevel = bestIdx;
+                hls.loadLevel = bestIdx;
+                hls.nextLoadLevel = bestIdx;
+                hls.minAutoLevel = Math.max(0, bestIdx - 1);
+              } catch (e) {}
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -945,7 +974,7 @@ function attempt(url) {
               }
             }
           });
-          hls.loadSource(url);
+          hls.loadSource(streamTarget);
           hls.attachMedia(vid);
         }
       }
@@ -1054,24 +1083,44 @@ vid.onclick = () => {
 const tvqBtn = $("tvq");
 if (tvqBtn) {
   tvqBtn.onclick = () => {
-    if (!hls || !hls.levels || hls.levels.length <= 1) return;
-    if (hls.autoLevelEnabled) {
-      let best = 0, maxScore = -1;
-      for (let i = 0; i < hls.levels.length; i++) {
-        const lvl = hls.levels[i];
-        const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
-        if (score > maxScore) { maxScore = score; best = i; }
+    if (!tvCur) return;
+    if (hls && hls.levels && hls.levels.length > 1) {
+      if (hls.autoLevelEnabled) {
+        let best = 0, maxScore = -1;
+        for (let i = 0; i < hls.levels.length; i++) {
+          const lvl = hls.levels[i];
+          const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
+          if (score > maxScore) { maxScore = score; best = i; }
+        }
+        hls.currentLevel = best;
+        hls.loadLevel = best;
+        const lvl = hls.levels[best];
+        const is4k = lvl && (lvl.height >= 2160 || (tvCur && tvCur.q === "4K UHD"));
+        tvqBtn.textContent = is4k ? "4K UHD" : ((lvl && lvl.height >= 1080) ? "1080p Full HD" : (lvl && lvl.height ? lvl.height + "p HD" : "1080p Full HD"));
+        toast(`Sifat: ${tvqBtn.textContent} (Majburiy)`, 1400);
+      } else {
+        hls.currentLevel = -1;
+        tvqBtn.textContent = "Auto Full HD";
+        toast("Sifat: Avto (moslashuvchan)", 1400);
       }
-      hls.currentLevel = best;
-      hls.loadLevel = best;
-      const lvl = hls.levels[best];
-      const is4k = lvl && (lvl.height >= 2160 || (tvCur && tvCur.q === "4K UHD"));
-      tvqBtn.textContent = is4k ? "4K UHD" : ((lvl && lvl.height >= 1080) ? "1080p Full HD" : (lvl && lvl.height ? lvl.height + "p HD" : "1080p Full HD"));
-      toast(`Sifat: ${tvqBtn.textContent}`, 1200);
+      return;
+    }
+    const curSrc = (hls && hls.url) || vid.src || "";
+    if (curSrc.includes("cinerama.uz")) {
+      if (curSrc.includes("tracks-v1a1")) {
+        const autoUrl = curSrc.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+        attempt(autoUrl).catch(() => {});
+        tvqBtn.textContent = "Auto Full HD";
+        toast("Sifat: Avto (moslashuvchan)", 1400);
+      } else {
+        const directUrl = curSrc.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
+        attempt(directUrl).catch(() => {});
+        const is4k = tvCur && tvCur.q === "4K UHD";
+        tvqBtn.textContent = is4k ? "4K UHD" : "1080p Full HD";
+        toast(`Sifat: ${tvqBtn.textContent} (1080p)`, 1400);
+      }
     } else {
-      hls.currentLevel = -1;
-      tvqBtn.textContent = "Auto Full HD";
-      toast("Sifat: Avto (moslashuvchan)", 1200);
+      toast(`Sifat: ${tvqBtn.textContent}`, 1200);
     }
   };
 }

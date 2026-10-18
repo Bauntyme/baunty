@@ -519,14 +519,15 @@ async def handle_get_tv(request: web.Request) -> web.Response:
             if c.get("category") == cat
             or c.get("k") == cat
             or cat in c.get("categories", [])
-            or (cat == "kino" and (c.get("is_kino") or c.get("name") in [
+            or (cat == "kino" and (c.get("is_kino") or "kino" in c.get("categories", []) or c.get("k") == "kino" or c.get("name") in [
                 "BIZ Cinema", "Kinoteatr TV", "Sevimli TV", "Zo'r TV",
                 "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV",
-                "Insayt TV", "Hayot TV", "Biz TV"
+                "Insayt TV", "Hayot TV", "Biz TV", "Makon TV", "Cheksiz TV",
+                "LTV HD", "Yoshlar", "Toshkent", "Dasturxon TV"
             ]))
-            or (cat == "sport" and c.get("name") in ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"])
-            or (cat == "milliy" and c.get("c") == "uz" and (c.get("category") == "milliy" or c.get("name") in ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"]))
-            or (cat == "xususiy" and c.get("c") == "uz" and (c.get("category") == "xususiy" or c.get("name") in ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV"]))
+            or (cat == "sport" and (c.get("k") == "sport" or "sport" in c.get("categories", []) or c.get("name") in ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"]))
+            or (cat == "milliy" and c.get("c") == "uz" and (c.get("category") == "milliy" or c.get("k") == "milliy" or "milliy" in c.get("categories", []) or c.get("name") in ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"]))
+            or (cat == "xususiy" and c.get("c") == "uz" and (c.get("category") == "xususiy" or c.get("k") == "xususiy" or "xususiy" in c.get("categories", []) or c.get("name") in ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV", "Makon TV", "Cheksiz TV", "LTV HD"]))
         ]
 
     # O'zbekiston telekanallari har doim mutlaq 1-o'rinda, keyin qolgan davlatlar

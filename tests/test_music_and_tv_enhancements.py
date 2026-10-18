@@ -194,18 +194,30 @@ async def test_uzbek_channels_rank_first_and_kino_channels():
         assert "Renessans TV" in kino_names
         assert "Insayt TV" in kino_names
         assert "Hayot TV" in kino_names
+        assert "Makon TV" in kino_names
+        assert "Cheksiz TV" in kino_names
+        assert "LTV HD" in kino_names
+        assert "Yoshlar" in kino_names
+        assert "Toshkent" in kino_names
 
         # O'zbek kino kanallari xorijiy kino kanallaridan (viju, TV1000, Dom kino va b.) oldinda turishi
-        first_kino_channels = kino_items[:8]
+        first_kino_channels = kino_items[:12]
         assert all(ch.get("c") == "uz" for ch in first_kino_channels)
 
-        # 3. Sifat belgilari (4K UHD yoki 1080p HD)
+        # 3. Sifat belgilari (4K UHD yoki 1080p HD) va to'g'ridan-to'g'ri 1080p Full HD oqimlar
         biz_cinema = next(ch for ch in items if ch["name"] == "BIZ Cinema")
         assert biz_cinema.get("q") == "4K UHD"
+        assert "tracks-v1a1" in biz_cinema["stream"]
+        assert "tracks-v1a1" in biz_cinema["u"][0][1]
+
         insayt = next(ch for ch in items if ch["name"] == "Insayt TV")
         assert insayt.get("q") == "4K UHD"
+        assert "tracks-v1a1" in insayt["stream"]
+
         sevimli = next(ch for ch in items if ch["name"] == "Sevimli TV")
         assert "1080p" in sevimli.get("q", "")
+        assert "tracks-v1a1" in sevimli["stream"]
+        assert "tracks-v1a1" in sevimli["u"][0][1]
     finally:
         await client.close()
 
