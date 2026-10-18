@@ -200,11 +200,22 @@ const App = {
 
     async sendMovieToChat(code) {
         window.soundEngine?.playCoin();
+        const tgUser = this.tg?.initDataUnsafe?.user?.id;
+        const targetBot = "Bauntyfilmsbot";
+        if (!tgUser) {
+            const targetUrl = `https://t.me/${targetBot}?start=m_${code}`;
+            if (this.tg?.openTelegramLink) {
+                this.tg.openTelegramLink(targetUrl);
+            } else {
+                window.open(targetUrl, "_blank");
+            }
+            return;
+        }
         try {
             const res = await fetch('/api/send_to_chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: this.userId, type: 'movie', code: code })
+                body: JSON.stringify({ user_id: tgUser, type: 'movie', code: code })
             });
             const data = await res.json();
             if (data.success) {
@@ -214,7 +225,11 @@ const App = {
                     // Ixtiyoriy: mini appni yopib chatga qaytish
                 }
             } else {
-                alert(data.error || 'Yuborishda xatolik');
+                const targetUrl = `https://t.me/${targetBot}?start=m_${code}`;
+                if (confirm((data.error || 'Yuborishda xatolik') + "\nBot chatini ochishni xohlaysizmi?")) {
+                    if (this.tg?.openTelegramLink) this.tg.openTelegramLink(targetUrl);
+                    else window.open(targetUrl, "_blank");
+                }
             }
         } catch (e) {
             alert('Server bilan bog\'lanishda xatolik');
@@ -437,8 +452,6 @@ const App = {
                     }
                     try {
                         this.hls.startLevel = bestIdx;
-                        this.hls.currentLevel = bestIdx;
-                        this.hls.nextLevel = bestIdx;
                         this.hls.loadLevel = bestIdx;
                         this.hls.nextLoadLevel = bestIdx;
                         this.hls.minAutoLevel = Math.max(0, bestIdx - 1);
@@ -455,8 +468,6 @@ const App = {
                     }
                     try {
                         this.hls.startLevel = bestIdx;
-                        this.hls.currentLevel = bestIdx;
-                        this.hls.nextLevel = bestIdx;
                         this.hls.loadLevel = bestIdx;
                         this.hls.nextLoadLevel = bestIdx;
                         this.hls.minAutoLevel = Math.max(0, bestIdx - 1);

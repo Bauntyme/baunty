@@ -193,7 +193,11 @@ async def handle_watch(request: web.Request) -> web.Response:
         body = {}
 
     code = str(body.get("code", "")).strip()
-    part = int(body.get("part", 1))
+    try:
+        part = int(body.get("part") or 1)
+    except (ValueError, TypeError):
+        part = 1
+
     init_data = request.headers.get("X-Init-Data", "")
     user_id_raw = (
         body.get("user_id")
@@ -211,7 +215,9 @@ async def handle_watch(request: web.Request) -> web.Response:
     user_id = None
     if user_id_raw is not None:
         try:
-            user_id = int(user_id_raw)
+            val = int(user_id_raw)
+            if val > 0:
+                user_id = val
         except (ValueError, TypeError):
             user_id = None
 
@@ -242,6 +248,7 @@ async def handle_watch(request: web.Request) -> web.Response:
                 "action": "open_bot",
                 "url": bot_url,
                 "error": "send_failed",
+                "delivered": False,
                 "code": clean_code,
                 "part": part
             })
@@ -251,15 +258,17 @@ async def handle_watch(request: web.Request) -> web.Response:
             "action": "open_bot",
             "url": bot_url,
             "error": "bot_not_connected",
+            "delivered": False,
             "code": clean_code,
             "part": part
         })
     else:
-        # user_id taqdim etilmagan holatda umumiy API mosligi
+        # user_id taqdim etilmagan holatda bot chatiga yo'naltirish
         return web.json_response({
-            "ok": True,
+            "ok": False,
             "action": "open_bot",
             "url": bot_url,
+            "error": "user_id_missing",
             "delivered": False,
             "code": clean_code,
             "part": part

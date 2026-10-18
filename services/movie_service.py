@@ -29,6 +29,28 @@ class MovieService:
     """Kinolar bilan ishlash logikasi."""
 
     @staticmethod
+    def sanitize_branding(text: str) -> str:
+        if not text:
+            return ""
+        bot_clean = config.BOT_USERNAME.lstrip("@")
+        channel_clean = config.CHANNEL_USERNAME.lstrip("@")
+        # URLs
+        text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
+        text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
+        # Usernames with @
+        text = re.sub(r'@Zakirovsfilms_bot\b', f'@{bot_clean}', text, flags=re.I)
+        text = re.sub(r'@ZakirovsKino\b', f'@{channel_clean}', text, flags=re.I)
+        text = re.sub(r'@dilbarzakirova\b', f'@{channel_clean}', text, flags=re.I)
+        text = re.sub(r'@Zakirovs?\b', f'@{channel_clean}', text, flags=re.I)
+        # Names
+        text = re.sub(r'Zakirovs\s+Films\b', 'Baunty Films', text, flags=re.I)
+        text = re.sub(r'Zakirovs_bot\b', bot_clean, text, flags=re.I)
+        text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
+        text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
+        text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
+        return text
+
+    @staticmethod
     async def sync_catalog_from_upstream(session: Optional[AsyncSession] = None) -> int:
         """
         @Zakirovsfilms_bot rasmiy upstream katalogi (https://161-97-96-58.sslip.io/api/catalog)
@@ -40,27 +62,6 @@ class MovieService:
         import aiohttp
         from database.session import get_session
         _LAST_SYNC_TS = time.time()
-
-        def sanitize_branding(text: str) -> str:
-            if not text:
-                return ""
-            bot_clean = config.BOT_USERNAME.lstrip("@")
-            channel_clean = config.CHANNEL_USERNAME.lstrip("@")
-            # URLs
-            text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
-            text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
-            # Usernames with @
-            text = re.sub(r'@Zakirovsfilms_bot\b', f'@{bot_clean}', text, flags=re.I)
-            text = re.sub(r'@ZakirovsKino\b', f'@{channel_clean}', text, flags=re.I)
-            text = re.sub(r'@dilbarzakirova\b', f'@{channel_clean}', text, flags=re.I)
-            text = re.sub(r'@Zakirovs?\b', f'@{channel_clean}', text, flags=re.I)
-            # Names
-            text = re.sub(r'Zakirovs\s+Films\b', 'Baunty Films', text, flags=re.I)
-            text = re.sub(r'Zakirovs_bot\b', bot_clean, text, flags=re.I)
-            text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
-            text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
-            text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
-            return text
 
         raw_items = []
         upstream_url = "https://161-97-96-58.sslip.io/api/catalog"
@@ -75,9 +76,9 @@ class MovieService:
                         if isinstance(cat_json, dict) and "items" in cat_json:
                             for it in cat_json.get("items", []):
                                 if "d" in it:
-                                    it["d"] = sanitize_branding(it["d"])
+                                    it["d"] = MovieService.sanitize_branding(it["d"])
                                 if "t" in it:
-                                    it["t"] = sanitize_branding(it["t"])
+                                    it["t"] = MovieService.sanitize_branding(it["t"])
                             cat_json["channel"] = config.CHANNEL_USERNAME
                             cat_json["bot"] = config.BOT_USERNAME.lstrip("@")
                             raw_items = cat_json.get("items", [])
@@ -370,11 +371,21 @@ class MovieService:
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
         channel_user = config.CHANNEL_USERNAME
+        desc_text = ""
+        if description:
+            clean_d = MovieService.sanitize_branding(description)[:350].strip()
+            if clean_d:
+                desc_text = f"\n\n📝 <b>Tavsif:</b>\n<i>{clean_d}</i>"
+
+        part_suffix = f" — {part}-qism" if total_parts > 1 else ""
+        caption = (
+            f"🎬 <b>{title}{part_suffix}</b>{desc_text}\n\n"
+            f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
+            f"🤖 Bot: {bot_user}"
+        )
         if total_parts > 1:
-            caption = f"🎬 <b>{title} — {part}-qism</b>\n\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n🤖 Bot: {bot_user}"
             reply_markup = movie_parts_keyboard(clean_code, total_parts=total_parts, current_part=part)
         else:
-            caption = f"🎬 <b>{title}</b>\n\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n🤖 Bot: {bot_user}"
             reply_markup = movie_item_keyboard(clean_code)
 
         # 1. Haqiqiy video mavjud bo'lsa (mock/placeholder bo'lmagan)

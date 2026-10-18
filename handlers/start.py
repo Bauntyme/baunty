@@ -99,9 +99,10 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 
         elif param.startswith("m_"):
             clean_param = param.replace("m_", "").strip()
-            # Kino kodi tekshiruvi: katalogda bo'lsa yoki qisqa raqamli kod bo'lsa to'g'ridan-to'g'ri kinoni yetkazish
+            # Kino kodi tekshiruvi: katalogda bo'lsa, bazada bo'lsa yoki kino kodi formatida bo'lsa kinoni yetkazish
             cat_movie = movie_service.get_catalog_item(clean_param)
-            if cat_movie or (clean_param.isdigit() and len(clean_param) <= 4 and int(clean_param) < 5000):
+            is_likely_movie = bool(cat_movie or not (clean_param.isdigit() and len(clean_param) >= 7))
+            if is_likely_movie:
                 delivered = await movie_service.deliver_movie(
                     bot=message.bot,
                     chat_id=message.chat.id,

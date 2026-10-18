@@ -612,6 +612,10 @@ def test_tv_4k_ultra_hd_data_and_webapp():
     assert "maxMaxBufferLength: 120" in content
     assert "maxBufferHole: 0.5" in content
     assert "image-rendering: -webkit-optimize-contrast" in content
+    assert "showOpenBotSheet" in content
+    # Hls.isSupported else shoxi to'g'ri bo'lishi shart (barcha brauzerlarda Hls ishga tushishi uchun)
+    assert "!Hls.isSupported()" in content
+    assert "} else {\n          hls = new Hls({" in content.replace("\r\n", "\n")
     # visibilitychange da vid.pause bo'lmasligi va pauzada !document.hidden to'sig'i bo'lmasligi kerak
     assert "document.hidden && tvCur) vid.pause()" not in content
     assert "tvCur && !vid.ended && !document.hidden" not in content
@@ -682,6 +686,12 @@ async def test_start_movie_deep_link_variants():
         message.text = "/start kino_284"
         await start_handler.cmd_start(message, state)
         assert mock_deliver.call_count == 2
+
+        # 5000 dan katta kod (/start m_5001) ham movie deb qaralishi
+        message.text = "/start m_5001"
+        await start_handler.cmd_start(message, state)
+        assert mock_deliver.call_count == 3
+        assert mock_deliver.call_args.kwargs["code"] == "5001"
 
 
 

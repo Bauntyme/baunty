@@ -510,6 +510,25 @@ function setBusy(on, part) {
   $("play").style.opacity = on ? .6 : 1;
   document.querySelectorAll(".pbtn").forEach((b) => b.classList.toggle("busy", on && +b.dataset.p === part));
 }
+function showOpenBotSheet(it, targetUrl, errorMsg) {
+  const targetBot = botName || "Bauntyfilmsbot";
+  const url = targetUrl || `https://t.me/${targetBot}?start=m_${it.c}`;
+  $("sheet").innerHTML = `<h3>🤖 Bot chatini ochish</h3>
+    <p>${esc(errorMsg || "Kinoni bot chatida to'liq sifatda tomosha qilish uchun quyidagi tugmani bosing:")}</p>
+    <button class="cta" id="sheetBotBtn" style="margin-top:14px;background:linear-gradient(135deg,#0088cc,#00aaff);color:#fff">🚀 Bot chatiga o'tish (▶️ ${esc(it.t)})</button>
+    <button class="sbtn" id="sheetCloseBtn" style="margin-top:8px;justify-content:center;color:var(--hint)">Yopish</button>`;
+  const b = $("sheet").querySelector("#sheetBotBtn");
+  if (b) b.onclick = () => {
+    hideSheet();
+    if (inTg && tg.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, "_blank");
+  };
+  const c = $("sheet").querySelector("#sheetCloseBtn");
+  if (c) c.onclick = hideSheet;
+  $("sbg").classList.add("open");
+  $("sheet").classList.add("open");
+}
+
 async function watch(it, part, recheck = false) {
   if (busy) return;
   const targetBot = botName || "Bauntyfilmsbot";
@@ -521,6 +540,7 @@ async function watch(it, part, recheck = false) {
     toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
     const directUrl = `https://t.me/${targetBot}?start=m_${it.c}`;
     setTimeout(() => { window.open(directUrl, "_blank"); }, 300);
+    showOpenBotSheet(it, directUrl, "Web brauzerda ochilgan. Bot chatini ochib, kinoni oling:");
     return;
   }
 
@@ -562,21 +582,20 @@ async function watch(it, part, recheck = false) {
     return;
   }
 
+  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
+
+  const targetUrl = r.url || `https://t.me/${targetBot}?start=m_${it.c}`;
+
   // 2. Agar botga yo'naltirish kerak bo'lsa (user_id yo'q yoki bot chat ochilmagan)
   if (r.action === "open_bot" || r.url || r.error === "need_start") {
     haptic("ok");
     toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
-    const targetUrl = r.url || `https://t.me/${targetBot}?start=m_${it.c}`;
     if (inTg && tg.openTelegramLink) {
       tg.openTelegramLink(targetUrl);
     } else {
       window.open(targetUrl, "_blank");
     }
-    return;
-  }
-
-  if (r.ok) {
-    toast("✅ Kino bot chatiga yuborildi!");
+    showOpenBotSheet(it, targetUrl, "Kinoni bot chatida tomosha qilish uchun pastdagi tugmani bosing:");
     return;
   }
 
@@ -587,9 +606,11 @@ async function watch(it, part, recheck = false) {
     auth: "⚠️ Sessiya eskirgan — katalogni yopib, qayta oching",
     network: "📶 Internet bilan muammo. Qayta urinib ko'ring",
     send_failed: "⚠️ Yuborib bo'lmadi. Bot chatini oching",
+    bot_not_connected: "⚠️ Botga ulanib bo'lmadi. Bot chatini oching"
   };
-  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
-  toast(msg[r.error] || msg.send_failed, 3200);
+  const errDesc = msg[r.error] || msg.send_failed;
+  toast(errDesc, 3200);
+  showOpenBotSheet(it, targetUrl, `${errDesc}. Bot chatida to'g'ridan-to'g'ri tomosha qiling:`);
 }
 
 function showSub(it, part, chans) {
@@ -929,6 +950,7 @@ function attempt(url) {
         if (!Hls.isSupported()) {
           vid.src = streamTarget;
           tryAutoplay();
+        } else {
           hls = new Hls({
             testBandwidth: false,
             startLevel: -1,
@@ -970,6 +992,10 @@ function attempt(url) {
               } else {
                 fin(bad, d.type);
               }
+            } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+              try {
+                if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
+              } catch (e) {}
             }
           });
           hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
@@ -989,8 +1015,6 @@ function attempt(url) {
               }
               try {
                 hls.startLevel = bestIdx;
-                hls.currentLevel = bestIdx;
-                hls.nextLevel = bestIdx;
                 hls.loadLevel = bestIdx;
                 hls.nextLoadLevel = bestIdx;
                 hls.minAutoLevel = Math.max(0, bestIdx - 1);
@@ -1010,8 +1034,6 @@ function attempt(url) {
               }
               try {
                 hls.startLevel = bestIdx;
-                hls.currentLevel = bestIdx;
-                hls.nextLevel = bestIdx;
                 hls.loadLevel = bestIdx;
                 hls.nextLoadLevel = bestIdx;
                 hls.minAutoLevel = Math.max(0, bestIdx - 1);

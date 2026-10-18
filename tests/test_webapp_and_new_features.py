@@ -427,7 +427,8 @@ async def test_poster_proxy_and_catalog_api():
         resp_watch = await client.post("/api/watch", json={"code": 284, "part": 1})
         assert resp_watch.status == 200
         watch_data = await resp_watch.json()
-        assert watch_data["ok"] is True
+        assert watch_data["ok"] is False
+        assert watch_data["action"] == "open_bot"
         assert watch_data["code"] == "284"
     finally:
         await client.close()
@@ -478,6 +479,21 @@ async def test_webapp_watch_with_delivery_and_fallback():
         assert data_nobot["ok"] is False
         assert data_nobot["action"] == "open_bot"
         assert "m_284" in data_nobot["url"]
+
+        # 4. user_id taqdim etilmaganda ok=False va action=open_bot qaytarish
+        resp_nouid = await client.post("/api/watch", json={"code": "284", "part": 1})
+        assert resp_nouid.status == 200
+        data_nouid = await resp_nouid.json()
+        assert data_nouid["ok"] is False
+        assert data_nouid["action"] == "open_bot"
+        assert data_nouid["delivered"] is False
+        assert "m_284" in data_nouid["url"]
+
+        # 5. part=None bo'lganda 500 xatosi bermasdan to'g'ri ishlashi
+        resp_nullpart = await client.post("/api/watch", json={"code": "284", "part": None})
+        assert resp_nullpart.status == 200
+        data_nullpart = await resp_nullpart.json()
+        assert data_nullpart["part"] == 1
     finally:
         set_bot_instance(None)
         await client.close()
