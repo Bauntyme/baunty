@@ -295,7 +295,7 @@ class MovieService:
             description = cat_item.get("d", "").strip()
 
         db_movie = None
-        part_codes = [f"{clean_code}_{part}", f"{clean_code}-{part}", clean_code] if part > 1 else [clean_code]
+        part_codes = [f"{clean_code}_{part}", f"{clean_code}-{part}", f"{clean_code}p{part}"] if part > 1 else [f"{clean_code}_1", f"{clean_code}-1", f"{clean_code}p1", clean_code]
         for p_code in part_codes:
             if session:
                 db_movie = await crud.get_movie_by_code(session, p_code)
@@ -368,27 +368,7 @@ class MovieService:
         if not title:
             title = f"Kino #{clean_code}"
 
-        # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
-        bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
-        channel_user = config.CHANNEL_USERNAME
-        desc_text = ""
-        if description:
-            clean_d = MovieService.sanitize_branding(description)[:350].strip()
-            if clean_d:
-                desc_text = f"\n\n📝 <b>Tavsif:</b>\n<i>{clean_d}</i>"
-
-        part_suffix = f" — {part}-qism" if total_parts > 1 else ""
-        caption = (
-            f"🎬 <b>{title}{part_suffix}</b>{desc_text}\n\n"
-            f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
-            f"🤖 Bot: {bot_user}"
-        )
-        if total_parts > 1:
-            reply_markup = movie_parts_keyboard(clean_code, total_parts=total_parts, current_part=part)
-        else:
-            reply_markup = movie_item_keyboard(clean_code)
-
-        # 1. Haqiqiy video mavjud bo'lsa (mock/placeholder bo'lmagan)
+        # 1. Haqiqiy video mavjudligini aniqlash (mock/placeholder bo'lmagan)
         is_placeholder = (
             not db_movie
             or not db_movie.file_id
@@ -399,6 +379,33 @@ class MovieService:
             or len(db_movie.file_id) < 25
         )
         has_real_video = bool(db_movie and not is_placeholder)
+
+        # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
+        bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
+        channel_user = config.CHANNEL_USERNAME
+        desc_text = ""
+        if description:
+            clean_d = MovieService.sanitize_branding(description)[:350].strip()
+            if clean_d:
+                desc_text = f"\n\n📝 <b>Tavsif:</b>\n<i>{clean_d}</i>"
+
+        part_suffix = f" — {part}-qism" if total_parts > 1 else ""
+        watch_note = ""
+        if not has_real_video:
+            target_start = f"{clean_code}_{part}" if part > 1 else clean_code
+            watch_note = (
+                f"\n\n🍿 <b>Kinoni tomosha qilish:</b> <i>Quyidagi «▶️ Kinoni tomosha qilish (@Zakirovsfilms_bot)» tugmasi orqali videoni bir zumda tomosha qilishingiz mumkin!</i>"
+            )
+
+        caption = (
+            f"🎬 <b>{title}{part_suffix}</b>{desc_text}{watch_note}\n\n"
+            f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
+            f"🤖 Bot: {bot_user}"
+        )
+        if total_parts > 1:
+            reply_markup = movie_parts_keyboard(clean_code, total_parts=total_parts, current_part=part)
+        else:
+            reply_markup = movie_item_keyboard(clean_code)
         if has_real_video:
             try:
                 if db_movie.file_type == "document":

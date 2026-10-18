@@ -8,10 +8,11 @@ import logging
 import os
 import re
 import urllib.request
+import urllib.parse
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import yt_dlp
 from config import config
 
@@ -79,7 +80,8 @@ class MediaDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
                 if not info:
-                    return DownloadResult(success=False, error="Media ma'lumotlarini olib bo'lmadi.")
+                    # Zaxira usullarga o'tish
+                    return self._try_video_fallbacks(url, file_prefix, "Media ma'lumotlarini olib bo'lmadi.")
 
                 # Carousel yoki playlist bo'lsa birinchi elementni olish
                 if info.get("_type") == "playlist" and "entries" in info and info["entries"]:
@@ -99,6 +101,9 @@ class MediaDownloader:
                         downloaded_file = str(matches[0])
 
                 if not downloaded_file or not Path(downloaded_file).is_file():
+                    fallback_res = self._try_video_fallbacks(url, file_prefix, "Fayl topilmadi.")
+                    if fallback_res.success:
+                        return fallback_res
                     return DownloadResult(success=False, error="Fayl yuklab olindi, lekin fayl topilmadi.")
 
                 file_stat = Path(downloaded_file).stat()
@@ -125,39 +130,66 @@ class MediaDownloader:
 
         except yt_dlp.utils.DownloadError as e:
             err_msg = str(e)
-            logger.warning(f"yt-dlp yuklab olish xatoligi: {err_msg}")
-            # Bot-detection, 429 yoki YouTube bloklanishida Cobalt fallback
-            if any(k in err_msg.lower() for k in ["bot", "sign in", "429", "too many requests", "confirm", "login"]):
-                logger.info("YouTube bot-detection aniqlandi. Invidious/Cobalt zaxira xizmatiga murojaat qilinmoqda...")
-                inv_res = self._download_via_invidious(url, is_audio=False, file_prefix=file_prefix)
-                if inv_res and inv_res.success:
-                    return inv_res
-                cobalt_res = self._download_via_cobalt(url, is_audio=False, file_prefix=file_prefix)
-                if cobalt_res and cobalt_res.success:
-                    return cobalt_res
+            logger.warning(f"yt-dlp yuklab olish xatoligi: {err_msg}. Zaxira kanallar tekshirilmoqda...")
+            fallback_res = self._try_video_fallbacks(url, file_prefix, err_msg)
+            if fallback_res.success:
+                return fallback_res
 
             if "Private video" in err_msg or "login" in err_msg.lower():
                 return DownloadResult(success=False, error="Ushbu media yopiq (shaxsiy) hisobga tegishli.")
             return DownloadResult(success=False, error=f"Yuklab olishda xatolik: {err_msg[:100]}")
         except Exception as e:
             logger.exception(f"Kutilmagan xatolik: {e}")
-            inv_res = self._download_via_invidious(url, is_audio=False, file_prefix=file_prefix)
+            fallback_res = self._try_video_fallbacks(url, file_prefix, str(e))
+            if fallback_res.success:
+                return fallback_res
+            return DownloadResult(success=False, error=f"Kutilmagan xatolik yuz berdi: {str(e)[:100]}")
+
+    def _try_video_fallbacks(self, url: str, file_prefix: str, original_err: str) -> DownloadResult:
+        """Video yuklab olishda barcha platformalar uchun zaxira mexanizmlar."""
+        clean_url = url.strip()
+
+        # 1. YouTube bo'lsa: Invidious va Piped
+        if "youtube.com" in clean_url or "youtu.be" in clean_url:
+            logger.info("YouTube zaxira kanali (Invidious) ishga tushirilmoqda...")
+            inv_res = self._download_via_invidious(clean_url, is_audio=False, file_prefix=file_prefix)
             if inv_res and inv_res.success:
                 return inv_res
-            cobalt_res = self._download_via_cobalt(url, is_audio=False, file_prefix=file_prefix)
-            if cobalt_res and cobalt_res.success:
-                return cobalt_res
-            return DownloadResult(success=False, error=f"Kutilmagan xatolik yuz berdi: {str(e)[:100]}")
+
+        # 2. TikTok bo'lsa: TikWM suv belgisiz API
+        if "tiktok.com" in clean_url:
+            logger.info("TikTok zaxira kanali (TikWM) ishga tushirilmoqda...")
+            tik_res = self._download_via_tikwm(clean_url, is_audio=False, file_prefix=file_prefix)
+            if tik_res and tik_res.success:
+                return tik_res
+
+        # 3. Universal Cobalt API (YouTube, TikTok, Instagram, Snapchat, Facebook)
+        logger.info("Universal Cobalt zaxira kanali ishga tushirilmoqda...")
+        cobalt_res = self._download_via_cobalt(clean_url, is_audio=False, file_prefix=file_prefix)
+        if cobalt_res and cobalt_res.success:
+            return cobalt_res
+
+        return DownloadResult(success=False, error=f"Yuklab olishda xatolik: {original_err[:100]}")
 
     def _sync_download_audio(self, url: str) -> DownloadResult:
         """Sinxron audio (MP3) ajratib olish funksiyasi."""
         file_prefix = str(uuid.uuid4())[:8]
+        clean_url = url.strip()
 
         # To'g'ridan-to'g'ri MP3/audio havola bo'lsa (masalan Deezer preview yoki to'g'ridan-to'g'ri CDN)
-        if url.startswith("http") and (url.endswith(".mp3") or url.endswith(".m4a") or "preview" in url or "deezer" in url):
-            direct_res = self._download_direct_stream(url, is_audio=True, file_prefix=file_prefix)
+        if clean_url.startswith("http") and (clean_url.endswith(".mp3") or clean_url.endswith(".m4a") or "preview" in clean_url or "deezer" in clean_url):
+            direct_res = self._download_direct_stream(clean_url, is_audio=True, file_prefix=file_prefix)
             if direct_res and direct_res.success:
                 return direct_res
+
+        # Agar ytsearch so'rovi bo'lsa, uni oldindan to'g'ridan-to'g'ri YouTube video URL ga aylantirish
+        effective_url = clean_url
+        if clean_url.startswith("ytsearch"):
+            query_part = re.sub(r"^ytsearch\d*:", "", clean_url).replace(" audio", "").strip()
+            video_id = self._find_youtube_video_id(query_part)
+            if video_id:
+                effective_url = f"https://www.youtube.com/watch?v={video_id}"
+                logger.info(f"ytsearch so'rovi to'g'ridan-to'g'ri URL ga o'girildi: {effective_url}")
 
         output_template = str(self.download_dir / f"{file_prefix}_%(title).50s.%(ext)s")
         max_bytes = config.MAX_FILE_SIZE_MB * 1024 * 1024
@@ -197,15 +229,9 @@ class MediaDownloader:
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
+                info = ydl.extract_info(effective_url, download=True)
                 if not info:
-                    inv_res = self._download_via_invidious(url, is_audio=True, file_prefix=file_prefix)
-                    if inv_res and inv_res.success:
-                        return inv_res
-                    cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
-                    if cobalt_res and cobalt_res.success:
-                        return cobalt_res
-                    return DownloadResult(success=False, error="Audio ma'lumotlarini olib bo'lmadi.")
+                    return self._try_audio_fallbacks(effective_url, file_prefix, "Audio ma'lumotlarini olib bo'lmadi.")
 
                 if info.get("_type") == "playlist" and "entries" in info and info["entries"]:
                     info = info["entries"][0]
@@ -216,12 +242,9 @@ class MediaDownloader:
                     matches = list(self.download_dir.glob(f"{file_prefix}_*"))
 
                 if not matches:
-                    inv_res = self._download_via_invidious(url, is_audio=True, file_prefix=file_prefix)
-                    if inv_res and inv_res.success:
-                        return inv_res
-                    cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
-                    if cobalt_res and cobalt_res.success:
-                        return cobalt_res
+                    fallback_res = self._try_audio_fallbacks(effective_url, file_prefix, "Audio fayli topilmadi.")
+                    if fallback_res.success:
+                        return fallback_res
                     return DownloadResult(success=False, error="Audio fayli topilmadi.")
 
                 downloaded_file = str(matches[0])
@@ -238,13 +261,97 @@ class MediaDownloader:
         except Exception as e:
             err_msg = str(e)
             logger.warning(f"Audio ajratishda xatolik: {err_msg}. Invidious/Cobalt fallback tekshirilmoqda...")
-            inv_res = self._download_via_invidious(url, is_audio=True, file_prefix=file_prefix)
+            fallback_res = self._try_audio_fallbacks(effective_url, file_prefix, err_msg)
+            if fallback_res.success:
+                return fallback_res
+            return DownloadResult(success=False, error=f"Audio ajratib olinmadi: {err_msg[:100]}")
+
+    def _try_audio_fallbacks(self, url: str, file_prefix: str, original_err: str) -> DownloadResult:
+        """Audio ajratib olishda Invidious, Piped va Cobalt zaxira yo'llari."""
+        clean_url = url.strip()
+
+        # Agar YouTube havolasi bo'lsa
+        if "youtube.com" in clean_url or "youtu.be" in clean_url or re.search(r"[a-zA-Z0-9_-]{11}", clean_url):
+            inv_res = self._download_via_invidious(clean_url, is_audio=True, file_prefix=file_prefix)
             if inv_res and inv_res.success:
                 return inv_res
-            cobalt_res = self._download_via_cobalt(url, is_audio=True, file_prefix=file_prefix)
-            if cobalt_res and cobalt_res.success:
-                return cobalt_res
-            return DownloadResult(success=False, error=f"Audio ajratib olinmadi: {err_msg[:100]}")
+
+        # TikTok audio
+        if "tiktok.com" in clean_url:
+            tik_res = self._download_via_tikwm(clean_url, is_audio=True, file_prefix=file_prefix)
+            if tik_res and tik_res.success:
+                return tik_res
+
+        # Cobalt audio
+        cobalt_res = self._download_via_cobalt(clean_url, is_audio=True, file_prefix=file_prefix)
+        if cobalt_res and cobalt_res.success:
+            return cobalt_res
+
+        return DownloadResult(success=False, error=f"Audio ajratib olinmadi: {original_err[:100]}")
+
+    def _find_youtube_video_id(self, query: str) -> Optional[str]:
+        """Qo'shiq nomi bo'yicha YouTube dan 11 belgili video ID ni bir zumda topish (<400ms)."""
+        clean_q = query.strip()
+        if not clean_q:
+            return None
+        try:
+            enc_q = urllib.parse.quote(f"{clean_q} audio")
+            req = urllib.request.Request(
+                f"https://www.youtube.com/results?search_query={enc_q}",
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept-Language": "en-US,en;q=0.9",
+                }
+            )
+            with urllib.request.urlopen(req, timeout=4) as resp:
+                html = resp.read().decode("utf-8", errors="ignore")
+                matches = re.findall(r"/watch\?v=([a-zA-Z0-9_-]{11})", html)
+                if matches:
+                    return matches[0]
+                matches_json = re.findall(r'"videoId":"([a-zA-Z0-9_-]{11})"', html)
+                if matches_json:
+                    return matches_json[0]
+        except Exception as e:
+            logger.debug(f"YouTube video ID qidiruv xatosi: {e}")
+        return None
+
+    def _download_via_tikwm(
+        self,
+        url: str,
+        is_audio: bool = False,
+        file_prefix: Optional[str] = None
+    ) -> Optional[DownloadResult]:
+        """TikTok videoni suv belgisiz (no-watermark) yoki MP3 audiosini TikWM orqali olish."""
+        prefix = file_prefix or str(uuid.uuid4())[:8]
+        try:
+            api_url = f"https://www.tikwm.com/api/?url={urllib.parse.quote(url)}"
+            req = urllib.request.Request(
+                api_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data.get("code") == 0 and "data" in data:
+                    t_data = data["data"]
+                    title = t_data.get("title", "TikTok Media")
+                    duration = t_data.get("duration")
+                    thumbnail = t_data.get("cover")
+                    stream_url = t_data.get("music") if is_audio else (t_data.get("play") or t_data.get("wmplay"))
+
+                    if stream_url:
+                        res = self._download_direct_stream(
+                            url=stream_url,
+                            is_audio=is_audio,
+                            file_prefix=prefix,
+                            title=title
+                        )
+                        if res and res.success:
+                            res.duration = duration
+                            res.thumbnail = thumbnail
+                            return res
+        except Exception as e:
+            logger.info(f"TikWM API xatoligi: {e}")
+        return None
 
     def _download_direct_stream(
         self,
@@ -412,16 +519,24 @@ class MediaDownloader:
         is_audio: bool = False,
         file_prefix: Optional[str] = None
     ) -> Optional[DownloadResult]:
-        """Cobalt API zaxira xizmati orqali media yuklab olish."""
+        """Cobalt API zaxira xizmati orqali media yuklab olish (ko'p manzilli zaxira tizimi)."""
         clean_url = url.strip()
-        # Agar ytsearch so'rovi bo'lsa, YouTube havolasi emas
+        # Agar ytsearch so'rovi bo'lsa, YouTube video ID sini aniqlash
         if clean_url.startswith("ytsearch"):
-            return None
+            query_part = re.sub(r"^ytsearch\d*:", "", clean_url).replace(" audio", "").strip()
+            video_id = self._find_youtube_video_id(query_part)
+            if video_id:
+                clean_url = f"https://www.youtube.com/watch?v={video_id}"
+            else:
+                return None
 
         # Cobalt API manzil(lar)i
         cobalt_endpoints = [
             os.getenv("COBALT_API_URL", "").strip(),
             "https://api.cobalt.tools",
+            "https://cobalt-api.kwiatekm.tokyo",
+            "https://cobalt.canine.tools",
+            "https://api.server.v0.pw",
         ]
         cobalt_endpoints = [ep for ep in cobalt_endpoints if ep]
 

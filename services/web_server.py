@@ -19,6 +19,7 @@ from services.music_data import TOP_50_TRACKS, MOODS_LIST
 from services.tv_data import CHANNELS_LIST, TV_CATEGORIES
 from services.games_data import GAMES_LIST, PET_DATA, CHEST_DATA
 from services.doc_service import doc_service
+from services.story_service import story_service
 
 logger = logging.getLogger(__name__)
 
@@ -681,6 +682,106 @@ async def handle_story(request: web.Request) -> web.Response:
     })
 
 
+async def handle_story_me(request: web.Request) -> web.Response:
+    """Web App story bo'limi holati tekshiruvi."""
+    return web.json_response({"ok": True, "ig": True, "tg": True})
+
+
+async def handle_story_ig(request: web.Request) -> web.Response:
+    """Instagram profili va hikoyalarini yuklash API."""
+    u = request.query.get("u", "").strip()
+    if not u:
+        return web.json_response({"ok": False, "error": "bad_username"}, status=400)
+    data = await story_service.get_user_profile_and_stories(u)
+    return web.json_response(data)
+
+
+async def handle_story_ighl(request: web.Request) -> web.Response:
+    """Instagram aktual hikoyalari (highlights)."""
+    return web.json_response({"ok": True, "items": []})
+
+
+async def handle_story_tg(request: web.Request) -> web.Response:
+    """Telegram kanal hikoyalari API."""
+    u = request.query.get("u", "").strip()
+    data = await story_service.get_telegram_stories(u)
+    return web.json_response(data)
+
+
+async def handle_story_send(request: web.Request) -> web.Response:
+    """Web Appdan tanlangan story fayllarini foydalanuvchining chatiga yuborish."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    init_data = request.headers.get("X-Init-Data", "")
+    user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id") or body.get("user_id")
+    if not user_id:
+        return web.json_response({"ok": False, "error": "auth"}, status=401)
+
+    if not _bot_instance:
+        return web.json_response({"ok": False, "error": "bot_not_ready"}, status=503)
+
+    try:
+        chat_id = int(user_id)
+    except (ValueError, TypeError):
+        return web.json_response({"ok": False, "error": "invalid_user"}, status=400)
+
+    u = body.get("u", "").strip()
+    if not u:
+        return web.json_response({"ok": False, "error": "bad_username"}, status=400)
+
+    from aiogram.types import FSInputFile
+    from utils.helpers import safe_remove_file
+
+    sent_any = False
+    try:
+        stories = await story_service.fetch_stories(u, limit=5)
+        for st in stories:
+            if st.success and st.file_path and os.path.exists(st.file_path):
+                ext = Path(st.file_path).suffix.lower()
+                caption = (
+                    f"👀 <b>@{u} ning hikoyasi</b>\n\n"
+                    f"🤖 @{config.BOT_USERNAME.lstrip('@')} orqali yuklandi\n"
+                    f"🍿 {config.CHANNEL_USERNAME}"
+                )
+                try:
+                    if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+                        await _bot_instance.send_photo(chat_id=chat_id, photo=FSInputFile(st.file_path), caption=caption, parse_mode="HTML")
+                    else:
+                        await _bot_instance.send_video(chat_id=chat_id, video=FSInputFile(st.file_path), caption=caption, parse_mode="HTML")
+                    sent_any = True
+                except Exception as se:
+                    logger.warning(f"Story yuborishda xatolik: {se}")
+                finally:
+                    safe_remove_file(st.file_path)
+    except Exception as e:
+        logger.warning(f"Story send umumiy xatoligi: {e}")
+
+    if not sent_any:
+        try:
+            await _bot_instance.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"👀 <b>@{u}</b> profili hikoyalari (Mini App)\n\n"
+                    f"🍿 {config.CHANNEL_USERNAME}\n"
+                    f"🤖 @{config.BOT_USERNAME.lstrip('@')}"
+                ),
+                parse_mode="HTML"
+            )
+            sent_any = True
+        except Exception:
+            pass
+
+    return web.json_response({"ok": True, "message": f"@{u} hikoyasi chatga yuborildi!"})
+
+
+async def handle_story_watch(request: web.Request) -> web.Response:
+    """Story kuzatuv API."""
+    return web.json_response({"ok": True})
+
+
 async def handle_doc_convert(request: web.Request) -> web.Response:
     """Kirill-Lotin o'girish API."""
     try:
@@ -846,6 +947,12 @@ def create_web_app() -> web.Application:
         ("POST", "/api/games/chest/claim", handle_chest_claim),
         ("POST", "/api/games/pet/action", handle_pet_action),
         ("GET", "/api/story", handle_story),
+        ("GET", "/api/story/me", handle_story_me),
+        ("GET", "/api/story/ig", handle_story_ig),
+        ("GET", "/api/story/ighl", handle_story_ighl),
+        ("GET", "/api/story/tg", handle_story_tg),
+        ("POST", "/api/story/send", handle_story_send),
+        ("POST", "/api/story/watch", handle_story_watch),
         ("POST", "/api/docs/convert", handle_doc_convert),
         ("POST", "/api/docs/pdf", handle_doc_pdf),
         ("POST", "/api/send_to_chat", handle_send_to_chat),

@@ -460,8 +460,11 @@ async def save_or_update_movie_video(
                     )
 
     if not db_movie and clean_code:
-        cat_item = MovieService.get_catalog_item(clean_code)
-        title = cat_item.get("t", f"Kino #{clean_code}") if cat_item else (candidate_title or f"Kino #{clean_code}")
+        base_code = clean_code.split("_")[0].split("-")[0]
+        cat_item = MovieService.get_catalog_item(clean_code) or MovieService.get_catalog_item(base_code)
+        part_suffix = f" — {clean_code.split('_')[1]}-qism" if "_" in clean_code else ""
+        raw_title = cat_item.get("t", f"Kino #{clean_code}") if cat_item else (candidate_title or f"Kino #{clean_code}")
+        title = f"{raw_title}{part_suffix}" if (part_suffix and part_suffix not in raw_title) else raw_title
         description = cat_item.get("d", None) if cat_item else None
         genres = cat_item.get("g", "Barcha") if cat_item else "Barcha"
         year = int(cat_item.get("y", 0)) if (cat_item and cat_item.get("y")) else None
@@ -479,6 +482,24 @@ async def save_or_update_movie_video(
             year=year,
             rating=rating,
         )
+        # Agar 1-qism yoki asosiy kod bo'lsa, mos part1 kodi bilan ham saqlash
+        if clean_code.isdigit():
+            p1_code = f"{clean_code}_1"
+            m_p1 = await crud.get_movie_by_code(session, p1_code)
+            if not m_p1:
+                await crud.create_movie(
+                    session=session,
+                    code=p1_code,
+                    title=f"{title} — 1-qism",
+                    file_id=file_id,
+                    description=description,
+                    file_type=file_type,
+                    file_size=file_size,
+                    duration=duration,
+                    genres=genres,
+                    year=year,
+                    rating=rating,
+                )
     elif db_movie:
         db_movie.file_id = file_id
         db_movie.file_type = file_type
@@ -486,6 +507,17 @@ async def save_or_update_movie_video(
             db_movie.duration = duration
         if file_size:
             db_movie.file_size = file_size
+        # Agar 1-qism yoki asosiy kod yangilansa, p1_code ni ham sinxronlash
+        if clean_code and clean_code.isdigit():
+            p1_code = f"{clean_code}_1"
+            m_p1 = await crud.get_movie_by_code(session, p1_code)
+            if m_p1:
+                m_p1.file_id = file_id
+                m_p1.file_type = file_type
+                if duration:
+                    m_p1.duration = duration
+                if file_size:
+                    m_p1.file_size = file_size
 
     if db_movie:
         await session.commit()
@@ -642,6 +674,13 @@ async def handle_incoming_movie_video(message: Message) -> None:
     code = extract_code_from_caption(caption) or (extract_code_from_caption(file_name) if file_name else None)
     candidate_title = extract_candidate_title(caption) or (extract_candidate_title(file_name) if file_name else None)
 
+    # Qism (part) raqamini aniqlash (masalan: 2-qism, 3-seriya)
+    m_part = re.search(r'(\d+)[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', caption, re.IGNORECASE)
+    if code and m_part:
+        part_num = int(m_part.group(1))
+        if part_num > 1 and "_" not in code and "-" not in code:
+            code = f"{code}_{part_num}"
+
     async with get_session() as session:
         db_movie = await save_or_update_movie_video(
             session=session,
@@ -729,6 +768,13 @@ async def handle_channel_movie_post(message: Message) -> None:
     caption = (message.caption or message.text or "").strip()
     code = extract_code_from_caption(caption) or (extract_code_from_caption(file_name) if file_name else None)
     candidate_title = extract_candidate_title(caption) or (extract_candidate_title(file_name) if file_name else None)
+
+    # Qism (part) raqamini aniqlash (masalan: 2-qism, 3-seriya)
+    m_part = re.search(r'(\d+)[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', caption, re.IGNORECASE)
+    if code and m_part:
+        part_num = int(m_part.group(1))
+        if part_num > 1 and "_" not in code and "-" not in code:
+            code = f"{code}_{part_num}"
 
     async with get_session() as session:
         db_movie = await save_or_update_movie_video(

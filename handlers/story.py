@@ -27,6 +27,7 @@ async def cmd_story_prompt(message: Message, state: FSMContext) -> None:
         "Instagram foydalanuvchi nomini yoki profil havolasini yozing:\n"
         "<i>Masalan: <code>cristiano</code> yoki <code>@leomessi</code></i>\n\n"
         "🔒 <b>To'liq anonim:</b> Profil egasi siz uning hikoyasini ko'rganingizni bilmaydi.\n"
+        "⚡️ <b>Tezkor yuklash:</b> Rasm va video formatidagi barcha faol hikoyalar yetkaziladi.\n"
         "⚠️ <b>Diqqat:</b> Profil ochiq (public) bo'lishi va faol hikoyalar mavjud bo'lishi shart."
     )
     await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
@@ -46,9 +47,17 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
     )
 
     try:
-        result = await story_service.fetch_story(username)
+        results = await story_service.fetch_stories(username, limit=5)
+        # Faqat muvaffaqiyatli yuklangan fayllarni olish
+        valid_results = [r for r in results if r.success and r.file_path and Path(r.file_path).exists()]
 
-        if not result.success or not result.file_path:
+        if not valid_results:
+            # Agar fetch_story bitta natija bersa
+            single_res = await story_service.fetch_story(username)
+            if single_res.success and single_res.file_path and Path(single_res.file_path).exists():
+                valid_results = [single_res]
+
+        if not valid_results:
             await status_msg.edit_text(
                 f"❌ <b>@{username} profilida faol hikoyalar topilmadi.</b>\n\n"
                 "Mumkin bo'lgan sabablar:\n"
@@ -60,33 +69,34 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
             await state.clear()
             return
 
-        media_file = FSInputFile(result.file_path)
         caption = (
             f"👀 <b>@{username} ning yangi videosi/hikoyasi</b>\n\n"
             f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar:</b> {config.CHANNEL_USERNAME}"
         )
 
-        ext = Path(result.file_path).suffix.lower()
-        if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
-            await message.reply_photo(
-                photo=media_file,
-                caption=caption,
-                parse_mode="HTML"
-            )
-        else:
-            await message.reply_video(
-                video=media_file,
-                caption=caption,
-                parse_mode="HTML"
-            )
+        for res in valid_results:
+            media_file = FSInputFile(res.file_path)
+            ext = Path(res.file_path).suffix.lower()
+            if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+                await message.reply_photo(
+                    photo=media_file,
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+            else:
+                await message.reply_video(
+                    video=media_file,
+                    caption=caption,
+                    duration=res.duration,
+                    parse_mode="HTML"
+                )
+            safe_remove_file(res.file_path)
 
         try:
             await status_msg.delete()
         except Exception:
             pass
-
-        safe_remove_file(result.file_path)
 
         async with get_session() as session:
             await crud.log_download(
