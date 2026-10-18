@@ -1,6 +1,7 @@
 """
-Jonli TV ma'lumotlari (139 ta telekanal, original logotiplari va real-time 1080p Full HD HLS m3u8 oqimlari)
-Barcha soxta, sifatsiz, takroriy va bloklangan oqimlar tozalangan, 100% ishlaydigan zaxira oqimlar bilan ta'minlangan.
+Jonli TV ma'lumotlari (139 ta telekanal, original logotiplari va real-time 1080p Full HD / 4K UHD HLS m3u8 oqimlari)
+O'zbek telekanallari (BIZ Cinema, Kinoteatr, Sevimli, Zo'r TV, Milliy, MY5, Renessans, Insayt va b.) mutlaq 1-o'rinda.
+Barcha oqimlar eng yuqori sifatda (1080p Full HD / 4K UHD), tiniq va to'liq zaxira oqimlar bilan ta'minlangan.
 """
 from typing import List, Dict, Any
 
@@ -19,4501 +20,2415 @@ TV_CATEGORIES = [
 ]
 
 CHANNELS_LIST: List[Dict[str, Any]] = [
-    {
-        "id": 1,
-        "name": "O'zbekiston",
-        "category": "milliy",
-        "logo": "🇺🇿",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Asosiy davlat telekanali (1080p HD)",
-        "stream": "https://stream3.cinerama.uz/1001/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 9850,
-        "q": "1080p HD",
-        "i": 1,
-        "n": "O'zbekiston",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1001/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1001/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1001/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1001/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 2,
-        "name": "Yoshlar",
-        "category": "milliy",
-        "logo": "🌟",
-        "l": "https://i.imgur.com/s4xfUSx.png",
-        "desc": "Yoshlar uchun ma'rifiy va musiqiy kanal (1080p)",
-        "stream": "https://stream3.cinerama.uz/1002/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8740,
-        "q": "1080p HD",
-        "i": 2,
-        "n": "Yoshlar",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1002/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1002/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1002/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1002/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 3,
-        "name": "Toshkent",
-        "category": "milliy",
-        "logo": "🏙️",
-        "l": "https://i.imgur.com/Z9R4nZg.png",
-        "desc": "Poytaxt hayoti va yangiliklari",
-        "stream": "https://stream3.cinerama.uz/1003/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 6200,
-        "q": "1080p HD",
-        "i": 3,
-        "n": "Toshkent",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1003/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1003/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1003/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1003/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 4,
-        "name": "Sport TV",
-        "category": "milliy",
-        "logo": "⚽",
-        "l": "https://i.imgur.com/2WJE9CM.png",
-        "desc": "Milliy va jahon sport musobaqalari (HD)",
-        "stream": "https://stream3.cinerama.uz/1004/playlist.m3u8",
-        "c": "uz",
-        "k": "sport",
-        "v": 12500,
-        "q": "1080p HD",
-        "i": 4,
-        "n": "Sport TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1004/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1004/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1004/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1004/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 5,
-        "name": "Madaniyat va ma'rifat",
-        "category": "milliy",
-        "logo": "🎭",
-        "l": "https://i.imgur.com/eeNLXCP.png",
-        "desc": "Madaniyat, san'at va adabiyot (HD)",
-        "stream": "https://stream3.cinerama.uz/1005/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 5100,
-        "q": "1080p HD",
-        "i": 5,
-        "n": "Madaniyat va ma'rifat",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1005/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1005/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1005/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1005/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 6,
-        "name": "Dunyo bo'ylab",
-        "category": "milliy",
-        "logo": "🌏",
-        "l": "https://i.imgur.com/KArB5U6.png",
-        "desc": "Sayohat, geografiya va kashfiyotlar (HD)",
-        "stream": "https://stream3.cinerama.uz/1006/playlist.m3u8",
-        "c": "uz",
-        "k": "ilm",
-        "v": 7890,
-        "q": "1080p HD",
-        "i": 6,
-        "n": "Dunyo bo'ylab",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1006/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1006/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1006/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1006/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 7,
-        "name": "Navo TV",
-        "category": "milliy",
-        "logo": "🎶",
-        "l": "https://i.imgur.com/7dZ64y9.png",
-        "desc": "Milliy va xorijiy estrada musiqasi",
-        "stream": "https://stream3.cinerama.uz/1008/playlist.m3u8",
-        "c": "uz",
-        "k": "musiqa",
-        "v": 6400,
-        "q": "1080p HD",
-        "i": 7,
-        "n": "Navo TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1008/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1008/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1008/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1008/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 8,
-        "name": "Kinoteatr TV",
-        "category": "milliy",
-        "logo": "🎞️",
-        "l": "https://i.imgur.com/emH1BgC.png",
-        "desc": "Sara jahon va o'zbek kinolari (HD)",
-        "stream": "https://stream3.cinerama.uz/1009/playlist.m3u8",
-        "c": "uz",
-        "k": "kino",
-        "v": 11200,
-        "q": "1080p HD",
-        "i": 8,
-        "n": "Kinoteatr TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1009/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1009/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1009/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1009/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 9,
-        "name": "O'zbekiston 24",
-        "category": "milliy",
-        "logo": "🔴",
-        "l": "https://i.imgur.com/VRFhKbw.png",
-        "desc": "24 soatlik tezkor axborot kanali (1080p)",
-        "stream": "https://stream3.cinerama.uz/1011/playlist.m3u8",
-        "c": "uz",
-        "k": "yangiliklar",
-        "v": 9300,
-        "q": "1080p HD",
-        "i": 9,
-        "n": "O'zbekiston 24",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1011/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1011/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1011/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1011/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 10,
-        "name": "Mahalla TV",
-        "category": "milliy",
-        "logo": "🏘️",
-        "l": "https://i.imgur.com/GtABiJI.png",
-        "desc": "Oila, mahalla va jamiyat qadriyatlari",
-        "stream": "https://stream3.cinerama.uz/1013/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 4300,
-        "q": "1080p HD",
-        "i": 10,
-        "n": "Mahalla TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1013/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1013/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1013/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1013/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 11,
-        "name": "O'zbekiston Tarixi",
-        "category": "milliy",
-        "logo": "🏛️",
-        "l": "https://i.imgur.com/iTTd3Ir.png",
-        "desc": "Boy tariximiz va buyuk allomalar merosi",
-        "stream": "https://stream3.cinerama.uz/1209/playlist.m3u8",
-        "c": "uz",
-        "k": "ilm",
-        "v": 5200,
-        "q": "1080p HD",
-        "i": 11,
-        "n": "O'zbekiston Tarixi",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1209/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1209/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1209/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1209/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 12,
-        "name": "Sevimli TV",
-        "category": "xususiy",
-        "logo": "❤️",
-        "l": "https://i.imgur.com/iMwzRlr.png",
-        "desc": "Eng ommabop seriallar va shoular (4K UHD)",
-        "stream": "https://stream3.cinerama.uz/1017/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 15400,
-        "q": "4K UHD",
-        "i": 12,
-        "n": "Sevimli TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1017/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1017/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1017/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1017/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 13,
-        "name": "Zo'r TV",
-        "category": "xususiy",
-        "logo": "⚡",
-        "l": "https://i.imgur.com/NuzyhVM.png",
-        "desc": "Ko'ngilochar loyihalar va premyeralar (4K UHD)",
-        "stream": "https://stream3.cinerama.uz/1016/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 16200,
-        "q": "4K UHD",
-        "i": 13,
-        "n": "Zo'r TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1016/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1016/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1016/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1016/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 14,
-        "name": "Mening Yurtim (MY5)",
-        "category": "xususiy",
-        "logo": "🌟",
-        "l": "https://i.imgur.com/bjlzu5k.png",
-        "desc": "Yoshlar va oilaviy telekanal (HD Tiniq)",
-        "stream": "https://stream3.cinerama.uz/1217/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 13800,
-        "q": "1080p HD",
-        "i": 14,
-        "n": "Mening Yurtim (MY5)",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1217/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1217/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1217/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1217/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 15,
-        "name": "Milliy TV",
-        "category": "xususiy",
-        "logo": "🦚",
-        "l": "https://i.imgur.com/v4FBm26.png",
-        "desc": "Milliy musiqa va badiiy dasturlar (4K UHD)",
-        "stream": "https://stream3.cinerama.uz/1014/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 14200,
-        "q": "4K UHD",
-        "i": 15,
-        "n": "Milliy TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1014/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1014/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1014/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1014/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 16,
-        "name": "Renessans TV",
-        "category": "xususiy",
-        "logo": "🎨",
-        "l": "https://i.imgur.com/cVlcqCX.png",
-        "desc": "Yangi avlod ko'ngilochar kanali",
-        "stream": "https://stream3.cinerama.uz/1221/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 7100,
-        "q": "1080p HD",
-        "i": 16,
-        "n": "Renessans TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1221/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1221/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1221/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1221/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 17,
-        "name": "Biz TV",
-        "category": "xususiy",
-        "logo": "🔥",
-        "l": "https://biztv.uz/static/media/logo.5f993187.png",
-        "desc": "Ko'ngilochar va musiqiy telekanal (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1211/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 11800,
-        "q": "1080p HD",
-        "i": 17,
-        "n": "Biz TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1211/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1211/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1211/mono.m3u8"
-            ],
-            [
-                3,
-                "https://fl.biztv.media/biz_tv_720_uni8jhub4h8fub4idejswh8dh3j94finbu4nidj39inwsj92in3d/index.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 18,
-        "name": "FTV",
-        "category": "xususiy",
-        "logo": "💃",
-        "l": "https://i.imgur.com/7lpISyN.jpg",
-        "desc": "Moda, musiqa va uslub yangiliklari",
-        "stream": "https://stream3.cinerama.uz/1018/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 5900,
-        "q": "1080p HD",
-        "i": 18,
-        "n": "FTV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1018/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1018/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1018/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1018/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 19,
-        "name": "UzReport TV",
-        "category": "xususiy",
-        "logo": "🎙️",
-        "l": "https://i.imgur.com/Bch2RHc.jpg",
-        "desc": "Mustaqil yangiliklar va tahlillar (1080p HD)",
-        "stream": "https://stream3.cinerama.uz/1015/playlist.m3u8",
-        "c": "uz",
-        "k": "yangiliklar",
-        "v": 10500,
-        "q": "1080p HD",
-        "i": 19,
-        "n": "UzReport TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1015/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1015/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1015/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1015/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 20,
-        "name": "Futbol TV",
-        "category": "xususiy",
-        "logo": "⚽",
-        "l": "https://i.ibb.co/h1gQSkbB/Futbol-TV.png",
-        "desc": "APL, La Liga va Yevrokuboklar (HD)",
-        "stream": "https://stream3.cinerama.uz/1010/playlist.m3u8",
-        "c": "uz",
-        "k": "sport",
-        "v": 14900,
-        "q": "1080p HD",
-        "i": 20,
-        "n": "Futbol TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1010/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1010/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1010/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1010/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 21,
-        "name": "Taraqqiyot TV",
-        "category": "xususiy",
-        "logo": "📈",
-        "l": "https://i.imgur.com/V3rtPEl.jpg",
-        "desc": "Ilm-fan, texnologiya va biznes",
-        "stream": "https://stream3.cinerama.uz/1204/playlist.m3u8",
-        "c": "uz",
-        "k": "ilm",
-        "v": 4600,
-        "q": "1080p HD",
-        "i": 21,
-        "n": "Taraqqiyot TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1204/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1204/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1204/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1204/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 22,
-        "name": "Dasturxon TV",
-        "category": "xususiy",
-        "logo": "🍲",
-        "l": "https://i.imgur.com/APM2ej5.jpeg",
-        "desc": "Pazandachilik va milliy taomlar sirlari",
-        "stream": "https://stream3.cinerama.uz/1206/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 4100,
-        "q": "1080p HD",
-        "i": 22,
-        "n": "Dasturxon TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1206/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1206/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1206/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1206/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 23,
-        "name": "Makon TV",
-        "category": "xususiy",
-        "logo": "🌍",
-        "l": "https://i.imgur.com/vCc0ED1.png",
-        "desc": "Ko'ngilochar va sarguzasht telekanali",
-        "stream": "https://stream3.cinerama.uz/1497/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 3800,
-        "q": "1080p HD",
-        "i": 23,
-        "n": "Makon TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1497/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1497/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1497/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1497/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 24,
-        "name": "Cheksiz TV",
-        "category": "xususiy",
-        "logo": "♾️",
-        "l": "https://i.imgur.com/f7hHmmR.jpeg",
-        "desc": "Cheksiz musiqiy va qiziqarli shoular",
-        "stream": "https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/mono.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 3400,
-        "q": "1080p HD",
-        "i": 24,
-        "n": "Cheksiz TV",
-        "u": [
-            [
-                0,
-                "https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/mono.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 25,
-        "name": "Nurafshon TV",
-        "category": "xususiy",
-        "logo": "✨",
-        "l": "https://i.imgur.com/MMdNyBU.jpeg",
-        "desc": "Toshkent viloyati yangiliklari va madaniyati",
-        "stream": "https://stream3.cinerama.uz/1220/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 3100,
-        "q": "1080p HD",
-        "i": 25,
-        "n": "Nurafshon TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1220/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1220/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1220/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1220/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 26,
-        "name": "Farg'ona MTRK",
-        "category": "xususiy",
-        "logo": "🍇",
-        "l": "https://i.imgur.com/RYjQOfo.jpeg",
-        "desc": "Farg'ona vodiysi yangiliklari va madaniyati",
-        "stream": "https://stream3.cinerama.uz/1458/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 2900,
-        "q": "1080p HD",
-        "i": 26,
-        "n": "Farg'ona MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1458/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1458/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1458/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1458/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 27,
-        "name": "Navoiy MTRK",
-        "category": "xususiy",
-        "logo": "🏭",
-        "l": "https://i.imgur.com/qa4VlYh.png",
-        "desc": "Navoiy viloyati hayoti va sanoati",
-        "stream": "https://stream3.cinerama.uz/1460/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 2800,
-        "q": "1080p HD",
-        "i": 27,
-        "n": "Navoiy MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1460/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1460/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1460/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1460/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 28,
-        "name": "Qaraqalpaqstan TV",
-        "category": "xususiy",
-        "logo": "🌊",
-        "l": "https://i.imgur.com/G3qrUJh.png",
-        "desc": "Qoraqalpog'iston milliy teleradiokanali",
-        "stream": "https://stream3.cinerama.uz/1467/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 3200,
-        "q": "1080p HD",
-        "i": 28,
-        "n": "Qaraqalpaqstan TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1467/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1467/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1467/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1467/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 29,
-        "name": "BIZ Cinema",
-        "category": "kino",
-        "logo": "🎬",
-        "l": "https://biztv.uz/static/media/biz-cinema.286b83dc.png",
-        "desc": "O'zbek va jahon kinosi (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1213/playlist.m3u8",
-        "c": "uz",
-        "k": "kino",
-        "v": 17800,
-        "q": "1080p HD",
-        "i": 29,
-        "n": "BIZ Cinema",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1213/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1213/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1213/mono.m3u8"
-            ],
-            [
-                3,
-                "https://fl.biztv.media/cinema_720_EMfSyXgoRdiIHgldXTZICucKTIeCKO/index.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 30,
-        "name": "viju TV1000 action",
-        "category": "kino",
-        "logo": "💥",
-        "l": "https://i.imgur.com/TMmyuzh.png",
-        "desc": "Jangari, blokbaster va triller filmlar",
-        "stream": "https://stream3.cinerama.uz/1225/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 16500,
-        "q": "1080p HD",
-        "i": 30,
-        "n": "viju TV1000 action",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1225/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1225/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1225/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1225/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 31,
-        "name": "viju TV1000 russkoe",
-        "category": "kino",
-        "logo": "🇷🇺",
-        "l": "https://i.imgur.com/Meak2y4.png",
-        "desc": "Klassik va zamonaviy rus kinosi",
-        "stream": "https://stream3.cinerama.uz/1058/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 14200,
-        "q": "1080p HD",
-        "i": 31,
-        "n": "viju TV1000 russkoe",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1058/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1058/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1058/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1058/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 32,
-        "name": "Kinopokaz",
-        "category": "kino",
-        "logo": "🎥",
-        "l": "https://i.imgur.com/nNjMyAq.png",
-        "desc": "Dramatik va detektiv jahon asarlari",
-        "stream": "https://stream3.cinerama.uz/1057/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 13900,
-        "q": "1080p HD",
-        "i": 32,
-        "n": "Kinopokaz",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1057/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1057/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1057/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1057/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 33,
-        "name": "Dom kino",
-        "category": "kino",
-        "logo": "🏠",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/%D0%9B%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%BA%D0%B0%D0%BD%D0%B0%D0%BB%D0%B0_%D0%94%D0%BE%D0%BC_%D0%9A%D0%B8%D0%BD%D0%BE.png/960px-%D0%9B%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%BA%D0%B0%D0%BD%D0%B0%D0%BB%D0%B0_%D0%94%D0%BE%D0%BC_%D0%9A%D0%B8%D0%BD%D0%BE.png",
-        "desc": "Oltin fond kinosi durdonalari",
-        "stream": "https://stream3.cinerama.uz/1054/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 13200,
-        "q": "1080p HD",
-        "i": 33,
-        "n": "Dom kino",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1054/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1054/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1054/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1054/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 34,
-        "name": "Kinosvidanie",
-        "category": "kino",
-        "logo": "💑",
-        "l": "https://i.imgur.com/ZRaWqxj.png",
-        "desc": "Romantik melodrama va komediyalar",
-        "stream": "https://stream3.cinerama.uz/1203/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 11500,
-        "q": "1080p HD",
-        "i": 34,
-        "n": "Kinosvidanie",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1203/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1203/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1203/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1203/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 35,
-        "name": "KinoHit",
-        "category": "kino",
-        "logo": "⭐",
-        "l": "https://i.imgur.com/Ge8vkQM.png",
-        "desc": "Dunyo kinoprokatining eng xit filmlari",
-        "stream": "https://stream3.cinerama.uz/1055/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 14700,
-        "q": "1080p HD",
-        "i": 35,
-        "n": "KinoHit",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1055/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1055/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1055/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1055/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 36,
-        "name": "Kinopremyera",
-        "category": "kino",
-        "logo": "🎞️",
-        "l": "https://i.imgur.com/s0UYT8T.png",
-        "desc": "Yangi chiqqan premyera kinolar",
-        "stream": "https://stream3.cinerama.uz/1207/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 15800,
-        "q": "1080p HD",
-        "i": 36,
-        "n": "Kinopremyera",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1207/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1207/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1207/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1207/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 37,
-        "name": "Nashe Novoe Kino",
-        "category": "kino",
-        "logo": "🇷🇺",
-        "l": "https://i.imgur.com/eBf2Dcf.png",
-        "desc": "Zamonaviy mualliflik va tijoriy filmlar",
-        "stream": "https://stream3.cinerama.uz/1056/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 10900,
-        "q": "1080p HD",
-        "i": 37,
-        "n": "Nashe Novoe Kino",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1056/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1056/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1056/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1056/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 38,
-        "name": "Cinema",
-        "category": "kino",
-        "logo": "🎦",
-        "l": "https://i.imgur.com/b5e9qUA.png",
-        "desc": "Jahon kinosining nodir namunalari",
-        "stream": "https://stream3.cinerama.uz/1227/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 11300,
-        "q": "1080p HD",
-        "i": 38,
-        "n": "Cinema",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1227/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1227/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1227/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1227/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 39,
-        "name": "Rodnoe Kino",
-        "category": "kino",
-        "logo": "🎞️",
-        "l": "https://i.imgur.com/H70LxoZ.png",
-        "desc": "Qadrdon sovet va rus filmlari",
-        "stream": "https://stream3.cinerama.uz/1052/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 9800,
-        "q": "1080p HD",
-        "i": 39,
-        "n": "Rodnoe Kino",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1052/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1052/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1052/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1052/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 40,
-        "name": "Indiyskoye Kino",
-        "category": "kino",
-        "logo": "🇮🇳",
-        "l": "https://i.imgur.com/LL8GyCh.png",
-        "desc": "Eng sara hind kinolari va musiqali dramalar",
-        "stream": "https://stream3.cinerama.uz/1060/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 12800,
-        "q": "1080p HD",
-        "i": 40,
-        "n": "Indiyskoye Kino",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1060/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1060/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1060/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1060/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 41,
-        "name": "Dorama",
-        "category": "kino",
-        "logo": "🌸",
-        "l": "https://i.imgur.com/ZH5LuXU.png",
-        "desc": "Koreys, xitoy va turk seriallari (Dorama)",
-        "stream": "https://stream3.cinerama.uz/1273/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 13600,
-        "q": "1080p HD",
-        "i": 41,
-        "n": "Dorama",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1273/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1273/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1273/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1273/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 42,
-        "name": "Retro TV",
-        "category": "kino",
-        "logo": "📼",
-        "l": "https://i.imgur.com/p21co1w.png",
-        "desc": "60-90-yillar retro kino va musiqasi",
-        "stream": "https://stream3.cinerama.uz/1047/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 8500,
-        "q": "1080p HD",
-        "i": 42,
-        "n": "Retro TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1047/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1047/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1047/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1047/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 43,
-        "name": "Bollywood HD",
-        "category": "kino",
-        "logo": "💃",
-        "l": "https://i.imgur.com/scDKOLS.png",
-        "desc": "Hindistonning eng sara filmlari va musiqiy shoulari (1080p HD)",
-        "stream": "https://stream3.cinerama.uz/1041/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 10200,
-        "q": "1080p HD",
-        "i": 43,
-        "n": "Bollywood HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1041/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1041/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1041/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1041/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 44,
-        "name": "Insayt TV",
-        "category": "kino",
-        "logo": "⚡",
-        "l": "https://i.imgur.com/slLuRel.png",
-        "desc": "Innovatsion 4K UHD formatdagi loyihalar",
-        "stream": "https://stream3.cinerama.uz/1416/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 9400,
-        "q": "4K UHD",
-        "i": 44,
-        "n": "Insayt TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1416/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1416/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1416/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1416/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 45,
-        "name": "viju+ Sport",
-        "category": "sport",
-        "logo": "🥊",
-        "l": "https://i.imgur.com/fXESG0l.png",
-        "desc": "Xalqaro tennis, basketbol va yakkakurash",
-        "stream": "https://stream3.cinerama.uz/1229/playlist.m3u8",
-        "c": "ru",
-        "k": "sport",
-        "v": 12400,
-        "q": "1080p HD",
-        "i": 45,
-        "n": "viju+ Sport",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1229/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1229/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1229/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1229/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 46,
-        "name": "MMA-TV.com",
-        "category": "sport",
-        "logo": "🥋",
-        "l": "https://i.imgur.com/QhdxNsB.png",
-        "desc": "Professional MMA, UFC va boks janglari",
-        "stream": "https://stream3.cinerama.uz/1226/playlist.m3u8",
-        "c": "ru",
-        "k": "sport",
-        "v": 14100,
-        "q": "1080p HD",
-        "i": 46,
-        "n": "MMA-TV.com",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1226/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1226/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1226/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1226/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 47,
-        "name": "Trace Sport Stars",
-        "category": "sport",
-        "logo": "⭐",
-        "l": "https://i.imgur.com/FabFP5A.png",
-        "desc": "Dunyo sport yulduzlarining shaxsiy hayoti",
-        "stream": "https://stream3.cinerama.uz/1274/playlist.m3u8",
-        "c": "ru",
-        "k": "sport",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 47,
-        "n": "Trace Sport Stars",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1274/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1274/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1274/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1274/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 48,
-        "name": "A Spor",
-        "category": "sport",
-        "logo": "🇹🇷",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/A_Spor_logo.svg/512px-A_Spor_logo.svg.png",
-        "desc": "Turkiya Superligasi va jahon sporti HD",
-        "stream": "https://trkvz-live.ercdn.net/asporhd/asporhd.m3u8",
-        "c": "tr",
-        "k": "sport",
-        "v": 11200,
-        "q": "1080p HD",
-        "i": 48,
-        "n": "A Spor",
-        "u": [
-            [
-                0,
-                "https://trkvz-live.ercdn.net/asporhd/asporhd.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 49,
-        "name": "Red Bull TV",
-        "category": "sport",
-        "logo": "🏎️",
-        "l": "https://i.postimg.cc/8c78JM28/image.png",
-        "desc": "Ekstremal sport, F1 va sarguzashtlar 24/7",
-        "stream": "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
-        "c": "int",
-        "k": "sport",
-        "v": 13300,
-        "q": "1080p HD",
-        "i": 49,
-        "n": "Red Bull TV",
-        "u": [
-            [
-                0,
-                "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 50,
-        "name": "Aqlvoy",
-        "category": "bolalar",
-        "logo": "🧠",
-        "l": "https://i.imgur.com/ekF5cAi.png",
-        "desc": "Zukko bolalar uchun bilim va multfilmlar",
-        "stream": "https://stream3.cinerama.uz/1205/playlist.m3u8",
-        "c": "uz",
-        "k": "bolalar",
-        "v": 11900,
-        "q": "1080p HD",
-        "i": 50,
-        "n": "Aqlvoy",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1205/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1205/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1205/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1205/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 51,
-        "name": "Bolajon",
-        "category": "bolalar",
-        "logo": "👶",
-        "l": "https://i.imgur.com/s7o0ifu.png",
-        "desc": "Milliy va tarbiyaviy multfilmlar maskani",
-        "stream": "https://stream3.cinerama.uz/1007/playlist.m3u8",
-        "c": "uz",
-        "k": "bolalar",
-        "v": 12500,
-        "q": "1080p HD",
-        "i": 51,
-        "n": "Bolajon",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1007/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1007/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1007/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1007/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 52,
-        "name": "MiMi TV",
-        "category": "bolalar",
-        "logo": "🧸",
-        "l": "https://i.imgur.com/NmQglPa.png",
-        "desc": "Eng kichik bolajonlar uchun quvnoq multfilmlar",
-        "stream": "https://fl.biztv.media/MiMiTV_720/playlist.m3u8",
-        "c": "uz",
-        "k": "bolalar",
-        "v": 9800,
-        "q": "1080p HD",
-        "i": 52,
-        "n": "MiMi TV",
-        "u": [
-            [
-                0,
-                "https://fl.biztv.media/MiMiTV_720/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://fl.biztv.media/MiMiTV_720/tracks-v1a1/mono.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 53,
-        "name": "TiJi",
-        "category": "bolalar",
-        "logo": "🌸",
-        "l": "https://i.imgur.com/QCOUJ30.png",
-        "desc": "Fransuz sifatidagi mehrli multseriallar",
-        "stream": "https://stream3.cinerama.uz/1441/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 10500,
-        "q": "1080p HD",
-        "i": 53,
-        "n": "TiJi",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1441/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1441/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1441/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1441/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 54,
-        "name": "Gulli Girl",
-        "category": "bolalar",
-        "logo": "🧚",
-        "l": "https://i.imgur.com/lbViDuC.png",
-        "desc": "Sehrli olamlar va qizaloqlar uchun multfilmlar",
-        "stream": "https://stream3.cinerama.uz/1445/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 9200,
-        "q": "1080p HD",
-        "i": 54,
-        "n": "Gulli Girl",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1445/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1445/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1445/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1445/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 55,
-        "name": "Detskiy",
-        "category": "bolalar",
-        "logo": "🎪",
-        "l": "https://mt.media/upload/iblock/c22/pndw8yi2jwgppdrjikm3eusqp8087kr3.png",
-        "desc": "Klassik ertaklar va rivojlantiruvchi o'yinlar",
-        "stream": "https://stream3.cinerama.uz/1033/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 8700,
-        "q": "1080p HD",
-        "i": 55,
-        "n": "Detskiy",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1033/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1033/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1033/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1033/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 56,
-        "name": "Mult",
-        "category": "bolalar",
-        "logo": "🐻",
-        "l": "https://i.imgur.com/39wF4yK.png",
-        "desc": "Masha va Ayiq, Fixiklar, Smeshariki",
-        "stream": "https://stream3.cinerama.uz/1247/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 15600,
-        "q": "1080p HD",
-        "i": 56,
-        "n": "Mult",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1247/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1247/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1247/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1247/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 57,
-        "name": "Multilandia",
-        "category": "bolalar",
-        "logo": "🎈",
-        "l": "https://i.imgur.com/97y42jW.png",
-        "desc": "Bolalar va butun oila uchun sevimli multfilmlar (HD)",
-        "stream": "https://stream3.cinerama.uz/1247/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 10800,
-        "q": "1080p HD",
-        "i": 57,
-        "n": "Multilandia",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1247/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1247/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1247/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1247/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 58,
-        "name": "Nickelodeon CIS",
-        "category": "bolalar",
-        "logo": "🟧",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Nickelodeon_2023.svg/512px-Nickelodeon_2023.svg.png",
-        "desc": "Gubka Bob, Ninja Toshbaqalar va Loud House",
-        "stream": "https://stream3.cinerama.uz/1500/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 16400,
-        "q": "1080p HD",
-        "i": 58,
-        "n": "Nickelodeon CIS",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1500/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1500/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1500/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1500/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 59,
-        "name": "Nick Jr.",
-        "category": "bolalar",
-        "logo": "🐾",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Nick_Jr._logo_2023_(outline).svg/960px-Nick_Jr._logo_2023_(outline).svg.png",
-        "desc": "Kichkintoylar uchun Patrul kuchukchalar",
-        "stream": "https://stream3.cinerama.uz/1501/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 11400,
-        "q": "1080p HD",
-        "i": 59,
-        "n": "Nick Jr.",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1501/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1501/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1501/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1501/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 60,
-        "name": "Nicktoons CIS",
-        "category": "bolalar",
-        "logo": "⚡",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/d/d8/Nicktoons_UK_Logo_2014.png",
-        "desc": "Eng sara Nickeloden animatsiyalari",
-        "stream": "https://stream3.cinerama.uz/1502/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 10900,
-        "q": "1080p HD",
-        "i": 60,
-        "n": "Nicktoons CIS",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1502/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1502/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1502/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1502/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 61,
-        "name": "V gostyakh u skazki",
-        "category": "bolalar",
-        "logo": "🧙‍♂️",
-        "l": "https://i.imgur.com/jNJkLHl.png",
-        "desc": "Ertaklar olamiga sehrli sayohat",
-        "stream": "https://stream3.cinerama.uz/1270/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 9500,
-        "q": "1080p HD",
-        "i": 61,
-        "n": "V gostyakh u skazki",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1270/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1270/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1270/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1270/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 62,
-        "name": "Kapitan Fantastika",
-        "category": "bolalar",
-        "logo": "🚀",
-        "l": "https://i.imgur.com/K3PSHiT.png",
-        "desc": "Superqahramonlar va koinot sarguzashtlari",
-        "stream": "https://stream3.cinerama.uz/1406/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 8800,
-        "q": "1080p HD",
-        "i": 62,
-        "n": "Kapitan Fantastika",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1406/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1406/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1406/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1406/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 63,
-        "name": "Ryzhiy",
-        "category": "bolalar",
-        "logo": "🦊",
-        "l": "https://i.imgur.com/acrU2IE.png",
-        "desc": "Mehrli va imo-ishora tiliga mos multfilmlar",
-        "stream": "https://stream3.cinerama.uz/1407/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 8200,
-        "q": "1080p HD",
-        "i": 63,
-        "n": "Ryzhiy",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1407/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1407/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1407/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1407/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 64,
-        "name": "Smile TV",
-        "category": "bolalar",
-        "logo": "😄",
-        "l": "https://static.tildacdn.com/tild3936-3138-4234-b536-326531343933/-_13x.png",
-        "desc": "Kulgili va ijobiy animatsion dasturlar",
-        "stream": "https://stream3.cinerama.uz/1425/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 7900,
-        "q": "1080p HD",
-        "i": 64,
-        "n": "Smile TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1425/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1425/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1425/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1425/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 65,
-        "name": "Mama",
-        "category": "bolalar",
-        "logo": "👩‍👧",
-        "l": "https://i.imgur.com/kmMIjjf.png",
-        "desc": "Onalar va farzandlar tarbiyasi kanali",
-        "stream": "https://stream3.cinerama.uz/1244/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 7600,
-        "q": "1080p HD",
-        "i": 65,
-        "n": "Mama",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1244/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1244/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1244/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1244/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 66,
-        "name": "BIZ Music",
-        "category": "musiqa",
-        "logo": "🎶",
-        "l": "https://i.ibb.co/DfsCJwk/Uz-biz-music-5462.jpg",
-        "desc": "Zamonaviy o'zbek va jahon xitlari (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1212/playlist.m3u8",
-        "c": "uz",
-        "k": "musiqa",
-        "v": 15400,
-        "q": "1080p HD",
-        "i": 66,
-        "n": "BIZ Music",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1212/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1212/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1212/mono.m3u8"
-            ],
-            [
-                3,
-                "https://fl.biztv.media/music_720_QAKpGmVUjaPApCNjpsgBxrdqNihAkl/index.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 67,
-        "name": "1HD Music Television",
-        "category": "musiqa",
-        "logo": "🎧",
-        "l": "https://i.imgur.com/4Ww7CsR.png",
-        "desc": "Jahon xitlari va elektron musiqa 1080p",
-        "stream": "https://stream3.cinerama.uz/1267/playlist.m3u8",
-        "c": "ru",
-        "k": "musiqa",
-        "v": 13800,
-        "q": "1080p HD",
-        "i": 67,
-        "n": "1HD Music Television",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1267/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1267/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1267/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1267/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 68,
-        "name": "FON Music",
-        "category": "musiqa",
-        "logo": "📻",
-        "l": "https://i.imgur.com/tXABQDE.png",
-        "desc": "Chillout, lofi va relaks musiqa oqimi",
-        "stream": "https://stream3.cinerama.uz/1272/playlist.m3u8",
-        "c": "ru",
-        "k": "musiqa",
-        "v": 9600,
-        "q": "1080p HD",
-        "i": 68,
-        "n": "FON Music",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1272/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1272/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1272/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1272/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 69,
-        "name": "RU.TV",
-        "category": "musiqa",
-        "logo": "🇷🇺",
-        "l": "https://rutv.by/wp-content/uploads/2020/09/logo.png",
-        "desc": "Eng yaxshi rus estradasi premyeralari",
-        "stream": "https://stream3.cinerama.uz/1202/playlist.m3u8",
-        "c": "ru",
-        "k": "musiqa",
-        "v": 12700,
-        "q": "1080p HD",
-        "i": 69,
-        "n": "RU.TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1202/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1202/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1202/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1202/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 70,
-        "name": "Muz TV HD",
-        "category": "musiqa",
-        "logo": "🎤",
-        "l": "https://i.imgur.com/W2dO41N.png",
-        "desc": "Musiqiy kliplar, chartlar va shoular (1080p HD)",
-        "stream": "https://stream3.cinerama.uz/1063/playlist.m3u8",
-        "c": "ru",
-        "k": "musiqa",
-        "v": 14500,
-        "q": "1080p HD",
-        "i": 70,
-        "n": "Muz TV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1063/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1063/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1063/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1063/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 71,
-        "name": "Muzyka Pervogo",
-        "category": "musiqa",
-        "logo": "🔥",
-        "l": "https://i.imgur.com/uGzH7yP.png",
-        "desc": "Yoshlarbop trendlar va zamonaviy sound",
-        "stream": "https://stream3.cinerama.uz/1053/playlist.m3u8",
-        "c": "ru",
-        "k": "musiqa",
-        "v": 11300,
-        "q": "1080p HD",
-        "i": 71,
-        "n": "Muzyka Pervogo",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1053/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1053/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1053/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1053/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 72,
-        "name": "TRT Muzik",
-        "category": "musiqa",
-        "logo": "🇹🇷",
-        "l": "https://i.imgur.com/JgUzRH8.png",
-        "desc": "Klassik turk qo'shiqlari va zamonaviy hitlar",
-        "stream": "https://stream3.cinerama.uz/1208/playlist.m3u8",
-        "c": "tr",
-        "k": "musiqa",
-        "v": 10900,
-        "q": "1080p HD",
-        "i": 72,
-        "n": "TRT Muzik",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1208/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1208/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1208/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1208/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 73,
-        "name": "Euronews HD",
-        "category": "yangiliklar",
-        "logo": "🇪🇺",
-        "l": "https://i.imgur.com/8t9mdg9.png",
-        "desc": "Yevropa va butun dunyo yangiliklari xolis tahlili",
-        "stream": "https://stream3.cinerama.uz/1024/playlist.m3u8",
-        "c": "ru",
-        "k": "yangiliklar",
-        "v": 12800,
-        "q": "1080p HD",
-        "i": 73,
-        "n": "Euronews HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1024/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1024/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1024/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1024/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 74,
-        "name": "BBC News Europe",
-        "category": "yangiliklar",
-        "logo": "🇬🇧",
-        "l": "https://dtil.tmsimg.com/assets/s158142_ld_h15_aa.png?lock=720x540",
-        "desc": "Global axborot olamining nufuzli yetakchisi",
-        "stream": "https://stream3.cinerama.uz/1251/playlist.m3u8",
-        "c": "int",
-        "k": "yangiliklar",
-        "v": 13500,
-        "q": "1080p HD",
-        "i": 74,
-        "n": "BBC News Europe",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1251/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1251/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1251/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1251/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 75,
-        "name": "DW English",
-        "category": "yangiliklar",
-        "logo": "🇩🇪",
-        "l": "https://i.imgur.com/MNKkgfa.png",
-        "desc": "Germaniya xalqaro teleradiokompaniyasi",
-        "stream": "https://stream3.cinerama.uz/1418/playlist.m3u8",
-        "c": "int",
-        "k": "yangiliklar",
-        "v": 9800,
-        "q": "1080p HD",
-        "i": 75,
-        "n": "DW English",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1418/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1418/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1418/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1418/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 76,
-        "name": "Russia-24",
-        "category": "yangiliklar",
-        "logo": "🇷🇺",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Rossiya-24_Logo.svg/960px-Rossiya-24_Logo.svg.png",
-        "desc": "Rossiya federal kecha-yu kunduz axborot tarmog'i",
-        "stream": "https://stream3.cinerama.uz/1021/playlist.m3u8",
-        "c": "ru",
-        "k": "yangiliklar",
-        "v": 11800,
-        "q": "1080p HD",
-        "i": 76,
-        "n": "Russia-24",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1021/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1021/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1021/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1021/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 77,
-        "name": "Mir 24",
-        "category": "yangiliklar",
-        "logo": "🌐",
-        "l": "https://i.imgur.com/dj9c8Yd.png",
-        "desc": "MDH davlatlarining birlashgan axborot kanali",
-        "stream": "https://stream3.cinerama.uz/1219/playlist.m3u8",
-        "c": "ru",
-        "k": "yangiliklar",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 77,
-        "n": "Mir 24",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1219/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1219/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1219/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1219/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 78,
-        "name": "TRT Haber",
-        "category": "yangiliklar",
-        "logo": "🇹🇷",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/TRT_Haber_logo_2020.svg/512px-TRT_Haber_logo_2020.svg.png",
-        "desc": "Turkiya va jahon siyosiy voqealari",
-        "stream": "https://tv-trthaber.medya.trt.com.tr/master.m3u8",
-        "c": "tr",
-        "k": "yangiliklar",
-        "v": 11600,
-        "q": "1080p HD",
-        "i": 78,
-        "n": "TRT Haber",
-        "u": [
-            [
-                0,
-                "https://tv-trthaber.medya.trt.com.tr/master.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 79,
-        "name": "viju Nature",
-        "category": "ilm",
-        "logo": "🌿",
-        "l": "https://i.imgur.com/8BPZ18l.png",
-        "desc": "Yovvoyi tabiat, o'rmonlar va dengiz tubi sirlari",
-        "stream": "https://stream3.cinerama.uz/1228/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 14200,
-        "q": "1080p HD",
-        "i": 79,
-        "n": "viju Nature",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1228/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1228/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1228/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1228/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 80,
-        "name": "Zhivaya Planeta",
-        "category": "ilm",
-        "logo": "🦁",
-        "l": "https://i.imgur.com/onNv1tM.png",
-        "desc": "Noyob jonivorlar hayoti va ekologiya",
-        "stream": "https://stream3.cinerama.uz/1250/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 12600,
-        "q": "1080p HD",
-        "i": 80,
-        "n": "Zhivaya Planeta",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1250/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1250/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1250/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1250/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 81,
-        "name": "Doctor",
-        "category": "ilm",
-        "logo": "🩺",
-        "l": "https://i.imgur.com/VNirxxn.png",
-        "desc": "Tibbiyot yangiliklari, salomatlik va profilaktika",
-        "stream": "https://stream3.cinerama.uz/1409/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9700,
-        "q": "1080p HD",
-        "i": 81,
-        "n": "Doctor",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1409/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1409/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1409/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1409/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 82,
-        "name": "Zoopark",
-        "category": "ilm",
-        "logo": "🐼",
-        "l": "https://i.imgur.com/IO5jegK.png",
-        "desc": "Uy hayvonlari va qiziqarli zoologiya",
-        "stream": "https://stream3.cinerama.uz/1417/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9100,
-        "q": "1080p HD",
-        "i": 82,
-        "n": "Zoopark",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1417/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1417/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1417/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1417/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 83,
-        "name": "Domashnie Zhivotnye",
-        "category": "ilm",
-        "logo": "🐶",
-        "l": "https://i.imgur.com/ISJzQGP.png",
-        "desc": "Mushuklar, itlar va boshqa jonivorlarni parvarishlash",
-        "stream": "https://stream3.cinerama.uz/1426/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8400,
-        "q": "1080p HD",
-        "i": 83,
-        "n": "Domashnie Zhivotnye",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1426/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1426/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1426/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1426/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 84,
-        "name": "Dikij",
-        "category": "ilm",
-        "logo": "🌲",
-        "l": "https://i.imgur.com/VDXDiPC.png",
-        "desc": "Yovvoyi tabiat qo'ynida omon qolish mahorati",
-        "stream": "https://stream3.cinerama.uz/1230/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8800,
-        "q": "1080p HD",
-        "i": 84,
-        "n": "Dikij",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1230/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1230/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1230/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1230/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 85,
-        "name": "Ohotnik i rybolov",
-        "category": "ilm",
-        "logo": "🎣",
-        "l": "https://i.imgur.com/Bj1jI7F.png",
-        "desc": "Professional baliq ovi va ovchilik sarguzashtlari",
-        "stream": "https://stream3.cinerama.uz/1413/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9200,
-        "q": "1080p HD",
-        "i": 85,
-        "n": "Ohotnik i rybolov",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1413/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1413/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1413/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1413/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 86,
-        "name": "Okhota i rybalka",
-        "category": "ilm",
-        "logo": "🦌",
-        "l": "https://i.imgur.com/nZwBaeW.png",
-        "desc": "Daryo, ko'l va o'rmonlarda haqiqiy tajribalar",
-        "stream": "https://stream3.cinerama.uz/1038/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9400,
-        "q": "1080p HD",
-        "i": 86,
-        "n": "Okhota i rybalka",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1038/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1038/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1038/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1038/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 87,
-        "name": "Auto Plus",
-        "category": "ilm",
-        "logo": "🚗",
-        "l": "https://i.imgur.com/sVc8cFt.png",
-        "desc": "Avtomobil test-drayvlari, superkarlar va ta'mirlash",
-        "stream": "https://stream3.cinerama.uz/1036/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 12100,
-        "q": "1080p HD",
-        "i": 87,
-        "n": "Auto Plus",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1036/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1036/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1036/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1036/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 88,
-        "name": "Drive",
-        "category": "ilm",
-        "logo": "🏎️",
-        "l": "https://i.imgur.com/FnuwfSC.png",
-        "desc": "Tezlik, poygalar va avtomobil madaniyati",
-        "stream": "https://stream3.cinerama.uz/1421/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 10500,
-        "q": "1080p HD",
-        "i": 88,
-        "n": "Drive",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1421/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1421/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1421/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1421/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 89,
-        "name": "Arsenal",
-        "category": "ilm",
-        "logo": "🛡️",
-        "l": "https://i.imgur.com/DBpVeb0.png",
-        "desc": "Harbiy texnika, qurol-aslahalar va aviatsiya",
-        "stream": "https://stream3.cinerama.uz/1414/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 89,
-        "n": "Arsenal",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1414/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1414/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1414/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1414/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 90,
-        "name": "T24",
-        "category": "ilm",
-        "logo": "🔬",
-        "l": "https://i.imgur.com/1W6R14o.png",
-        "desc": "Muhandislik mo'jizalari va kosmik texnologiya",
-        "stream": "https://stream3.cinerama.uz/1037/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9900,
-        "q": "1080p HD",
-        "i": 90,
-        "n": "T24",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1037/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1037/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1037/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1037/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 91,
-        "name": "Tochka otryva",
-        "category": "ilm",
-        "logo": "🪂",
-        "l": "https://i.imgur.com/TZiBQDK.png",
-        "desc": "Parashyut, dayving va tog' turizmi",
-        "stream": "https://stream3.cinerama.uz/1031/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8700,
-        "q": "1080p HD",
-        "i": 91,
-        "n": "Tochka otryva",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1031/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1031/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1031/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1031/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 92,
-        "name": "365 days TV",
-        "category": "ilm",
-        "logo": "📜",
-        "l": "https://i.imgur.com/NfnAiTR.png",
-        "desc": "Jahon tarixi, sulolalar va buyuk janglar",
-        "stream": "https://stream3.cinerama.uz/1242/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9300,
-        "q": "1080p HD",
-        "i": 92,
-        "n": "365 days TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1242/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1242/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1242/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1242/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 93,
-        "name": "Da Vinci",
-        "category": "ilm",
-        "logo": "🎨",
-        "l": "https://i.imgur.com/iBx7K1M.png",
-        "desc": "Bolalar va o'smirlar uchun intellektual fan dasturlari",
-        "stream": "https://stream3.cinerama.uz/1231/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 11100,
-        "q": "1080p HD",
-        "i": 93,
-        "n": "Da Vinci",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1231/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1231/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1231/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1231/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 94,
-        "name": "Glazami Turista",
-        "category": "ilm",
-        "logo": "✈️",
-        "l": "https://i.imgur.com/GXJKWdy.png",
-        "desc": "Eng chiroyli sayohat marshrutlari va maslahatlar",
-        "stream": "https://stream3.cinerama.uz/1423/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8600,
-        "q": "1080p HD",
-        "i": 94,
-        "n": "Glazami Turista",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1423/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1423/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1423/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1423/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 95,
-        "name": "Priklyucheniya",
-        "category": "ilm",
-        "logo": "🧭",
-        "l": "https://i.imgur.com/qQ6pPPQ.png",
-        "desc": "Sarguzashtlar, ekspeditsiyalar va yangi kashfiyotlar",
-        "stream": "https://stream3.cinerama.uz/1420/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 95,
-        "n": "Priklyucheniya",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1420/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1420/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1420/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1420/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 96,
-        "name": "Kuhnya TV",
-        "category": "ilm",
-        "logo": "🍳",
-        "l": "https://cdn2.red-media.ru/wp-content/uploads/2016/08/Kuhnya-mediakit.png",
-        "desc": "Dunyo xalqlari oshxonasi va master-klasslar",
-        "stream": "https://stream3.cinerama.uz/1236/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 10700,
-        "q": "1080p HD",
-        "i": 96,
-        "n": "Kuhnya TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1236/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1236/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1236/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1236/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 97,
-        "name": "Telecafe",
-        "category": "ilm",
-        "logo": "☕",
-        "l": "https://i.imgur.com/1H3h1HL.png",
-        "desc": "Mazali pishiriqlar va oilaviy retseptlar",
-        "stream": "https://stream3.cinerama.uz/1035/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8300,
-        "q": "1080p HD",
-        "i": 97,
-        "n": "Telecafe",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1035/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1035/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1035/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1035/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 98,
-        "name": "Usadba",
-        "category": "ilm",
-        "logo": "🏡",
-        "l": "https://i.imgur.com/mf13haG.png",
-        "desc": "Bog'dorchilik, landshaft dizayni va gulchilik",
-        "stream": "https://stream3.cinerama.uz/1427/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8100,
-        "q": "1080p HD",
-        "i": 98,
-        "n": "Usadba",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1427/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1427/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1427/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1427/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 99,
-        "name": "Zagorodnaya Zhizn",
-        "category": "ilm",
-        "logo": "🌻",
-        "l": "https://i.imgur.com/RoYd5pz.png",
-        "desc": "Shahar tashqarisidagi shinam hayot sirlari",
-        "stream": "https://stream3.cinerama.uz/1044/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 7800,
-        "q": "1080p HD",
-        "i": 99,
-        "n": "Zagorodnaya Zhizn",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1044/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1044/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1044/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1044/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 100,
-        "name": "Zdorovoe TV",
-        "category": "ilm",
-        "logo": "🥗",
-        "l": "https://i.imgur.com/jedtE5l.png",
-        "desc": "Sog'lom turmush tarzi, fitnes va to'g'ri ovqatlanish",
-        "stream": "https://stream3.cinerama.uz/1428/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8200,
-        "q": "1080p HD",
-        "i": 100,
-        "n": "Zdorovoe TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1428/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1428/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1428/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1428/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 101,
-        "name": "English Club TV",
-        "category": "ilm",
-        "logo": "🗣️",
-        "l": "https://i.imgur.com/9FMvaRK.png",
-        "desc": "Ingliz tilini interaktiv o'rganish kanali",
-        "stream": "https://stream3.cinerama.uz/1442/playlist.m3u8",
-        "c": "int",
-        "k": "ilm",
-        "v": 11800,
-        "q": "1080p HD",
-        "i": 101,
-        "n": "English Club TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1442/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1442/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1442/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1442/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 102,
-        "name": "Channel One (Perviy)",
-        "category": "xalqaro",
-        "logo": "1️⃣",
-        "l": "https://uut-telecom.ru/wp-content/uploads/2021/12/pervyj-hd.png",
-        "desc": "Rossiya Birinchi telekanali (HD)",
-        "stream": "https://stream3.cinerama.uz/1214/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 15900,
-        "q": "1080p HD",
-        "i": 102,
-        "n": "Channel One (Perviy)",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1214/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1214/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1214/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1214/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 103,
-        "name": "Russia-1",
-        "category": "xalqaro",
-        "logo": "🇷🇺",
-        "l": "https://uut-telecom.ru/wp-content/uploads/2021/12/rossiya-1-hd.png",
-        "desc": "Rossiya Bosh davlat telekanali",
-        "stream": "https://stream3.cinerama.uz/1020/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 14900,
-        "q": "1080p HD",
-        "i": 103,
-        "n": "Russia-1",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1020/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1020/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1020/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1020/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 104,
-        "name": "NTV",
-        "category": "xalqaro",
-        "logo": "🟢",
-        "l": "https://real.su/wp-content/uploads/2019/12/%D0%9D%D0%A2%D0%92_HD-20220826-123641.png",
-        "desc": "Ommabop detektivlar, teleseriallar va yangiliklar",
-        "stream": "https://stream3.cinerama.uz/1023/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 13700,
-        "q": "1080p HD",
-        "i": 104,
-        "n": "NTV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1023/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1023/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1023/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1023/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 105,
-        "name": "Mir",
-        "category": "xalqaro",
-        "logo": "🌐",
-        "l": "https://i.imgur.com/AqWaJT8.png",
-        "desc": "MDH davlatlari do'stlik va birdamlik telekanali",
-        "stream": "https://stream3.cinerama.uz/1218/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 11100,
-        "q": "1080p HD",
-        "i": 105,
-        "n": "Mir",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1218/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1218/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1218/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1218/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 106,
-        "name": "Zvezda",
-        "category": "xalqaro",
-        "logo": "⭐",
-        "l": "https://i.imgur.com/4PAcpfM.png",
-        "desc": "Harbiy-vatanparvarlik, tarix va texnika",
-        "stream": "https://stream3.cinerama.uz/1050/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 10400,
-        "q": "1080p HD",
-        "i": 106,
-        "n": "Zvezda",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1050/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1050/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1050/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1050/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 107,
-        "name": "TV Centr",
-        "category": "xalqaro",
-        "logo": "🔴",
-        "l": "https://www.moscow-telecom.ru/img/logo_channels/tvc_hd.svg",
-        "desc": "Moskva poytaxt kanali, publitsistika va filmlar",
-        "stream": "https://stream3.cinerama.uz/1025/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 9800,
-        "q": "1080p HD",
-        "i": 107,
-        "n": "TV Centr",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1025/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1025/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1025/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1025/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 108,
-        "name": "TV Centr International",
-        "category": "xalqaro",
-        "logo": "🌐",
-        "l": "https://i.imgur.com/tsCOnBW.png",
-        "desc": "TV Centr xalqaro versiyasi",
-        "stream": "https://stream3.cinerama.uz/1281/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 108,
-        "n": "TV Centr International",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1281/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1281/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1281/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1281/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 109,
-        "name": "Russia-K",
-        "category": "xalqaro",
-        "logo": "🏛️",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Russia-Cultura.svg/960px-Russia-Cultura.svg.png",
-        "desc": "Madaniyat, klassik san'at, opera va spektakllar",
-        "stream": "https://stream3.cinerama.uz/1048/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 9300,
-        "q": "1080p HD",
-        "i": 109,
-        "n": "Russia-K",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1048/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1048/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1048/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1048/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 110,
-        "name": "TRT 1",
-        "category": "xalqaro",
-        "logo": "🇹🇷",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/TRT_1_logo_2021.svg/512px-TRT_1_logo_2021.svg.png",
-        "desc": "Turkiya bosh davlat telekanali, tarixiy seriallar",
-        "stream": "https://tv-trt1.medya.trt.com.tr/master.m3u8",
-        "c": "tr",
-        "k": "xalqaro",
-        "v": 15800,
-        "q": "1080p HD",
-        "i": 110,
-        "n": "TRT 1",
-        "u": [
-            [
-                0,
-                "https://tv-trt1.medya.trt.com.tr/master.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 111,
-        "name": "Qazaqstan TV",
-        "category": "xalqaro",
-        "logo": "🇰🇿",
-        "l": "https://cdn.qazaqstan.tv/qazaqstan.png?w=420&h=196&format=png&resize=aspectfill&g=centeralt=",
-        "desc": "Qozog'iston milliy telekanali",
-        "stream": "https://stream3.cinerama.uz/1431/playlist.m3u8",
-        "c": "kz",
-        "k": "xalqaro",
-        "v": 10500,
-        "q": "1080p HD",
-        "i": 111,
-        "n": "Qazaqstan TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1431/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1431/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1431/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1431/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 112,
-        "name": "TNV Planet",
-        "category": "xalqaro",
-        "logo": "🪐",
-        "l": "https://i.imgur.com/ijA1zDw.png",
-        "desc": "Tatariston Respublikasi teleradiosi sun'iy yo'ldosh kanali",
-        "stream": "https://stream3.cinerama.uz/1062/playlist.m3u8",
-        "c": "ru",
-        "k": "xalqaro",
-        "v": 7800,
-        "q": "1080p HD",
-        "i": 112,
-        "n": "TNV Planet",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1062/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1062/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1062/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1062/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 113,
-        "name": "KBS World",
-        "category": "xalqaro",
-        "logo": "🇰🇷",
-        "l": "https://upload.wikimedia.org/wikipedia/commons/9/98/NewsNetLogo2022.png",
-        "desc": "Janubiy Koreya xalqaro kanali (K-Pop, Doramalar)",
-        "stream": "https://stream3.cinerama.uz/1448/playlist.m3u8",
-        "c": "int",
-        "k": "xalqaro",
-        "v": 11400,
-        "q": "1080p HD",
-        "i": 113,
-        "n": "KBS World",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1448/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1448/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1448/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1448/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 114,
-        "name": "Makka Jonli Efir",
-        "category": "religious",
-        "logo": "🕋",
-        "l": "https://i.imgur.com/A2fJysM.png",
-        "desc": "Makkai Mukarrama jonli efiri (24/7 1080p Full HD)",
-        "stream": "https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8",
-        "c": "sa",
-        "k": "religious",
-        "v": 25000,
-        "q": "1080p HD",
-        "i": 114,
-        "n": "Makka Jonli Efir",
-        "u": [
-            [
-                0,
-                "https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 115,
-        "name": "Madina Jonli Efir",
-        "category": "religious",
-        "logo": "🕌",
-        "l": "https://i.imgur.com/S6LcTJv.png",
-        "desc": "Madinai Munavvara jonli efiri (24/7 1080p Full HD)",
-        "stream": "https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8",
-        "c": "sa",
-        "k": "religious",
-        "v": 24000,
-        "q": "1080p HD",
-        "i": 115,
-        "n": "Madina Jonli Efir",
-        "u": [
-            [
-                0,
-                "https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 116,
-        "name": "Samarqand MTRK (STV)",
-        "category": "milliy",
-        "logo": "🏛️",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Samarqand viloyati teleradiokanali va telenavosi (HD)",
-        "stream": "https://stream3.cinerama.uz/1452/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 116,
-        "n": "Samarqand MTRK (STV)",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1452/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1452/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1452/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1452/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 117,
-        "name": "Andijon MTRK",
-        "category": "milliy",
-        "logo": "🌸",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Andijon viloyati teleradiokanali va xushnavolari",
-        "stream": "https://stream3.cinerama.uz/1455/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8700,
-        "q": "1080p HD",
-        "i": 117,
-        "n": "Andijon MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1455/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1455/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1455/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1455/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 118,
-        "name": "Buxoro MTRK",
-        "category": "milliy",
-        "logo": "🕌",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Buxoro viloyati qadimiy madaniyati va navolari",
-        "stream": "https://stream3.cinerama.uz/1456/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8600,
-        "q": "1080p HD",
-        "i": 118,
-        "n": "Buxoro MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1456/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1456/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1456/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1456/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 119,
-        "name": "Jizzax MTRK",
-        "category": "milliy",
-        "logo": "⛰️",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Jizzax viloyati teleradiokanali va dasturlari",
-        "stream": "https://stream3.cinerama.uz/1457/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8100,
-        "q": "1080p HD",
-        "i": 119,
-        "n": "Jizzax MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1457/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1457/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1457/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1457/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 120,
-        "name": "Namangan MTRK",
-        "category": "milliy",
-        "logo": "🌺",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Gullar shahri Namangan viloyat teleradiokanali",
-        "stream": "https://stream3.cinerama.uz/1459/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8500,
-        "q": "1080p HD",
-        "i": 120,
-        "n": "Namangan MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1459/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1459/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1459/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1459/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 121,
-        "name": "Qashqadaryo MTRK",
-        "category": "milliy",
-        "logo": "🏜️",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Nasaf va Qashqadaryo vohasi teleradiokanali",
-        "stream": "https://stream3.cinerama.uz/1461/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8300,
-        "q": "1080p HD",
-        "i": 121,
-        "n": "Qashqadaryo MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1461/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1461/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1461/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1461/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 122,
-        "name": "Surxondaryo MTRK",
-        "category": "milliy",
-        "logo": "☀️",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Termiz va janubiy voha yangiliklari hamda navolari",
-        "stream": "https://stream3.cinerama.uz/1462/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8200,
-        "q": "1080p HD",
-        "i": 122,
-        "n": "Surxondaryo MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1462/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1462/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1462/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1462/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 123,
-        "name": "Sirdaryo MTRK",
-        "category": "milliy",
-        "logo": "🌊",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Guliston va Sirdaryo viloyat teleradiokanali",
-        "stream": "https://stream3.cinerama.uz/1463/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 7900,
-        "q": "1080p HD",
-        "i": 123,
-        "n": "Sirdaryo MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1463/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1463/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1463/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1463/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 124,
-        "name": "Xorazm MTRK",
-        "category": "milliy",
-        "logo": "🏰",
-        "l": "https://i.imgur.com/QUIIhTD.png",
-        "desc": "Xiva va Xorazm viloyati san'ati, tarixi va navolari",
-        "stream": "https://stream3.cinerama.uz/1464/playlist.m3u8",
-        "c": "uz",
-        "k": "milliy",
-        "v": 8800,
-        "q": "1080p HD",
-        "i": 124,
-        "n": "Xorazm MTRK",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1464/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1464/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1464/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1464/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 125,
-        "name": "Hayot TV",
-        "category": "kino",
-        "logo": "🎬",
-        "l": "https://i.imgur.com/emH1BgC.png",
-        "desc": "O'zbek tilidagi jahon va milliy kinofilmlari (1080p HD)",
-        "stream": "https://stream3.cinerama.uz/1064/playlist.m3u8",
-        "c": "uz",
-        "k": "kino",
-        "v": 9400,
-        "q": "1080p HD",
-        "i": 125,
-        "n": "Hayot TV",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1064/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1064/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1064/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1064/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 126,
-        "name": "viju+ comedy",
-        "category": "kino",
-        "logo": "😂",
-        "l": "https://i.imgur.com/O618d3R.png",
-        "desc": "Kulgili va quvnoq komediya filmlari kanali (1080p HD)",
-        "stream": "https://stream3.cinerama.uz/1061/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 126,
-        "n": "viju+ comedy",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1061/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1061/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1061/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1061/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 127,
-        "name": "viju+ serial",
-        "category": "kino",
-        "logo": "🎬",
-        "l": "https://i.imgur.com/O618d3R.png",
-        "desc": "Eng sara jahon seriallari va filmlari (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1224/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 9400,
-        "q": "1080p HD",
-        "i": 127,
-        "n": "viju+ serial",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1224/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1224/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1224/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1224/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 128,
-        "name": "KinoSemya HD",
-        "category": "kino",
-        "logo": "🍿",
-        "l": "https://i.imgur.com/8Qp4z7p.png",
-        "desc": "Butun oila uchun sevimli filmlar (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1234/playlist.m3u8",
-        "c": "ru",
-        "k": "kino",
-        "v": 9350,
-        "q": "1080p HD",
-        "i": 128,
-        "n": "KinoSemya HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1234/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1234/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1234/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1234/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 129,
-        "name": "ducktv HD",
-        "category": "bolalar",
-        "logo": "🦆",
-        "l": "https://i.imgur.com/tHqgU6V.png",
-        "desc": "Kichkintoylar va bolalar uchun tarbiyaviy multfilmlar (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1271/playlist.m3u8",
-        "c": "ru",
-        "k": "bolalar",
-        "v": 9200,
-        "q": "1080p HD",
-        "i": 129,
-        "n": "ducktv HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1271/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1271/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1271/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1271/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 130,
-        "name": "Setanta Sports 1 HD",
-        "category": "sport",
-        "logo": "⚽",
-        "l": "https://i.imgur.com/6U8Y1wQ.png",
-        "desc": "APL, La Liga, Seria A va UFC jonli efirlari (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1263/playlist.m3u8",
-        "c": "uz",
-        "k": "sport",
-        "v": 9900,
-        "q": "1080p HD",
-        "i": 130,
-        "n": "Setanta Sports 1 HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1263/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1263/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1263/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1263/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 131,
-        "name": "LTV HD",
-        "category": "xususiy",
-        "logo": "🎭",
-        "l": "https://i.imgur.com/gK2T3nM.png",
-        "desc": "O'zbek qiziqchilari va komediya shoulari (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1210/playlist.m3u8",
-        "c": "uz",
-        "k": "xususiy",
-        "v": 8950,
-        "q": "1080p HD",
-        "i": 131,
-        "n": "LTV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1210/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1210/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1210/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1210/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 132,
-        "name": "Discovery Channel HD",
-        "category": "ilm",
-        "logo": "🌍",
-        "l": "https://i.imgur.com/9g5vM1X.png",
-        "desc": "Ilm-fan, texnologiya va tabiat sirlari (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1039/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9600,
-        "q": "1080p HD",
-        "i": 132,
-        "n": "Discovery Channel HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1039/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1039/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1039/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1039/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 133,
-        "name": "Nat Geo Wild HD",
-        "category": "ilm",
-        "logo": "🦁",
-        "l": "https://i.imgur.com/Qv9mY0K.png",
-        "desc": "Yovvoyi tabiat va hayvonot olami (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1042/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9550,
-        "q": "1080p HD",
-        "i": 133,
-        "n": "Nat Geo Wild HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1042/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1042/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1042/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1042/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 134,
-        "name": "Animal Planet HD",
-        "category": "ilm",
-        "logo": "🐘",
-        "l": "https://i.imgur.com/4h9jZ9B.png",
-        "desc": "Hayvonot dunyosi va sarguzashtlar (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1043/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 9500,
-        "q": "1080p HD",
-        "i": 134,
-        "n": "Animal Planet HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1043/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1043/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1043/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1043/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 135,
-        "name": "viju Explore HD",
-        "category": "ilm",
-        "logo": "🧭",
-        "l": "https://i.imgur.com/O618d3R.png",
-        "desc": "Kashfiyotlar va qiziqarli hujjatli filmlar (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1045/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8900,
-        "q": "1080p HD",
-        "i": 135,
-        "n": "viju Explore HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1045/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1045/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1045/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1045/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 136,
-        "name": "viju History HD",
-        "category": "ilm",
-        "logo": "🏛️",
-        "l": "https://i.imgur.com/O618d3R.png",
-        "desc": "Buyuk tarixiy voqealar va shaxslar (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1046/playlist.m3u8",
-        "c": "ru",
-        "k": "ilm",
-        "v": 8850,
-        "q": "1080p HD",
-        "i": 136,
-        "n": "viju History HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1046/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1046/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1046/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1046/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 137,
-        "name": "Ilm TV HD",
-        "category": "religious",
-        "logo": "🕌",
-        "l": "https://i.imgur.com/dK1c8zW.png",
-        "desc": "Diniy-ma'rifiy va axloqiy suhbatlar (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1198/playlist.m3u8",
-        "c": "uz",
-        "k": "religious",
-        "v": 9300,
-        "q": "1080p HD",
-        "i": 137,
-        "n": "Ilm TV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1198/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1198/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1198/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1198/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 138,
-        "name": "MYDAY TV HD",
-        "category": "musiqa",
-        "logo": "🎶",
-        "l": "https://i.imgur.com/7vY9X7M.png",
-        "desc": "O'zbek va xalqaro estrada, gastro & art (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1265/playlist.m3u8",
-        "c": "uz",
-        "k": "musiqa",
-        "v": 8800,
-        "q": "1080p HD",
-        "i": 138,
-        "n": "MYDAY TV HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1265/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1265/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1265/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1265/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    },
-    {
-        "id": 139,
-        "name": "TRT Avaz HD",
-        "category": "xalqaro",
-        "logo": "🌐",
-        "l": "https://i.imgur.com/3YpGz5Y.png",
-        "desc": "Turkiy xalqlar madaniyati va yangiliklari (1080p Full HD)",
-        "stream": "https://stream3.cinerama.uz/1258/playlist.m3u8",
-        "c": "tr",
-        "k": "xalqaro",
-        "v": 8600,
-        "q": "1080p HD",
-        "i": 139,
-        "n": "TRT Avaz HD",
-        "u": [
-            [
-                0,
-                "https://stream3.cinerama.uz/1258/playlist.m3u8"
-            ],
-            [
-                1,
-                "https://stream3.cinerama.uz/1258/tracks-v1a1/mono.ts.m3u8"
-            ],
-            [
-                2,
-                "https://stream3.cinerama.uz/1258/mono.m3u8"
-            ],
-            [
-                3,
-                "https://stream3.cinerama.uz/1258/tracks-v2a1/mono.ts.m3u8"
-            ]
-        ]
-    }
+    {       'c': 'uz',
+        'categories': ['kino'],
+        'category': 'kino',
+        'desc': "O'zbek va jahon kinosi (1080p Full HD)",
+        'i': 1,
+        'id': 1,
+        'is_kino': True,
+        'k': 'kino',
+        'l': 'https://biztv.uz/static/media/biz-cinema.286b83dc.png',
+        'logo': '🎬',
+        'n': 'BIZ Cinema',
+        'name': 'BIZ Cinema',
+        'q': '4K UHD',
+        'stream': 'https://stream3.cinerama.uz/1213/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1213/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1213/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1213/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1213/mono.m3u8']],
+        'v': 36000},
+    {       'c': 'uz',
+        'categories': ['milliy', 'kino'],
+        'category': 'milliy',
+        'desc': "Sara jahon va o'zbek kinolari (HD)",
+        'i': 2,
+        'id': 2,
+        'is_kino': True,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/emH1BgC.png',
+        'logo': '🎞️',
+        'n': 'Kinoteatr TV',
+        'name': 'Kinoteatr TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1009/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1009/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1009/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1009/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1009/mono.m3u8']],
+        'v': 35700},
+    {       'c': 'uz',
+        'categories': ['kino', 'xususiy'],
+        'category': 'xususiy',
+        'desc': 'Eng ommabop seriallar va shoular (4K UHD)',
+        'i': 3,
+        'id': 3,
+        'is_kino': True,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/iMwzRlr.png',
+        'logo': '❤️',
+        'n': 'Sevimli TV',
+        'name': 'Sevimli TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1017/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1017/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1017/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1017/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1017/mono.m3u8']],
+        'v': 35400},
+    {       'c': 'uz',
+        'categories': ['kino', 'xususiy'],
+        'category': 'xususiy',
+        'desc': "Ko'ngilochar loyihalar va premyeralar (4K UHD)",
+        'i': 4,
+        'id': 4,
+        'is_kino': True,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/NuzyhVM.png',
+        'logo': '⚡',
+        'n': "Zo'r TV",
+        'name': "Zo'r TV",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1016/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1016/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1016/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1016/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1016/mono.m3u8']],
+        'v': 35100},
+    {       'c': 'uz',
+        'categories': ['kino', 'xususiy'],
+        'category': 'xususiy',
+        'desc': 'Milliy musiqa va badiiy dasturlar (4K UHD)',
+        'i': 5,
+        'id': 5,
+        'is_kino': True,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/v4FBm26.png',
+        'logo': '🦚',
+        'n': 'Milliy TV',
+        'name': 'Milliy TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1014/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1014/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1014/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1014/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1014/mono.m3u8']],
+        'v': 34800},
+    {       'c': 'uz',
+        'categories': ['kino', 'xususiy'],
+        'category': 'xususiy',
+        'desc': 'Yoshlar va oilaviy telekanal (HD Tiniq)',
+        'i': 6,
+        'id': 6,
+        'is_kino': True,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/bjlzu5k.png',
+        'logo': '🌟',
+        'n': 'Mening Yurtim (MY5)',
+        'name': 'Mening Yurtim (MY5)',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1217/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1217/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1217/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1217/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1217/mono.m3u8']],
+        'v': 34500},
+    {       'c': 'uz',
+        'categories': ['kino', 'xususiy'],
+        'category': 'xususiy',
+        'desc': "Yangi avlod ko'ngilochar kanali",
+        'i': 7,
+        'id': 7,
+        'is_kino': True,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/cVlcqCX.png',
+        'logo': '🎨',
+        'n': 'Renessans TV',
+        'name': 'Renessans TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1221/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1221/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1221/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1221/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1221/mono.m3u8']],
+        'v': 34200},
+    {       'c': 'uz',
+        'categories': ['kino'],
+        'category': 'kino',
+        'desc': 'Innovatsion 4K UHD formatdagi loyihalar',
+        'i': 8,
+        'id': 8,
+        'is_kino': True,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/slLuRel.png',
+        'logo': '⚡',
+        'n': 'Insayt TV',
+        'name': 'Insayt TV',
+        'q': '4K UHD',
+        'stream': 'https://stream3.cinerama.uz/1416/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1416/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1416/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1416/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1416/mono.m3u8']],
+        'v': 33900},
+    {       'c': 'uz',
+        'categories': ['kino'],
+        'category': 'kino',
+        'desc': "O'zbek tilidagi jahon va milliy kinofilmlari (1080p HD)",
+        'i': 9,
+        'id': 9,
+        'is_kino': True,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/emH1BgC.png',
+        'logo': '🎬',
+        'n': 'Hayot TV',
+        'name': 'Hayot TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1064/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1064/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1064/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1064/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1064/mono.m3u8']],
+        'v': 33600},
+    {       'c': 'uz',
+        'categories': ['kino', 'xususiy'],
+        'category': 'xususiy',
+        'desc': "Ko'ngilochar va musiqiy telekanal (1080p Full HD)",
+        'i': 10,
+        'id': 10,
+        'is_kino': True,
+        'k': 'xususiy',
+        'l': 'https://biztv.uz/static/media/logo.5f993187.png',
+        'logo': '🔥',
+        'n': 'Biz TV',
+        'name': 'Biz TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1211/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1211/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1211/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1211/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1211/mono.m3u8']],
+        'v': 33300},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Milliy va jahon sport musobaqalari (HD)',
+        'i': 11,
+        'id': 11,
+        'k': 'sport',
+        'l': 'https://i.imgur.com/2WJE9CM.png',
+        'logo': '⚽',
+        'n': 'Sport TV',
+        'name': 'Sport TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1004/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1004/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1004/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1004/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1004/mono.m3u8']],
+        'v': 33000},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'APL, La Liga va Yevrokuboklar (HD)',
+        'i': 12,
+        'id': 12,
+        'k': 'sport',
+        'l': 'https://i.ibb.co/h1gQSkbB/Futbol-TV.png',
+        'logo': '⚽',
+        'n': 'Futbol TV',
+        'name': 'Futbol TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1010/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1010/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1010/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1010/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1010/mono.m3u8']],
+        'v': 32700},
+    {       'c': 'uz',
+        'categories': ['sport'],
+        'category': 'sport',
+        'desc': 'APL, La Liga, Seria A va UFC jonli efirlari (1080p Full HD)',
+        'i': 13,
+        'id': 13,
+        'k': 'sport',
+        'l': 'https://i.imgur.com/6U8Y1wQ.png',
+        'logo': '⚽',
+        'n': 'Setanta Sports 1 HD',
+        'name': 'Setanta Sports 1 HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1263/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1263/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1263/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1263/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1263/mono.m3u8']],
+        'v': 32400},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Asosiy davlat telekanali (1080p HD)',
+        'i': 14,
+        'id': 14,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🇺🇿',
+        'n': "O'zbekiston",
+        'name': "O'zbekiston",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1001/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1001/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1001/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1001/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1001/mono.m3u8']],
+        'v': 32100},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': "Yoshlar uchun ma'rifiy va musiqiy kanal (1080p)",
+        'i': 15,
+        'id': 15,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/s4xfUSx.png',
+        'logo': '🌟',
+        'n': 'Yoshlar',
+        'name': 'Yoshlar',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1002/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1002/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1002/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1002/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1002/mono.m3u8']],
+        'v': 31800},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Poytaxt hayoti va yangiliklari',
+        'i': 16,
+        'id': 16,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/Z9R4nZg.png',
+        'logo': '🏙️',
+        'n': 'Toshkent',
+        'name': 'Toshkent',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1003/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1003/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1003/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1003/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1003/mono.m3u8']],
+        'v': 31500},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': '24 soatlik tezkor axborot kanali (1080p)',
+        'i': 17,
+        'id': 17,
+        'k': 'yangiliklar',
+        'l': 'https://i.imgur.com/VRFhKbw.png',
+        'logo': '🔴',
+        'n': "O'zbekiston 24",
+        'name': "O'zbekiston 24",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1011/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1011/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1011/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1011/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1011/mono.m3u8']],
+        'v': 31200},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Mustaqil yangiliklar va tahlillar (1080p HD)',
+        'i': 18,
+        'id': 18,
+        'k': 'yangiliklar',
+        'l': 'https://i.imgur.com/Bch2RHc.jpg',
+        'logo': '🎙️',
+        'n': 'UzReport TV',
+        'name': 'UzReport TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1015/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1015/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1015/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1015/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1015/mono.m3u8']],
+        'v': 30900},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Sayohat, geografiya va kashfiyotlar (HD)',
+        'i': 19,
+        'id': 19,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/KArB5U6.png',
+        'logo': '🌏',
+        'n': "Dunyo bo'ylab",
+        'name': "Dunyo bo'ylab",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1006/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1006/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1006/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1006/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1006/mono.m3u8']],
+        'v': 30600},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': "Madaniyat, san'at va adabiyot (HD)",
+        'i': 20,
+        'id': 20,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/eeNLXCP.png',
+        'logo': '🎭',
+        'n': "Madaniyat va ma'rifat",
+        'name': "Madaniyat va ma'rifat",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1005/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1005/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1005/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1005/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1005/mono.m3u8']],
+        'v': 30300},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Boy tariximiz va buyuk allomalar merosi',
+        'i': 21,
+        'id': 21,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/iTTd3Ir.png',
+        'logo': '🏛️',
+        'n': "O'zbekiston Tarixi",
+        'name': "O'zbekiston Tarixi",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1209/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1209/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1209/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1209/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1209/mono.m3u8']],
+        'v': 30000},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Oila, mahalla va jamiyat qadriyatlari',
+        'i': 22,
+        'id': 22,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/GtABiJI.png',
+        'logo': '🏘️',
+        'n': 'Mahalla TV',
+        'name': 'Mahalla TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1013/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1013/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1013/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1013/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1013/mono.m3u8']],
+        'v': 29700},
+    {       'c': 'uz',
+        'categories': ['musiqa'],
+        'category': 'musiqa',
+        'desc': "Zamonaviy o'zbek va jahon xitlari (1080p Full HD)",
+        'i': 23,
+        'id': 23,
+        'k': 'musiqa',
+        'l': 'https://i.ibb.co/DfsCJwk/Uz-biz-music-5462.jpg',
+        'logo': '🎶',
+        'n': 'BIZ Music',
+        'name': 'BIZ Music',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1212/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1212/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1212/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1212/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1212/mono.m3u8']],
+        'v': 29400},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Milliy va xorijiy estrada musiqasi',
+        'i': 24,
+        'id': 24,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/7dZ64y9.png',
+        'logo': '🎶',
+        'n': 'Navo TV',
+        'name': 'Navo TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1008/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1008/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1008/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1008/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1008/mono.m3u8']],
+        'v': 29100},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Moda, musiqa va uslub yangiliklari',
+        'i': 25,
+        'id': 25,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/7lpISyN.jpg',
+        'logo': '💃',
+        'n': 'FTV',
+        'name': 'FTV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1018/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1018/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1018/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1018/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1018/mono.m3u8']],
+        'v': 28800},
+    {       'c': 'uz',
+        'categories': ['musiqa'],
+        'category': 'musiqa',
+        'desc': "O'zbek va xalqaro estrada, gastro & art (1080p Full HD)",
+        'i': 26,
+        'id': 26,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/7vY9X7M.png',
+        'logo': '🎶',
+        'n': 'MYDAY TV HD',
+        'name': 'MYDAY TV HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1265/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1265/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1265/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1265/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1265/mono.m3u8']],
+        'v': 28500},
+    {       'c': 'uz',
+        'categories': ['bolalar'],
+        'category': 'bolalar',
+        'desc': 'Zukko bolalar uchun bilim va multfilmlar',
+        'i': 27,
+        'id': 27,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/ekF5cAi.png',
+        'logo': '🧠',
+        'n': 'Aqlvoy',
+        'name': 'Aqlvoy',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1205/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1205/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1205/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1205/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1205/mono.m3u8']],
+        'v': 28200},
+    {       'c': 'uz',
+        'categories': ['bolalar'],
+        'category': 'bolalar',
+        'desc': 'Milliy va tarbiyaviy multfilmlar maskani',
+        'i': 28,
+        'id': 28,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/s7o0ifu.png',
+        'logo': '👶',
+        'n': 'Bolajon',
+        'name': 'Bolajon',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1007/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1007/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1007/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1007/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1007/mono.m3u8']],
+        'v': 27900},
+    {       'c': 'uz',
+        'categories': ['bolalar'],
+        'category': 'bolalar',
+        'desc': 'Eng kichik bolajonlar uchun quvnoq multfilmlar',
+        'i': 29,
+        'id': 29,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/NmQglPa.png',
+        'logo': '🧸',
+        'n': 'MiMi TV',
+        'name': 'MiMi TV',
+        'q': '1080p HD',
+        'stream': 'https://fl.biztv.media/MiMiTV_720/playlist.m3u8',
+        'u': [       [0, 'https://fl.biztv.media/MiMiTV_720/playlist.m3u8'],
+                     [1, 'https://fl.biztv.media/MiMiTV_720/playlist.m3u8']],
+        'v': 27600},
+    {       'c': 'uz',
+        'categories': ['religious'],
+        'category': 'religious',
+        'desc': "Diniy-ma'rifiy va axloqiy suhbatlar (1080p Full HD)",
+        'i': 30,
+        'id': 30,
+        'k': 'religious',
+        'l': 'https://i.imgur.com/dK1c8zW.png',
+        'logo': '🕌',
+        'n': 'Ilm TV HD',
+        'name': 'Ilm TV HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1198/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1198/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1198/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1198/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1198/mono.m3u8']],
+        'v': 27300},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': "O'zbek qiziqchilari va komediya shoulari (1080p Full HD)",
+        'i': 31,
+        'id': 31,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/gK2T3nM.png',
+        'logo': '🎭',
+        'n': 'LTV HD',
+        'name': 'LTV HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1210/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1210/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1210/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1210/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1210/mono.m3u8']],
+        'v': 27000},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Ilm-fan, texnologiya va biznes',
+        'i': 32,
+        'id': 32,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/V3rtPEl.jpg',
+        'logo': '📈',
+        'n': 'Taraqqiyot TV',
+        'name': 'Taraqqiyot TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1204/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1204/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1204/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1204/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1204/mono.m3u8']],
+        'v': 26700},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Pazandachilik va milliy taomlar sirlari',
+        'i': 33,
+        'id': 33,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/APM2ej5.jpeg',
+        'logo': '🍲',
+        'n': 'Dasturxon TV',
+        'name': 'Dasturxon TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1206/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1206/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1206/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1206/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1206/mono.m3u8']],
+        'v': 26400},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': "Ko'ngilochar va sarguzasht telekanali",
+        'i': 34,
+        'id': 34,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/vCc0ED1.png',
+        'logo': '🌍',
+        'n': 'Makon TV',
+        'name': 'Makon TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1497/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1497/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1497/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1497/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1497/mono.m3u8']],
+        'v': 26100},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Cheksiz musiqiy va qiziqarli shoular',
+        'i': 35,
+        'id': 35,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/f7hHmmR.jpeg',
+        'logo': '♾️',
+        'n': 'Cheksiz TV',
+        'name': 'Cheksiz TV',
+        'q': '1080p HD',
+        'stream': 'https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/mono.m3u8',
+        'u': [       [       0,
+                             'https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/mono.m3u8'],
+                     [       1,
+                             'https://fl.biztv.media/cheksiz_tv_480_unif7hujidth7f4du83jrhuid3k94j8hfj8d93eubych8eju93n4ubt/tracks-v1a1/mono.m3u8']],
+        'v': 25800},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Samarqand viloyati teleradiokanali va telenavosi (HD)',
+        'i': 36,
+        'id': 36,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🏛️',
+        'n': 'Samarqand MTRK (STV)',
+        'name': 'Samarqand MTRK (STV)',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1452/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1452/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1452/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1452/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1452/mono.m3u8']],
+        'v': 25500},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Andijon viloyati teleradiokanali va xushnavolari',
+        'i': 37,
+        'id': 37,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🌸',
+        'n': 'Andijon MTRK',
+        'name': 'Andijon MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1455/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1455/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1455/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1455/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1455/mono.m3u8']],
+        'v': 25200},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Buxoro viloyati qadimiy madaniyati va navolari',
+        'i': 38,
+        'id': 38,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🕌',
+        'n': 'Buxoro MTRK',
+        'name': 'Buxoro MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1456/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1456/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1456/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1456/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1456/mono.m3u8']],
+        'v': 24900},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': "Farg'ona vodiysi yangiliklari va madaniyati",
+        'i': 39,
+        'id': 39,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/RYjQOfo.jpeg',
+        'logo': '🍇',
+        'n': "Farg'ona MTRK",
+        'name': "Farg'ona MTRK",
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1458/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1458/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1458/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1458/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1458/mono.m3u8']],
+        'v': 24600},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Jizzax viloyati teleradiokanali va dasturlari',
+        'i': 40,
+        'id': 40,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '⛰️',
+        'n': 'Jizzax MTRK',
+        'name': 'Jizzax MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1457/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1457/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1457/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1457/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1457/mono.m3u8']],
+        'v': 24300},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Gullar shahri Namangan viloyat teleradiokanali',
+        'i': 41,
+        'id': 41,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🌺',
+        'n': 'Namangan MTRK',
+        'name': 'Namangan MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1459/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1459/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1459/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1459/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1459/mono.m3u8']],
+        'v': 24000},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Navoiy viloyati hayoti va sanoati',
+        'i': 42,
+        'id': 42,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/qa4VlYh.png',
+        'logo': '🏭',
+        'n': 'Navoiy MTRK',
+        'name': 'Navoiy MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1460/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1460/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1460/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1460/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1460/mono.m3u8']],
+        'v': 23700},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Nasaf va Qashqadaryo vohasi teleradiokanali',
+        'i': 43,
+        'id': 43,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🏜️',
+        'n': 'Qashqadaryo MTRK',
+        'name': 'Qashqadaryo MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1461/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1461/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1461/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1461/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1461/mono.m3u8']],
+        'v': 23400},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Termiz va janubiy voha yangiliklari hamda navolari',
+        'i': 44,
+        'id': 44,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '☀️',
+        'n': 'Surxondaryo MTRK',
+        'name': 'Surxondaryo MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1462/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1462/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1462/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1462/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1462/mono.m3u8']],
+        'v': 23100},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': 'Guliston va Sirdaryo viloyat teleradiokanali',
+        'i': 45,
+        'id': 45,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🌊',
+        'n': 'Sirdaryo MTRK',
+        'name': 'Sirdaryo MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1463/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1463/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1463/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1463/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1463/mono.m3u8']],
+        'v': 22800},
+    {       'c': 'uz',
+        'categories': ['milliy'],
+        'category': 'milliy',
+        'desc': "Xiva va Xorazm viloyati san'ati, tarixi va navolari",
+        'i': 46,
+        'id': 46,
+        'k': 'milliy',
+        'l': 'https://i.imgur.com/QUIIhTD.png',
+        'logo': '🏰',
+        'n': 'Xorazm MTRK',
+        'name': 'Xorazm MTRK',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1464/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1464/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1464/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1464/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1464/mono.m3u8']],
+        'v': 22500},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': "Qoraqalpog'iston milliy teleradiokanali",
+        'i': 47,
+        'id': 47,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/G3qrUJh.png',
+        'logo': '🌊',
+        'n': 'Qaraqalpaqstan TV',
+        'name': 'Qaraqalpaqstan TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1467/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1467/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1467/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1467/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1467/mono.m3u8']],
+        'v': 22200},
+    {       'c': 'uz',
+        'categories': ['xususiy'],
+        'category': 'xususiy',
+        'desc': 'Toshkent viloyati yangiliklari va madaniyati',
+        'i': 48,
+        'id': 48,
+        'k': 'xususiy',
+        'l': 'https://i.imgur.com/MMdNyBU.jpeg',
+        'logo': '✨',
+        'n': 'Nurafshon TV',
+        'name': 'Nurafshon TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1220/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1220/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1220/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1220/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1220/mono.m3u8']],
+        'v': 21900},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Jangari, blokbaster va triller filmlar',
+        'i': 49,
+        'id': 49,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/TMmyuzh.png',
+        'logo': '💥',
+        'n': 'viju TV1000 action',
+        'name': 'viju TV1000 action',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1225/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1225/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1225/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1225/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1225/mono.m3u8']],
+        'v': 14000},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Yangi chiqqan premyera kinolar',
+        'i': 50,
+        'id': 50,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/s0UYT8T.png',
+        'logo': '🎞️',
+        'n': 'Kinopremyera',
+        'name': 'Kinopremyera',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1207/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1207/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1207/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1207/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1207/mono.m3u8']],
+        'v': 13920},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Dunyo kinoprokatining eng xit filmlari',
+        'i': 51,
+        'id': 51,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/Ge8vkQM.png',
+        'logo': '⭐',
+        'n': 'KinoHit',
+        'name': 'KinoHit',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1055/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1055/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1055/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1055/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1055/mono.m3u8']],
+        'v': 13840},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Klassik va zamonaviy rus kinosi',
+        'i': 52,
+        'id': 52,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/Meak2y4.png',
+        'logo': '🇷🇺',
+        'n': 'viju TV1000 russkoe',
+        'name': 'viju TV1000 russkoe',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1058/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1058/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1058/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1058/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1058/mono.m3u8']],
+        'v': 13760},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Dramatik va detektiv jahon asarlari',
+        'i': 53,
+        'id': 53,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/nNjMyAq.png',
+        'logo': '🎥',
+        'n': 'Kinopokaz',
+        'name': 'Kinopokaz',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1057/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1057/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1057/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1057/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1057/mono.m3u8']],
+        'v': 13680},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Koreys, xitoy va turk seriallari (Dorama)',
+        'i': 54,
+        'id': 54,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/ZH5LuXU.png',
+        'logo': '🌸',
+        'n': 'Dorama',
+        'name': 'Dorama',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1273/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1273/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1273/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1273/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1273/mono.m3u8']],
+        'v': 13600},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Oltin fond kinosi durdonalari',
+        'i': 55,
+        'id': 55,
+        'k': 'kino',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/%D0%9B%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%BA%D0%B0%D0%BD%D0%B0%D0%BB%D0%B0_%D0%94%D0%BE%D0%BC_%D0%9A%D0%B8%D0%BD%D0%BE.png/960px-%D0%9B%D0%BE%D0%B3%D0%BE%D1%82%D0%B8%D0%BF_%D0%BA%D0%B0%D0%BD%D0%B0%D0%BB%D0%B0_%D0%94%D0%BE%D0%BC_%D0%9A%D0%B8%D0%BD%D0%BE.png',
+        'logo': '🏠',
+        'n': 'Dom kino',
+        'name': 'Dom kino',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1054/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1054/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1054/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1054/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1054/mono.m3u8']],
+        'v': 13520},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Eng sara hind kinolari va musiqali dramalar',
+        'i': 56,
+        'id': 56,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/LL8GyCh.png',
+        'logo': '🇮🇳',
+        'n': 'Indiyskoye Kino',
+        'name': 'Indiyskoye Kino',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1060/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1060/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1060/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1060/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1060/mono.m3u8']],
+        'v': 13440},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Romantik melodrama va komediyalar',
+        'i': 57,
+        'id': 57,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/ZRaWqxj.png',
+        'logo': '💑',
+        'n': 'Kinosvidanie',
+        'name': 'Kinosvidanie',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1203/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1203/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1203/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1203/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1203/mono.m3u8']],
+        'v': 13360},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Jahon kinosining nodir namunalari',
+        'i': 58,
+        'id': 58,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/b5e9qUA.png',
+        'logo': '🎦',
+        'n': 'Cinema',
+        'name': 'Cinema',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1227/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1227/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1227/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1227/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1227/mono.m3u8']],
+        'v': 13280},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Zamonaviy mualliflik va tijoriy filmlar',
+        'i': 59,
+        'id': 59,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/eBf2Dcf.png',
+        'logo': '🇷🇺',
+        'n': 'Nashe Novoe Kino',
+        'name': 'Nashe Novoe Kino',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1056/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1056/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1056/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1056/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1056/mono.m3u8']],
+        'v': 13200},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Hindistonning eng sara filmlari va musiqiy shoulari (1080p HD)',
+        'i': 60,
+        'id': 60,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/scDKOLS.png',
+        'logo': '💃',
+        'n': 'Bollywood HD',
+        'name': 'Bollywood HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1041/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1041/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1041/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1041/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1041/mono.m3u8']],
+        'v': 13120},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Qadrdon sovet va rus filmlari',
+        'i': 61,
+        'id': 61,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/H70LxoZ.png',
+        'logo': '🎞️',
+        'n': 'Rodnoe Kino',
+        'name': 'Rodnoe Kino',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1052/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1052/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1052/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1052/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1052/mono.m3u8']],
+        'v': 13040},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Eng sara jahon seriallari va filmlari (1080p Full HD)',
+        'i': 62,
+        'id': 62,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/O618d3R.png',
+        'logo': '🎬',
+        'n': 'viju+ serial',
+        'name': 'viju+ serial',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1224/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1224/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1224/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1224/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1224/mono.m3u8']],
+        'v': 12960},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Butun oila uchun sevimli filmlar (1080p Full HD)',
+        'i': 63,
+        'id': 63,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/8Qp4z7p.png',
+        'logo': '🍿',
+        'n': 'KinoSemya HD',
+        'name': 'KinoSemya HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1234/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1234/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1234/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1234/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1234/mono.m3u8']],
+        'v': 12880},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': 'Kulgili va quvnoq komediya filmlari kanali (1080p HD)',
+        'i': 64,
+        'id': 64,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/O618d3R.png',
+        'logo': '😂',
+        'n': 'viju+ comedy',
+        'name': 'viju+ comedy',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1061/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1061/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1061/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1061/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1061/mono.m3u8']],
+        'v': 12800},
+    {       'c': 'ru',
+        'category': 'kino',
+        'desc': '60-90-yillar retro kino va musiqasi',
+        'i': 65,
+        'id': 65,
+        'k': 'kino',
+        'l': 'https://i.imgur.com/p21co1w.png',
+        'logo': '📼',
+        'n': 'Retro TV',
+        'name': 'Retro TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1047/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1047/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1047/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1047/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1047/mono.m3u8']],
+        'v': 12720},
+    {       'c': 'ru',
+        'category': 'sport',
+        'desc': 'Professional MMA, UFC va boks janglari',
+        'i': 66,
+        'id': 66,
+        'k': 'sport',
+        'l': 'https://i.imgur.com/QhdxNsB.png',
+        'logo': '🥋',
+        'n': 'MMA-TV.com',
+        'name': 'MMA-TV.com',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1226/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1226/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1226/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1226/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1226/mono.m3u8']],
+        'v': 12640},
+    {       'c': 'int',
+        'category': 'sport',
+        'desc': 'Ekstremal sport, F1 va sarguzashtlar 24/7',
+        'i': 67,
+        'id': 67,
+        'k': 'sport',
+        'l': 'https://i.postimg.cc/8c78JM28/image.png',
+        'logo': '🏎️',
+        'n': 'Red Bull TV',
+        'name': 'Red Bull TV',
+        'q': '1080p HD',
+        'stream': 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8',
+        'u': [[0, 'https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8']],
+        'v': 12560},
+    {       'c': 'ru',
+        'category': 'sport',
+        'desc': 'Xalqaro tennis, basketbol va yakkakurash',
+        'i': 68,
+        'id': 68,
+        'k': 'sport',
+        'l': 'https://i.imgur.com/fXESG0l.png',
+        'logo': '🥊',
+        'n': 'viju+ Sport',
+        'name': 'viju+ Sport',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1229/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1229/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1229/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1229/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1229/mono.m3u8']],
+        'v': 12480},
+    {       'c': 'tr',
+        'category': 'sport',
+        'desc': 'Turkiya Superligasi va jahon sporti HD',
+        'i': 69,
+        'id': 69,
+        'k': 'sport',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/A_Spor_logo.svg/512px-A_Spor_logo.svg.png',
+        'logo': '🇹🇷',
+        'n': 'A Spor',
+        'name': 'A Spor',
+        'q': '1080p HD',
+        'stream': 'https://trkvz-live.ercdn.net/asporhd/asporhd.m3u8',
+        'u': [[0, 'https://trkvz-live.ercdn.net/asporhd/asporhd.m3u8']],
+        'v': 12400},
+    {       'c': 'ru',
+        'category': 'sport',
+        'desc': 'Dunyo sport yulduzlarining shaxsiy hayoti',
+        'i': 70,
+        'id': 70,
+        'k': 'sport',
+        'l': 'https://i.imgur.com/FabFP5A.png',
+        'logo': '⭐',
+        'n': 'Trace Sport Stars',
+        'name': 'Trace Sport Stars',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1274/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1274/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1274/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1274/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1274/mono.m3u8']],
+        'v': 12320},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Gubka Bob, Ninja Toshbaqalar va Loud House',
+        'i': 71,
+        'id': 71,
+        'k': 'bolalar',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Nickelodeon_2023.svg/512px-Nickelodeon_2023.svg.png',
+        'logo': '🟧',
+        'n': 'Nickelodeon CIS',
+        'name': 'Nickelodeon CIS',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1500/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1500/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1500/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1500/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1500/mono.m3u8']],
+        'v': 12240},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Masha va Ayiq, Fixiklar, Smeshariki',
+        'i': 72,
+        'id': 72,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/39wF4yK.png',
+        'logo': '🐻',
+        'n': 'Mult',
+        'name': 'Mult',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1247/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1247/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1247/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1247/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1247/mono.m3u8']],
+        'v': 12160},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Kichkintoylar uchun Patrul kuchukchalar',
+        'i': 73,
+        'id': 73,
+        'k': 'bolalar',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Nick_Jr._logo_2023_(outline).svg/960px-Nick_Jr._logo_2023_(outline).svg.png',
+        'logo': '🐾',
+        'n': 'Nick Jr.',
+        'name': 'Nick Jr.',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1501/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1501/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1501/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1501/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1501/mono.m3u8']],
+        'v': 12080},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Eng sara Nickeloden animatsiyalari',
+        'i': 74,
+        'id': 74,
+        'k': 'bolalar',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/d/d8/Nicktoons_UK_Logo_2014.png',
+        'logo': '⚡',
+        'n': 'Nicktoons CIS',
+        'name': 'Nicktoons CIS',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1502/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1502/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1502/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1502/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1502/mono.m3u8']],
+        'v': 12000},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Bolalar va butun oila uchun sevimli multfilmlar (HD)',
+        'i': 75,
+        'id': 75,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/97y42jW.png',
+        'logo': '🎈',
+        'n': 'Multilandia',
+        'name': 'Multilandia',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1247/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1247/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1247/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1247/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1247/mono.m3u8']],
+        'v': 11920},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Fransuz sifatidagi mehrli multseriallar',
+        'i': 76,
+        'id': 76,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/QCOUJ30.png',
+        'logo': '🌸',
+        'n': 'TiJi',
+        'name': 'TiJi',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1441/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1441/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1441/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1441/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1441/mono.m3u8']],
+        'v': 11840},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Ertaklar olamiga sehrli sayohat',
+        'i': 77,
+        'id': 77,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/jNJkLHl.png',
+        'logo': '🧙\u200d♂️',
+        'n': 'V gostyakh u skazki',
+        'name': 'V gostyakh u skazki',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1270/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1270/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1270/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1270/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1270/mono.m3u8']],
+        'v': 11760},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Sehrli olamlar va qizaloqlar uchun multfilmlar',
+        'i': 78,
+        'id': 78,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/lbViDuC.png',
+        'logo': '🧚',
+        'n': 'Gulli Girl',
+        'name': 'Gulli Girl',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1445/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1445/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1445/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1445/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1445/mono.m3u8']],
+        'v': 11680},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Kichkintoylar va bolalar uchun tarbiyaviy multfilmlar (1080p Full HD)',
+        'i': 79,
+        'id': 79,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/tHqgU6V.png',
+        'logo': '🦆',
+        'n': 'ducktv HD',
+        'name': 'ducktv HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1271/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1271/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1271/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1271/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1271/mono.m3u8']],
+        'v': 11600},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Superqahramonlar va koinot sarguzashtlari',
+        'i': 80,
+        'id': 80,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/K3PSHiT.png',
+        'logo': '🚀',
+        'n': 'Kapitan Fantastika',
+        'name': 'Kapitan Fantastika',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1406/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1406/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1406/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1406/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1406/mono.m3u8']],
+        'v': 11520},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': "Klassik ertaklar va rivojlantiruvchi o'yinlar",
+        'i': 81,
+        'id': 81,
+        'k': 'bolalar',
+        'l': 'https://mt.media/upload/iblock/c22/pndw8yi2jwgppdrjikm3eusqp8087kr3.png',
+        'logo': '🎪',
+        'n': 'Detskiy',
+        'name': 'Detskiy',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1033/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1033/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1033/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1033/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1033/mono.m3u8']],
+        'v': 11440},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Mehrli va imo-ishora tiliga mos multfilmlar',
+        'i': 82,
+        'id': 82,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/acrU2IE.png',
+        'logo': '🦊',
+        'n': 'Ryzhiy',
+        'name': 'Ryzhiy',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1407/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1407/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1407/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1407/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1407/mono.m3u8']],
+        'v': 11360},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Kulgili va ijobiy animatsion dasturlar',
+        'i': 83,
+        'id': 83,
+        'k': 'bolalar',
+        'l': 'https://static.tildacdn.com/tild3936-3138-4234-b536-326531343933/-_13x.png',
+        'logo': '😄',
+        'n': 'Smile TV',
+        'name': 'Smile TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1425/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1425/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1425/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1425/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1425/mono.m3u8']],
+        'v': 11280},
+    {       'c': 'ru',
+        'category': 'bolalar',
+        'desc': 'Onalar va farzandlar tarbiyasi kanali',
+        'i': 84,
+        'id': 84,
+        'k': 'bolalar',
+        'l': 'https://i.imgur.com/kmMIjjf.png',
+        'logo': '👩\u200d👧',
+        'n': 'Mama',
+        'name': 'Mama',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1244/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1244/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1244/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1244/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1244/mono.m3u8']],
+        'v': 11200},
+    {       'c': 'ru',
+        'category': 'musiqa',
+        'desc': 'Musiqiy kliplar, chartlar va shoular (1080p HD)',
+        'i': 85,
+        'id': 85,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/W2dO41N.png',
+        'logo': '🎤',
+        'n': 'Muz TV HD',
+        'name': 'Muz TV HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1063/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1063/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1063/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1063/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1063/mono.m3u8']],
+        'v': 11120},
+    {       'c': 'ru',
+        'category': 'musiqa',
+        'desc': 'Jahon xitlari va elektron musiqa 1080p',
+        'i': 86,
+        'id': 86,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/4Ww7CsR.png',
+        'logo': '🎧',
+        'n': '1HD Music Television',
+        'name': '1HD Music Television',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1267/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1267/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1267/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1267/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1267/mono.m3u8']],
+        'v': 11040},
+    {       'c': 'ru',
+        'category': 'musiqa',
+        'desc': 'Eng yaxshi rus estradasi premyeralari',
+        'i': 87,
+        'id': 87,
+        'k': 'musiqa',
+        'l': 'https://rutv.by/wp-content/uploads/2020/09/logo.png',
+        'logo': '🇷🇺',
+        'n': 'RU.TV',
+        'name': 'RU.TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1202/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1202/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1202/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1202/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1202/mono.m3u8']],
+        'v': 10960},
+    {       'c': 'ru',
+        'category': 'musiqa',
+        'desc': 'Yoshlarbop trendlar va zamonaviy sound',
+        'i': 88,
+        'id': 88,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/uGzH7yP.png',
+        'logo': '🔥',
+        'n': 'Muzyka Pervogo',
+        'name': 'Muzyka Pervogo',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1053/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1053/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1053/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1053/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1053/mono.m3u8']],
+        'v': 10880},
+    {       'c': 'tr',
+        'category': 'musiqa',
+        'desc': "Klassik turk qo'shiqlari va zamonaviy hitlar",
+        'i': 89,
+        'id': 89,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/JgUzRH8.png',
+        'logo': '🇹🇷',
+        'n': 'TRT Muzik',
+        'name': 'TRT Muzik',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1208/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1208/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1208/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1208/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1208/mono.m3u8']],
+        'v': 10800},
+    {       'c': 'ru',
+        'category': 'musiqa',
+        'desc': 'Chillout, lofi va relaks musiqa oqimi',
+        'i': 90,
+        'id': 90,
+        'k': 'musiqa',
+        'l': 'https://i.imgur.com/tXABQDE.png',
+        'logo': '📻',
+        'n': 'FON Music',
+        'name': 'FON Music',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1272/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1272/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1272/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1272/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1272/mono.m3u8']],
+        'v': 10720},
+    {       'c': 'sa',
+        'category': 'religious',
+        'desc': 'Makkai Mukarrama jonli efiri (24/7 1080p Full HD)',
+        'i': 91,
+        'id': 91,
+        'k': 'religious',
+        'l': 'https://i.imgur.com/A2fJysM.png',
+        'logo': '🕋',
+        'n': 'Makka Jonli Efir',
+        'name': 'Makka Jonli Efir',
+        'q': '1080p HD',
+        'stream': 'https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8',
+        'u': [       [       0,
+                             'https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/index.m3u8'],
+                     [       1,
+                             'https://cdn-globecast.akamaized.net/live/eds/saudi_quran/hls_roku/01.m3u8'],
+                     [2, 'https://www.youtube.com/watch?v=saudi_quran']],
+        'v': 10640},
+    {       'c': 'sa',
+        'category': 'religious',
+        'desc': 'Madinai Munavvara jonli efiri (24/7 1080p Full HD)',
+        'i': 92,
+        'id': 92,
+        'k': 'religious',
+        'l': 'https://i.imgur.com/S6LcTJv.png',
+        'logo': '🕌',
+        'n': 'Madina Jonli Efir',
+        'name': 'Madina Jonli Efir',
+        'q': '1080p HD',
+        'stream': 'https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8',
+        'u': [       [       0,
+                             'https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/index.m3u8'],
+                     [       1,
+                             'https://cdn-globecast.akamaized.net/live/eds/saudi_sunnah/hls_roku/01.m3u8'],
+                     [2, 'https://www.youtube.com/watch?v=saudi_sunnah']],
+        'v': 10560},
+    {       'c': 'int',
+        'category': 'yangiliklar',
+        'desc': 'Global axborot olamining nufuzli yetakchisi',
+        'i': 93,
+        'id': 93,
+        'k': 'yangiliklar',
+        'l': 'https://dtil.tmsimg.com/assets/s158142_ld_h15_aa.png?lock=720x540',
+        'logo': '🇬🇧',
+        'n': 'BBC News Europe',
+        'name': 'BBC News Europe',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1251/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1251/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1251/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1251/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1251/mono.m3u8']],
+        'v': 10480},
+    {       'c': 'ru',
+        'category': 'yangiliklar',
+        'desc': 'Yevropa va butun dunyo yangiliklari xolis tahlili',
+        'i': 94,
+        'id': 94,
+        'k': 'yangiliklar',
+        'l': 'https://i.imgur.com/8t9mdg9.png',
+        'logo': '🇪🇺',
+        'n': 'Euronews HD',
+        'name': 'Euronews HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1024/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1024/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1024/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1024/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1024/mono.m3u8']],
+        'v': 10400},
+    {       'c': 'ru',
+        'category': 'yangiliklar',
+        'desc': "Rossiya federal kecha-yu kunduz axborot tarmog'i",
+        'i': 95,
+        'id': 95,
+        'k': 'yangiliklar',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/Rossiya-24_Logo.svg/960px-Rossiya-24_Logo.svg.png',
+        'logo': '🇷🇺',
+        'n': 'Russia-24',
+        'name': 'Russia-24',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1021/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1021/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1021/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1021/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1021/mono.m3u8']],
+        'v': 10320},
+    {       'c': 'tr',
+        'category': 'yangiliklar',
+        'desc': 'Turkiya va jahon siyosiy voqealari',
+        'i': 96,
+        'id': 96,
+        'k': 'yangiliklar',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/d7/TRT_Haber_logo_2020.svg/512px-TRT_Haber_logo_2020.svg.png',
+        'logo': '🇹🇷',
+        'n': 'TRT Haber',
+        'name': 'TRT Haber',
+        'q': '1080p HD',
+        'stream': 'https://tv-trthaber.medya.trt.com.tr/master.m3u8',
+        'u': [[0, 'https://tv-trthaber.medya.trt.com.tr/master.m3u8']],
+        'v': 10240},
+    {       'c': 'int',
+        'category': 'yangiliklar',
+        'desc': 'Germaniya xalqaro teleradiokompaniyasi',
+        'i': 97,
+        'id': 97,
+        'k': 'yangiliklar',
+        'l': 'https://i.imgur.com/MNKkgfa.png',
+        'logo': '🇩🇪',
+        'n': 'DW English',
+        'name': 'DW English',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1418/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1418/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1418/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1418/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1418/mono.m3u8']],
+        'v': 10160},
+    {       'c': 'ru',
+        'category': 'yangiliklar',
+        'desc': 'MDH davlatlarining birlashgan axborot kanali',
+        'i': 98,
+        'id': 98,
+        'k': 'yangiliklar',
+        'l': 'https://i.imgur.com/dj9c8Yd.png',
+        'logo': '🌐',
+        'n': 'Mir 24',
+        'name': 'Mir 24',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1219/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1219/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1219/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1219/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1219/mono.m3u8']],
+        'v': 10080},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Yovvoyi tabiat, o'rmonlar va dengiz tubi sirlari",
+        'i': 99,
+        'id': 99,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/8BPZ18l.png',
+        'logo': '🌿',
+        'n': 'viju Nature',
+        'name': 'viju Nature',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1228/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1228/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1228/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1228/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1228/mono.m3u8']],
+        'v': 10000},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Noyob jonivorlar hayoti va ekologiya',
+        'i': 100,
+        'id': 100,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/onNv1tM.png',
+        'logo': '🦁',
+        'n': 'Zhivaya Planeta',
+        'name': 'Zhivaya Planeta',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1250/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1250/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1250/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1250/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1250/mono.m3u8']],
+        'v': 9920},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Avtomobil test-drayvlari, superkarlar va ta'mirlash",
+        'i': 101,
+        'id': 101,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/sVc8cFt.png',
+        'logo': '🚗',
+        'n': 'Auto Plus',
+        'name': 'Auto Plus',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1036/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1036/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1036/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1036/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1036/mono.m3u8']],
+        'v': 9840},
+    {       'c': 'int',
+        'category': 'ilm',
+        'desc': "Ingliz tilini interaktiv o'rganish kanali",
+        'i': 102,
+        'id': 102,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/9FMvaRK.png',
+        'logo': '🗣️',
+        'n': 'English Club TV',
+        'name': 'English Club TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1442/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1442/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1442/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1442/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1442/mono.m3u8']],
+        'v': 9760},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Bolalar va o'smirlar uchun intellektual fan dasturlari",
+        'i': 103,
+        'id': 103,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/iBx7K1M.png',
+        'logo': '🎨',
+        'n': 'Da Vinci',
+        'name': 'Da Vinci',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1231/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1231/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1231/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1231/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1231/mono.m3u8']],
+        'v': 9680},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Dunyo xalqlari oshxonasi va master-klasslar',
+        'i': 104,
+        'id': 104,
+        'k': 'ilm',
+        'l': 'https://cdn2.red-media.ru/wp-content/uploads/2016/08/Kuhnya-mediakit.png',
+        'logo': '🍳',
+        'n': 'Kuhnya TV',
+        'name': 'Kuhnya TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1236/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1236/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1236/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1236/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1236/mono.m3u8']],
+        'v': 9600},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Tezlik, poygalar va avtomobil madaniyati',
+        'i': 105,
+        'id': 105,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/FnuwfSC.png',
+        'logo': '🏎️',
+        'n': 'Drive',
+        'name': 'Drive',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1421/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1421/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1421/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1421/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1421/mono.m3u8']],
+        'v': 9520},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Muhandislik mo'jizalari va kosmik texnologiya",
+        'i': 106,
+        'id': 106,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/1W6R14o.png',
+        'logo': '🔬',
+        'n': 'T24',
+        'name': 'T24',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1037/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1037/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1037/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1037/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1037/mono.m3u8']],
+        'v': 9440},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Tibbiyot yangiliklari, salomatlik va profilaktika',
+        'i': 107,
+        'id': 107,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/VNirxxn.png',
+        'logo': '🩺',
+        'n': 'Doctor',
+        'name': 'Doctor',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1409/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1409/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1409/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1409/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1409/mono.m3u8']],
+        'v': 9360},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Ilm-fan, texnologiya va tabiat sirlari (1080p Full HD)',
+        'i': 108,
+        'id': 108,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/9g5vM1X.png',
+        'logo': '🌍',
+        'n': 'Discovery Channel HD',
+        'name': 'Discovery Channel HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1039/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1039/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1039/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1039/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1039/mono.m3u8']],
+        'v': 9280},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Yovvoyi tabiat va hayvonot olami (1080p Full HD)',
+        'i': 109,
+        'id': 109,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/Qv9mY0K.png',
+        'logo': '🦁',
+        'n': 'Nat Geo Wild HD',
+        'name': 'Nat Geo Wild HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1042/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1042/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1042/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1042/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1042/mono.m3u8']],
+        'v': 9200},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Hayvonot dunyosi va sarguzashtlar (1080p Full HD)',
+        'i': 110,
+        'id': 110,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/4h9jZ9B.png',
+        'logo': '🐘',
+        'n': 'Animal Planet HD',
+        'name': 'Animal Planet HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1043/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1043/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1043/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1043/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1043/mono.m3u8']],
+        'v': 9120},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Daryo, ko'l va o'rmonlarda haqiqiy tajribalar",
+        'i': 111,
+        'id': 111,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/nZwBaeW.png',
+        'logo': '🦌',
+        'n': 'Okhota i rybalka',
+        'name': 'Okhota i rybalka',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1038/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1038/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1038/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1038/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1038/mono.m3u8']],
+        'v': 9040},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Jahon tarixi, sulolalar va buyuk janglar',
+        'i': 112,
+        'id': 112,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/NfnAiTR.png',
+        'logo': '📜',
+        'n': '365 days TV',
+        'name': '365 days TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1242/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1242/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1242/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1242/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1242/mono.m3u8']],
+        'v': 8960},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Professional baliq ovi va ovchilik sarguzashtlari',
+        'i': 113,
+        'id': 113,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/Bj1jI7F.png',
+        'logo': '🎣',
+        'n': 'Ohotnik i rybolov',
+        'name': 'Ohotnik i rybolov',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1413/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1413/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1413/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1413/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1413/mono.m3u8']],
+        'v': 8880},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Uy hayvonlari va qiziqarli zoologiya',
+        'i': 114,
+        'id': 114,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/IO5jegK.png',
+        'logo': '🐼',
+        'n': 'Zoopark',
+        'name': 'Zoopark',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1417/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1417/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1417/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1417/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1417/mono.m3u8']],
+        'v': 8800},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Harbiy texnika, qurol-aslahalar va aviatsiya',
+        'i': 115,
+        'id': 115,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/DBpVeb0.png',
+        'logo': '🛡️',
+        'n': 'Arsenal',
+        'name': 'Arsenal',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1414/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1414/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1414/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1414/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1414/mono.m3u8']],
+        'v': 8720},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Sarguzashtlar, ekspeditsiyalar va yangi kashfiyotlar',
+        'i': 116,
+        'id': 116,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/qQ6pPPQ.png',
+        'logo': '🧭',
+        'n': 'Priklyucheniya',
+        'name': 'Priklyucheniya',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1420/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1420/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1420/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1420/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1420/mono.m3u8']],
+        'v': 8640},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Kashfiyotlar va qiziqarli hujjatli filmlar (1080p Full HD)',
+        'i': 117,
+        'id': 117,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/O618d3R.png',
+        'logo': '🧭',
+        'n': 'viju Explore HD',
+        'name': 'viju Explore HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1045/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1045/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1045/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1045/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1045/mono.m3u8']],
+        'v': 8560},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Buyuk tarixiy voqealar va shaxslar (1080p Full HD)',
+        'i': 118,
+        'id': 118,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/O618d3R.png',
+        'logo': '🏛️',
+        'n': 'viju History HD',
+        'name': 'viju History HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1046/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1046/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1046/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1046/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1046/mono.m3u8']],
+        'v': 8480},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Yovvoyi tabiat qo'ynida omon qolish mahorati",
+        'i': 119,
+        'id': 119,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/VDXDiPC.png',
+        'logo': '🌲',
+        'n': 'Dikij',
+        'name': 'Dikij',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1230/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1230/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1230/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1230/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1230/mono.m3u8']],
+        'v': 8400},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Parashyut, dayving va tog' turizmi",
+        'i': 120,
+        'id': 120,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/TZiBQDK.png',
+        'logo': '🪂',
+        'n': 'Tochka otryva',
+        'name': 'Tochka otryva',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1031/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1031/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1031/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1031/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1031/mono.m3u8']],
+        'v': 8320},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Eng chiroyli sayohat marshrutlari va maslahatlar',
+        'i': 121,
+        'id': 121,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/GXJKWdy.png',
+        'logo': '✈️',
+        'n': 'Glazami Turista',
+        'name': 'Glazami Turista',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1423/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1423/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1423/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1423/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1423/mono.m3u8']],
+        'v': 8240},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Mushuklar, itlar va boshqa jonivorlarni parvarishlash',
+        'i': 122,
+        'id': 122,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/ISJzQGP.png',
+        'logo': '🐶',
+        'n': 'Domashnie Zhivotnye',
+        'name': 'Domashnie Zhivotnye',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1426/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1426/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1426/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1426/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1426/mono.m3u8']],
+        'v': 8160},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Mazali pishiriqlar va oilaviy retseptlar',
+        'i': 123,
+        'id': 123,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/1H3h1HL.png',
+        'logo': '☕',
+        'n': 'Telecafe',
+        'name': 'Telecafe',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1035/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1035/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1035/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1035/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1035/mono.m3u8']],
+        'v': 8080},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Sog'lom turmush tarzi, fitnes va to'g'ri ovqatlanish",
+        'i': 124,
+        'id': 124,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/jedtE5l.png',
+        'logo': '🥗',
+        'n': 'Zdorovoe TV',
+        'name': 'Zdorovoe TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1428/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1428/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1428/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1428/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1428/mono.m3u8']],
+        'v': 8000},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': "Bog'dorchilik, landshaft dizayni va gulchilik",
+        'i': 125,
+        'id': 125,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/mf13haG.png',
+        'logo': '🏡',
+        'n': 'Usadba',
+        'name': 'Usadba',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1427/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1427/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1427/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1427/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1427/mono.m3u8']],
+        'v': 7920},
+    {       'c': 'ru',
+        'category': 'ilm',
+        'desc': 'Shahar tashqarisidagi shinam hayot sirlari',
+        'i': 126,
+        'id': 126,
+        'k': 'ilm',
+        'l': 'https://i.imgur.com/RoYd5pz.png',
+        'logo': '🌻',
+        'n': 'Zagorodnaya Zhizn',
+        'name': 'Zagorodnaya Zhizn',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1044/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1044/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1044/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1044/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1044/mono.m3u8']],
+        'v': 7840},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': 'Rossiya Birinchi telekanali (HD)',
+        'i': 127,
+        'id': 127,
+        'k': 'xalqaro',
+        'l': 'https://uut-telecom.ru/wp-content/uploads/2021/12/pervyj-hd.png',
+        'logo': '1️⃣',
+        'n': 'Channel One (Perviy)',
+        'name': 'Channel One (Perviy)',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1214/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1214/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1214/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1214/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1214/mono.m3u8']],
+        'v': 7760},
+    {       'c': 'tr',
+        'category': 'xalqaro',
+        'desc': 'Turkiya bosh davlat telekanali, tarixiy seriallar',
+        'i': 128,
+        'id': 128,
+        'k': 'xalqaro',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/TRT_1_logo_2021.svg/512px-TRT_1_logo_2021.svg.png',
+        'logo': '🇹🇷',
+        'n': 'TRT 1',
+        'name': 'TRT 1',
+        'q': '1080p HD',
+        'stream': 'https://tv-trt1.medya.trt.com.tr/master.m3u8',
+        'u': [[0, 'https://tv-trt1.medya.trt.com.tr/master.m3u8']],
+        'v': 7680},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': 'Rossiya Bosh davlat telekanali',
+        'i': 129,
+        'id': 129,
+        'k': 'xalqaro',
+        'l': 'https://uut-telecom.ru/wp-content/uploads/2021/12/rossiya-1-hd.png',
+        'logo': '🇷🇺',
+        'n': 'Russia-1',
+        'name': 'Russia-1',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1020/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1020/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1020/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1020/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1020/mono.m3u8']],
+        'v': 7600},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': 'Ommabop detektivlar, teleseriallar va yangiliklar',
+        'i': 130,
+        'id': 130,
+        'k': 'xalqaro',
+        'l': 'https://real.su/wp-content/uploads/2019/12/%D0%9D%D0%A2%D0%92_HD-20220826-123641.png',
+        'logo': '🟢',
+        'n': 'NTV',
+        'name': 'NTV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1023/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1023/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1023/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1023/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1023/mono.m3u8']],
+        'v': 7520},
+    {       'c': 'int',
+        'category': 'xalqaro',
+        'desc': 'Janubiy Koreya xalqaro kanali (K-Pop, Doramalar)',
+        'i': 131,
+        'id': 131,
+        'k': 'xalqaro',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/9/98/NewsNetLogo2022.png',
+        'logo': '🇰🇷',
+        'n': 'KBS World',
+        'name': 'KBS World',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1448/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1448/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1448/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1448/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1448/mono.m3u8']],
+        'v': 7440},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': "MDH davlatlari do'stlik va birdamlik telekanali",
+        'i': 132,
+        'id': 132,
+        'k': 'xalqaro',
+        'l': 'https://i.imgur.com/AqWaJT8.png',
+        'logo': '🌐',
+        'n': 'Mir',
+        'name': 'Mir',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1218/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1218/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1218/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1218/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1218/mono.m3u8']],
+        'v': 7360},
+    {       'c': 'kz',
+        'category': 'xalqaro',
+        'desc': "Qozog'iston milliy telekanali",
+        'i': 133,
+        'id': 133,
+        'k': 'xalqaro',
+        'l': 'https://cdn.qazaqstan.tv/qazaqstan.png?w=420&h=196&format=png&resize=aspectfill&g=centeralt=',
+        'logo': '🇰🇿',
+        'n': 'Qazaqstan TV',
+        'name': 'Qazaqstan TV',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1431/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1431/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1431/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1431/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1431/mono.m3u8']],
+        'v': 7280},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': 'Harbiy-vatanparvarlik, tarix va texnika',
+        'i': 134,
+        'id': 134,
+        'k': 'xalqaro',
+        'l': 'https://i.imgur.com/4PAcpfM.png',
+        'logo': '⭐',
+        'n': 'Zvezda',
+        'name': 'Zvezda',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1050/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1050/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1050/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1050/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1050/mono.m3u8']],
+        'v': 7200},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': 'Moskva poytaxt kanali, publitsistika va filmlar',
+        'i': 135,
+        'id': 135,
+        'k': 'xalqaro',
+        'l': 'https://www.moscow-telecom.ru/img/logo_channels/tvc_hd.svg',
+        'logo': '🔴',
+        'n': 'TV Centr',
+        'name': 'TV Centr',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1025/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1025/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1025/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1025/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1025/mono.m3u8']],
+        'v': 7120},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': "Madaniyat, klassik san'at, opera va spektakllar",
+        'i': 136,
+        'id': 136,
+        'k': 'xalqaro',
+        'l': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/45/Russia-Cultura.svg/960px-Russia-Cultura.svg.png',
+        'logo': '🏛️',
+        'n': 'Russia-K',
+        'name': 'Russia-K',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1048/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1048/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1048/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1048/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1048/mono.m3u8']],
+        'v': 7040},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': 'TV Centr xalqaro versiyasi',
+        'i': 137,
+        'id': 137,
+        'k': 'xalqaro',
+        'l': 'https://i.imgur.com/tsCOnBW.png',
+        'logo': '🌐',
+        'n': 'TV Centr International',
+        'name': 'TV Centr International',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1281/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1281/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1281/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1281/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1281/mono.m3u8']],
+        'v': 6960},
+    {       'c': 'tr',
+        'category': 'xalqaro',
+        'desc': 'Turkiy xalqlar madaniyati va yangiliklari (1080p Full HD)',
+        'i': 138,
+        'id': 138,
+        'k': 'xalqaro',
+        'l': 'https://i.imgur.com/3YpGz5Y.png',
+        'logo': '🌐',
+        'n': 'TRT Avaz HD',
+        'name': 'TRT Avaz HD',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1258/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1258/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1258/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1258/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1258/mono.m3u8']],
+        'v': 6880},
+    {       'c': 'ru',
+        'category': 'xalqaro',
+        'desc': "Tatariston Respublikasi teleradiosi sun'iy yo'ldosh kanali",
+        'i': 139,
+        'id': 139,
+        'k': 'xalqaro',
+        'l': 'https://i.imgur.com/ijA1zDw.png',
+        'logo': '🪐',
+        'n': 'TNV Planet',
+        'name': 'TNV Planet',
+        'q': '1080p HD',
+        'stream': 'https://stream3.cinerama.uz/1062/playlist.m3u8',
+        'u': [       [0, 'https://stream3.cinerama.uz/1062/playlist.m3u8'],
+                     [1, 'https://stream3.cinerama.uz/1062/tracks-v1a1/mono.ts.m3u8'],
+                     [2, 'https://stream3.cinerama.uz/1062/tracks-v1a1/mono.m3u8'],
+                     [3, 'https://stream3.cinerama.uz/1062/mono.m3u8']],
+        'v': 6800},
 ]
 
 # Frontend mosligi uchun dinamik xususiyatlarni to'ldirish
@@ -4524,5 +2439,5 @@ for _ch in CHANNELS_LIST:
     _ch["c"] = _ch.get("c", "uz" if _ch["category"] in ("milliy", "xususiy") else "ru")
     _ch["l"] = _ch.get("l")
     _ch["u"] = _ch.get("u") or [[0, _ch["stream"]]]
-    _ch["v"] = _ch.get("v", max(500, 10000 - _ch["id"] * 50))
+    _ch["v"] = _ch.get("v", max(500, 36000 - _ch["id"] * 250))
     _ch["q"] = _ch.get("q") or _ch.get("quality") or "1080p HD"

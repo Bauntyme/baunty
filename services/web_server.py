@@ -503,18 +503,34 @@ async def handle_music_send(request: web.Request) -> web.Response:
 
 
 async def handle_get_tv(request: web.Request) -> web.Response:
-    """114 ta jonli telekanal ro'yxati (Barcha formatlar mosligi bilan)."""
+    """Jonli telekanallar ro'yxati (O'zbek telekanallari mutlaq 1-o'rinda, eng yuqori sifat)."""
     cat = request.query.get("category", "all").strip()
     q = request.query.get("q", "").strip().lower()
 
-    channels = CHANNELS_LIST
+    channels = list(CHANNELS_LIST)
     if q:
         channels = [
             c for c in channels
             if q in c["name"].lower() or q in c.get("desc", "").lower() or q in c.get("n", "").lower()
         ]
     elif cat and cat != "all":
-        channels = [c for c in channels if c.get("category") == cat or c.get("k") == cat]
+        channels = [
+            c for c in channels
+            if c.get("category") == cat
+            or c.get("k") == cat
+            or cat in c.get("categories", [])
+            or (cat == "kino" and (c.get("is_kino") or c.get("name") in [
+                "BIZ Cinema", "Kinoteatr TV", "Sevimli TV", "Zo'r TV",
+                "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV",
+                "Insayt TV", "Hayot TV", "Biz TV"
+            ]))
+            or (cat == "sport" and c.get("name") in ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"])
+            or (cat == "milliy" and c.get("c") == "uz" and (c.get("category") == "milliy" or c.get("name") in ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"]))
+            or (cat == "xususiy" and c.get("c") == "uz" and (c.get("category") == "xususiy" or c.get("name") in ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV"]))
+        ]
+
+    # O'zbekiston telekanallari har doim mutlaq 1-o'rinda, keyin qolgan davlatlar
+    channels.sort(key=lambda x: (0 if x.get("c") == "uz" else 1, -(x.get("v") or 0)))
 
     return web.json_response({
         "categories": TV_CATEGORIES,

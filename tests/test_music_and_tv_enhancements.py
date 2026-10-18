@@ -147,6 +147,69 @@ async def test_api_tv_query_and_category_filtering():
         await client.close()
 
 
+@pytest.mark.asyncio
+async def test_uzbek_channels_rank_first_and_kino_channels():
+    """O'zbek telekanallari mutlaq 1-o'rinda bo'lishi va kino toifasida barcha O'zbek kino kanallari birinchi chiqishi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # 1. Barcha kanallar ro'yxatida dastlabki barcha kanallar O'zbekistonlik (c: 'uz') bo'lishi
+        resp = await client.get("/api/tv?category=all")
+        assert resp.status == 200
+        data = await resp.json()
+        items = data["items"]
+
+        # Dastlabki 45+ ta kanal barchasi uz bo'lishi kerak
+        top_uz = [ch for ch in items[:45]]
+        assert all(ch.get("c") == "uz" for ch in top_uz)
+
+        # Mashhur kanallar (popular) ro'yxati filtri tekshiruvi: faqat c: 'uz'
+        popular_uz = [ch for ch in items if ch.get("c") == "uz" and ch.get("v", 0) > 0]
+        assert len(popular_uz) >= 40
+        # Boshidagi 10 ta ommabop kanal
+        top_10_names = [ch["name"] for ch in popular_uz[:10]]
+        assert "BIZ Cinema" in top_10_names
+        assert "Kinoteatr TV" in top_10_names
+        assert "Sevimli TV" in top_10_names
+        assert "Zo'r TV" in top_10_names
+        assert "Milliy TV" in top_10_names
+
+        # 2. Kino toifasida O'zbekiston kino ko'rsatadigan barcha telekanallari eng boshida chiqishi
+        resp_kino = await client.get("/api/tv?category=kino")
+        assert resp_kino.status == 200
+        data_kino = await resp_kino.json()
+        kino_items = data_kino["items"]
+
+        kino_names = [ch["name"] for ch in kino_items]
+        # O'zbek kino kanallari to'liq borligi
+        assert "BIZ Cinema" in kino_names
+        assert "Kinoteatr TV" in kino_names
+        assert "Sevimli TV" in kino_names
+        assert "Zo'r TV" in kino_names
+        assert "Milliy TV" in kino_names
+        assert "Mening Yurtim (MY5)" in kino_names
+        assert "Renessans TV" in kino_names
+        assert "Insayt TV" in kino_names
+        assert "Hayot TV" in kino_names
+
+        # O'zbek kino kanallari xorijiy kino kanallaridan (viju, TV1000, Dom kino va b.) oldinda turishi
+        first_kino_channels = kino_items[:8]
+        assert all(ch.get("c") == "uz" for ch in first_kino_channels)
+
+        # 3. Sifat belgilari (4K UHD yoki 1080p HD)
+        biz_cinema = next(ch for ch in items if ch["name"] == "BIZ Cinema")
+        assert biz_cinema.get("q") == "4K UHD"
+        insayt = next(ch for ch in items if ch["name"] == "Insayt TV")
+        assert insayt.get("q") == "4K UHD"
+        sevimli = next(ch for ch in items if ch["name"] == "Sevimli TV")
+        assert "1080p" in sevimli.get("q", "")
+    finally:
+        await client.close()
+
+
 # ----------------- 2. Musiqa Qidiruv va Servisi Testlari -----------------
 
 @pytest.mark.asyncio
