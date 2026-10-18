@@ -206,3 +206,61 @@ def test_webapp_index_structure_and_order():
     # 2. Random kubik (dice) tugmasi mavjudligi
     assert "zkDice" in content or "zk-dice" in content
     assert "openDetail(rnd)" in content or "openDetail(" in content
+
+
+def test_books_cyrillic_search_transliteration():
+    """Kirill yozuvida qidirganda ham kitoblar to'g'ri topilishini tekshirish."""
+    # 1. 'Ўткан кунлар' -> O'tkan kunlar
+    res_cyr = book_service.get_catalog(query="Ўткан кунлар")
+    assert res_cyr["ok"] is True
+    assert len(res_cyr["items"]) >= 1
+    assert "O'tkan kunlar" in res_cyr["items"][0]["title"]
+
+    # 2. 'Абдулла Қодирий' -> Abdulla Qodiriy
+    res_author = book_service.get_catalog(query="Абдулла Қодирий")
+    assert res_author["ok"] is True
+    assert len(res_author["items"]) >= 2
+
+    # 3. 'Атом' -> Atom odatlar / Atomic Habits / Атомные привычки
+    res_atom = book_service.get_catalog(query="Атом")
+    assert res_atom["ok"] is True
+    assert len(res_atom["items"]) >= 2
+
+
+def test_books_js_and_css_quality_invariants():
+    """books.js va books.css dagi xatoliklar bartaraf etilganini tekshirish."""
+    js_path = book_service.BASE_DIR / "webapp" / "books.js"
+    css_path = book_service.BASE_DIR / "webapp" / "books.css"
+    html_path = book_service.BASE_DIR / "webapp" / "index.html"
+
+    js_code = js_path.read_text(encoding="utf-8")
+    css_code = css_path.read_text(encoding="utf-8")
+    html_code = html_path.read_text(encoding="utf-8")
+
+    # 1. Zakirovs so'zi kommentariyada ham qolmagan bo'lishi kerak
+    assert "Zakirovs" not in js_code
+    assert "Zakirovs" not in css_code
+
+    # 2. BackButton listener books.js da mavjud bo'lishi kerak
+    assert "tg.BackButton.onClick" in js_code
+    assert "ZBooks.busy" in html_code
+
+    # 3. Reader matni A+/A- bosilganda bkReaderText orqali shrifti o'zgarishi kerak
+    assert "bkReaderText" in js_code
+    assert 'id="bkReaderText"' in js_code
+
+    # 4. Javonim nishoni har doim DOM da bo'lishi va dinamik yangilanishi kerak
+    assert 'id="bkShelfCount"' in js_code
+
+    # 5. Skeleton yuklanish animatsiyasi mavjud bo'lishi kerak
+    assert "bk-sk" in css_code
+    assert "bkShimmer" in css_code
+
+
+def test_main_reply_keyboard_has_books():
+    """Asosiy reply menyuda '📚 Kitoblar' tugmasi mavjudligini tekshirish."""
+    from keyboards.default import main_menu_keyboard
+    kb = main_menu_keyboard(is_admin=False)
+    button_texts = [btn.text for row in kb.keyboard for btn in row]
+    assert "📚 Kitoblar" in button_texts
+

@@ -753,12 +753,16 @@ $("dclose").onclick = () => closeDetail();
 if (inTg) {
   tg.MainButton.onClick(() => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1));
   tg.BackButton.onClick(() => {
-    if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy())) return;
+    if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy()) || (window.ZStory && ZStory.busy()) || (window.ZBooks && ZBooks.busy())) return;
     if (tvCur) { closeTV(); return; }
     if (cur) closeDetail();
   });
 }
-window.addEventListener("popstate", () => { if (tvCur) closeTV(true); else if (cur) closeDetail(true); });
+window.addEventListener("popstate", () => {
+  if (window.ZBooks && ZBooks.busy && ZBooks.busy()) return;
+  if (tvCur) closeTV(true);
+  else if (cur) closeDetail(true);
+});
 
 $("chips").addEventListener("click", (e) => {
   const b = e.target.closest(".chip"); if (!b) return;
@@ -1701,10 +1705,13 @@ async function load() {
   if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
     setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
-  if (document.querySelector('#seg [data-m="books"]') && (/^(book|books|b$|b_)/i.test(sp) || new URLSearchParams(location.search).has("books"))) {
+  if (document.querySelector('#seg [data-m="books"]') && (/^(book|books|b$|b_)/i.test(sp) || new URLSearchParams(location.search).has("books") || new URLSearchParams(location.search).has("book"))) {
     setMode("books");
     const bq = new URLSearchParams(location.search).get("q");
-    const bid = sp.replace(/^b(ook)?_?/i, "");
+    let bid = new URLSearchParams(location.search).get("b") || new URLSearchParams(location.search).get("bid") || new URLSearchParams(location.search).get("book") || "";
+    if (!bid && sp && !/^(books?|b)$/i.test(sp)) {
+      bid = sp.replace(/^b(ook)?s?_?/i, "").trim();
+    }
     if (bid && window.ZBooks) ZBooks.openDetail(bid);
     else if (bq && window.ZBooks) ZBooks.search(bq);
     return;

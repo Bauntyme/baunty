@@ -14,6 +14,7 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         [
             KeyboardButton(text="🎬 Kino"),
             KeyboardButton(text="🎵 Qo'shiq topish"),
+            KeyboardButton(text="📚 Kitoblar"),
         ],
         [
             KeyboardButton(text="📥 Media yuklash"),

@@ -1,4 +1,4 @@
-/* 📚 Baunty Kutubxonasi — 1:1 Zakirovs Books Module (window.ZBooks) */
+/* 📚 Bauntys Kutubxonasi — Books Module (window.ZBooks) */
 (() => {
   "use strict";
 
@@ -8,6 +8,18 @@
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
   }[c]));
+
+  // Qidiruv: lotin <-> kirill normallashtirish
+  const CYR = {
+    "а":"a","б":"b","в":"v","г":"g","ғ":"g","д":"d","е":"e","ё":"yo","ж":"j","з":"z","и":"i","й":"y","к":"k",
+    "қ":"q","л":"l","м":"m","н":"n","о":"o","п":"p","р":"r","с":"s","т":"t","у":"u","ў":"o","ф":"f","х":"x","ҳ":"h",
+    "ц":"ts","ч":"ch","ш":"sh","щ":"sh","ъ":"","ы":"i","ь":"","э":"e","ю":"yu","я":"ya"
+  };
+  const norm = (s) => String(s || "").toLowerCase()
+    .replace(/[а-яёғқўҳ]/g, (ch) => CYR[ch] ?? ch)
+    .replace(/[ʻʼ'`’‘´]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 
   const haptic = (type = "light") => {
     try {
@@ -49,20 +61,63 @@
   let readerFontSize = 16;
   let readerTheme = "dark"; // dark, sepia, white
   let savedFavorites = lsGet("baunty_bk_favs", []);
+  let isLoadingBooks = false;
+  let loadError = false;
 
   // ---------- Ma'lumotlarni yuklash ----------
   async function fetchBooks() {
+    if (isLoadingBooks) return booksList;
+    isLoadingBooks = true;
+    loadError = false;
     try {
       const res = await fetch("api/books", { cache: "no-store" });
       const data = await res.json();
       booksList = data.items || [];
       booksById.clear();
-      booksList.forEach((b) => booksById.set(String(b.id), b));
+      booksList.forEach((b) => {
+        const idStr = String(b.id);
+        booksById.set(idStr, b);
+        b._n = norm(`${b.title} ${b.author} ${b.description}`);
+      });
+      // Stale favoritlarni tozalash
+      savedFavorites = savedFavorites.filter((id) => booksById.has(String(id)));
+      lsSet("baunty_bk_favs", savedFavorites);
+      isLoadingBooks = false;
       return booksList;
     } catch (e) {
       console.warn("Kitoblarni yuklab bo'lmadi:", e);
+      isLoadingBooks = false;
+      loadError = true;
       return [];
     }
+  }
+
+  // ---------- Skeleton yuklanish holati ----------
+  function renderSkeleton(container) {
+    if (!container) return;
+    container.innerHTML = `
+      <div class="bk-view">
+        <div class="bk-hero" style="opacity:.6">
+          <div class="bk-hero-info">
+            <h2>Bugun nima o'qiymiz?</h2>
+            <p>Bauntys Kutubxonasi — 3 tilda kitoblar • bepul mutolaa</p>
+          </div>
+          <span class="bk-hero-badge">Yuklanmoqda…</span>
+        </div>
+        <div class="bk-sec">
+          <div class="bk-sec-h"><h2>&nbsp;</h2></div>
+          <div class="bk-shelf">
+            ${Array.from({length: 6}, () => `
+              <div class="bk-card bk-sk">
+                <div class="bk-cover bk-sk-cover"></div>
+                <div class="bk-sk-line" style="width:80%"></div>
+                <div class="bk-sk-line" style="width:55%"></div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   // ---------- Yordamchi kitob kartochkasi HTML ----------
@@ -138,7 +193,6 @@
 
   // ---------- 1. Kutubxona Javonlari Ko'rinishi ----------
   function renderHome(container) {
-    // Til filtrlari
     const langs = [
       { id: "all", label: "Hammasi" },
       { id: "uz", label: "🇺🇿 O'zbek" },
@@ -180,6 +234,24 @@
     const area = $("bkContentArea");
     if (!area) return;
 
+    if (loadError && !booksList.length) {
+      area.innerHTML = `
+        <div class="empty">
+          <div class="big">📶</div>
+          <b>Kitoblarni yuklab bo'lmadi</b>
+          Internet aloqasini tekshirib, qayta urinib ko'ring.<br><br>
+          <button class="cta" style="max-width:200px" id="bkRetryBtn">🔄 Qayta urinish</button>
+        </div>
+      `;
+      const rb = $("bkRetryBtn");
+      if (rb) rb.onclick = async () => {
+        renderSkeleton($("main"));
+        await fetchBooks();
+        renderView();
+      };
+      return;
+    }
+
     // Agar qidiruv kiritilgan bo'lsa, javonlar o'rniga qidiruv natijalarini ko'rsatamiz
     if (searchQuery) {
       renderSearchResultsGrid(area);
@@ -201,22 +273,46 @@
       ].includes(b.author))
     );
 
-    // 3. 💼 Biznes va Psixologiya
+    // 3. 🌍 Jahon adabiyoti durdonalari
+    const worldClassic = baseList.filter((b) =>
+      b.category === "badiiy" && (b.lang !== "uz" || ["5", "20"].includes(String(b.id)) || ["Paulo Koelo", "Ernest Xeminguey"].includes(b.author))
+    );
+
+    // 4. 💼 Biznes va Psixologiya
     const bizPsi = baseList.filter((b) => b.category === "biznes" || b.category === "psixologiya");
 
-    // 4. 🏛 Tarixiy asarlar
+    // 5. 🏛 Tarixiy asarlar
     const historyBooks = baseList.filter((b) =>
       b.category === "tarix" || (b.category === "diniy" && b.year < 2010) || ["1", "2", "7", "12", "14"].includes(String(b.id))
     );
 
-    // 5. 🧸 Bolalar adabiyoti
+    // 6. 🧸 Bolalar adabiyoti
     const kidsBooks = baseList.filter((b) =>
       b.category === "bolalar" || ["15", "16", "25", "32"].includes(String(b.id))
     );
 
+    // Tilga mos sarlavhalar
+    let topTitle = "🔥 Haftalik TOP-10";
+    let topSub = "eng ko'p mutolaa qilingan sara kitoblar";
+    let litTitle = "🇺🇿 O'zbek adabiyoti durdonalari";
+    let litSub = "milliy adabiyotimizning nodir asarlari";
+
+    if (activeLang === "en") {
+      topTitle = "🔥 Top English Bestsellers";
+      topSub = "most read and highly acclaimed masterpieces";
+      litTitle = "📖 Fiction & Literature Classics";
+      litSub = "world-renowned fiction and essential reading";
+    } else if (activeLang === "ru") {
+      topTitle = "🔥 Топ недели на русском";
+      topSub = "самые читаемые бестселлеры и шедевры";
+      litTitle = "📖 Шедевры русской и мировой классики";
+      litSub = "великие романы и бессмертные произведения";
+    }
+
     area.innerHTML = `
-      ${shelfHTML("🔥 Haftalik TOP-10", "eng ko'p mutolaa qilingan sara kitoblar", top10, true)}
-      ${uzClassic.length ? shelfHTML("🇺🇿 O'zbek adabiyoti durdonalari", "milliy adabiyotimizning nodir asarlari", uzClassic) : ""}
+      ${shelfHTML(topTitle, topSub, top10, true)}
+      ${uzClassic.length && activeLang !== "en" && activeLang !== "ru" ? shelfHTML(litTitle, litSub, uzClassic) : ""}
+      ${worldClassic.length ? shelfHTML(activeLang === "all" ? "🌍 Jahon adabiyoti durdonalari" : litTitle, activeLang === "all" ? "dunyo bestsellerlari va sara badiiy asarlar" : litSub, worldClassic) : ""}
       ${bizPsi.length ? shelfHTML("💼 Biznes va Psixologiya", "shaxsiy rivojlanish, moliya va yetakchilik", bizPsi) : ""}
       ${historyBooks.length ? shelfHTML("🏛 Tarixiy asarlar", "o'tmish saboqlari va buyuk allomalar merosi", historyBooks) : ""}
       ${kidsBooks.length ? shelfHTML("🧸 Bolalar adabiyoti", "qiziqarli sarguzashtlar va tarbiyaviy ertaklar", kidsBooks) : ""}
@@ -293,7 +389,7 @@
             <h2>🔖 Mening Javonim</h2>
             <p>Saqlangan va mutolaa qilinayotgan sevimli kitoblaringiz</p>
           </div>
-          <span class="bk-hero-badge">${savedFavorites.length} ta</span>
+          <span class="bk-hero-badge" id="bkShelfBadge">${savedFavorites.length} ta</span>
         </div>
 
         <div class="bk-langs" id="bkLangsBar">${langsHtml}</div>
@@ -323,12 +419,13 @@
     }
 
     if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter((b) =>
-        (b.title && b.title.toLowerCase().includes(q)) ||
-        (b.author && b.author.toLowerCase().includes(q)) ||
-        (b.description && b.description.toLowerCase().includes(q))
-      );
+      const qNorm = norm(searchQuery);
+      const qWords = qNorm.split(" ").filter(Boolean);
+      list = list.filter((b) => {
+        const raw = `${b.title} ${b.author} ${b.description}`.toLowerCase();
+        const bNorm = b._n || norm(raw);
+        return qWords.every((w) => bNorm.includes(w) || raw.includes(w));
+      });
     }
 
     if (!list.length) {
@@ -370,9 +467,16 @@
         <div class="empty" style="grid-column: 1/-1">
           <div class="big">🔖</div>
           <b>Javoningiz hozircha bo'sh</b>
-          Katalogdan kitob tanlab, «Saqlash» tugmasini bosing — barcha sevimli asarlaringiz shu yerda yig'iladi.
+          Katalogdan kitob tanlab, «Saqlash» tugmasini bosing — barcha sevimli asarlaringiz shu yerda yig'iladi.<br><br>
+          <button class="cta" style="max-width:220px;margin:0 auto" id="bkGoHomeBtn">📚 Kitoblarni ko'rish</button>
         </div>
       `;
+      const btn = $("bkGoHomeBtn");
+      if (btn) btn.onclick = () => {
+        haptic();
+        activeSub = "home";
+        renderView();
+      };
       return;
     }
 
@@ -485,7 +589,7 @@
       <button class="bk-subtab${activeSub === "shelf" ? " on" : ""}" data-sub="shelf" type="button">
         <span class="bk-sub-icon">🔖</span>
         <span class="bk-sub-label">Javonim</span>
-        ${favCount > 0 ? `<span class="bk-sub-count" id="bkShelfCount">${favCount}</span>` : ""}
+        <span class="bk-sub-count" id="bkShelfCount" style="display:${favCount > 0 ? "inline-block" : "none"}">${favCount}</span>
       </button>
     `;
     bar.style.display = "flex";
@@ -542,6 +646,7 @@
   }
 
   function openDetail(book) {
+    if (!book) return;
     currentBook = book;
     haptic();
     const det = ensureDetailModal();
@@ -626,6 +731,7 @@
   }
 
   function openReader(book) {
+    if (!book) return;
     isReaderOpen = true;
     haptic();
     const r = ensureReaderModal();
@@ -637,10 +743,10 @@
         <h2 style="font-size:24px;margin:0 0 6px">${esc(book.title)}</h2>
         <div style="font-size:15px;opacity:.7">✍️ ${esc(book.author)}</div>
       </div>
-      <div style="font-size:${readerFontSize}px;letter-spacing:.2px;white-space:pre-line">
+      <div class="bk-reader-text" id="bkReaderText" style="font-size:${readerFontSize}px;letter-spacing:.2px;white-space:pre-line">
         ${esc(sample)}
       </div>
-      <div style="margin-top:40px;padding:20px;border-radius:14px;background:rgba(255,255,255,0.06);text-align:center">
+      <div class="bk-reader-box" style="margin-top:40px;padding:20px;border-radius:14px;background:rgba(255,255,255,0.06);text-align:center">
         <b>To'liq asarni bot chatida o'qishni xohlaysizmi?</b><br>
         <span style="font-size:13px;opacity:.8">Quyidagi tugma orqali to'liq PDF kitobni shaxsiy xabarlaringizga qabul qiling:</span><br><br>
         <button class="bk-btn-read" id="bkReaderSendBtn" style="max-width:260px;margin:0 auto" type="button">📥 Bot chatiga yuborish</button>
@@ -663,17 +769,20 @@
     const r = $("bkReaderModal");
     if (r) r.classList.remove("open");
     isReaderOpen = false;
-    if (inTg && !isDetailOpen && window.ZK_canHideBack && window.ZK_canHideBack()) {
-      tg.BackButton.hide();
+    if (inTg) {
+      if (isDetailOpen) {
+        tg.BackButton.show();
+      } else if (window.ZK_canHideBack && window.ZK_canHideBack()) {
+        tg.BackButton.hide();
+      }
     }
   }
 
   function adjustFontSize(delta) {
     readerFontSize = Math.min(26, Math.max(13, readerFontSize + delta));
-    const content = $("bkReaderContent");
-    if (content) {
-      const p = content.querySelector("div[style*='font-size']");
-      if (p) p.style.fontSize = `${readerFontSize}px`;
+    const textEl = $("bkReaderText");
+    if (textEl) {
+      textEl.style.fontSize = `${readerFontSize}px`;
     }
     haptic();
   }
@@ -757,12 +866,12 @@
     // Pastki sub-tablar belgisini yangilash
     const countEl = $("bkShelfCount");
     if (countEl) {
-      if (savedFavorites.length > 0) {
-        countEl.textContent = savedFavorites.length;
-        countEl.hidden = false;
-      } else {
-        countEl.hidden = true;
-      }
+      countEl.textContent = savedFavorites.length;
+      countEl.style.display = savedFavorites.length > 0 ? "inline-block" : "none";
+    }
+    const badgeEl = $("bkShelfBadge");
+    if (badgeEl) {
+      badgeEl.textContent = `${savedFavorites.length} ta`;
     }
 
     if (activeSub === "shelf") {
@@ -780,10 +889,40 @@
     }
   }
 
+  // ---------- Telegram BackButton & Keyboard listener ----------
+  if (inTg) {
+    tg.BackButton.onClick(() => {
+      if (isReaderOpen) {
+        closeReader();
+        return;
+      }
+      if (isDetailOpen) {
+        closeDetail();
+        return;
+      }
+    });
+  }
+
+  window.addEventListener("popstate", () => {
+    if (isReaderOpen) {
+      closeReader();
+    } else if (isDetailOpen) {
+      closeDetail();
+    }
+  });
+
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (isReaderOpen) closeReader();
+      else if (isDetailOpen) closeDetail();
+    }
+  });
+
   // ---------- Ochiq API (window.ZBooks) ----------
   window.ZBooks = {
     open: async () => {
       if (!booksList.length) {
+        renderSkeleton($("main"));
         await fetchBooks();
       }
       renderView();
@@ -808,13 +947,22 @@
     setBot: (name) => {
       if (name) botName = String(name).replace(/^@/, "");
     },
-    openDetail: (id) => {
+    openDetail: async (id) => {
+      if (!booksList.length) {
+        renderSkeleton($("main"));
+        await fetchBooks();
+        renderView();
+      }
       const book = booksById.get(String(id));
       if (book) openDetail(book);
     },
-    search: (query) => {
+    search: async (query) => {
       searchQuery = query || "";
       activeSub = "search";
+      if (!booksList.length) {
+        renderSkeleton($("main"));
+        await fetchBooks();
+      }
       renderView();
     }
   };

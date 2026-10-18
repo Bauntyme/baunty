@@ -41,7 +41,11 @@ def _normalize(text: str) -> str:
     """Qidiruv uchun matnni normallashtirish (lotin-kirill va belgilardan tozalash)."""
     if not text:
         return ""
-    t = str(text).lower()
+    try:
+        from utils.translit import cyrillic_to_latin
+        t = cyrillic_to_latin(str(text)).lower()
+    except Exception:
+        t = str(text).lower()
     t = t.replace("o‘", "o'").replace("g‘", "g'").replace("oʻ", "o'").replace("gʻ", "g'")
     t = t.replace("ў", "o'").replace("ғ", "g'").replace("ш", "sh").replace("ч", "ch")
     t = t.replace("ё", "yo").replace("ю", "yu").replace("я", "ya").replace("ц", "ts")
@@ -68,7 +72,9 @@ def load_books() -> List[Dict[str, Any]]:
         title = item.get("title", "")
         author = item.get("author", "")
         desc = item.get("description", "")
-        item["_search"] = f"{_normalize(title)} {_normalize(author)} {_normalize(desc)} {bid}"
+        norm_lat = f"{_normalize(title)} {_normalize(author)} {_normalize(desc)}"
+        raw_lower = f"{title} {author} {desc}".lower()
+        item["_search"] = f"{norm_lat} {raw_lower} {bid}"
         _BOOKS_BY_ID[bid] = item
 
     _BOOKS_CACHE = items
@@ -98,9 +104,11 @@ def get_catalog(
     if query:
         norm_q = _normalize(query)
         words = norm_q.split()
+        raw_words = query.lower().split()
         filtered = [
             b for b in filtered
-            if all(w in b.get("_search", "") for w in words)
+            if (words and all(w in b.get("_search", "") for w in words)) or
+               (raw_words and all(w in b.get("_search", "") for w in raw_words))
         ]
 
     total = len(filtered)
