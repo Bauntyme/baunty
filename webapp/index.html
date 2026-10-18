@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark">
 <title>Kinolar katalogi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <link rel="stylesheet" href="music.css">
 <link rel="stylesheet" href="docs.css">
 <link rel="stylesheet" href="games.css">
@@ -253,7 +254,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 
 <section class="tvp" id="tvp" aria-modal="true">
   <div class="vbox" id="vbox">
-    <video id="vid" playsinline webkit-playsinline preload="none"></video>
+    <video id="vid" playsinline webkit-playsinline autoplay preload="auto"></video>
     <iframe id="yt" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin"></iframe>
     <div class="vov" id="vload"><div class="spin"></div><span id="vmsg">Efirga ulanmoqda…</span></div>
     <div class="vov" id="verr" hidden><div style="font-size:40px">📡</div><b id="verrt">Bu kanal hozir efirda emas</b>
@@ -755,6 +756,7 @@ function stopVideo() {
   vid.pause(); vid.removeAttribute("src"); try { vid.load(); } catch (e) {}
 }
 function loadHlsLib() {
+  if (window.Hls) return Promise.resolve(window.Hls);
   if (hlsLib) return hlsLib;
   hlsLib = new Promise((ok, bad) => {
     const sc = document.createElement("script");
@@ -780,6 +782,9 @@ function ytEmbed(url) {
 }
 function attempt(url) {
   return new Promise(async (ok, bad) => {
+    if (!url || url.includes("blocked") || url.includes("xykt-fix.github.io")) {
+      return bad("blocked_stream");
+    }
     let done = false;
     const cleanup = () => {
       vid.onplaying = vid.onerror = vid.oncanplay = vid.ontimeupdate = null;
@@ -792,7 +797,7 @@ function attempt(url) {
         f(v);
       }
     };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 15000);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), 4500);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => {
       if (vid.currentTime > 0 || !vid.paused) fin(ok);
@@ -829,22 +834,32 @@ function attempt(url) {
           hls = new Hls({
             maxBufferLength: 30,
             maxMaxBufferLength: 60,
+            maxBufferSize: 60 * 1000 * 1000,
             enableWorker: true,
             liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 8,
             backBufferLength: 10,
-            manifestLoadingMaxRetry: 3,
-            levelLoadingMaxRetry: 3,
-            fragLoadingMaxRetry: 4
+            manifestLoadingTimeOut: 3500,
+            manifestLoadingMaxRetry: 1,
+            levelLoadingTimeOut: 3500,
+            levelLoadingMaxRetry: 1,
+            fragLoadingTimeOut: 5000,
+            fragLoadingMaxRetry: 2
           });
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
               if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                hls.startLoad();
+                fin(bad, "network_fatal");
               } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
                 hls.recoverMediaError();
               } else {
                 fin(bad, d.type);
               }
+            }
+          });
+          hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
+            if (data && data.url && data.url.includes("blocked")) {
+              fin(bad, "blocked_manifest");
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, () => {

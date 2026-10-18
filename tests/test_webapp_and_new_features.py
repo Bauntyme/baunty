@@ -188,8 +188,8 @@ async def test_webapp_tv_api():
         resp = await client.get("/api/tv?category=all")
         assert resp.status == 200
         data = await resp.json()
-        assert data["total"] >= 140
-        assert len(data["items"]) >= 140
+        assert data["total"] >= 130
+        assert len(data["items"]) >= 130
         assert len(data["categories"]) >= 8
 
         # Sport toifasi

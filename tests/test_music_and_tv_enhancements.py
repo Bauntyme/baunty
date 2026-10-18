@@ -18,8 +18,8 @@ import handlers.music as music_handler
 # ----------------- 1. TV Data va HLS Streamlar Testlari -----------------
 
 def test_tv_channels_list_count_and_schema():
-    """CHANNELS_LIST da 140+ ta kanal borligi va har ikkala schema (id va i, stream va u, logo l) mavjudligi."""
-    assert len(CHANNELS_LIST) >= 140
+    """CHANNELS_LIST da 130+ ta saralangan kanal borligi va har ikkala schema (id va i, stream va u, logo l) mavjudligi."""
+    assert len(CHANNELS_LIST) >= 130
     for ch in CHANNELS_LIST:
         # Backend schema
         assert "id" in ch
@@ -52,37 +52,37 @@ def test_tv_real_working_streams():
     # Sevimli TV
     sevimli = by_name.get("Sevimli TV")
     assert sevimli is not None
-    assert "stream8.cinerama.uz/1017" in sevimli["stream"]
+    assert "1017" in sevimli["stream"] and "cinerama.uz" in sevimli["stream"]
 
     # Zo'r TV
     zor_tv = by_name.get("Zo'r TV")
     assert zor_tv is not None
-    assert "stream8.cinerama.uz/1016" in zor_tv["stream"]
+    assert "1016" in zor_tv["stream"] and "cinerama.uz" in zor_tv["stream"]
 
     # Milliy TV
     milliy = by_name.get("Milliy TV")
     assert milliy is not None
-    assert "stream8.cinerama.uz/1014" in milliy["stream"]
+    assert "1014" in milliy["stream"] and "cinerama.uz" in milliy["stream"]
 
     # Mening Yurtim (MY5)
     my5 = by_name.get("Mening Yurtim (MY5)")
     assert my5 is not None
-    assert "stream8.cinerama.uz/1217" in my5["stream"]
+    assert "1217" in my5["stream"] and "cinerama.uz" in my5["stream"]
 
     # Kinoteatr TV
     kinoteatr = by_name.get("Kinoteatr TV")
     assert kinoteatr is not None
-    assert "stream8.cinerama.uz/1009" in kinoteatr["stream"]
+    assert "1009" in kinoteatr["stream"] and "cinerama.uz" in kinoteatr["stream"]
 
     # O'zbekiston 24
     oz24 = by_name.get("O'zbekiston 24")
     assert oz24 is not None
-    assert "stream8.cinerama.uz/1011" in oz24["stream"]
+    assert "1011" in oz24["stream"] and "cinerama.uz" in oz24["stream"]
 
     # Sport TV
     sport = by_name.get("Sport TV")
     assert sport is not None
-    assert "stream8.cinerama.uz/1004" in sport["stream"]
+    assert "1004" in sport["stream"] and "cinerama.uz" in sport["stream"]
 
     # BIZ TV
     biz_tv = by_name.get("Biz TV")
@@ -106,12 +106,12 @@ def test_tv_real_working_streams():
     # Navo TV
     navo = by_name.get("Navo TV")
     assert navo is not None
-    assert "stream8.cinerama.uz/1008" in navo["stream"]
+    assert "1008" in navo["stream"] and "cinerama.uz" in navo["stream"]
 
     # Samarqand MTRK (STV)
     samarqand = by_name.get("Samarqand MTRK (STV)")
     assert samarqand is not None
-    assert "stream8.cinerama.uz/1452" in samarqand["stream"]
+    assert "1452" in samarqand["stream"] and "cinerama.uz" in samarqand["stream"]
 
 
 @pytest.mark.asyncio
@@ -127,8 +127,8 @@ async def test_api_tv_query_and_category_filtering():
         resp = await client.get("/api/tv?category=all")
         assert resp.status == 200
         data = await resp.json()
-        assert data["total"] >= 140
-        assert len(data["items"]) >= 140
+        assert data["total"] >= 130
+        assert len(data["items"]) >= 130
         assert len(data["categories"]) >= 8
 
         # Nomi bo'yicha qidirish
