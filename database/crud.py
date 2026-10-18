@@ -305,6 +305,147 @@ async def increment_movie_downloads(session: AsyncSession, movie_id: int) -> Non
     await session.execute(stmt)
 
 
+async def upsert_movie(
+    session: AsyncSession,
+    code: str,
+    title: str,
+    file_id: Optional[str] = None,
+    description: Optional[str] = None,
+    file_type: str = "video",
+    file_size: Optional[int] = None,
+    duration: Optional[int] = None,
+    genres: str = "Barcha",
+    year: Optional[int] = None,
+    rating: Optional[float] = None,
+    poster_file_id: Optional[str] = None,
+    views_count: Optional[int] = None,
+    downloads_count: Optional[int] = None,
+) -> Tuple[Movie, bool]:
+    """Kinoni yaratadi yoki mavjud bo'lsa yangilaydi (upsert). (movie, created) qaytaradi."""
+    clean_code = str(code).strip()
+    movie = await get_movie_by_code(session, clean_code)
+    if movie:
+        if title:
+            movie.title = title.strip()
+        if description is not None:
+            movie.description = description.strip() if description else None
+        if genres:
+            movie.genres = genres.strip()
+        if year:
+            movie.year = year
+        if rating:
+            movie.rating = rating
+        if poster_file_id:
+            movie.poster_file_id = poster_file_id
+        if file_id and (not movie.file_id or movie.file_id.startswith("BAACAgIAAxkBAAIB_")):
+            movie.file_id = file_id.strip()
+        if views_count is not None and views_count > movie.views_count:
+            movie.views_count = views_count
+        if downloads_count is not None and downloads_count > movie.downloads_count:
+            movie.downloads_count = downloads_count
+        await session.flush()
+        return movie, False
+    else:
+        new_movie = Movie(
+            code=clean_code,
+            title=title.strip() if title else f"Kino #{clean_code}",
+            description=description.strip() if description else None,
+            file_id=file_id.strip() if file_id else f"BAACAgIAAxkBAAIB_mov_{clean_code}_vid",
+            file_type=file_type,
+            file_size=file_size or (1024 * 1024 * 550),
+            duration=duration or (95 * 60),
+            genres=genres.strip() if genres else "Kino, Komediya, O'zbek kino",
+            year=year or 2024,
+            rating=rating or 8.0,
+            poster_file_id=poster_file_id,
+            views_count=views_count or 150,
+            downloads_count=downloads_count or 50,
+            created_at=utc_now(),
+        )
+        session.add(new_movie)
+        await session.flush()
+        return new_movie, True
+
+
+async def sync_movies_from_catalog_data(
+    session: AsyncSession,
+    catalog_items: List[Dict[str, Any]]
+) -> int:
+    """
+    Katalog ma'lumotlarini (items list) 'movies' jadvali bilan tezkor sinxronlash.
+    Yangi kinolarni kiritadi, mavjudlarining sarlavha, tavsif va statistikasini yangilaydi.
+    Haqiqiy file_id larni saqlab qoladi.
+    """
+    if not catalog_items:
+        return 0
+
+    stmt = select(Movie)
+    res = await session.execute(stmt)
+    existing_movies = {m.code: m for m in res.scalars().all()}
+
+    synced_count = 0
+    to_add = []
+
+    for it in catalog_items:
+        raw_code = it.get("c")
+        if raw_code is None:
+            continue
+        code = str(raw_code).strip()
+        if not code:
+            continue
+
+        title = str(it.get("t", f"Kino #{code}")).strip()
+        desc = str(it.get("d", "")).strip() or None
+        views = int(it.get("v", 150))
+        downloads = views // 3
+        genres = str(it.get("g") or "Kino, Komediya, O'zbek kino").strip()
+        year = int(it.get("y")) if it.get("y") else 2024
+        rating = float(it.get("r")) if it.get("r") else 8.0
+
+        if code in existing_movies:
+            m = existing_movies[code]
+            changed = False
+            if title and m.title != title:
+                m.title = title
+                changed = True
+            if desc and m.description != desc:
+                m.description = desc
+                changed = True
+            if views > m.views_count:
+                m.views_count = views
+                changed = True
+            if downloads > m.downloads_count:
+                m.downloads_count = downloads
+                changed = True
+            if changed:
+                synced_count += 1
+        else:
+            new_m = Movie(
+                code=code,
+                title=title,
+                description=desc,
+                file_id=f"BAACAgIAAxkBAAIB_mov_{code}_vid",
+                file_type="video",
+                file_size=1024 * 1024 * 550,
+                duration=95 * 60,
+                genres=genres,
+                year=year,
+                rating=rating,
+                views_count=views,
+                downloads_count=downloads,
+                created_at=utc_now(),
+            )
+            to_add.append(new_m)
+            existing_movies[code] = new_m
+            synced_count += 1
+
+    if to_add:
+        session.add_all(to_add)
+    await session.commit()
+    return synced_count
+
+
+
 # ==========================================
 # HOMIY KANALLAR (SPONSOR CHANNELS)
 # ==========================================

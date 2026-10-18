@@ -19,7 +19,7 @@ from handlers.movies import (
     handle_incoming_movie_video,
     handle_channel_movie_post,
 )
-from config import config
+from config import config, BASE_DIR
 
 
 @pytest_asyncio.fixture
@@ -462,4 +462,143 @@ async def test_handle_channel_movie_post(in_memory_session: AsyncSession, monkey
     assert m is not None
     assert m.file_id == "BAACAgIAAxkBAAE_CHANNEL_POST_VIDEO_ID_33333"
     assert m.duration == 848
+
+
+@pytest.mark.asyncio
+async def test_upsert_movie_and_sync_movies_from_catalog(in_memory_session: AsyncSession):
+    """crud.upsert_movie va crud.sync_movies_from_catalog_data to'g'ri ishlashi testi."""
+    # 1. Yangi kino yaratish (upsert)
+    movie1, created = await crud.upsert_movie(
+        session=in_memory_session,
+        code="9991",
+        title="Yangi Premyera 1",
+        description="Ajoyib film",
+        year=2025,
+        rating=8.9,
+    )
+    assert created is True
+    assert movie1.code == "9991"
+    assert movie1.title == "Yangi Premyera 1"
+
+    # 2. Mavjud kinoni yangilash (upsert)
+    movie1_updated, created2 = await crud.upsert_movie(
+        session=in_memory_session,
+        code="9991",
+        title="Yangi Premyera 1 - Yangilangan",
+        year=2026,
+    )
+    assert created2 is False
+    assert movie1_updated.code == "9991"
+    assert movie1_updated.title == "Yangi Premyera 1 - Yangilangan"
+    assert movie1_updated.year == 2026
+
+    # 3. Katalog ro'yxatidan sinxronlash
+    catalog_items = [
+        {"c": "9991", "t": "Yangi Premyera 1 - Katalog", "d": "Katalog tavsifi", "v": 500, "y": 2026, "r": 9.0},
+        {"c": "9992", "t": "Yangi Premyera 2", "d": "Yangi kino tavsifi", "v": 300, "y": 2025, "r": 8.5},
+    ]
+    synced = await crud.sync_movies_from_catalog_data(in_memory_session, catalog_items)
+    assert synced >= 2
+
+    m2 = await crud.get_movie_by_code(in_memory_session, "9992")
+    assert m2 is not None
+    assert m2.title == "Yangi Premyera 2"
+    assert m2.views_count == 300
+
+
+@pytest.mark.asyncio
+async def test_sync_catalog_from_upstream_mocked(in_memory_session: AsyncSession, monkeypatch):
+    """movie_service.sync_catalog_from_upstream ning upstream API bilan ishlashi testi."""
+    from unittest.mock import patch
+
+    mock_catalog = {
+        "items": [
+            {
+                "c": "7771",
+                "t": "Zakirovs Yangi Kino",
+                "d": "Kino tavsifi @Zakirovsfilms_bot va @ZakirovsKino",
+                "v": 1000,
+                "y": 2025
+            }
+        ],
+        "channel": "@ZakirovsKino",
+        "bot": "Zakirovsfilms_bot"
+    }
+
+    class MockResponse:
+        status = 200
+        async def json(self):
+            return mock_catalog
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    class MockClientSession:
+        def get(self, url, timeout=None):
+            return MockResponse()
+        async def __aenter__(self):
+            return self
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    monkeypatch.setattr("aiohttp.ClientSession", MockClientSession)
+
+    import sys
+    ms_mod = sys.modules["services.movie_service"]
+    old_cache = getattr(ms_mod, "_CATALOG_CACHE", None)
+    try:
+        synced = await movie_service.sync_catalog_from_upstream(session=in_memory_session)
+        assert synced >= 1
+
+        m = await crud.get_movie_by_code(in_memory_session, "7771")
+        assert m is not None
+        assert "Zakirov" not in m.description
+        assert config.CHANNEL_USERNAME in m.description or "@Baunty" in m.description
+    finally:
+        setattr(ms_mod, "_CATALOG_CACHE", old_cache)
+
+
+@pytest.mark.asyncio
+async def test_periodic_catalog_sync_lifecycle():
+    """start_periodic_catalog_sync va stop_periodic_catalog_sync vazifasi ishlashi testi."""
+    from services.movie_service import start_periodic_catalog_sync, stop_periodic_catalog_sync
+    import asyncio
+
+    task = start_periodic_catalog_sync(interval_seconds=3600)
+    assert task is not None
+    assert not task.done()
+
+    # Bir xil task qaytishi kerak
+    task2 = start_periodic_catalog_sync(interval_seconds=3600)
+    assert task2 is task
+
+    stop_periodic_catalog_sync()
+    await asyncio.sleep(0.05)
+    assert task.cancelled() or task.done()
+
+
+def test_tv_4k_ultra_hd_data_and_webapp():
+    """BIZ Cinema, Sevimli, Zo'r TV, Milliy, Makka, Madina 4K UHD sifatda sozlanganligini tekshirish."""
+    from services.tv_data import CHANNELS_LIST
+    by_name = {c["name"]: c for c in CHANNELS_LIST}
+
+    assert by_name["BIZ Cinema"]["q"] == "4K UHD"
+    assert "4K UHD" in by_name["Sevimli TV"]["q"]
+    assert "4K UHD" in by_name["Zo'r TV"]["q"]
+    assert "4K UHD" in by_name["Milliy TV"]["q"]
+    assert "4K UHD" in by_name["Makka Jonli Efir"]["q"]
+    assert "4K UHD" in by_name["Madina Jonli Efir"]["q"]
+
+    # webapp/index.html dagi sifat va overscroll sozlamalari
+    index_file = BASE_DIR / "webapp" / "index.html"
+    assert index_file.exists()
+    content = index_file.read_text(encoding="utf-8")
+
+    assert "overscroll-behavior:none" in content
+    assert "enableClosingConfirmation" in content
+    assert "4K UHD" in content
+    # visibilitychange da vid.pause bo'lmasligi kerak
+    assert "document.hidden && tvCur) vid.pause()" not in content
+
 

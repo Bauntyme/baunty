@@ -3,7 +3,9 @@ Kino xizmati (Qidiruv, kod orqali topish, statistika va yuborish)
 """
 import os
 import re
+import time
 import json
+import asyncio
 import logging
 from typing import Optional, List, Tuple
 from pathlib import Path
@@ -20,10 +22,88 @@ logger = logging.getLogger(__name__)
 
 # Kesh
 _CATALOG_CACHE: Optional[dict] = None
+_LAST_SYNC_TS: float = 0.0
 
 
 class MovieService:
     """Kinolar bilan ishlash logikasi."""
+
+    @staticmethod
+    async def sync_catalog_from_upstream(session: Optional[AsyncSession] = None) -> int:
+        """
+        @Zakirovsfilms_bot rasmiy upstream katalogi (https://161-97-96-58.sslip.io/api/catalog)
+        bilan to'liq avtomatik integratsiya va sinxronizatsiya.
+        Barcha ma'lumotlar @Bauntyfilmsbot va @BauntyFilms brendiga tozalangan holda
+        bizning 'movies' jadvalimizga va data/catalog.json ga kiritiladi.
+        """
+        global _CATALOG_CACHE, _LAST_SYNC_TS
+        import aiohttp
+        from database.session import get_session
+        _LAST_SYNC_TS = time.time()
+
+        def sanitize_branding(text: str) -> str:
+            if not text:
+                return ""
+            text = text.replace("@Zakirovsfilms_bot", f"@{config.BOT_USERNAME.lstrip('@')}")
+            text = text.replace("@ZakirovsKino", config.CHANNEL_USERNAME)
+            text = text.replace("@dilbarzakirova", config.CHANNEL_USERNAME)
+            text = text.replace("Zakirovs Films", "Baunty Films")
+            text = text.replace("Zakirovs_bot", config.BOT_USERNAME.lstrip('@'))
+            text = text.replace("Zakirovs", "Baunty")
+            text = text.replace("zakirovs", "baunty")
+            return text
+
+        raw_items = []
+        upstream_url = "https://161-97-96-58.sslip.io/api/catalog"
+        catalog_file = BASE_DIR / "data" / "catalog.json"
+
+        # 1. Upstream API dan eng yangi kinolar ro'yxatini olish
+        try:
+            async with aiohttp.ClientSession() as client:
+                async with client.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                    if resp.status == 200:
+                        cat_json = await resp.json()
+                        if isinstance(cat_json, dict) and "items" in cat_json:
+                            for it in cat_json.get("items", []):
+                                if "d" in it:
+                                    it["d"] = sanitize_branding(it["d"])
+                                if "t" in it:
+                                    it["t"] = sanitize_branding(it["t"])
+                            cat_json["channel"] = config.CHANNEL_USERNAME
+                            cat_json["bot"] = config.BOT_USERNAME.lstrip("@")
+                            raw_items = cat_json.get("items", [])
+                            if len(raw_items) >= 20:
+                                _CATALOG_CACHE = cat_json
+                                try:
+                                    with open(catalog_file, "w", encoding="utf-8") as f:
+                                        json.dump(cat_json, f, ensure_ascii=False, indent=2)
+                                except Exception as fe:
+                                    logger.warning(f"catalog.json fayliga yozishda xatolik: {fe}")
+        except Exception as e:
+            logger.info(f"Upstream katalog yuklashda xatolik ({e}), lokal kesh ishlatiladi.")
+
+        # 2. Agar upstream bo'lmasa, lokal catalog.json dan o'qish
+        if not raw_items and catalog_file.exists():
+            try:
+                with open(catalog_file, "r", encoding="utf-8") as f:
+                    local_cat = json.load(f)
+                    _CATALOG_CACHE = local_cat
+                    raw_items = local_cat.get("items", [])
+            except Exception as e:
+                logger.warning(f"Lokal catalog.json o'qishda xatolik: {e}")
+
+        if not raw_items:
+            return 0
+
+        # 3. Bazaga sinxronlash
+        if session:
+            count = await crud.sync_movies_from_catalog_data(session, raw_items)
+        else:
+            async with get_session() as s:
+                count = await crud.sync_movies_from_catalog_data(s, raw_items)
+
+        logger.info(f"Katalog sinxronizatsiyasi yakunlandi: {count} ta kino ko'rib chiqildi/yangilandi.")
+        return count
 
     @staticmethod
     def get_catalog_item(code: str) -> Optional[dict]:
@@ -214,20 +294,44 @@ class MovieService:
             if not description:
                 description = db_movie.description
 
-        # Agar na katalogda, na bazada kino mavjud bo'lmasa — False qaytarish (kino topilmadi)
+        # Agar na katalogda, na bazada kino mavjud bo'lmasa — @Zakirovsfilms_bot dan tezkor sinxronlashga urinish
+        if not cat_item and not db_movie:
+            if time.time() - _LAST_SYNC_TS > 60:
+                try:
+                    await MovieService.sync_catalog_from_upstream(session=session)
+                    cat_item = MovieService.get_catalog_item(clean_code)
+                    if session:
+                        db_movie = await crud.get_movie_by_code(session, clean_code)
+                    else:
+                        from database.session import get_session
+                        async with get_session() as s:
+                            db_movie = await crud.get_movie_by_code(s, clean_code)
+                    if cat_item:
+                        title = cat_item.get("t", "").strip()
+                        total_parts = int(cat_item.get("p", 1))
+                        description = cat_item.get("d", "").strip()
+                    if db_movie:
+                        if not title:
+                            title = db_movie.title
+                        if not description:
+                            description = db_movie.description
+                except Exception as se:
+                    logger.debug(f"Live upstream fetch failed: {se}")
+
         if not cat_item and not db_movie:
             return False
 
         if not title:
             title = f"Kino #{clean_code}"
 
-        # Sarlavha va klaviatura (@Zakirovsfilms_bot ga 1v1 mos)
+        # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
+        bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
         channel_user = config.CHANNEL_USERNAME
         if total_parts > 1:
-            caption = f"🎬 <b>{title} — {part}-qism</b>\n\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}"
+            caption = f"🎬 <b>{title} — {part}-qism</b>\n\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n🤖 Bot: {bot_user}"
             reply_markup = movie_parts_keyboard(clean_code, total_parts=total_parts, current_part=part)
         else:
-            caption = f"🎬 <b>{title}</b>\n\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}"
+            caption = f"🎬 <b>{title}</b>\n\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n🤖 Bot: {bot_user}"
             reply_markup = movie_item_keyboard(clean_code)
 
         # 1. Haqiqiy video mavjud bo'lsa (mock/placeholder bo'lmagan)
@@ -352,3 +456,43 @@ class MovieService:
 
 
 movie_service = MovieService()
+
+_periodic_sync_task: Optional[asyncio.Task] = None
+
+
+async def _periodic_sync_loop(interval_seconds: int = 900) -> None:
+    """Davriy avtomatik sinxronizatsiya sikli: har 15 daqiqada @Zakirovsfilms_bot dan yangi kinolarni bazaga yuklaydi."""
+    logger.info("@Zakirovsfilms_bot bilan davriy avtomatik sinxronizatsiya boshlandi.")
+    try:
+        await movie_service.sync_catalog_from_upstream()
+    except Exception as se:
+        logger.warning(f"Dastlabki sinxronizatsiyada ogohlantirish: {se}")
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            synced = await movie_service.sync_catalog_from_upstream()
+            if synced:
+                logger.info(f"Davriy sinxronizatsiya: {synced} ta kino bazada yangilandi.")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.warning(f"Davriy sinxronizatsiyada ogohlantirish: {e}")
+
+
+def start_periodic_catalog_sync(interval_seconds: int = 900) -> asyncio.Task:
+    """Davriy avtomatik sinxronizatsiyani ishga tushirish."""
+    global _periodic_sync_task
+    if _periodic_sync_task and not _periodic_sync_task.done():
+        return _periodic_sync_task
+    _periodic_sync_task = asyncio.create_task(_periodic_sync_loop(interval_seconds))
+    return _periodic_sync_task
+
+
+def stop_periodic_catalog_sync() -> None:
+    """Davriy sinxronizatsiyani to'xtatish."""
+    global _periodic_sync_task
+    if _periodic_sync_task and not _periodic_sync_task.done():
+        _periodic_sync_task.cancel()
+        _periodic_sync_task = None
+

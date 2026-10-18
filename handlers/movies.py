@@ -576,6 +576,25 @@ async def cmd_set_movie_video(message: Message) -> None:
         await message.reply(f"❌ Kino #{code} ni saqlab bo'lmadi.", parse_mode="HTML")
 
 
+@router.message(Command("synckino", "syncmovies"))
+async def cmd_sync_movies(message: Message) -> None:
+    """Admin buyrug'i: @Zakirovsfilms_bot dan barcha yangi kinolarni darhol sinxronlash."""
+    user_id = message.from_user.id if message.from_user else 0
+    if not config.is_admin(user_id):
+        await message.reply("⛔ <b>Ushbu buyruq faqat adminlar uchun!</b>", parse_mode="HTML")
+        return
+
+    msg = await message.reply("⏳ @Zakirovsfilms_bot katalogi bilan sinxronlash boshlandi...", parse_mode="HTML")
+    count = await movie_service.sync_catalog_from_upstream()
+    await msg.edit_text(
+        f"✅ <b>Sinxronizatsiya muvaffaqiyatli yakunlandi!</b>\n\n"
+        f"🔄 <b>Ko'rib chiqilgan/yangilangan kinolar:</b> {count} ta\n"
+        f"🍿 <b>Bizning kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
+        f"🤖 <b>Bizning botimiz:</b> @{config.BOT_USERNAME.lstrip('@')}",
+        parse_mode="HTML"
+    )
+
+
 @router.message(StateFilter(None), F.video | F.document)
 async def handle_incoming_movie_video(message: Message) -> None:
     """

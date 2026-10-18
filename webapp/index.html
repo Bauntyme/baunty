@@ -30,7 +30,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);
   font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;overscroll-behavior-y:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 img{display:block}
 
@@ -195,10 +195,10 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .row .tv{width:118px;flex:none;scroll-snap-align:start}
 
 .tvp{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;transform:translateY(100%);
-  transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:contain}
+  transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:none;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch}
 .tvp.open{transform:none}
-.vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%}
-.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering:-webkit-optimize-contrast}
+.vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges;transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
 .vbox iframe[hidden],.vbox video[hidden]{display:none}
 .badb{display:block;margin:10px 16px 0;width:calc(100% - 32px);padding:10px;border-radius:12px;background:var(--bg2);
   color:var(--hint);font-size:13px;font-weight:650}
@@ -254,7 +254,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 
 <section class="tvp" id="tvp" aria-modal="true">
   <div class="vbox" id="vbox">
-    <video id="vid" playsinline webkit-playsinline autoplay preload="auto"></video>
+    <video id="vid" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="true" autoplay preload="auto"></video>
     <iframe id="yt" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin"></iframe>
     <div class="vov" id="vload"><div class="spin"></div><span id="vmsg">Efirga ulanmoqda…</span></div>
     <div class="vov" id="verr" hidden><div style="font-size:40px">📡</div><b id="verrt">Bu kanal hozir efirda emas</b>
@@ -355,9 +355,12 @@ const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 if (!inTg) document.body.classList.add("no-tg");
 if (tg) {
-  tg.ready(); tg.expand();
+  try { tg.ready(); } catch (e) {}
+  try { tg.expand(); } catch (e) {}
+  try { tg.enableClosingConfirmation(); } catch (e) {}
   try { tg.setHeaderColor("bg_color"); tg.setBackgroundColor("bg_color"); } catch (e) {}
-  try { if (tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes(); } catch (e) {}
+  try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+  try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes(); } catch (e) {}
 }
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -573,7 +576,11 @@ $("play").onclick = () => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1);
 $("dclose").onclick = () => closeDetail();
 if (inTg) {
   tg.MainButton.onClick(() => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1));
-  tg.BackButton.onClick(() => { if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy())) return; if (!tvCur) closeDetail(); });
+  tg.BackButton.onClick(() => {
+    if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy())) return;
+    if (tvCur) { closeTV(); return; }
+    if (cur) closeDetail();
+  });
 }
 window.addEventListener("popstate", () => { if (tvCur) closeTV(true); else if (cur) closeDetail(true); });
 
@@ -631,7 +638,7 @@ function tvInitials(name) {
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
   (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')">` : "");
 const tileHTML = (c) => {
-  const qb = c.q || ((c.c === "uz" || c.i <= 48) ? (c.n === "BIZ Cinema" || c.n === "Insayt TV" ? "4K UHD" : "1080p HD") : "HD");
+  const qb = c.q || (["BIZ Cinema", "Sevimli TV", "Zo'r TV", "Milliy TV", "Makka Jonli Efir", "Madina Jonli Efir", "Insayt TV", "Mening Yurtim (MY5)", "Renessans TV"].includes(c.n) ? "4K UHD" : ((c.c === "uz" || c.i <= 48) ? "1080p HD" : "HD"));
   return `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
   <span class="live">LIVE</span><span class="tv-res">${esc(qb)}</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 };
@@ -1010,8 +1017,13 @@ async function playTV(c, from = 0) {
 }
 function openTV(c, push = true) {
   tvCur = c; haptic();
+  if (inTg) {
+    try { tg.expand(); } catch (e) {}
+    try { tg.enableClosingConfirmation(); } catch (e) {}
+    try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+  }
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  const qb = c.q || ((c.c === "uz" || c.i <= 48) ? (c.n === "BIZ Cinema" || c.n === "Insayt TV" ? "4K UHD" : "1080p HD") : "HD");
+  const qb = c.q || (["BIZ Cinema", "Sevimli TV", "Zo'r TV", "Milliy TV", "Makka Jonli Efir", "Madina Jonli Efir", "Insayt TV", "Mening Yurtim (MY5)", "Renessans TV"].includes(c.n) ? "4K UHD" : ((c.c === "uz" || c.i <= 48) ? "1080p HD" : "HD"));
   $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
@@ -1150,8 +1162,42 @@ document.addEventListener("click", (e) => {
   }
   openTV(c, !tvCur);
 });
-if (inTg) tg.BackButton.onClick(() => { if (tvCur) closeTV(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && tvCur) vid.pause(); });
+// Fon rejimiga o'tganda yoki ilova qisman surilganda efir to'xtab qolmasin
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && tvCur && vid.paused && !vid.ended) {
+    vid.play().catch(() => {});
+  }
+});
+vid.addEventListener("pause", () => {
+  // Agar foydalanuvchi stopVideo chaqirmagan bo'lsa va TV ochiq bo'lsa,
+  // minimizatsiya yoki pastga tortishda video to'xtab qolishini oldini olish
+  if (tvCur && !vid.ended && !document.hidden) {
+    setTimeout(() => {
+      if (tvCur && vid.paused) vid.play().catch(() => {});
+    }, 150);
+  }
+});
+const vboxEl = $("vbox");
+if (vboxEl) {
+  vboxEl.addEventListener("touchmove", (e) => {
+    if (e.cancelable) e.preventDefault();
+  }, {passive: false});
+}
+const tvpEl = $("tvp");
+if (tvpEl) {
+  let touchStartY = 0;
+  tvpEl.addEventListener("touchstart", (e) => {
+    if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
+  }, {passive: true});
+  tvpEl.addEventListener("touchmove", (e) => {
+    if (e.touches && e.touches[0]) {
+      const currentY = e.touches[0].clientY;
+      if (tvpEl.scrollTop <= 0 && currentY > touchStartY) {
+        if (e.cancelable) e.preventDefault();
+      }
+    }
+  }, {passive: false});
+}
 
 // ---------- yuklash ----------
 async function load() {
