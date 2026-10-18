@@ -35,31 +35,50 @@ async def cmd_story_prompt(message: Message, state: FSMContext) -> None:
 
 @router.message(StoryStates.waiting_for_username, F.text)
 async def state_process_story_username(message: Message, state: FSMContext) -> None:
-    """Kiritilgan username bo'yicha story yuklash."""
-    username = story_service.clean_username(message.text)
-    if not username:
-        await message.reply("❌ Noto'g'ri username kiritildi. Qaytadan urinib ko'ring.")
+    """Kiritilgan username yoki story havolasi bo'yicha story yuklash."""
+    raw_input = message.text.strip()
+    is_url = "instagram.com" in raw_input or "t.me" in raw_input
+    username = story_service.clean_username(raw_input)
+    if not username and not is_url:
+        await message.reply("❌ Noto'g'ri username yoki havola kiritildi. Qaytadan urinib ko'ring.")
         return
 
+    display_name = f"@{username}" if username else "Ko'rsatilgan profil"
     status_msg = await message.reply(
-        f"⏳ <b>@{username} profilidagi hikoyalar yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
+        f"⏳ <b>{display_name} hikoyalari yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
         parse_mode="HTML"
     )
 
     try:
-        results = await story_service.fetch_stories(username, limit=5)
+        target_param = raw_input if is_url else username
+        results = await story_service.fetch_stories(target_param, limit=5)
         # Faqat muvaffaqiyatli yuklangan fayllarni olish
         valid_results = [r for r in results if r.success and r.file_path and Path(r.file_path).exists()]
 
-        if not valid_results:
-            # Agar fetch_story bitta natija bersa
-            single_res = await story_service.fetch_story(username)
-            if single_res.success and single_res.file_path and Path(single_res.file_path).exists():
-                valid_results = [single_res]
+        # Agar to'g'ridan-to'g'ri yuklangan fayllar bo'lmasa, keshdagi ommaviy story oqimlarini tekshirish
+        if not valid_results and username:
+            cached_prof = story_service._profile_cache.get(username)
+            if cached_prof and cached_prof.get("items"):
+                for it in cached_prof["items"][:3]:
+                    m_url = it.get("u")
+                    if m_url and str(m_url).startswith("http"):
+                        caption = (
+                            f"👀 <b>@{username} ning hikoyasi</b>\n\n"
+                            f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+                            f"🍿 <b>Kinolar:</b> {config.CHANNEL_USERNAME}"
+                        )
+                        try:
+                            if it.get("k") == "video":
+                                await message.reply_video(video=m_url, caption=caption, parse_mode="HTML")
+                            else:
+                                await message.reply_photo(photo=m_url, caption=caption, parse_mode="HTML")
+                            valid_results.append(m_url)
+                        except Exception:
+                            pass
 
         if not valid_results:
             await status_msg.edit_text(
-                f"❌ <b>@{username} profilida faol hikoyalar topilmadi.</b>\n\n"
+                f"❌ <b>{display_name} profilida faol hikoyalar topilmadi.</b>\n\n"
                 "Mumkin bo'lgan sabablar:\n"
                 "• Foydalanuvchi hozirda hech qanday story joylamagan\n"
                 "• Profil yopiq (shaxsiy / private)\n"

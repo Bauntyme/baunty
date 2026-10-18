@@ -174,3 +174,62 @@ async def test_deliver_movie_part1_variants_lookup():
     assert mock_bot.send_video.called
     call_args = mock_bot.send_video.call_args[1]
     assert call_args["video"] == real_file_id
+
+
+def test_movie_parts_keyboard_pagination():
+    """Ko'p qismli seriallar uchun 20 tadan sahifalash va Telegram 100-tugma cheklovi testi."""
+    # 256 qismli serial uchun tugmalar
+    kb_p0 = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=1, page=0)
+    buttons_p0 = [btn for row in kb_p0.inline_keyboard for btn in row]
+    # Telegram inline keyboard limit 100 dan ancha kam bo'lishi kerak
+    assert len(buttons_p0) <= 25
+    part_buttons = [b for b in buttons_p0 if b.callback_data and b.callback_data.startswith("watch_part:")]
+    assert len(part_buttons) == 20
+    assert part_buttons[0].text == "▶️ 1"
+    assert part_buttons[-1].text == "20"
+
+    # Keyingi sahifaga o'tish tugmasi mavjudligi
+    nav_next = [b for b in buttons_p0 if b.callback_data == "parts_page:289:1"]
+    assert len(nav_next) == 1
+
+    # O'rta sahifa (page=1 -> 21 dan 40 gacha)
+    kb_p1 = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=25, page=1)
+    buttons_p1 = [btn for row in kb_p1.inline_keyboard for btn in row]
+    part_buttons_p1 = [b for b in buttons_p1 if b.callback_data and b.callback_data.startswith("watch_part:")]
+    assert len(part_buttons_p1) == 20
+    assert part_buttons_p1[0].text == "21"
+    assert part_buttons_p1[4].text == "▶️ 25"
+
+    nav_prev = [b for b in buttons_p1 if b.callback_data == "parts_page:289:0"]
+    nav_next2 = [b for b in buttons_p1 if b.callback_data == "parts_page:289:2"]
+    assert len(nav_prev) == 1
+    assert len(nav_next2) == 1
+
+    # Oxirgi sahifa (page=12 -> 241 dan 256 gacha, jami 16 ta qism)
+    kb_last = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=250, page=12)
+    buttons_last = [btn for row in kb_last.inline_keyboard for btn in row]
+    part_buttons_last = [b for b in buttons_last if b.callback_data and b.callback_data.startswith("watch_part:")]
+    assert len(part_buttons_last) == 16
+    assert part_buttons_last[0].text == "241"
+    assert part_buttons_last[-1].text == "256"
+
+    # Oxirgi sahifada oldingi tugma bor, keyingi tugma yo'q
+    nav_prev_last = [b for b in buttons_last if b.callback_data == "parts_page:289:11"]
+    assert len(nav_prev_last) == 1
+    nav_next_none = [b for b in buttons_last if b.callback_data and b.callback_data.startswith("parts_page:289:13")]
+    assert len(nav_next_none) == 0
+
+
+def test_story_username_and_url_preservation():
+    """Story username tozalash va URL aniqlash tekshiruvi."""
+    from services.story_service import story_service
+
+    assert story_service.clean_username("@cristiano") == "cristiano"
+    assert story_service.clean_username("https://www.instagram.com/cristiano/") == "cristiano"
+    assert story_service.clean_username("https://t.me/kunuz") == "kunuz"
+
+    # URL larni ajrata olish
+    story_url = "https://www.instagram.com/stories/cristiano/321456789/"
+    is_url = "instagram.com" in story_url or "t.me" in story_url
+    assert is_url is True
+

@@ -530,15 +530,15 @@ class MediaDownloader:
             else:
                 return None
 
-        # Cobalt API manzil(lar)i
-        cobalt_endpoints = [
-            os.getenv("COBALT_API_URL", "").strip(),
+        # Cobalt API manzil(lar)i (faqat tirik va javob beruvchi instancelar)
+        cobalt_endpoints = []
+        env_cobalt = os.getenv("COBALT_API_URL", "").strip()
+        if env_cobalt:
+            cobalt_endpoints.append(env_cobalt)
+        cobalt_endpoints.extend([
             "https://api.cobalt.tools",
-            "https://cobalt-api.kwiatekm.tokyo",
             "https://cobalt.canine.tools",
-            "https://api.server.v0.pw",
-        ]
-        cobalt_endpoints = [ep for ep in cobalt_endpoints if ep]
+        ])
 
         payload = {
             "url": clean_url,
@@ -564,7 +564,7 @@ class MediaDownloader:
                     headers=headers,
                     method="POST"
                 )
-                with urllib.request.urlopen(req, timeout=12) as resp:
+                with urllib.request.urlopen(req, timeout=6) as resp:
                     if resp.status == 200:
                         data = json.loads(resp.read().decode("utf-8"))
                         stream_url = data.get("url")

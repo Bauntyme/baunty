@@ -225,6 +225,27 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
     )
 
 
+@router.callback_query(F.data.startswith("parts_page:"))
+async def cb_parts_page(callback: CallbackQuery) -> None:
+    """Ko'p qismli seriallar qismlar sahifasini o'zgartirish."""
+    parts = callback.data.split(":")
+    code = parts[1]
+    page = int(parts[2])
+
+    total_parts = 1
+    cat_item = MovieService.get_catalog_item(code)
+    if cat_item:
+        total_parts = int(cat_item.get("p", 1))
+
+    markup = movie_parts_keyboard(code, total_parts=total_parts, current_part=1, page=page)
+    try:
+        await callback.message.edit_reply_markup(reply_markup=markup)
+        await callback.answer()
+    except Exception:
+        await callback.answer()
+
+
+
 @router.message(MovieSearchStates.waiting_for_code)
 async def state_process_code(message: Message, state: FSMContext) -> None:
     """FSM holatida kiritilgan kodni qidirish."""
@@ -674,6 +695,12 @@ async def handle_incoming_movie_video(message: Message) -> None:
     code = extract_code_from_caption(caption) or (extract_code_from_caption(file_name) if file_name else None)
     candidate_title = extract_candidate_title(caption) or (extract_candidate_title(file_name) if file_name else None)
 
+    # Agar kod to'g'ridan-to'g'ri topilmasa, lekin sarlavha bo'lsa, katalogdan kodni aniqlash
+    if not code and candidate_title:
+        cat_match = MovieService.search_catalog_by_title(candidate_title)
+        if cat_match and cat_match.get("c"):
+            code = str(cat_match["c"])
+
     # Qism (part) raqamini aniqlash (masalan: 2-qism, 3-seriya)
     m_part = re.search(r'(\d+)[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', caption, re.IGNORECASE)
     if code and m_part:
@@ -768,6 +795,12 @@ async def handle_channel_movie_post(message: Message) -> None:
     caption = (message.caption or message.text or "").strip()
     code = extract_code_from_caption(caption) or (extract_code_from_caption(file_name) if file_name else None)
     candidate_title = extract_candidate_title(caption) or (extract_candidate_title(file_name) if file_name else None)
+
+    # Agar kod to'g'ridan-to'g'ri topilmasa, lekin sarlavha bo'lsa, katalogdan kodni aniqlash
+    if not code and candidate_title:
+        cat_match = MovieService.search_catalog_by_title(candidate_title)
+        if cat_match and cat_match.get("c"):
+            code = str(cat_match["c"])
 
     # Qism (part) raqamini aniqlash (masalan: 2-qism, 3-seriya)
     m_part = re.search(r'(\d+)[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', caption, re.IGNORECASE)

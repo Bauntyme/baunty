@@ -683,8 +683,20 @@ async def handle_story(request: web.Request) -> web.Response:
 
 
 async def handle_story_me(request: web.Request) -> web.Response:
-    """Web App story bo'limi holati tekshiruvi."""
-    return web.json_response({"ok": True, "ig": True, "tg": True})
+    """Web App story bo'limi holati tekshiruvi va tavsiya etilgan kanallar."""
+    return web.json_response({
+        "ok": True,
+        "watch": [],
+        "featured": [
+            {"u": "cristiano", "p": "ig", "name": "Cristiano Ronaldo", "pic": "https://api.dicebear.com/7.x/identicon/svg?seed=cristiano"},
+            {"u": "leomessi", "p": "ig", "name": "Leo Messi", "pic": "https://api.dicebear.com/7.x/identicon/svg?seed=leomessi"},
+            {"u": "kunuz", "p": "tg", "name": "Kun.uz", "pic": "https://api.dicebear.com/7.x/identicon/svg?seed=kunuz"},
+            {"u": "daryo", "p": "tg", "name": "Daryo", "pic": "https://api.dicebear.com/7.x/identicon/svg?seed=daryo"},
+        ],
+        "tg": True,
+        "ig": True,
+        "max": 15
+    })
 
 
 async def handle_story_ig(request: web.Request) -> web.Response:
@@ -735,36 +747,67 @@ async def handle_story_send(request: web.Request) -> web.Response:
     from aiogram.types import FSInputFile
     from utils.helpers import safe_remove_file
 
+    clean_u = story_service.clean_username(u)
     sent_any = False
-    try:
-        stories = await story_service.fetch_stories(u, limit=5)
-        for st in stories:
-            if st.success and st.file_path and os.path.exists(st.file_path):
-                ext = Path(st.file_path).suffix.lower()
-                caption = (
-                    f"👀 <b>@{u} ning hikoyasi</b>\n\n"
-                    f"🤖 @{config.BOT_USERNAME.lstrip('@')} orqali yuklandi\n"
-                    f"🍿 {config.CHANNEL_USERNAME}"
-                )
-                try:
-                    if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
-                        await _bot_instance.send_photo(chat_id=chat_id, photo=FSInputFile(st.file_path), caption=caption, parse_mode="HTML")
-                    else:
-                        await _bot_instance.send_video(chat_id=chat_id, video=FSInputFile(st.file_path), caption=caption, parse_mode="HTML")
-                    sent_any = True
-                except Exception as se:
-                    logger.warning(f"Story yuborishda xatolik: {se}")
-                finally:
-                    safe_remove_file(st.file_path)
-    except Exception as e:
-        logger.warning(f"Story send umumiy xatoligi: {e}")
+    caption = (
+        f"👀 <b>@{clean_u} ning hikoyasi</b>\n\n"
+        f"🤖 @{config.BOT_USERNAME.lstrip('@')} orqali yuklandi\n"
+        f"🍿 {config.CHANNEL_USERNAME}"
+    )
 
+    # 1. Keshdagi tanlangan story elementlarini tekshirish
+    cached_profile = story_service._profile_cache.get(clean_u)
+    req_ids = body.get("ids", [])
+    if isinstance(req_ids, list):
+        req_ids_set = set(str(i) for i in req_ids)
+    else:
+        req_ids_set = set()
+
+    if cached_profile and cached_profile.get("items"):
+        target_items = [
+            it for it in cached_profile["items"]
+            if not req_ids_set or str(it.get("id")) in req_ids_set
+        ]
+        for it in target_items:
+            media_url = it.get("u")
+            is_vid = it.get("k") == "video"
+            if media_url and str(media_url).startswith("http"):
+                try:
+                    if is_vid:
+                        await _bot_instance.send_video(chat_id=chat_id, video=media_url, caption=caption, parse_mode="HTML")
+                    else:
+                        await _bot_instance.send_photo(chat_id=chat_id, photo=media_url, caption=caption, parse_mode="HTML")
+                    sent_any = True
+                except Exception as e_cached:
+                    logger.debug(f"Keshdagi story url yuborishda xatolik: {e_cached}")
+
+    # 2. Agar keshdan yuborilmagan bo'lsa, fetch_stories orqali yuklab yuborish
+    if not sent_any:
+        try:
+            stories = await story_service.fetch_stories(clean_u, limit=5)
+            for st in stories:
+                if st.success and st.file_path and os.path.exists(st.file_path):
+                    ext = Path(st.file_path).suffix.lower()
+                    try:
+                        if ext in [".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+                            await _bot_instance.send_photo(chat_id=chat_id, photo=FSInputFile(st.file_path), caption=caption, parse_mode="HTML")
+                        else:
+                            await _bot_instance.send_video(chat_id=chat_id, video=FSInputFile(st.file_path), caption=caption, parse_mode="HTML")
+                        sent_any = True
+                    except Exception as se:
+                        logger.warning(f"Story yuborishda xatolik: {se}")
+                    finally:
+                        safe_remove_file(st.file_path)
+        except Exception as e:
+            logger.warning(f"Story send umumiy xatoligi: {e}")
+
+    # 3. Zaxira matn
     if not sent_any:
         try:
             await _bot_instance.send_message(
                 chat_id=chat_id,
                 text=(
-                    f"👀 <b>@{u}</b> profili hikoyalari (Mini App)\n\n"
+                    f"👀 <b>@{clean_u}</b> profili hikoyalari (Mini App)\n\n"
                     f"🍿 {config.CHANNEL_USERNAME}\n"
                     f"🤖 @{config.BOT_USERNAME.lstrip('@')}"
                 ),
@@ -774,7 +817,7 @@ async def handle_story_send(request: web.Request) -> web.Response:
         except Exception:
             pass
 
-    return web.json_response({"ok": True, "message": f"@{u} hikoyasi chatga yuborildi!"})
+    return web.json_response({"ok": True, "message": f"@{clean_u} hikoyasi chatga yuborildi!"})
 
 
 async def handle_story_watch(request: web.Request) -> web.Response:

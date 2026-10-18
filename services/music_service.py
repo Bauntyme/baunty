@@ -30,15 +30,17 @@ class MusicService:
         if not clean_q:
             return []
 
-        # 1. Deezer qidiruvi
-        deezer_tracks = await self._search_deezer(clean_q, limit=limit)
-        if deezer_tracks and len(deezer_tracks) >= limit:
-            return deezer_tracks[:limit]
+        # 1. Deezer va iTunes ochiq API larini parallel (bir vaqtda) ishga tushirish
+        tasks = [
+            self._search_deezer(clean_q, limit=limit),
+            self._search_itunes(clean_q, limit=limit),
+        ]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 2. iTunes API qidiruvi (juda tez, xalqaro va mahalliy qo'shiqlar)
-        itunes_tracks = await self._search_itunes(clean_q, limit=limit)
+        deezer_tracks = results[0] if isinstance(results[0], list) else []
+        itunes_tracks = results[1] if isinstance(results[1], list) else []
 
-        # 3. Lokal katalog (data/music_home.json) qidiruvi
+        # 2. Lokal katalog (data/music_home.json) qidiruvi
         local_tracks = self._search_local_home(clean_q, limit=limit)
 
         # Barcha manbalarni birlashtirish va takrorlarni olib tashlash
@@ -56,7 +58,7 @@ class MusicService:
         if merged:
             return merged
 
-        # 4. Agar barcha ochiq API lar bo'sh bo'lsa, YouTube fallback
+        # 3. Agar barcha ochiq API lar bo'sh bo'lsa, YouTube fallback
         return await self._fallback_youtube_search(clean_q, limit=limit)
 
     async def _search_deezer(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:

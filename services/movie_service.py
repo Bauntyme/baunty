@@ -374,9 +374,9 @@ class MovieService:
             or not db_movie.file_id
             or db_movie.file_id.startswith("mov_")
             or db_movie.file_id.endswith("_vid")
-            or db_movie.file_id.startswith("BAACAgIAAxkBAAIB_")
             or "_placeholder" in db_movie.file_id
-            or len(db_movie.file_id) < 25
+            or db_movie.file_id.startswith("mock_")
+            or len(db_movie.file_id) < 20
         )
         has_real_video = bool(db_movie and not is_placeholder)
 
@@ -449,7 +449,7 @@ class MovieService:
                     import aiohttp
                     url = f"https://161-97-96-58.sslip.io/p/{clean_code}_{size}.webp"
                     async with aiohttp.ClientSession() as client:
-                        async with client.get(url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                        async with client.get(url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
                             if resp.status == 200:
                                 pdata = await resp.read()
                                 if pdata and len(pdata) > 500:

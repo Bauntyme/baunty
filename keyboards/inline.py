@@ -106,11 +106,31 @@ def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def movie_parts_keyboard(movie_code: str, total_parts: int, current_part: int = 1) -> InlineKeyboardMarkup:
-    """Ko'p qismli seriallar uchun qismlar tugmalari ([1] [2] ... [N]) va ulashish."""
+def movie_parts_keyboard(
+    movie_code: str,
+    total_parts: int,
+    current_part: int = 1,
+    page: Optional[int] = None,
+    per_page: int = 20
+) -> InlineKeyboardMarkup:
+    """Ko'p qismli seriallar uchun qismlar tugmalari ([1] [2] ... [N]) va ulashish.
+    Telegram 100-tugma cheklovidan oshib ketmasligi uchun 20 tadan sahifalarga ajratiladi.
+    """
     builder = InlineKeyboardBuilder()
+
+    # Sahifani avtomatik hisoblash (agar berilmagan bo'lsa)
+    if page is None:
+        page = max(0, (current_part - 1) // per_page) if current_part > 0 else 0
+
+    total_pages = max(1, (total_parts + per_page - 1) // per_page)
+    if page >= total_pages:
+        page = total_pages - 1
+
+    start_part = page * per_page + 1
+    end_part = min(total_parts, (page + 1) * per_page)
+
     row = []
-    for p in range(1, total_parts + 1):
+    for p in range(start_part, end_part + 1):
         btn_text = f"▶️ {p}" if p == current_part else str(p)
         row.append(InlineKeyboardButton(text=btn_text, callback_data=f"watch_part:{movie_code}:{p}"))
         if len(row) == 5:
@@ -118,6 +138,18 @@ def movie_parts_keyboard(movie_code: str, total_parts: int, current_part: int = 
             row = []
     if row:
         builder.row(*row)
+
+    # Agar qismlar 20 tadan ko'p bo'lsa, sahifalar navigatsiyasi
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            prev_label = f"⬅️ { (page-1)*per_page + 1 }–{ page*per_page }"
+            nav_row.append(InlineKeyboardButton(text=prev_label, callback_data=f"parts_page:{movie_code}:{page-1}"))
+        if page < total_pages - 1:
+            next_label = f"{ (page+1)*per_page + 1 }–{ min(total_parts, (page+2)*per_page) } ➡️"
+            nav_row.append(InlineKeyboardButton(text=next_label, callback_data=f"parts_page:{movie_code}:{page+1}"))
+        if nav_row:
+            builder.row(*nav_row)
 
     target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
     builder.row(
