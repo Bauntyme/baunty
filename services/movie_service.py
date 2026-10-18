@@ -2,6 +2,7 @@
 Kino xizmati (Qidiruv, kod orqali topish, statistika va yuborish)
 """
 import os
+import re
 import json
 import logging
 from typing import Optional, List, Tuple
@@ -47,7 +48,7 @@ class MovieService:
 
     @staticmethod
     def search_catalog_by_title(title_query: str) -> Optional[dict]:
-        """Katalog keshidan sarlavha bo'yicha kino qidirish."""
+        """Katalog keshidan sarlavha bo'yicha kino qidirish (Lotin + Kirill, apostrof tolerant, xavfsiz kalit so'zlar)."""
         global _CATALOG_CACHE
         if not title_query:
             return None
@@ -62,19 +63,83 @@ class MovieService:
         if not _CATALOG_CACHE:
             return None
 
-        q = title_query.lower().strip()
-        items = _CATALOG_CACHE.get("items", [])
-        for it in items:
-            t = it.get("t", "").lower()
-            if q in t:
-                return it
+        from utils.translit import get_both_scripts
 
-        words = [w for w in q.split() if len(w) >= 3]
-        if words:
-            for it in items:
-                t = it.get("t", "").lower()
-                if any(w in t for w in words):
+        def normalize_title(t: str) -> str:
+            t_norm = (
+                t.lower()
+                .replace("‘", "'")
+                .replace("’", "'")
+                .replace("ʻ", "'")
+                .replace("`", "'")
+            )
+            t_norm = re.sub(r"[^\w\s']|_", " ", t_norm)
+            return " ".join(t_norm.split())
+
+        def strip_apostrophe(t: str) -> str:
+            return t.replace("'", "")
+
+        def word_matches(w1: str, w2: str) -> bool:
+            if w1 == w2:
+                return True
+            if len(w1) >= 4 and len(w2) >= 4:
+                return w1.startswith(w2) or w2.startswith(w1)
+            return False
+
+        query_variants = get_both_scripts(title_query)
+        all_queries = []
+        for qv in query_variants:
+            norm_q = normalize_title(qv)
+            if norm_q and norm_q not in all_queries:
+                all_queries.append(norm_q)
+            sq = strip_apostrophe(norm_q)
+            if sq and sq not in all_queries:
+                all_queries.append(sq)
+
+        items = _CATALOG_CACHE.get("items", [])
+
+        # 1. To'liq yoki substring mosligi (ikkala tomonga)
+        for it in items:
+            t_raw = it.get("t", "")
+            t_norm = normalize_title(t_raw)
+            t_s = strip_apostrophe(t_norm)
+            for q in all_queries:
+                if len(q) >= 3 and len(t_norm) >= 3:
+                    if q == t_norm or q == t_s:
+                        return it
+                    if q in t_norm or q in t_s:
+                        return it
+                    if t_norm in q or t_s in q:
+                        return it
+                elif q and (q == t_norm or q == t_s):
                     return it
+
+        # 2. Kalit so'zlar bo'yicha (Stop-words filtri bilan xavfsiz moslik)
+        STOP_WORDS = {
+            "kino", "film", "filmi", "kinosi", "premyera", "uzbek", "o'zbek",
+            "tarjima", "yangi", "qism", "serial", "hd", "kodi", "barcha", "retro",
+            "multfilm", "kinoqism", "qismli", "multfilmi"
+        }
+
+        for it in items:
+            t_norm = normalize_title(it.get("t", ""))
+            t_words = [w for w in t_norm.split() if len(w) >= 3 and w not in STOP_WORDS]
+            t_words_s = [strip_apostrophe(w) for w in t_words]
+            if not t_words:
+                continue
+
+            for q in all_queries:
+                q_words = [w for w in q.split() if len(w) >= 3 and w not in STOP_WORDS]
+                if not q_words:
+                    continue
+                q_words_s = [strip_apostrophe(w) for w in q_words]
+                matches = sum(
+                    1 for qw in q_words_s
+                    if any(word_matches(qw, tw) for tw in t_words_s)
+                )
+                if matches >= len(q_words_s) or (len(q_words_s) >= 2 and matches / len(q_words_s) >= 0.66):
+                    return it
+
         return None
 
     @staticmethod
@@ -132,18 +197,26 @@ class MovieService:
             description = cat_item.get("d", "").strip()
 
         db_movie = None
-        if session:
-            db_movie = await crud.get_movie_by_code(session, clean_code)
-        else:
-            from database.session import get_session
-            async with get_session() as s:
-                db_movie = await crud.get_movie_by_code(s, clean_code)
+        part_codes = [f"{clean_code}_{part}", f"{clean_code}-{part}", clean_code] if part > 1 else [clean_code]
+        for p_code in part_codes:
+            if session:
+                db_movie = await crud.get_movie_by_code(session, p_code)
+            else:
+                from database.session import get_session
+                async with get_session() as s:
+                    db_movie = await crud.get_movie_by_code(s, p_code)
+            if db_movie:
+                break
 
         if db_movie:
             if not title:
                 title = db_movie.title
             if not description:
                 description = db_movie.description
+
+        # Agar na katalogda, na bazada kino mavjud bo'lmasa — False qaytarish (kino topilmadi)
+        if not cat_item and not db_movie:
+            return False
 
         if not title:
             title = f"Kino #{clean_code}"
@@ -162,9 +235,10 @@ class MovieService:
             not db_movie
             or not db_movie.file_id
             or db_movie.file_id.startswith("mov_")
+            or db_movie.file_id.endswith("_vid")
+            or db_movie.file_id.startswith("BAACAgIAAxkBAAIB_")
             or "_placeholder" in db_movie.file_id
-            or "_vid" in db_movie.file_id
-            or len(db_movie.file_id) < 20
+            or len(db_movie.file_id) < 25
         )
         has_real_video = bool(db_movie and not is_placeholder)
         if has_real_video:
@@ -230,6 +304,10 @@ class MovieService:
                 )
                 if session and db_movie:
                     await crud.increment_movie_views(session, db_movie.id)
+                elif db_movie:
+                    from database.session import get_session
+                    async with get_session() as s:
+                        await crud.increment_movie_views(s, db_movie.id)
                 return True
             except Exception as ep:
                 logger.warning(f"Poster yuborib bo'lmadi ({ep}), matn yuboriladi.")
@@ -245,6 +323,10 @@ class MovieService:
             )
             if session and db_movie:
                 await crud.increment_movie_views(session, db_movie.id)
+            elif db_movie:
+                from database.session import get_session
+                async with get_session() as s:
+                    await crud.increment_movie_views(s, db_movie.id)
             return True
         except Exception as em:
             logger.error(f"Xabar yuborib bo'lmadi: {em}")

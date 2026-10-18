@@ -316,13 +316,13 @@ def extract_code_from_caption(text: Optional[str]) -> Optional[str]:
         return None
     text_clean = text.strip()
 
-    # 1. Kodi: #284, kod: 284, код: 284, code: 284, kino kodi: 284
-    m = re.search(r'(?:kino\s*kodi|kodi?|код|kod|code)[\s:—–\-#№]*(\d+)', text_clean, re.IGNORECASE)
+    # 1. Kodi: #284, kod: 284, kino kodi: 284, film kodi: 284, kino: 284, film: 284
+    m = re.search(r'(?:kino\s*kodi|film\s*kodi|kodi?|kino|film|код|kod|code)[\s:—–\-#№]*(\d+)', text_clean, re.IGNORECASE)
     if m:
         return m.group(1)
 
-    # 2. #284 yoki №284
-    m = re.search(r'[#№](\d{1,8})', text_clean)
+    # 2. #284 yoki # 284 yoki №284 yoki #kino284
+    m = re.search(r'[#№](?:kino|film)?_?\s*(\d{1,8})', text_clean, re.IGNORECASE)
     if m:
         return m.group(1)
 
@@ -332,9 +332,12 @@ def extract_code_from_caption(text: Optional[str]) -> Optional[str]:
         return m.group(1)
 
     # 4. Satr boshidagi raqam: masalan "284. Zo'raki folbin" yoki "284 - Zo'raki folbin"
+    # Serial qismlarini (1-qism, 2-seriya) adashtirib kino kodi deb olmaslik uchun filtr
     for line in text_clean.split("\n"):
         line_clean = line.strip()
-        m = re.match(r'^(\d{1,8})[\s\.\-—–:]', line_clean)
+        if re.search(r'^\d{1,8}[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', line_clean, re.IGNORECASE):
+            continue
+        m = re.match(r'^(\d{1,8})[\s\.\-—–:_]', line_clean)
         if m:
             return m.group(1)
         if line_clean.isdigit() and len(line_clean) <= 8:
@@ -355,11 +358,35 @@ def extract_candidate_title(text: Optional[str]) -> Optional[str]:
     lines = [l.strip() for l in text.strip().split("\n") if l.strip()]
     if not lines:
         return None
+
+    IGNORE_HEADERS = {
+        "premyera", "yangi premyera", "yangi kino", "yangi film", "kino olami",
+        "assalomu alaykum", "homiy kanal", "bizning kanal", "kanalimiz", "diqqat",
+        "tezkor", "retro", "multfilm", "serial"
+    }
+
+    # Avval har bir qatordan toza sarlavha qidirish
+    for line in lines[:4]:
+        # Emojilar va ortiqcha belgilarni tozalash
+        cleaned = re.sub(r'[🎬🍿🎥📽🎞📺⭐️★#№—–\-:]', ' ', line)
+        cleaned = re.sub(r'https?://\S+|@\w+', '', cleaned).strip()
+        cleaned = re.sub(r'(?:kino\s*kodi|film\s*kodi|kodi?|kino|film|код|kod|code)\s*\d+', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r'^\d{1,8}[\s\.\-—–:_]', '', cleaned).strip()
+        cleaned = re.sub(r'^\d{1,8}[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = re.sub(r'\.(?:mp4|mkv|avi|mov|webm|flv|ts|m4v)$', '', cleaned, flags=re.IGNORECASE).strip()
+        cleaned = " ".join(cleaned.split())
+
+        header_key = re.sub(r"[^\w\s]", "", cleaned).lower().strip()
+        if len(cleaned) >= 3 and not cleaned.isdigit() and header_key not in IGNORE_HEADERS:
+            return cleaned
+
+    # Fallback: birinchi qatordan
     first_line = lines[0]
-    # Emojilar va ortiqcha belgilarni tozalash
     cleaned = re.sub(r'[🎬🍿🎥📽🎞📺⭐️★#№—–\-:]', ' ', first_line)
     cleaned = re.sub(r'https?://\S+|@\w+', '', cleaned).strip()
-    cleaned = re.sub(r'(?:kino\s*kodi|kodi?|код|kod|code)\s*\d+', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'(?:kino\s*kodi|film\s*kodi|kodi?|kino|film|код|kod|code)\s*\d+', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'\.(?:mp4|mkv|avi|mov|webm|flv|ts|m4v)$', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = " ".join(cleaned.split())
     if len(cleaned) >= 3 and not cleaned.isdigit():
         return cleaned
     return None
@@ -470,6 +497,7 @@ async def cmd_set_movie_video(message: Message) -> None:
     """
     Admin buyrug'i: /setmovie <kod> yoki /addvideo <kod>
     Admin ixtiyoriy video xabarga Reply qilib /setmovie 284 deb yozsa,
+    yoki videoni /setmovie 284 caption bilan birga yuklasa,
     o'sha videoning Telegram file_id sini avtomatik 284-kinoga biriktiradi!
     """
     user_id = message.from_user.id if message.from_user else 0
@@ -477,22 +505,29 @@ async def cmd_set_movie_video(message: Message) -> None:
         await message.reply("⛔ <b>Ushbu buyruq faqat adminlar uchun!</b>", parse_mode="HTML")
         return
 
-    args = (message.text or "").split(maxsplit=1)
-    if len(args) < 2 or not args[1].strip():
+    raw_text = (message.text or message.caption or "").strip()
+    args = raw_text.split(maxsplit=1)
+    target_msg = message.reply_to_message or message
+
+    code = None
+    if len(args) >= 2 and args[1].strip():
+        raw_code = args[1].strip()
+        code = extract_code_from_caption(raw_code) or raw_code.lstrip("#№").strip()
+
+    # Agar argument ko'rsatilmagan bo'lsa, Reply qilingan yoki joriy video captionidan kodni olish
+    if not code and target_msg:
+        target_caption = (target_msg.caption or target_msg.text or "").strip()
+        code = extract_code_from_caption(target_caption)
+
+    if not code:
         await message.reply(
             "⚠️ <b>Kino kodini kiriting!</b>\n"
-            "Masalan: video xabarga Reply qilib <code>/setmovie 284</code> deb yozing.",
+            "Masalan: video xabarga Reply qilib <code>/setmovie 284</code> deb yozing "
+            "yoki videoga <code>/setmovie 284</code> izohini qo'shib yuboring.",
             parse_mode="HTML"
         )
         return
 
-    raw_code = args[1].strip()
-    code = extract_code_from_caption(raw_code) or raw_code.lstrip("#№")
-    if not code:
-        await message.reply("⚠️ Yaroqsiz kino kodi!", parse_mode="HTML")
-        return
-
-    target_msg = message.reply_to_message or message
     if not (target_msg.video or target_msg.document):
         await message.reply(
             "⚠️ <b>Video topilmadi!</b>\n"
@@ -551,18 +586,28 @@ async def handle_incoming_movie_video(message: Message) -> None:
     - Agar kino topilsa: movies jadvalida file_id, file_type, duration, file_size ni yangilaydi.
     - Foydalanuvchiga tasdiq xabari yuboradi.
     """
+    file_name = None
     if message.video:
         file_id = message.video.file_id
         file_type = "video"
         duration = message.video.duration
         file_size = message.video.file_size
+        file_name = getattr(message.video, "file_name", None)
     elif message.document:
         doc = message.document
+        file_name = getattr(doc, "file_name", None)
+        NON_VIDEO_EXTENSIONS = (
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar",
+            ".7z", ".tar", ".gz", ".txt", ".apk", ".exe", ".png", ".jpg", ".jpeg"
+        )
+        if file_name and file_name.lower().endswith(NON_VIDEO_EXTENSIONS):
+            return
         is_video_doc = (
             (doc.mime_type and doc.mime_type.startswith("video/"))
-            or (doc.file_name and doc.file_name.lower().endswith(
+            or (file_name and file_name.lower().endswith(
                 (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".ts", ".m4v")
             ))
+            or (doc.file_size and doc.file_size > 10 * 1024 * 1024)
             or extract_code_from_caption(message.caption)
         )
         if not is_video_doc:
@@ -575,8 +620,8 @@ async def handle_incoming_movie_video(message: Message) -> None:
         return
 
     caption = (message.caption or message.text or "").strip()
-    code = extract_code_from_caption(caption)
-    candidate_title = extract_candidate_title(caption)
+    code = extract_code_from_caption(caption) or (extract_code_from_caption(file_name) if file_name else None)
+    candidate_title = extract_candidate_title(caption) or (extract_candidate_title(file_name) if file_name else None)
 
     async with get_session() as session:
         db_movie = await save_or_update_movie_video(
@@ -620,21 +665,37 @@ async def handle_channel_movie_post(message: Message) -> None:
     if config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
         storage_id = str(config.STORAGE_CHANNEL_ID).strip()
         chat_id_str = str(message.chat.id)
-        if chat_id_str != storage_id and chat_id_str.replace("-100", "") != storage_id.replace("-100", ""):
+        chat_username = f"@{message.chat.username}" if message.chat.username else ""
+        is_match = (
+            chat_id_str == storage_id
+            or chat_id_str.replace("-100", "") == storage_id.replace("-100", "")
+            or (chat_username and chat_username.lower() == storage_id.lower())
+        )
+        if not is_match:
             return
 
+    file_name = None
     if message.video:
         file_id = message.video.file_id
         file_type = "video"
         duration = message.video.duration
         file_size = message.video.file_size
+        file_name = getattr(message.video, "file_name", None)
     elif message.document:
         doc = message.document
+        file_name = getattr(doc, "file_name", None)
+        NON_VIDEO_EXTENSIONS = (
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar",
+            ".7z", ".tar", ".gz", ".txt", ".apk", ".exe", ".png", ".jpg", ".jpeg"
+        )
+        if file_name and file_name.lower().endswith(NON_VIDEO_EXTENSIONS):
+            return
         is_video_doc = (
             (doc.mime_type and doc.mime_type.startswith("video/"))
-            or (doc.file_name and doc.file_name.lower().endswith(
+            or (file_name and file_name.lower().endswith(
                 (".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".ts", ".m4v")
             ))
+            or (doc.file_size and doc.file_size > 10 * 1024 * 1024)
             or extract_code_from_caption(message.caption)
         )
         if not is_video_doc:
@@ -647,8 +708,8 @@ async def handle_channel_movie_post(message: Message) -> None:
         return
 
     caption = (message.caption or message.text or "").strip()
-    code = extract_code_from_caption(caption)
-    candidate_title = extract_candidate_title(caption)
+    code = extract_code_from_caption(caption) or (extract_code_from_caption(file_name) if file_name else None)
+    candidate_title = extract_candidate_title(caption) or (extract_candidate_title(file_name) if file_name else None)
 
     async with get_session() as session:
         db_movie = await save_or_update_movie_video(

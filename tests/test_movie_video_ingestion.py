@@ -40,15 +40,24 @@ def test_caption_helpers():
     """Captiondan kino kodi va nomini ajratib olish testlari."""
     # 1. extract_code_from_caption
     assert extract_code_from_caption("#284") == "284"
+    assert extract_code_from_caption("# 284") == "284"
     assert extract_code_from_caption("№284") == "284"
+    assert extract_code_from_caption("№ 284") == "284"
+    assert extract_code_from_caption("#kino284") == "284"
+    assert extract_code_from_caption("#film284") == "284"
     assert extract_code_from_caption("[284]") == "284"
     assert extract_code_from_caption("(284)") == "284"
     assert extract_code_from_caption("🎬 Zo'raki Folbin\n\n🔢 Kodi: #284\n📢 Homiy kanal: @Zakirovsfilms_bot") == "284"
     assert extract_code_from_caption("kino kodi: 101") == "101"
+    assert extract_code_from_caption("film kodi: 101") == "101"
+    assert extract_code_from_caption("kino: 101") == "101"
+    assert extract_code_from_caption("film: 101") == "101"
     assert extract_code_from_caption("kod: 555") == "555"
     assert extract_code_from_caption("код 999") == "999"
     assert extract_code_from_caption("284. Zo'raki folbin") == "284"
     assert extract_code_from_caption("101 - Forsaj 10") == "101"
+    # Serial qismlari (1-qism) xato ravishda 1-kino deb olinmasligi kerak
+    assert extract_code_from_caption("1-qism. Zo'raki folbin") is None
     assert extract_code_from_caption("Salom dunyo") is None
     assert extract_code_from_caption("") is None
     assert extract_code_from_caption(None) is None
@@ -58,6 +67,10 @@ def test_caption_helpers():
     candidate = extract_candidate_title(caption)
     assert candidate is not None
     assert "Zo'raki Folbin" in candidate
+
+    # Sarlavha birinchi qatorda PREMYERA bo'lsa ham 2-qatordagi haqiqiy nomni olish
+    caption_with_header = "🎬 PREMYERA!\nZo'raki Folbin\n🔢 Kodi: #284"
+    assert extract_candidate_title(caption_with_header) == "Zo'raki Folbin"
 
     # 3. format_duration_str
     assert format_duration_str(848) == "14:08"
@@ -72,16 +85,50 @@ def test_caption_helpers():
 
 
 def test_search_catalog_by_title():
-    """catalog.json faylidan sarlavha bo'yicha qidirish testi."""
+    """catalog.json faylidan sarlavha bo'yicha qidirish testi (Lotin, Kirill, Apostrof)."""
+    # Lotin
     item = MovieService.search_catalog_by_title("Zo'raki Folbin")
     assert item is not None
     assert str(item.get("c")) == "284"
+
+    # Apostrofsiz
+    item_no_apos = MovieService.search_catalog_by_title("Zoraki Folbin")
+    assert item_no_apos is not None
+    assert str(item_no_apos.get("c")) == "284"
+
+    # Kirill yozuvida
+    item_cyrillic = MovieService.search_catalog_by_title("Зўраки фолбин")
+    assert item_cyrillic is not None
+    assert str(item_cyrillic.get("c")) == "284"
+
+    # Ko'sem Sulton
+    item_kosem = MovieService.search_catalog_by_title("Ko'sem Sulton")
+    assert item_kosem is not None
+    assert str(item_kosem.get("c")) == "282"
 
     item2 = MovieService.search_catalog_by_title("Eys Ventura")
     assert item2 is not None
     assert str(item2.get("c")) == "283"
 
+    # Umumiy so'z tasodifiy kinoga ulanib ketmasligi kerak
+    assert MovieService.search_catalog_by_title("Yangi film") is None
     assert MovieService.search_catalog_by_title("Mavjud_Bolmagan_Kino_XYZ_999") is None
+
+
+@pytest.mark.asyncio
+async def test_deliver_movie_non_existent():
+    """Bazada va katalogda mavjud bo'lmagan kino kodi False qaytarishi testi."""
+    bot_mock = AsyncMock()
+    result = await movie_service.deliver_movie(
+        bot=bot_mock,
+        chat_id=12345,
+        code="99999999_NOT_EXIST",
+        part=1
+    )
+    assert result is False
+    assert bot_mock.send_video.called is False
+    assert bot_mock.send_photo.called is False
+    assert bot_mock.send_message.called is False
 
 
 @pytest.mark.asyncio
@@ -114,13 +161,11 @@ async def test_deliver_movie_real_video(in_memory_session: AsyncSession):
 
     assert result is True
     assert bot_mock.send_video.called is True
-    # send_video argumentlarini tekshirish
     call_kwargs = bot_mock.send_video.call_args.kwargs
     assert call_kwargs["chat_id"] == 12345
     assert call_kwargs["video"] == real_file_id
     assert call_kwargs["duration"] == 848
     assert "Zo'raki Folbin" in call_kwargs["caption"]
-    # Photo yuborilmaganligiga ishonch hosil qilish
     assert bot_mock.send_photo.called is False
 
 
@@ -180,10 +225,36 @@ async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSessio
     )
 
     assert result is True
-    # Placeholder bo'lgani sababli send_video chaqirilmasligi kerak
     assert bot_mock.send_video.called is False
-    # send_photo yoki send_message chaqirilishi kerak
     assert bot_mock.send_photo.called or bot_mock.send_message.called
+
+
+@pytest.mark.asyncio
+async def test_deliver_movie_multipart(in_memory_session: AsyncSession):
+    """Ko'p qismli kino part=2 so'ralganda mos qism videosi yetkazilishi testi."""
+    real_fid_part2 = "BAACAgIAAxkBAAE_MULTIPART_SERIES_EPISODE_2_FILE_ID_123456"
+    await crud.create_movie(
+        session=in_memory_session,
+        code="282_2",
+        title="Ko'sem Sulton - 2-qism",
+        file_id=real_fid_part2,
+        duration=3600
+    )
+    await in_memory_session.commit()
+
+    bot_mock = AsyncMock()
+    bot_mock.send_video = AsyncMock()
+
+    result = await movie_service.deliver_movie(
+        bot=bot_mock,
+        chat_id=12345,
+        code="282",
+        part=2,
+        session=in_memory_session
+    )
+    assert result is True
+    assert bot_mock.send_video.called is True
+    assert bot_mock.send_video.call_args.kwargs["video"] == real_fid_part2
 
 
 @pytest.mark.asyncio
@@ -222,20 +293,18 @@ async def test_save_or_update_movie_video(in_memory_session: AsyncSession):
 @pytest.mark.asyncio
 async def test_cmd_set_movie_video_admin(in_memory_session: AsyncSession, monkeypatch):
     """Admin /setmovie <kod> buyrug'i orqali videoni biriktirishi testi."""
-    # Monkeypatch get_session to return in_memory_session
     from contextlib import asynccontextmanager
     @asynccontextmanager
     async def fake_get_session():
         yield in_memory_session
     monkeypatch.setattr("handlers.movies.get_session", fake_get_session)
-
-    # Monkeypatch admin tekshiruvi
     monkeypatch.setattr(config.__class__, "is_admin", lambda self, uid: uid == 7777)
 
     # 1. Admin bo'lmagan foydalanuvchi chaqirganda
     msg_non_admin = AsyncMock()
     msg_non_admin.from_user.id = 1234
     msg_non_admin.text = "/setmovie 284"
+    msg_non_admin.caption = None
     msg_non_admin.reply = AsyncMock()
     await cmd_set_movie_video(msg_non_admin)
     assert "faqat adminlar uchun" in msg_non_admin.reply.call_args[0][0]
@@ -244,6 +313,7 @@ async def test_cmd_set_movie_video_admin(in_memory_session: AsyncSession, monkey
     msg_admin = AsyncMock()
     msg_admin.from_user.id = 7777
     msg_admin.text = "/setmovie 284"
+    msg_admin.caption = None
     msg_admin.reply = AsyncMock()
 
     reply_video_msg = MagicMock()
@@ -254,7 +324,6 @@ async def test_cmd_set_movie_video_admin(in_memory_session: AsyncSession, monkey
     reply_video_msg.document = None
 
     msg_admin.reply_to_message = reply_video_msg
-
     await cmd_set_movie_video(msg_admin)
     assert msg_admin.reply.called is True
     reply_text = msg_admin.reply.call_args[0][0]
@@ -266,6 +335,26 @@ async def test_cmd_set_movie_video_admin(in_memory_session: AsyncSession, monkey
     assert db_m is not None
     assert db_m.file_id == "BAACAgIAAxkBAAE_ADMIN_REPLY_VIDEO_FILE_ID_11111"
 
+    # 3. Admin videoni to'g'ridan-to'g'ri /setmovie 284 caption bilan birga yuborganida (message.text is None!)
+    msg_direct_video = AsyncMock()
+    msg_direct_video.from_user.id = 7777
+    msg_direct_video.text = None
+    msg_direct_video.caption = "/setmovie 283"
+    msg_direct_video.video = MagicMock()
+    msg_direct_video.video.file_id = "BAACAgIAAxkBAAE_ADMIN_DIRECT_VIDEO_CAPTION_77777"
+    msg_direct_video.video.duration = 600
+    msg_direct_video.video.file_size = 300 * 1024 * 1024
+    msg_direct_video.document = None
+    msg_direct_video.reply_to_message = None
+    msg_direct_video.reply = AsyncMock()
+
+    await cmd_set_movie_video(msg_direct_video)
+    assert msg_direct_video.reply.called is True
+    assert "muvaffaqiyatli biriktirildi" in msg_direct_video.reply.call_args[0][0]
+    db_m283 = await crud.get_movie_by_code(in_memory_session, "283")
+    assert db_m283 is not None
+    assert db_m283.file_id == "BAACAgIAAxkBAAE_ADMIN_DIRECT_VIDEO_CAPTION_77777"
+
 
 @pytest.mark.asyncio
 async def test_handle_incoming_movie_video(in_memory_session: AsyncSession, monkeypatch):
@@ -276,14 +365,16 @@ async def test_handle_incoming_movie_video(in_memory_session: AsyncSession, monk
         yield in_memory_session
     monkeypatch.setattr("handlers.movies.get_session", fake_get_session)
 
-    # 1. Captionda kod bo'lgan video
+    # 1. Captionda kod bo'lgan video (# 284 oraliq bo'sh joy bilan)
     msg = AsyncMock()
     msg.video = MagicMock()
     msg.video.file_id = "BAACAgIAAxkBAAE_INCOMING_FORWARD_VIDEO_ID_22222"
     msg.video.duration = 848
     msg.video.file_size = 418 * 1024 * 1024
+    msg.video.file_name = None
     msg.document = None
-    msg.caption = "🎬 Zo'raki Folbin\n\n🔢 Kodi: #284\n📢 Homiy kanal: @Zakirovsfilms_bot"
+    msg.caption = "🎬 Zo'raki Folbin\n\n🔢 Kodi: # 284\n📢 Homiy kanal: @Zakirovsfilms_bot"
+    msg.text = None
     msg.reply = AsyncMock()
 
     await handle_incoming_movie_video(msg)
@@ -297,12 +388,44 @@ async def test_handle_incoming_movie_video(in_memory_session: AsyncSession, monk
     assert m is not None
     assert m.file_id == "BAACAgIAAxkBAAE_INCOMING_FORWARD_VIDEO_ID_22222"
 
-    # 2. Kod va nomi aniqlanmagan video kelganda tushunarli yordam berilishi
+    # 2. Caption bo'sh, ammo fayl nomida kod bo'lgan video (file_name fallback)
+    msg_fn = AsyncMock()
+    msg_fn.video = MagicMock()
+    msg_fn.video.file_id = "BAACAgIAAxkBAAE_FILENAME_FALLBACK_FILE_ID_55555"
+    msg_fn.video.duration = 500
+    msg_fn.video.file_size = 200 * 1024 * 1024
+    msg_fn.video.file_name = "283_Eys_Ventura.mp4"
+    msg_fn.document = None
+    msg_fn.caption = None
+    msg_fn.text = None
+    msg_fn.reply = AsyncMock()
+
+    await handle_incoming_movie_video(msg_fn)
+    assert msg_fn.reply.called is True
+    assert "muvaffaqiyatli saqlandi" in msg_fn.reply.call_args[0][0]
+    m283 = await crud.get_movie_by_code(in_memory_session, "283")
+    assert m283 is not None
+    assert m283.file_id == "BAACAgIAAxkBAAE_FILENAME_FALLBACK_FILE_ID_55555"
+
+    # 3. PDF hujjat jo'natilganda — kinoga biriktirilmasligi va e'tiborsiz qoldirilishi
+    msg_pdf = AsyncMock()
+    msg_pdf.video = None
+    msg_pdf.document = MagicMock()
+    msg_pdf.document.file_name = "Shartnoma_284.pdf"
+    msg_pdf.document.file_id = "PDF_FILE_ID_NOT_MOVIE"
+    msg_pdf.caption = "#284"
+    msg_pdf.reply = AsyncMock()
+
+    await handle_incoming_movie_video(msg_pdf)
+    assert msg_pdf.reply.called is False
+
+    # 4. Kod va nomi aniqlanmagan video kelganda tushunarli yordam berilishi
     msg_unknown = AsyncMock()
     msg_unknown.video = MagicMock()
     msg_unknown.video.file_id = "BAACAgIAAxkBAAE_UNKNOWN_VIDEO_ID"
     msg_unknown.video.duration = 100
     msg_unknown.video.file_size = 1000000
+    msg_unknown.video.file_name = None
     msg_unknown.document = None
     msg_unknown.caption = None
     msg_unknown.text = None

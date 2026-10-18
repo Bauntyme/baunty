@@ -13,7 +13,7 @@ from aiohttp import web
 from config import config, BASE_DIR
 from database.session import get_session
 from database import crud
-from services.movie_service import movie_service
+from services.movie_service import movie_service, MovieService
 from services.music_data import TOP_50_TRACKS, MOODS_LIST
 from services.tv_data import CHANNELS_LIST, TV_CATEGORIES
 from services.games_data import GAMES_LIST, PET_DATA, CHEST_DATA
@@ -500,18 +500,19 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
 
     try:
         if action_type == "movie" and code:
-            async with get_session() as session:
-                movie = await crud.get_movie_by_code(session, code)
-                if movie:
-                    await movie_service.send_movie_to_user(
-                        bot=_bot_instance,
-                        chat_id=chat_id,
-                        movie=movie,
-                        session=session
-                    )
-                    return web.json_response({"success": True, "message": f"«{movie.title}» chatga yuborildi!"})
-                else:
-                    return web.json_response({"error": "Kino topilmadi"}, status=404)
+            clean_code = str(code).strip().lstrip("#№")
+            delivered = await movie_service.deliver_movie(
+                bot=_bot_instance,
+                chat_id=chat_id,
+                code=clean_code,
+                part=1
+            )
+            if delivered:
+                cat_item = MovieService.get_catalog_item(clean_code)
+                title = cat_item.get("t") if cat_item else f"Kino #{clean_code}"
+                return web.json_response({"success": True, "message": f"«{title}» chatga yuborildi!"})
+            else:
+                return web.json_response({"error": "Kino topilmadi"}, status=404)
         elif action_type == "music":
             title = body.get("title", "Musiqa")
             artist = body.get("artist", "")
