@@ -686,10 +686,19 @@ async function loadTV() {
   } catch (e) {
     $("main").innerHTML = `<div class="empty"><div class="big">📶</div><b>Kanallarni yuklab bo'lmadi</b>Internetni tekshiring.<br><br>
       <button class="cta" style="max-width:220px" id="tvreload">🔄 Qayta urinish</button></div>`;
-    $("tvreload").onclick = () => loadTV();
+    if ($("tvreload")) $("tvreload").onclick = () => loadTV();
     return;
   }
-  tvItems.forEach((x) => { x._k = norm(x.n); tvById.set(x.i, x); });
+  tvItems.forEach((x) => {
+    x._k = norm(x.n || x.name || "");
+    tvById.set(x.i, x);
+    tvById.set(String(x.i), x);
+    tvById.set(+x.i, x);
+    if (x.id !== undefined) {
+      tvById.set(x.id, x);
+      tvById.set(String(x.id), x);
+    }
+  });
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
 function setMode(m) {
@@ -772,25 +781,60 @@ function ytEmbed(url) {
 function attempt(url) {
   return new Promise(async (ok, bad) => {
     let done = false;
-    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = null; f(v); } };
+    const cleanup = () => {
+      vid.onplaying = vid.onerror = vid.oncanplay = vid.ontimeupdate = null;
+    };
+    const fin = (f, v) => {
+      if (!done) {
+        done = true;
+        clearTimeout(tvTimer);
+        cleanup();
+        f(v);
+      }
+    };
     tvTimer = setTimeout(() => fin(bad, "timeout"), 15000);
     vid.onplaying = () => fin(ok);
+    vid.oncanplay = () => {
+      if (vid.currentTime > 0 || !vid.paused) fin(ok);
+    };
+    vid.ontimeupdate = () => {
+      if (vid.currentTime > 0) fin(ok);
+    };
     vid.onerror = () => fin(bad, "media");
+
+    const tryAutoplay = () => {
+      vid.muted = false;
+      const p = vid.play();
+      if (p && p.catch) {
+        p.catch((err) => {
+          if (err && err.name === "NotAllowedError") {
+            vid.muted = true;
+            $("unmute").hidden = false;
+            vid.play().catch(() => {});
+          }
+        });
+      }
+    };
+
     try {
-      if (nativeHls()) { vid.src = url; }
-      else {
+      if (nativeHls()) {
+        vid.src = url;
+        tryAutoplay();
+      } else {
         const Hls = await loadHlsLib();
-        if (!Hls.isSupported()) { vid.src = url; }
-        else {
+        if (!Hls.isSupported()) {
+          vid.src = url;
+          tryAutoplay();
+        } else {
           hls = new Hls({
             maxBufferLength: 30,
             maxMaxBufferLength: 60,
             enableWorker: true,
             liveSyncDurationCount: 3,
             backBufferLength: 10,
-            manifestLoadingMaxRetry: 2,
-            levelLoadingMaxRetry: 2,
-            fragLoadingMaxRetry: 3
+            manifestLoadingMaxRetry: 3,
+            levelLoadingMaxRetry: 3,
+            fragLoadingMaxRetry: 4
           });
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
@@ -803,13 +847,13 @@ function attempt(url) {
               }
             }
           });
-          hls.loadSource(url); hls.attachMedia(vid);
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            tryAutoplay();
+          });
+          hls.loadSource(url);
+          hls.attachMedia(vid);
         }
       }
-      vid.muted = false;
-      vid.play().catch((err) => {
-        if (err && err.name === "NotAllowedError") { vid.muted = true; $("unmute").hidden = false; vid.play().catch(() => {}); }
-      });
     } catch (e) { fin(bad, "load"); }
   });
 }
@@ -920,8 +964,12 @@ $("tvfs").onclick = () => {
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-tv]");
   if (!t) return;
-  const c = tvById.get(t.dataset.tv);
-  if (!c) return;
+  const rawId = t.dataset.tv;
+  const c = tvById.get(rawId) || tvById.get(+rawId) || tvById.get(String(rawId)) || (tvItems && tvItems.find(x => String(x.i) === String(rawId) || String(x.id) === String(rawId)));
+  if (!c) {
+    console.warn("TV channel not found:", rawId);
+    return;
+  }
   openTV(c, !tvCur);
 });
 if (inTg) tg.BackButton.onClick(() => { if (tvCur) closeTV(); });

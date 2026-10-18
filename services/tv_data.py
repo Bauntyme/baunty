@@ -1,11 +1,11 @@
 """
-Jonli TV ma'lumotlari (142 ta telekanal, original logotiplari va real-time HLS m3u8 oqimlari)
+Jonli TV ma'lumotlari (151 ta telekanal, original logotiplari va real-time HLS m3u8 oqimlari)
 Barcha soxta / test oqimlar olib tashlangan, barcha kanallarga original logotiplar biriktirilgan.
 """
 from typing import List, Dict, Any
 
 TV_CATEGORIES = [
-    {"key": "all", "title": "Barchasi (142)", "icon": "📺"},
+    {"key": "all", "title": "Barchasi (151)", "icon": "📺"},
     {"key": "milliy", "title": "O'zbekiston Milliy", "icon": "🇺🇿"},
     {"key": "xususiy", "title": "Xususiy kanallar", "icon": "✨"},
     {"key": "kino", "title": "Kino & Seriallar", "icon": "🎬"},
@@ -289,7 +289,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "logo": "⚽",
         "l": "https://i.ibb.co/h1gQSkbB/Futbol-TV.png",
         "desc": "APL, La Liga va Yevrokuboklar (HD)",
-        "stream": "http://stream3.cinerama.uz/1010/tracks-v1a1/mono.m3u8",
+        "stream": "https://stream8.cinerama.uz/1010/tracks-v1a1/playlist.m3u8",
         "c": "uz",
         "k": "sport",
         "v": 14900,
@@ -631,7 +631,7 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "logo": "🏆",
         "l": "https://i.ibb.co/h1gQSkbB/Futbol-TV.png",
         "desc": "APL, Chempionlar Ligasi, La Liga",
-        "stream": "http://stream3.cinerama.uz/1010/tracks-v1a1/mono.m3u8",
+        "stream": "https://stream8.cinerama.uz/1010/tracks-v1a1/playlist.m3u8",
         "c": "uz",
         "k": "sport",
         "v": 18500,
@@ -1883,6 +1883,124 @@ CHANNELS_LIST: List[Dict[str, Any]] = [
         "k": "religious",
         "v": 7100,
         "q": "HD"
+    },
+    # ==================== 11. O'zbekiston Viloyat Telenavolari & MTRK (9) ====================
+    {
+        "id": 143,
+        "name": "Samarqand MTRK (STV)",
+        "category": "milliy",
+        "logo": "🏛️",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Samarqand viloyati teleradiokanali va telenavosi (HD)",
+        "stream": "https://stream8.cinerama.uz/1452/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8900,
+        "q": "1080p HD"
+    },
+    {
+        "id": 144,
+        "name": "Andijon MTRK",
+        "category": "milliy",
+        "logo": "🌸",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Andijon viloyati teleradiokanali va xushnavolari",
+        "stream": "https://stream8.cinerama.uz/1455/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8700,
+        "q": "1080p HD"
+    },
+    {
+        "id": 145,
+        "name": "Buxoro MTRK",
+        "category": "milliy",
+        "logo": "🕌",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Buxoro viloyati qadimiy madaniyati va navolari",
+        "stream": "https://stream8.cinerama.uz/1456/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8600,
+        "q": "1080p HD"
+    },
+    {
+        "id": 146,
+        "name": "Jizzax MTRK",
+        "category": "milliy",
+        "logo": "⛰️",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Jizzax viloyati teleradiokanali va dasturlari",
+        "stream": "https://stream8.cinerama.uz/1457/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8100,
+        "q": "1080p HD"
+    },
+    {
+        "id": 147,
+        "name": "Namangan MTRK",
+        "category": "milliy",
+        "logo": "🌺",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Gullar shahri Namangan viloyat teleradiokanali",
+        "stream": "https://stream8.cinerama.uz/1459/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8500,
+        "q": "1080p HD"
+    },
+    {
+        "id": 148,
+        "name": "Qashqadaryo MTRK",
+        "category": "milliy",
+        "logo": "🏜️",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Nasaf va Qashqadaryo vohasi teleradiokanali",
+        "stream": "https://stream8.cinerama.uz/1461/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8300,
+        "q": "1080p HD"
+    },
+    {
+        "id": 149,
+        "name": "Surxondaryo MTRK",
+        "category": "milliy",
+        "logo": "☀️",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Termiz va janubiy voha yangiliklari hamda navolari",
+        "stream": "https://stream8.cinerama.uz/1462/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8200,
+        "q": "1080p HD"
+    },
+    {
+        "id": 150,
+        "name": "Sirdaryo MTRK",
+        "category": "milliy",
+        "logo": "🌊",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Guliston va Sirdaryo viloyat teleradiokanali",
+        "stream": "https://stream8.cinerama.uz/1463/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 7900,
+        "q": "1080p HD"
+    },
+    {
+        "id": 151,
+        "name": "Xorazm MTRK",
+        "category": "milliy",
+        "logo": "🏰",
+        "l": "https://i.imgur.com/QUIIhTD.png",
+        "desc": "Xiva va Xorazm viloyati san'ati, tarixi va navolari",
+        "stream": "https://stream8.cinerama.uz/1464/playlist.m3u8",
+        "c": "uz",
+        "k": "milliy",
+        "v": 8800,
+        "q": "1080p HD"
     },
 ]
 

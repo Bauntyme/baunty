@@ -103,6 +103,16 @@ def test_tv_real_working_streams():
     assert madina is not None
     assert "saudi_sunnah" in madina["stream"] and "m3u8" in madina["stream"]
 
+    # Navo TV
+    navo = by_name.get("Navo TV")
+    assert navo is not None
+    assert "stream8.cinerama.uz/1008" in navo["stream"]
+
+    # Samarqand MTRK (STV)
+    samarqand = by_name.get("Samarqand MTRK (STV)")
+    assert samarqand is not None
+    assert "stream8.cinerama.uz/1452" in samarqand["stream"]
+
 
 @pytest.mark.asyncio
 async def test_api_tv_query_and_category_filtering():
