@@ -281,9 +281,10 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
     if request.method == "GET" and cache_key in _UPSTREAM_API_CACHE:
         entry = _UPSTREAM_API_CACHE[cache_key]
         if now - entry["ts"] < 120:
+            cached_ct = (entry.get("content_type") or "application/json").split(";")[0].strip()
             return web.Response(
                 body=entry["body"],
-                content_type=entry.get("content_type", "application/json"),
+                content_type=cached_ct,
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
@@ -316,7 +317,8 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 timeout=aiohttp.ClientTimeout(total=6)
             ) as resp:
                 resp_bytes = await resp.read()
-                resp_content_type = resp.headers.get("Content-Type", "application/json")
+                raw_ct = resp.headers.get("Content-Type", "application/json")
+                clean_ct = raw_ct.split(";")[0].strip() if raw_ct else "application/json"
                 try:
                     resp_text = resp_bytes.decode("utf-8")
                     clean_text = sanitize_catalog_text(resp_text)
@@ -327,14 +329,14 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 if request.method == "GET" and resp.status == 200:
                     _UPSTREAM_API_CACHE[cache_key] = {
                         "body": resp_bytes,
-                        "content_type": resp_content_type,
+                        "content_type": clean_ct,
                         "ts": now
                     }
 
                 return web.Response(
                     body=resp_bytes,
                     status=resp.status,
-                    content_type=resp_content_type,
+                    content_type=clean_ct,
                     headers={"Access-Control-Allow-Origin": "*"}
                 )
     except Exception as e:
