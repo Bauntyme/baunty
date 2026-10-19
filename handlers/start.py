@@ -30,19 +30,22 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     is_admin = config.is_admin(user.id)
 
     # Foydalanuvchini bazaga kiritish / yangilash
-    async with get_session() as session:
-        db_user, created = await crud.get_or_create_user(
-            session=session,
-            user_id=user.id,
-            username=user.username,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            is_admin=is_admin,
-        )
+    try:
+        async with get_session() as session:
+            db_user, created = await crud.get_or_create_user(
+                session=session,
+                user_id=user.id,
+                username=user.username,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                is_admin=is_admin,
+            )
 
-        if db_user.is_banned:
-            await message.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
-            return
+            if db_user and db_user.is_banned:
+                await message.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
+                return
+    except Exception as e:
+        logger.warning(f"cmd_start foydalanuvchini bazada saqlashda xatolik: {e}")
 
     # Deep linking tekshiruvi (masalan: /start movie_123, /start q_12345, /start r_12345)
     args = message.text.split(maxsplit=1)

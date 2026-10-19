@@ -21,12 +21,25 @@ engine = create_async_engine(
     config.db_url,
     echo=False,
     poolclass=NullPool if ("postgres" in config.db_url or "sqlite" in config.db_url) else None,
-    # SQLite va PostgreSQL (Neon SSL) uchun connect_args
     connect_args=(
-        {"check_same_thread": False} if "sqlite" in config.db_url
+        {"check_same_thread": False, "timeout": 30} if "sqlite" in config.db_url
         else ({"ssl": "require"} if ("neon.tech" in config.db_url or "ssl" in config.db_url) else {})
     )
 )
+
+if "sqlite" in config.db_url:
+    from sqlalchemy import event
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def set_sqlite_pragma(dbapi_connection, connection_record):
+        try:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.close()
+        except Exception:
+            pass
+
 
 # Async session factory
 async_session_maker = async_sessionmaker(

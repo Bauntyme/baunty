@@ -1364,9 +1364,13 @@ def create_web_app() -> web.Application:
         ("POST", "/api/docs/pdf", handle_doc_pdf),
         ("GET", "/api/books/home", handle_upstream_api_proxy),
         ("GET", "/api/books/shelf", handle_upstream_api_proxy),
+        ("POST", "/api/books/shelf", handle_upstream_api_proxy),
+        ("GET", "/api/books/me", handle_upstream_api_proxy),
         ("POST", "/api/books/progress", handle_upstream_api_proxy),
         ("POST", "/api/books/note", handle_upstream_api_proxy),
         ("GET", "/api/books/audio", handle_upstream_api_proxy),
+        ("GET", "/api/books/b/{id}", handle_upstream_api_proxy),
+        ("GET", "/api/books/page/{id}/{n}", handle_upstream_api_proxy),
         ("GET", "/api/food", handle_upstream_api_proxy),
         ("GET", "/api/food/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/food/{tail:.*}", handle_upstream_api_proxy),
@@ -1379,6 +1383,8 @@ def create_web_app() -> web.Application:
         ("GET", "/api/books/{id}", handle_book_detail),
         ("GET", "/api/books/{id}/pdf", handle_book_pdf),
         ("POST", "/api/books/send", handle_book_send),
+        ("GET", "/api/books/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/books/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/send_to_chat", handle_send_to_chat),
     ]
     for method, path, handler in api_routes:

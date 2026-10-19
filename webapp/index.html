@@ -40,7 +40,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);
   font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none;overscroll-behavior-y:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 img{display:block}
 
@@ -202,21 +202,23 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .row .tv{width:118px;flex:none;scroll-snap-align:start}
 
 .tvp{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;transform:translateY(100%);
-  transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:contain}
+  transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:none;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch}
 .tvp.open{transform:none}
-.vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%}
-.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0}
+.vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
+.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering: -webkit-optimize-contrast;image-rendering: crisp-edges;filter: contrast(1.08) saturate(1.05) brightness(1.02);-webkit-filter: contrast(1.08) saturate(1.05) brightness(1.02);transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
 .vbox iframe[hidden],.vbox video[hidden]{display:none}
 .badb{display:block;margin:10px 16px 0;width:calc(100% - 32px);padding:10px;border-radius:12px;background:var(--bg2);
   color:var(--hint);font-size:13px;font-weight:650}
 .vov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
   color:#fff;text-align:center;padding:16px;background:rgba(0,0,0,.55);font-size:15px}
+.vov#vload{pointer-events:none !important}
 .vov[hidden]{display:none}
 .spin{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:rot .8s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
 .vbtn{padding:10px 18px;border-radius:999px;background:#fff;color:#000;font-weight:800;font-size:14px}
-.unmute{position:absolute;right:10px;bottom:10px;padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.65);color:#fff;
-  font-weight:700;font-size:13px}
+.unmute{position:absolute;left:14px;bottom:14px;z-index:30;padding:10px 16px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;
+  font-weight:700;font-size:13px;border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);touch-action:manipulation;cursor:pointer}
+.unmute:active{transform:scale(.95);background:rgba(229,72,77,.9)}
 .tvbar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--sep)}
 .tvbar .lg{width:48px;height:36px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;
   padding:4px;flex:none;overflow:hidden}
@@ -228,8 +230,72 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .tvmore{padding:6px 16px calc(24px + env(safe-area-inset-bottom))}
 .tv.cur .tvb{box-shadow:0 0 0 3px var(--accent)}
 
-/* 4K TV contrast filter */
-.vbox video { image-rendering: -webkit-optimize-contrast; filter: contrast(1.08) saturate(1.05) brightness(1.02); }
+/* ---------- To'liq ekran rejimi (CSS Pseudo-Fullscreen va Native :fullscreen) ---------- */
+:fullscreen, :-webkit-full-screen,
+.tv-full-screen-mode{
+  position:fixed !important;inset:0 !important;top:0 !important;left:0 !important;
+  width:100vw !important;height:100vh !important;height:100dvh !important;
+  max-width:100vw !important;max-height:100vh !important;max-height:100dvh !important;
+  z-index:9999999 !important;background:#000 !important;margin:0 !important;padding:0 !important;
+  overflow:hidden !important;transform:none !important
+}
+:fullscreen .vbox, :-webkit-full-screen .vbox,
+.tv-full-screen-mode .vbox{
+  position:absolute !important;inset:0 !important;width:100vw !important;
+  height:100vh !important;height:100dvh !important;aspect-ratio:auto !important;
+  background:#000 !important;display:flex !important;align-items:center !important;
+  justify-content:center !important;overflow:hidden !important;margin:0 !important;padding:0 !important
+}
+:fullscreen video, :-webkit-full-screen video,
+:fullscreen iframe, :-webkit-full-screen iframe,
+.tv-full-screen-mode .vbox video, .tv-full-screen-mode .vbox iframe{
+  width:100% !important;height:100% !important;max-width:100% !important;max-height:100% !important;
+  object-fit:contain !important
+}
+:fullscreen .tvbar, :-webkit-full-screen .tvbar,
+:fullscreen .badb, :-webkit-full-screen .badb,
+:fullscreen .tvmore, :-webkit-full-screen .tvmore,
+.tv-full-screen-mode .tvbar, .tv-full-screen-mode .badb, .tv-full-screen-mode .tvmore{
+  display:none !important
+}
+.fs-bar{
+  position:absolute;top:0;left:0;right:0;z-index:50;display:none;align-items:center;
+  justify-content:space-between;
+  padding-top:calc(14px + env(safe-area-inset-top, 0px));
+  padding-right:calc(16px + env(safe-area-inset-right, 0px));
+  padding-bottom:14px;
+  padding-left:calc(16px + env(safe-area-inset-left, 0px));
+  background:linear-gradient(to bottom,rgba(0,0,0,.92) 0%,rgba(0,0,0,.45) 70%,transparent 100%);
+  color:#fff;transition:opacity .25s ease,transform .25s ease;pointer-events:auto
+}
+:fullscreen .fs-bar, :-webkit-full-screen .fs-bar,
+.tv-full-screen-mode .fs-bar{display:flex !important}
+.fs-bar.fade-out{opacity:0;pointer-events:none}
+.fs-bar .fs-title{display:flex;align-items:center;gap:10px;font-weight:750;font-size:16px;
+  text-shadow:0 1px 4px rgba(0,0,0,.8);min-width:0;flex:1}
+.fs-bar .fs-title span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fs-bar .fs-actions{display:flex;align-items:center;gap:10px;flex:none}
+.fs-btn{
+  background:rgba(255,255,255,.24);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:50%;width:44px;height:44px;
+  min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:background .2s,transform .1s;
+  touch-action:manipulation
+}
+.fs-btn:active{transform:scale(.92);background:rgba(229,72,77,.85)}
+.fs-badge{
+  background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:900;font-size:11px;
+  padding:3px 8px;border-radius:6px;letter-spacing:.3px;flex:none
+}
+.vbox-fs-btn{
+  position:absolute;right:14px;bottom:14px;z-index:30;width:48px;height:48px;min-width:48px;min-height:48px;border-radius:50%;
+  background:rgba(0,0,0,.75);color:#fff;border:1px solid rgba(255,255,255,.3);display:flex;
+  align-items:center;justify-content:center;font-size:24px;cursor:pointer;backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);box-shadow:0 4px 14px rgba(0,0,0,.6);
+  transition:opacity .25s,transform .15s,background .2s;touch-action:manipulation
+}
+.vbox-fs-btn:active{transform:scale(.9);background:rgba(229,72,77,.95)}
+:fullscreen .vbox-fs-btn, :-webkit-full-screen .vbox-fs-btn,
+.tv-full-screen-mode .vbox-fs-btn{display:none !important}
 </style>
 </head>
 <body data-zkm="kino">
@@ -270,17 +336,31 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
 </section>
 
 <section class="tvp" id="tvp" aria-modal="true">
-  <div class="vbox" id="vbox"><div id="vboxfs" style="display:none"></div><div class="tv-4k-badge">4K UHD</div>
-    <video id="vid" playsinline webkit-playsinline preload="none"></video>
+  <div class="vbox" id="vbox">
+    <video id="vid" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="true" autopictureinpicture controlsList="nodownload nofullscreen noremoteplayback" autoplay preload="auto"></video>
     <iframe id="yt" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin"></iframe>
     <div class="vov" id="vload"><div class="spin"></div><span id="vmsg">Efirga ulanmoqda…</span></div>
     <div class="vov" id="verr" hidden><div style="font-size:40px">📡</div><b id="verrt">Bu kanal hozir efirda emas</b>
       <span style="opacity:.8;font-size:13px">Keyinroq urinib ko'ring yoki boshqa kanalni tanlang</span>
       <div style="display:flex;gap:8px"><button class="vbtn" id="vretry">🔄 Qayta</button><button class="vbtn" id="vnext">Keyingi ›</button></div></div>
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
+    <div class="fs-bar" id="fsbar">
+      <div class="fs-title">
+        <span id="fsname">Telekanal</span>
+        <span class="fs-badge">4K UHD</span>
+      </div>
+      <div class="fs-actions">
+        <button class="fs-btn" id="fsq" title="Sifat: 4K UHD">4K</button>
+        <button class="fs-btn" id="fsmute" title="Ovoz">🔊</button>
+        <button class="fs-btn" id="fsclose" title="To'liq ekrandan chiqish" aria-label="Chiqish">✕</button>
+      </div>
+    </div>
+    <button class="vbox-fs-btn" id="vboxfs" aria-label="To'liq ekran" title="To'liq ekran">⛶</button>
   </div>
   <div class="tvbar"><div class="lg" id="tvlogo"></div><div class="grow"><b id="tvname"></b><small>● JONLI EFIR</small></div>
-    <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button><button class="ib" id="fsbar" style="display:none" aria-hidden="true"></button>
+    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">4K UHD</button>
+    <button class="ib" id="tvpip" aria-label="Kichik oyna (PiP)" title="Picture-in-Picture">⧉</button>
+    <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button>
     <button class="ib" id="tvdel" aria-label="Kanalni o'chirish" hidden>🗑</button>
     <button class="ib" id="tvx" aria-label="Yopish" style="display:none">✕</button></div>
   <button class="badb" id="tvbad">⚠️ Ishlamayapti yoki reklama chiqyapti — boshqa efirni sinash</button>
@@ -546,46 +626,108 @@ function setBusy(on, part) {
   $("play").style.opacity = on ? .6 : 1;
   document.querySelectorAll(".pbtn").forEach((b) => b.classList.toggle("busy", on && +b.dataset.p === part));
 }
+function showOpenBotSheet(it, targetUrl, errorMsg) {
+  const targetBot = botName || "Bauntyfilmsbot";
+  const url = targetUrl || `https://t.me/${targetBot}?start=m_${it.c}`;
+  $("sheet").innerHTML = `<h3>🤖 Bot chatini ochish</h3>
+    <p>${esc(errorMsg || "Kinoni bot chatida to'liq sifatda tomosha qilish uchun quyidagi tugmani bosing:")}</p>
+    <button class="cta" id="sheetBotBtn" style="margin-top:14px;background:linear-gradient(135deg,#0088cc,#00aaff);color:#fff">🚀 Bot chatiga o'tish (▶️ ${esc(it.t)})</button>
+    <button class="sbtn" id="sheetCloseBtn" style="margin-top:8px;justify-content:center;color:var(--hint)">Yopish</button>`;
+  const b = $("sheet").querySelector("#sheetBotBtn");
+  if (b) b.onclick = () => {
+    hideSheet();
+    if (inTg && tg.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, "_blank");
+  };
+  const c = $("sheet").querySelector("#sheetCloseBtn");
+  if (c) c.onclick = hideSheet;
+  $("sbg").classList.add("open");
+  $("sheet").classList.add("open");
+}
+
 async function watch(it, part, recheck = false) {
   if (busy) return;
-  if (!inTg) { toast("📱 Kinoni olish uchun katalogni Telegram ichida oching"); return; }
+  const targetBot = botName || "Bauntyfilmsbot";
+  const uid = (inTg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id)
+    || (new URLSearchParams(window.location.search).get("user_id"))
+    || "";
+
+  if (!inTg && !uid) {
+    toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
+    const directUrl = `https://t.me/${targetBot}?start=m_${it.c}`;
+    setTimeout(() => { window.open(directUrl, "_blank"); }, 300);
+    showOpenBotSheet(it, directUrl, "Web brauzerda ochilgan. Bot chatini ochib, kinoni oling:");
+    return;
+  }
+
   setBusy(true, part);
   let r;
   try {
-    const res = await fetch("api/watch", {method: "POST",
-      headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData},
-      body: JSON.stringify({code: it.c, part, recheck})});
+    const payload = {
+      code: it.c,
+      part,
+      recheck,
+      user_id: uid ? Number(uid) : undefined
+    };
+    const res = await fetch("api/watch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Init-Data": (inTg && tg.initData) ? tg.initData : ""
+      },
+      body: JSON.stringify(payload)
+    });
     r = await res.json();
-  } catch (e) { r = {ok: false, error: "network"}; }
+  } catch (e) {
+    r = {ok: false, error: "network"};
+  }
   setBusy(false);
-  if (r.ok) {
+
+  // 1. Rostdan ham chatga yetkazilgan bo'lsa
+  if (r.ok && r.delivered) {
     haptic("ok"); markSeen(it.c, part); refreshSeen(it.c);
     if (it.p > 1) {
       document.querySelector(`.pbtn[data-p="${part}"]`)?.classList.add("seen");
       const label = `▶️ ${nextPart(it)}-qismni ko'rish`;
       $("play").textContent = label; tg.MainButton.setText(label);
-      toast(r.queued ? `⏳ ${part}-qism navbatda — bir necha soniyada chatga keladi` : `✅ ${part}-qism chatga yuborildi`);
+      toast(`✅ ${part}-qism bot chatiga yuborildi!`);
     } else {
-      toast(r.queued ? "⏳ Kino navbatda — bir necha soniyada chatga keladi" : "✅ Kino chatga yuborildi");
-      setTimeout(() => tg.close(), r.queued ? 1600 : 650);
+      toast("✅ Kino bot chatiga yuborildi!");
+      setTimeout(() => inTg && tg.close && tg.close(), 650);
     }
     return;
   }
+
+  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
+
+  const targetUrl = r.url || `https://t.me/${targetBot}?start=m_${it.c}`;
+
+  // 2. Agar botga yo'naltirish kerak bo'lsa
+  if (r.action === "open_bot" || r.url || r.error === "need_start") {
+    haptic("ok");
+    toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
+    if (inTg && tg.openTelegramLink) {
+      tg.openTelegramLink(targetUrl);
+    } else {
+      window.open(targetUrl, "_blank");
+    }
+    showOpenBotSheet(it, targetUrl, "Kinoni bot chatida tomosha qilish uchun pastdagi tugmani bosing:");
+    return;
+  }
+
   haptic("err");
   const msg = {
     not_found: "❌ Bu kino olib tashlangan",
     rate: `⏳ Juda ko'p so'rov. ${Math.ceil((r.retry || 600) / 60)} daqiqadan keyin urinib ko'ring`,
     auth: "⚠️ Sessiya eskirgan — katalogni yopib, qayta oching",
     network: "📶 Internet bilan muammo. Qayta urinib ko'ring",
-    send_failed: "⚠️ Yuborib bo'lmadi. Birozdan keyin urinib ko'ring",
-    busy: "⏳ Hozir juda ko'p odam kirdi — 5-10 soniyadan keyin qayta bosing",
+    send_failed: "⚠️ Yuborib bo'lmadi. Bot chatini oching",
+    bot_not_connected: "⚠️ Botga ulanib bo'lmadi. Bot chatini oching",
+    busy: "⏳ Hozir juda ko'p odam kirdi — 5-10 soniyadan keyin qayta bosing"
   };
-  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
-  if (r.error === "need_start") {
-    toast("🤖 Botni ishga tushiryapmiz…");
-    if (botName) return tg.openTelegramLink(`https://t.me/${botName}?start=kino_${it.c}`);
-  }
-  toast(msg[r.error] || msg.send_failed, 3200);
+  const errDesc = msg[r.error] || msg.send_failed;
+  toast(errDesc, 3200);
+  showOpenBotSheet(it, targetUrl, `${errDesc}. Bot chatida to'g'ridan-to'g'ri tomosha qiling:`);
 }
 
 function showSub(it, part, chans) {
@@ -793,13 +935,16 @@ function tvState(s, msg) {
   $("vload").hidden = s !== "load"; $("verr").hidden = s !== "err";
   if (msg) (s === "err" ? $("verrt") : $("vmsg")).textContent = msg;
 }
+let userStoppedVideo = false;
 function stopVideo() {
+  userStoppedVideo = true;
   clearTimeout(tvTimer);
   const yt = $("yt"); if (!yt.hidden) { yt.src = "about:blank"; yt.hidden = true; } vid.hidden = false;
   if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
   vid.pause(); vid.removeAttribute("src"); try { vid.load(); } catch (e) {}
 }
 function loadHlsLib() {
+  if (window.Hls) return Promise.resolve(window.Hls);
   if (hlsLib) return hlsLib;
   hlsLib = new Promise((ok, bad) => {
     const sc = document.createElement("script");
@@ -825,41 +970,168 @@ function ytEmbed(url) {
 }
 function attempt(url) {
   return new Promise(async (ok, bad) => {
+    if (!url || url.includes("blocked") || url.includes("xykt-fix.github.io")) {
+      return bad("blocked_stream");
+    }
     let done = false;
-    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = null; f(v); } };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 15000);
+    const cleanup = () => {
+      vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = vid.ontimeupdate = null;
+    };
+    const fin = (f, v) => {
+      if (!done) {
+        done = true;
+        clearTimeout(tvTimer);
+        cleanup();
+        f(v);
+      }
+    };
+    tvTimer = setTimeout(() => fin(bad, "timeout"), 12000);
     vid.onplaying = () => fin(ok);
+    vid.oncanplay = () => fin(ok);
+    vid.onloadeddata = () => fin(ok);
+    vid.ontimeupdate = () => {
+      if (vid.currentTime > 0) fin(ok);
+    };
     vid.onerror = () => fin(bad, "media");
+
+    const tryAutoplay = () => {
+      vid.muted = false;
+      const p = vid.play();
+      if (p && p.catch) {
+        p.catch((err) => {
+          if (err && err.name === "NotAllowedError") {
+            vid.muted = true;
+            $("unmute").hidden = false;
+            vid.play().catch(() => {});
+          }
+        });
+      }
+    };
+
+    let streamTarget = url;
+
     try {
-      if (nativeHls()) { vid.src = url; }
-      else {
+      if (nativeHls()) {
+        vid.src = streamTarget;
+        tryAutoplay();
+      } else {
         const Hls = await loadHlsLib();
-        if (!Hls.isSupported()) { vid.src = url; }
-        else {
-          hls = new Hls({maxBufferLength: 20, backBufferLength: 10, liveSyncDurationCount: 3, manifestLoadingMaxRetry: 1,
-            levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 2, startFragPrefetch: true, lowLatencyMode: true});
-          hls.on(Hls.Events.ERROR, (_, d) => {
-            if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) { try { hls.recoverMediaError(); } catch(e){} }
-            if (d.fatal) fin(bad, d.type);
+        if (!Hls.isSupported()) {
+          vid.src = streamTarget;
+          tryAutoplay();
+        } else {
+          hls = new Hls({
+            enableWorker: true,
+            startFragPrefetch: true,
+            lowLatencyMode: false,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 6,
+            maxBufferLength: 45,
+            maxMaxBufferLength: 120,
+            maxBufferHole: 0.5,
+            maxBufferSize: 60 * 1024 * 1024,
+            backBufferLength: 4,
+            abrEwmaDefaultEstimate: 4000000,
+            testBandwidth: true,
+            highBufferWatchdogPeriod: 1,
+            nudgeOffset: 0.1,
+            nudgeMaxRetry: 5,
+            manifestLoadingTimeOut: 6000,
+            manifestLoadingMaxRetry: 4,
+            levelLoadingTimeOut: 6000,
+            levelLoadingMaxRetry: 4,
+            fragLoadingTimeOut: 8000,
+            fragLoadingMaxRetry: 5
           });
-          hls.loadSource(url); hls.attachMedia(vid);
+          let netFatalRetries = 0;
+          hls.on(Hls.Events.ERROR, (_, d) => {
+            if (d.fatal) {
+              if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                if (++netFatalRetries <= 3) {
+                  try { hls.startLoad(); } catch (err) {}
+                } else {
+                  fin(bad, "network_fatal");
+                }
+              } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                try { hls.recoverMediaError(); } catch (err) { fin(bad, d.type); }
+              } else {
+                fin(bad, d.type);
+              }
+            } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+              try {
+                if (vid.currentTime > 0) vid.currentTime += 0.1;
+                if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
+              } catch (e) {}
+            }
+          });
+          hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
+            if (data && data.url && (data.url.includes("blocked") || data.url.includes("xykt-fix.github.io"))) {
+              fin(bad, "blocked_manifest");
+              return;
+            }
+            if (data && data.levels && data.levels.length) {
+              let bestIdx = 0, maxScore = -1;
+              for (let i = 0; i < data.levels.length; i++) {
+                const lvl = data.levels[i];
+                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
+                if (score > maxScore) {
+                  maxScore = score;
+                  bestIdx = i;
+                }
+              }
+              try {
+                hls.startLevel = bestIdx;
+                hls.loadLevel = bestIdx;
+                hls.nextLoadLevel = bestIdx;
+                hls.minAutoLevel = Math.max(0, bestIdx - 1);
+              } catch (e) {}
+            }
+          });
+          hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+            if (data && data.levels && data.levels.length) {
+              let bestIdx = 0, maxScore = -1;
+              for (let i = 0; i < data.levels.length; i++) {
+                const lvl = data.levels[i];
+                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
+                if (score > maxScore) {
+                  maxScore = score;
+                  bestIdx = i;
+                }
+              }
+              try {
+                hls.startLevel = bestIdx;
+                hls.loadLevel = bestIdx;
+                hls.nextLoadLevel = bestIdx;
+                hls.minAutoLevel = Math.max(0, bestIdx - 1);
+              } catch (e) {}
+              const qBtn = $("tvq");
+              if (qBtn) qBtn.textContent = "4K UHD";
+            }
+            tryAutoplay();
+          });
+          hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+            const qBtn = $("tvq");
+            if (qBtn) qBtn.textContent = "4K UHD";
+          });
+          hls.loadSource(streamTarget);
+          hls.attachMedia(vid);
         }
       }
-      vid.muted = false;
-      vid.play().catch((err) => {
-        if (err && err.name === "NotAllowedError") { vid.muted = true; $("unmute").hidden = false; vid.play().catch(() => {}); }
-      });
     } catch (e) { fin(bad, "load"); }
   });
 }
 let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
-  stopVideo(); tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
-  for (let n = from; n < c.u.length; n++) {
-    const [idx, url] = c.u[n];
+  userStoppedVideo = false;
+  stopVideo();
+  userStoppedVideo = false;
+  tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
+  const streamList = Array.isArray(c.u) ? c.u : [[0, c.stream || c.u]];
+  for (let n = from; n < streamList.length; n++) {
+    const [idx, url] = streamList[n];
     tvN = n;
-    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${c.u.length})…`);
+    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${streamList.length})…`);
     const emb = ytEmbed(url);
     if (emb) {
       vid.hidden = true; const yt = $("yt"); yt.hidden = false;
@@ -880,10 +1152,36 @@ async function playTV(c, from = 0) {
 }
 function openTV(c, push = true) {
   tvCur = c; haptic();
+  userStoppedVideo = false;
+  try { vid.autoPictureInPicture = true; } catch (e) {}
+  if (inTg) {
+    try { tg.expand(); } catch (e) {}
+    try { tg.enableClosingConfirmation(); } catch (e) {}
+    try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.7") && tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
+    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("8.0") && tg.requestFullscreen) tg.requestFullscreen(); } catch (e) {}
+  }
+  if ("mediaSession" in navigator) {
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: (c.n || "Telekanal") + " (Jonli Efir)",
+        artist: "Baunty TV · 4K Ultra HD",
+        album: "Jonli TV",
+        artwork: [{ src: c.l || "favicon.ico", sizes: "512x512", type: "image/png" }]
+      });
+      navigator.mediaSession.playbackState = "playing";
+      navigator.mediaSession.setActionHandler("play", () => { vid.play().catch(() => {}); });
+      navigator.mediaSession.setActionHandler("pause", () => { vid.play().catch(() => {}); });
+    } catch (e) {}
+  }
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  $("tvname").textContent = c.n;
+  const qb = "4K UHD";
+  $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
+  if ($("fsname")) $("fsname").textContent = c.n || "Telekanal";
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
+  const qBtn = $("tvq");
+  if (qBtn) qBtn.textContent = "4K UHD";
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);
   if (same.length < 6) same = same.concat(tvItems.filter((x) => x.c === c.c && x.i !== c.i && !same.includes(x)));
   same = same.slice(0, 60);
@@ -895,9 +1193,14 @@ function openTV(c, push = true) {
 }
 function closeTV(fromPop = false) {
   if (!tvCur) return;
-  tvCur = null; tvTry++; stopVideo();
+  if (isTVFullscreen) toggleTVFullscreen(false);
+  tvCur = null; tvTry++; userStoppedVideo = true; stopVideo();
   $("tvp").classList.remove("open");
-  if (inTg) tg.BackButton.hide();
+  if (inTg) {
+    tg.BackButton.hide();
+    try { if (tg.exitFullscreen) tg.exitFullscreen(); } catch (e) {}
+    try { if (tg.enableVerticalSwipes) tg.enableVerticalSwipes(); } catch (e) {}
+  }
   if (!fromPop && tvPushed) history.back();
   tvPushed = false;
   if (mode === "tv") renderTV();
@@ -939,6 +1242,56 @@ $("tvdel").onclick = () => {
   else if (confirm(`«${c.n}» o'chirilsinmi?`)) go();
 };
 $("unmute").onclick = () => { vid.muted = false; $("unmute").hidden = true; vid.play().catch(() => {}); };
+vid.onclick = () => {
+  if (vid.paused) {
+    vid.play().catch(() => {});
+  } else if (vid.muted) {
+    vid.muted = false;
+    $("unmute").hidden = true;
+  }
+};
+const tvqBtn = $("tvq");
+if (tvqBtn) {
+  tvqBtn.onclick = () => {
+    if (!tvCur) return;
+    if (hls && hls.levels && hls.levels.length > 1) {
+      if (hls.autoLevelEnabled) {
+        let best = 0, maxScore = -1;
+        for (let i = 0; i < hls.levels.length; i++) {
+          const lvl = hls.levels[i];
+          const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
+          if (score > maxScore) { maxScore = score; best = i; }
+        }
+        hls.currentLevel = best;
+        hls.loadLevel = best;
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Majburiy)", 1400);
+      } else {
+        hls.currentLevel = -1;
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
+      }
+      return;
+    }
+    const curSrc = (hls && hls.url) || vid.src || "";
+    if (curSrc.includes("cinerama.uz")) {
+      if (curSrc.includes("tracks-v1a1")) {
+        const autoUrl = curSrc.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+        attempt(autoUrl).catch(() => {});
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
+      } else {
+        const directUrl = curSrc.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
+        attempt(directUrl).catch(() => {});
+        tvqBtn.textContent = "4K UHD";
+        toast("Sifat: 4K UHD (Majburiy)", 1400);
+      }
+    } else {
+      tvqBtn.textContent = "4K UHD";
+      toast("Sifat: 4K UHD (Ultra HD)", 1200);
+    }
+  };
+}
 $("tvfav").onclick = () => {
   if (!tvCur) return;
   const id = tvCur.i;
@@ -947,22 +1300,264 @@ $("tvfav").onclick = () => {
   $("tvfav").textContent = tvFav.includes(id) ? "⭐" : "☆";
   toast(tvFav.includes(id) ? "⭐ Sevimlilarga qo'shildi" : "Sevimlilardan olib tashlandi", 1400);
 };
-$("tvfs").onclick = () => {
+
+let isTVFullscreen = false;
+let fsControlTimer = null;
+
+function resetFsTimer() {
+  const fsBar = $("fsbar");
+  if (!fsBar || !isTVFullscreen) return;
+  fsBar.classList.remove("fade-out");
+  clearTimeout(fsControlTimer);
+  fsControlTimer = setTimeout(() => {
+    if (isTVFullscreen && !vid.paused) {
+      fsBar.classList.add("fade-out");
+    }
+  }, 3500);
+}
+
+function updateFullscreenUI() {
+  const tvp = $("tvp");
+  const fsBtn = $("tvfs");
+  const fsName = $("fsname");
+  if (tvCur && fsName) {
+    fsName.textContent = tvCur.n || "Telekanal";
+  }
+  if (isTVFullscreen) {
+    tvp.classList.add("tv-full-screen-mode");
+    if (fsBtn) {
+      fsBtn.textContent = "✕";
+      fsBtn.title = "Kichraytirish";
+      fsBtn.style.color = "var(--accent)";
+    }
+    resetFsTimer();
+  } else {
+    tvp.classList.remove("tv-full-screen-mode");
+    const fsBar = $("fsbar");
+    if (fsBar) fsBar.classList.remove("fade-out");
+    clearTimeout(fsControlTimer);
+    if (fsBtn) {
+      fsBtn.textContent = "⛶";
+      fsBtn.title = "To'liq ekran";
+      fsBtn.style.color = "";
+    }
+  }
+}
+
+async function toggleTVFullscreen(forceState) {
+  haptic();
+  const targetState = typeof forceState === "boolean" ? forceState : !isTVFullscreen;
+  isTVFullscreen = targetState;
   const box = $("vbox");
-  try {
-    if (box.requestFullscreen) box.requestFullscreen().then(() => { try { screen.orientation.lock("landscape"); } catch (e) {} }).catch(() => vid.webkitEnterFullscreen && vid.webkitEnterFullscreen());
-    else if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();
-  } catch (e) {}
-};
+  const tvp = $("tvp");
+
+  if (isTVFullscreen) {
+    updateFullscreenUI();
+    toast("📺 To'liq ekran (4K UHD)", 1200);
+
+    // 1. Telegram 8.0+ WebApp API
+    if (inTg) {
+      try { if (tg.expand) tg.expand(); } catch (e) {}
+      try { if (tg.requestFullscreen) tg.requestFullscreen(); } catch (e) {}
+    }
+
+    // 2. Ekran aylanishi (landscape orientation)
+    try {
+      if (screen.orientation && screen.orientation.lock) {
+        screen.orientation.lock("landscape").catch(() => {});
+      }
+    } catch (e) {}
+
+    // 3. HTML5 va Webkit fullscreen (desktop, tablet, android)
+    try {
+      const fsTarget = (tvp && tvp.requestFullscreen) ? tvp : (box && box.requestFullscreen ? box : null);
+      if (fsTarget) {
+        await fsTarget.requestFullscreen();
+      } else if (vid.webkitEnterFullscreen && /iPhone|iPod/.test(navigator.userAgent)) {
+        vid.webkitEnterFullscreen();
+      } else if (vid.requestFullscreen) {
+        await vid.requestFullscreen();
+      } else if (document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (e) {
+      console.log("Native fullscreen unavailable; CSS pseudo-fullscreen active:", e);
+    }
+  } else {
+    updateFullscreenUI();
+
+    // 1. Native fullscreen dan chiqish
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      }
+    } catch (e) {}
+
+    // 2. Telegram WebApp Fullscreen dan chiqish
+    if (inTg && tg.exitFullscreen) {
+      try { tg.exitFullscreen(); } catch (e) {}
+    }
+
+    // 3. Orientation unlock
+    try {
+      if (screen.orientation && screen.orientation.unlock) {
+        screen.orientation.unlock().catch(() => {});
+      }
+    } catch (e) {}
+  }
+}
+
+function bindClickAndTouch(el, handler) {
+  if (!el) return;
+  let touched = false;
+  el.addEventListener("touchend", (e) => {
+    touched = true;
+    e.preventDefault();
+    e.stopPropagation();
+    handler(e);
+    setTimeout(() => { touched = false; }, 300);
+  }, {passive: false});
+  el.addEventListener("click", (e) => {
+    if (touched) return;
+    e.preventDefault();
+    e.stopPropagation();
+    handler(e);
+  });
+}
+
+bindClickAndTouch($("tvfs"), () => toggleTVFullscreen());
+bindClickAndTouch($("vboxfs"), () => toggleTVFullscreen(true));
+bindClickAndTouch($("fsclose"), () => toggleTVFullscreen(false));
+bindClickAndTouch($("fsmute"), () => {
+  vid.muted = !vid.muted;
+  const fsmuteBtn = $("fsmute");
+  if (fsmuteBtn) fsmuteBtn.textContent = vid.muted ? "🔇" : "🔊";
+  toast(vid.muted ? "🔇 Ovoz o'chirildi" : "🔊 Ovoz yoqildi", 1000);
+});
+bindClickAndTouch($("fsq"), () => {
+  const tvq = $("tvq");
+  if (tvq) tvq.click();
+});
+
+// Native fullscreen hodisalarini kuzatish
+document.addEventListener("fullscreenchange", () => {
+  if (!document.fullscreenElement && isTVFullscreen) {
+    isTVFullscreen = false;
+    updateFullscreenUI();
+  }
+});
+document.addEventListener("webkitfullscreenchange", () => {
+  if (!document.webkitFullscreenElement && isTVFullscreen) {
+    isTVFullscreen = false;
+    updateFullscreenUI();
+  }
+});
+vid.addEventListener("webkitendfullscreen", () => {
+  if (isTVFullscreen) {
+    isTVFullscreen = false;
+    updateFullscreenUI();
+  }
+});
+
+// Fullscreen harakat / bosilganda boshqaruv panelini ko'rsatish
+$("vbox").addEventListener("mousemove", () => { if (isTVFullscreen) resetFsTimer(); });
+$("vbox").addEventListener("touchstart", () => { if (isTVFullscreen) resetFsTimer(); }, {passive: true});
+
+// Tap va Double-tap: oddiy rejimda tugmani ta'kidlash / to'liq ekranda panelni ko'rsatish
+let lastVidClickTime = 0;
+function onPlayerAreaTap(e) {
+  if (e.target.closest("button") || e.target.closest(".fs-bar") || e.target.closest(".vov#verr")) return;
+  const now = Date.now();
+  if (now - lastVidClickTime < 350) {
+    toggleTVFullscreen();
+    lastVidClickTime = 0;
+  } else {
+    lastVidClickTime = now;
+    if (isTVFullscreen) {
+      const fsBar = $("fsbar");
+      if (fsBar) {
+        if (fsBar.classList.contains("fade-out")) {
+          resetFsTimer();
+        } else {
+          fsBar.classList.add("fade-out");
+        }
+      }
+    } else {
+      const btn = $("vboxfs");
+      if (btn) {
+        btn.style.transform = "scale(1.15)";
+        btn.style.background = "var(--accent)";
+        setTimeout(() => {
+          btn.style.transform = "";
+          btn.style.background = "";
+        }, 500);
+      }
+    }
+  }
+}
+
+const playerBox = $("vbox");
+if (playerBox) {
+  playerBox.addEventListener("click", onPlayerAreaTap);
+}
+
+// Desktop klaviatura: 'f' to'liq ekran, 'Escape' chiqish, 'm' ovoz
+window.addEventListener("keydown", (e) => {
+  if (tvCur && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
+    if (e.key === "f" || e.key === "F") {
+      toggleTVFullscreen();
+    } else if (e.key === "Escape" && isTVFullscreen) {
+      toggleTVFullscreen(false);
+    } else if (e.key === "m" || e.key === "M") {
+      vid.muted = !vid.muted;
+      toast(vid.muted ? "🔇 Ovoz o'chirildi" : "🔊 Ovoz yoqildi", 1000);
+    }
+  }
+});
+const pipBtn = $("tvpip");
+if (pipBtn) {
+  pipBtn.onclick = async () => {
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+      } else if (vid.requestPictureInPicture) {
+        await vid.requestPictureInPicture();
+      }
+    } catch (e) {
+      toast("PiP rejimi", 1200);
+    }
+  };
+}
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-tv]");
   if (!t) return;
-  const c = tvById.get(t.dataset.tv);
-  if (!c) return;
+  const rawId = t.dataset.tv;
+  const c = tvById.get(rawId) || tvById.get(+rawId) || tvById.get(String(rawId)) || (tvItems && tvItems.find(x => String(x.i) === String(rawId) || String(x.id) === String(rawId)));
+  if (!c) {
+    console.warn("TV channel not found:", rawId);
+    return;
+  }
   openTV(c, !tvCur);
 });
+
+// Fon rejimiga o'tganda yoki ilova qisman surilganda/minimizatsiyada efir to'xtab qolmasin
+const autoResumeStream = () => {
+  if (tvCur && !userStoppedVideo && vid.paused && !vid.ended) {
+    vid.play().catch(() => {});
+  }
+};
+document.addEventListener("visibilitychange", autoResumeStream);
+window.addEventListener("blur", autoResumeStream);
+window.addEventListener("focus", autoResumeStream);
+window.addEventListener("pageshow", autoResumeStream);
+
+vid.addEventListener("pause", () => {
+  if (tvCur && !userStoppedVideo && !vid.ended) {
+    setTimeout(autoResumeStream, 80);
+  }
+});
 if (inTg) tg.BackButton.onClick(() => { if (tvCur) closeTV(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && tvCur) vid.pause(); });
 
 // ---------- yuklash ----------
 async function load() {
