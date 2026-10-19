@@ -12,4 +12,5 @@ venv/
 logs/
 scratch/
 data/posters/*.webp
+data/bk/
 

@@ -44,7 +44,7 @@ const I = {
 // ------------------------------------------------------------------ holat
 let opened = false, botName = "";
 let tab = "home";                    // home | watch | saved
-let plat = lsGet("zk_st_plat", "ig");
+let plat = lsGet("zk_st_plat", "ig"), picked = false;   // picked: shu safar tarmoq tanlandimi (avval tanlov, keyin username)
 let stack = [];                      // [{v:"profile", p, u}, {v:"hl", hid, title}]
 let me = {watch: [], featured: [], tg: false, max: 15};
 let prof = null;                     // joriy profil ma'lumoti {p,u,name,pic,items,err,hl}
@@ -149,13 +149,16 @@ function homeHTML() {
     <span class="sx-chip ok" style="margin-top:6px"><i></i>Siz ko'rinmaysiz</span></div>
     <h2>Story'larni sezdirmasdan ko'ring</h2>
     <p>Profil egasi story'ni kim ko'rganini ko'rsa ham, ro'yxatda sizni ko'rmaydi</p></div>
-  <div class="sx-tabs" role="tablist">
+  ${picked ? `<div class="sx-tabs" role="tablist">
     <button class="sx-tab ig${plat === "ig" ? " on" : ""}" data-plat="ig" role="tab" aria-selected="${plat === "ig"}">${I.ig}Instagram</button>
     <button class="sx-tab tg${plat === "tg" ? " on" : ""}" data-plat="tg" role="tab" aria-selected="${plat === "tg"}">${I.tg}Telegram</button></div>
-  <form class="sx-inp" id="sxform" autocomplete="off">${I.search}
+  <form class="sx-inp sx-in" id="sxform" autocomplete="off">${I.search}
     <input id="sxq" type="text" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="${ph}" aria-label="${ph}">
     <button class="sx-go" id="sxgo" type="submit" disabled>Ochish</button></form>
-  <div class="sx-detect" id="sxdet" aria-live="polite"></div>
+  <div class="sx-detect" id="sxdet" aria-live="polite"></div>` : `<div class="sx-h"><h3>Qaysi tarmoqdan?</h3></div>
+  <div class="sx-pick" role="group" aria-label="Tarmoqni tanlang">
+    <button class="sx-pc ig" data-plat="ig"><span class="ic">${I.ig}</span><b>Instagram</b><span>Ochiq profil story'lari</span></button>
+    <button class="sx-pc tg" data-plat="tg"><span class="ic">${I.tg}</span><b>Telegram</b><span>Kanal va profil story'lari</span></button></div>`}
   ${w.length ? `<div class="sx-h"><h3>Kuzatuvdagilar</h3><button class="sx-link" data-tab="watch">Hammasi</button></div>
     <div class="sx-rings">${w.map((x) => `<button class="sx-av" data-open="${x.p}:${esc(x.u)}">${ring(x.p, x.title || x.u, "")}<small>${esc(x.title || x.u)}</small></button>`).join("")}</div>` : ""}
   ${h.length ? `<div class="sx-h"><h3>Oxirgi qidiruvlar</h3><button class="sx-link" data-clearhist>Tozalash</button></div>
@@ -194,6 +197,7 @@ function openProfile(p, u, push = true) {
   u = String(u).replace(/^@/, "");
   if (p === "ig") u = u.toLowerCase();
   if (p !== plat) { plat = p; lsSet("zk_st_plat", p); }
+  picked = true;
   if (push) stack.push({v: "profile", p, u});
   selMode = false; sel.clear();
   prof = {p, u, name: "", pic: "", items: null, err: null, hl: null, pending: false};
@@ -232,15 +236,17 @@ const ERR = {
   private: [I.lock, "Bu profil yopiq", (u) => `@${u} story'larini faqat obunachilari ko'radi. Yopiq profillarni ochmaymiz.`, "Boshqa profil qidirish", "home"],
   not_found: [I.ghost, "Profil topilmadi", (u) => `@${u} degan profil yo'q yoki nomi o'zgargan. Yozilishini tekshiring.`, "Qayta qidirish", "home"],
   bad_username: [I.ghost, "Username noto'g'ri", () => "Faqat harf, raqam, nuqta va _ ishlatiladi.", "Qayta qidirish", "home"],
-  rate: [I.warn, "Hozir javob kelmadi", () => "So'rovlar ko'payib ketdi. 1–2 daqiqadan keyin qayta urinib ko'ring.", "Qayta urinish", "retry"],
+  rate: [I.warn, "Hozir javob kelmadi", (u, w) => w > 600
+    ? `Telegram story ko'rishni vaqtincha chekladi. Taxminan ${w >= 3600 ? Math.ceil(w / 3600) + " soatdan" : Math.ceil(w / 60) + " daqiqadan"} keyin yana ishlaydi. Instagram story'lari hozir ham ochiladi.`
+    : "So'rovlar ko'payib ketdi. 1–2 daqiqadan keyin qayta urinib ko'ring.", "Qayta urinish", "retry"],
   rate_user: [I.warn, "Biroz dam oling", () => "Bir soatlik limit tugadi. Birozdan keyin qayta urinib ko'ring.", "Bosh sahifaga", "home"],
   down: [I.warn, "Xizmat vaqtincha ishlamayapti", () => "Birozdan keyin qayta urinib ko'ring.", "Qayta urinish", "retry"],
   net: [I.warn, "Internet bilan muammo", () => "Ulanishni tekshirib, qayta urinib ko'ring.", "Qayta urinish", "retry"],
   auth: [I.warn, "Ilovani bot ichidan oching", () => "Bu bo'lim faqat Telegram ichida ishlaydi.", "Bosh sahifaga", "home"],
 };
-function stateHTML(code, u) {
+function stateHTML(code, u, wait) {
   const e = ERR[code] || ERR.down;
-  return `<div class="sx-st"><div class="ic">${e[0]}</div><h4>${e[1]}</h4><p>${esc(e[2](u))}</p>
+  return `<div class="sx-st"><div class="ic">${e[0]}</div><h4>${e[1]}</h4><p>${esc(e[2](u, +wait || 0))}</p>
     <button class="sx-btn sec" data-st="${e[4]}">${e[3]}</button></div>`;
 }
 function tileHTML(it, i, src) {
@@ -264,7 +270,7 @@ function profileHTML() {
   const top = `<div class="sx-top"><button class="sx-ib" data-back aria-label="Orqaga">${I.back}</button>
     <div class="sx-ttl">${esc(pr.p === "tg" ? (pr.name || pr.u) : pr.u)}</div>
     ${pr.items && pr.items.length ? `<button class="sx-link" data-selmode>${selMode ? "Bekor" : "Tanlash"}</button>` : `<span class="sx-pill ${pr.p}">${pr.p === "ig" ? "Instagram" : "Telegram"}</span>`}</div>`;
-  if (pr.err) return top + stateHTML(pr.err, pr.u);
+  if (pr.err) return top + stateHTML(pr.err, pr.u, pr.wait);
   if (!pr.items) {
     return top + `<div class="sx-pf">${ring(pr.p, pr.u, "", "sx-spin")}<div class="sx-stats"><div><b class="sx-skel" style="width:40px;height:20px;border-radius:6px"></b><span>story</span></div></div></div>
       ${pr.pending ? `<div class="sx-wait">Telegram'dan story'lar olinmoqda…<br>Kanal katta bo'lsa 10–20 soniya ketadi</div>` : ""}
@@ -566,7 +572,11 @@ function onClick(e) {
   const d = t.dataset;
   if (d.mode) { if (d.mode !== "story" && window.ZK_setMode) window.ZK_setMode(d.mode); return; }
   if (d.tab) { tab = d.tab; stack = []; prof = null; selMode = false; render(); if (tab === "home") setTimeout(() => $("sxq") && $("sxq").focus(), 50); return; }
-  if (d.plat) { plat = d.plat; lsSet("zk_st_plat", plat); haptic(); render(); return; }
+  if (d.plat) {
+    const first = !picked; plat = d.plat; picked = true; lsSet("zk_st_plat", plat); haptic(); render();
+    if (first) setTimeout(() => { const q = $("sxq"); if (q) q.focus(); }, 80);
+    return;
+  }
   if (d.open) { const [p, u] = d.open.split(/:(.+)/); stack = []; openProfile(p, u); return; }
   if (t.hasAttribute("data-back")) { back(); return; }
   if (t.hasAttribute("data-clearhist")) { lsSet("zk_st_hist", []); render(); return; }

@@ -141,6 +141,138 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
     return web.Response(status=404, text="Poster topilmadi")
 
 
+async def handle_book_asset_proxy(request: web.Request) -> web.Response:
+    """Kitob muqovalari, rasmlari va sahifalarini (bk/...) keshlab uzatish."""
+    tail = request.match_info.get("tail", "").lstrip("/")
+    if not tail or ".." in tail:
+        return web.Response(status=404, text="Topilmadi")
+
+    ext = os.path.splitext(tail)[1].lower()
+    ct_map = {
+        ".webp": "image/webp",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".json": "application/json",
+        ".pdf": "application/pdf",
+        ".epub": "application/epub+zip",
+    }
+    content_type = ct_map.get(ext, "application/octet-stream")
+
+    bk_dir = BASE_DIR / "data" / "bk"
+    local_path = bk_dir / tail
+    if local_path.exists():
+        try:
+            with open(local_path, "rb") as f:
+                content = f.read()
+            return web.Response(
+                body=content,
+                content_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+        except Exception:
+            pass
+
+    upstream_url = f"https://161-97-96-58.sslip.io/bk/{tail}"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    content = await resp.read()
+                    try:
+                        local_path.parent.mkdir(parents=True, exist_ok=True)
+                        with open(local_path, "wb") as bf:
+                            bf.write(content)
+                    except Exception:
+                        pass
+                    return web.Response(
+                        body=content,
+                        content_type=content_type,
+                        headers={
+                            "Cache-Control": "public, max-age=604800, immutable",
+                            "Access-Control-Allow-Origin": "*",
+                        }
+                    )
+    except Exception as e:
+        logger.warning(f"Kitob resursi yuklanmadi ({tail}): {e}")
+
+    return web.Response(status=404, text="Resurs topilmadi")
+
+
+_UPSTREAM_API_CACHE: Dict[str, Any] = {}
+
+
+async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
+    """Yangi bo'limlar (food, quiz, fx, books/home, books/shelf) uchun API proxy va oq brendlash."""
+    path = request.path.lstrip("/")
+    if path.startswith("webapp/"):
+        path = path[7:]
+
+    now = time.time()
+    cache_key = f"{request.method}:{path}:{request.query_string}"
+    if request.method == "GET" and cache_key in _UPSTREAM_API_CACHE:
+        entry = _UPSTREAM_API_CACHE[cache_key]
+        if now - entry["ts"] < 120:
+            return web.Response(
+                body=entry["body"],
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+    upstream_url = f"https://161-97-96-58.sslip.io/{path}"
+    if request.query_string:
+        upstream_url += f"?{request.query_string}"
+
+    req_headers = {}
+    init_data = request.headers.get("X-Init-Data")
+    if init_data:
+        req_headers["X-Init-Data"] = init_data
+    if "Content-Type" in request.headers:
+        req_headers["Content-Type"] = request.headers["Content-Type"]
+
+    body_bytes = None
+    if request.method in ("POST", "PUT", "PATCH"):
+        try:
+            body_bytes = await request.read()
+        except Exception:
+            body_bytes = None
+
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.request(
+                method=request.method,
+                url=upstream_url,
+                headers=req_headers,
+                data=body_bytes,
+                timeout=aiohttp.ClientTimeout(total=6)
+            ) as resp:
+                resp_bytes = await resp.read()
+                try:
+                    resp_text = resp_bytes.decode("utf-8")
+                    clean_text = sanitize_catalog_text(resp_text)
+                    resp_bytes = clean_text.encode("utf-8")
+                except Exception:
+                    pass
+
+                if request.method == "GET" and resp.status == 200:
+                    _UPSTREAM_API_CACHE[cache_key] = {"body": resp_bytes, "ts": now}
+
+                return web.Response(
+                    body=resp_bytes,
+                    status=resp.status,
+                    content_type=resp.headers.get("Content-Type", "application/json"),
+                    headers={"Access-Control-Allow-Origin": "*"}
+                )
+    except Exception as e:
+        logger.warning(f"Upstream API so'rovida xatolik ({upstream_url}): {e}")
+        return web.json_response({"ok": False, "error": "upstream_unavailable"}, status=502)
+
+
 async def handle_get_catalog(request: web.Request) -> web.Response:
     """Mini Appning rasmiy kinolar katalogi API (Real-time va to'liq oq brendlangan)."""
     now = time.time()
@@ -192,6 +324,9 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     data["games"] = True
     data["story"] = True
     data["books"] = True
+    data["fx"] = True
+    data["food"] = True
+    data["quiz"] = True
 
     _CATALOG_CACHE["data"] = data
     _CATALOG_CACHE["ts"] = now
@@ -1168,6 +1303,18 @@ def create_web_app() -> web.Application:
         ("POST", "/api/story/watch", handle_story_watch),
         ("POST", "/api/docs/convert", handle_doc_convert),
         ("POST", "/api/docs/pdf", handle_doc_pdf),
+        ("GET", "/api/books/home", handle_upstream_api_proxy),
+        ("GET", "/api/books/shelf", handle_upstream_api_proxy),
+        ("POST", "/api/books/progress", handle_upstream_api_proxy),
+        ("POST", "/api/books/note", handle_upstream_api_proxy),
+        ("GET", "/api/books/audio", handle_upstream_api_proxy),
+        ("GET", "/api/food", handle_upstream_api_proxy),
+        ("GET", "/api/food/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/food/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/quiz/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/quiz/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/fx", handle_upstream_api_proxy),
+        ("GET", "/api/fx/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/books", handle_books_catalog),
         ("GET", "/api/books/search", handle_books_search),
         ("GET", "/api/books/{id}", handle_book_detail),
@@ -1185,6 +1332,8 @@ def create_web_app() -> web.Application:
 
     app.router.add_get("/p/{filename}", handle_poster_proxy)
     app.router.add_get("/webapp/p/{filename}", handle_poster_proxy)
+    app.router.add_get("/bk/{tail:.*}", handle_book_asset_proxy)
+    app.router.add_get("/webapp/bk/{tail:.*}", handle_book_asset_proxy)
 
     # Statik fayllarni ulash (CSS, JS, Assetlar, Shriftlar)
     webapp_dir = BASE_DIR / "webapp"

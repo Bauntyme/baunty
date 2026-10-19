@@ -9,11 +9,17 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <link rel="stylesheet" href="music.css">
 <link rel="stylesheet" href="docs.css">
+<link rel="stylesheet" href="fx.css">
+<link rel="stylesheet" href="food.css">
+<link rel="stylesheet" href="quiz.css">
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="story.css">
 <link rel="stylesheet" href="books.css">
 <link rel="stylesheet" href="zk.css">
-<link rel="preload" as="image" href="logo.svg">
+<link rel="preload" as="image" href="logo.webp">
+<link rel="preconnect" href="https://stream3.cinerama.uz" crossorigin>
+<link rel="preconnect" href="https://fl.biztv.media" crossorigin>
+<link rel="preconnect" href="https://stream8.cinerama.uz" crossorigin>
 <link rel="preconnect" href="https://i.ytimg.com">
 <link rel="preconnect" href="https://lh3.googleusercontent.com">
 <style>
@@ -359,7 +365,7 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
     <button class="chan zk-chan-btn" id="chan" hidden>📢 Kanal</button>
   </div>
   <div class="brand-nav-wrap">
-    <div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📖 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
+    <div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
   </div>
   <div class="search-wrap" id="searchWrap">
     <label class="search" id="sbox">
@@ -538,6 +544,9 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 <script src="games.js"></script>
 <script src="story.js"></script>
 <script src="books.js"></script>
+<script src="fx.js"></script>
+<script src="food.js"></script>
+<script src="quiz.js"></script>
 <script>
 (() => {
 "use strict";
@@ -1054,6 +1063,9 @@ function setMode(m) {
   if (was === "games" && window.ZGames) ZGames.close();
   if (was === "story" && window.ZStory) ZStory.close();
   if (was === "books" && window.ZBooks) ZBooks.close();
+  if (was === "fx" && window.ZFx) ZFx.close();
+  if (was === "food" && window.ZFood) ZFood.close();
+  if (was === "quiz" && window.ZQuiz) ZQuiz.close();
   if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
@@ -1067,6 +1079,9 @@ function setMode(m) {
     if (window.ZBooks) ZBooks.open();
     return;
   }
+  if (m === "fx") { if (window.ZFx) ZFx.open(); return; }
+  if (m === "food") { if (window.ZFood) ZFood.open(); return; }
+  if (m === "quiz") { if (window.ZQuiz) ZQuiz.open(); return; }
   $("searchWrap") && ($("searchWrap").style.display = "");
   if ($("zkDice")) $("zkDice").style.display = m === "tv" ? "none" : "";
   $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
@@ -1151,7 +1166,7 @@ function ytEmbed(url) {
 }
 function attempt(url) {
   return new Promise(async (ok, bad) => {
-    if (!url || url.includes("blocked") || url.includes("stream8") || url.includes("stream1") || url.includes("cache1") || url.includes("xykt-fix.github.io")) {
+    if (!url || url.includes("blocked") || url.includes("xykt-fix.github.io")) {
       return bad("blocked_stream");
     }
     let done = false;
@@ -1166,7 +1181,7 @@ function attempt(url) {
         f(v);
       }
     };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 7500);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), 10000);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
@@ -1190,9 +1205,6 @@ function attempt(url) {
     };
 
     let streamTarget = url;
-    if (url.includes("cinerama.uz") && url.includes("playlist.m3u8")) {
-      streamTarget = url.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
-    }
 
     try {
       if (nativeHls()) {
@@ -1205,31 +1217,28 @@ function attempt(url) {
           tryAutoplay();
         } else {
           hls = new Hls({
-            testBandwidth: false,
-            startLevel: -1,
-            abrEwmaDefaultEstimate: 35000000,
-            abrEwmaDefaultEstimateMax: 80000000,
-            capLevelToPlayerSize: false,
             enableWorker: true,
-            liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 10,
+            startFragPrefetch: true,
+            lowLatencyMode: false,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 6,
             maxBufferLength: 45,
             maxMaxBufferLength: 120,
-            maxBufferSize: 120 * 1024 * 1024,
             maxBufferHole: 0.5,
-            highBufferWatchdogPeriod: 2,
+            maxBufferSize: 60 * 1024 * 1024,
+            backBufferLength: 4,
+            abrEwmaDefaultEstimate: 4000000,
+            testBandwidth: true,
+            highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
             nudgeMaxRetry: 5,
-            backBufferLength: 15,
-            startFragPrefetch: true,
-            manifestLoadingTimeOut: 10000,
-            manifestLoadingMaxRetry: 3,
-            levelLoadingTimeOut: 10000,
-            levelLoadingMaxRetry: 3,
-            fragLoadingTimeOut: 16000,
+            manifestLoadingTimeOut: 6000,
+            manifestLoadingMaxRetry: 4,
+            levelLoadingTimeOut: 6000,
+            levelLoadingMaxRetry: 4,
+            fragLoadingTimeOut: 8000,
             fragLoadingMaxRetry: 4,
-            fragLoadingRetryDelay: 800,
-            fragLoadingMaxRetryTimeout: 64000
+            fragLoadingRetryDelay: 500
           });
           let netFatalRetries = 0;
           hls.on(Hls.Events.ERROR, (_, d) => {
@@ -1247,12 +1256,13 @@ function attempt(url) {
               }
             } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
               try {
+                if (vid.currentTime > 0) vid.currentTime += 0.1;
                 if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
               } catch (e) {}
             }
           });
           hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
-            if (data && data.url && (data.url.includes("blocked") || data.url.includes("cache1") || data.url.includes("stream8") || data.url.includes("stream1"))) {
+            if (data && data.url && (data.url.includes("blocked") || data.url.includes("xykt-fix.github.io"))) {
               fin(bad, "blocked_manifest");
               return;
             }
@@ -1785,6 +1795,9 @@ async function load() {
     if (!r.games) $("seg").querySelector('[data-m="games"]')?.remove();
     if (!r.story) $("seg").querySelector('[data-m="story"]')?.remove();
     if (!r.books) $("seg").querySelector('[data-m="books"]')?.remove();
+    if (!r.fx) $("seg").querySelector('[data-m="fx"]')?.remove();
+    if (!r.food) $("seg").querySelector('[data-m="food"]')?.remove();
+    if (!r.quiz) $("seg").querySelector('[data-m="quiz"]')?.remove();
     window.ZK_SEGS = [...$("seg").querySelectorAll("button")].map((b) => [b.dataset.m, b.textContent.replace(/^\S+\s/, "")]);
     // 3 va undan ko'p bo'lim — sig'ishi uchun belgilarsiz (🎬 🎧 📄) qisqa yozuv
     if (window.ZK_SEGS.length > 2) $("seg").querySelectorAll("button").forEach((b) => { b.textContent = b.textContent.replace(/^\S+\s/, ""); });
@@ -1793,6 +1806,8 @@ async function load() {
     if (window.ZDocs) ZDocs.setBot(botName);
     if (window.ZStory) ZStory.setBot(botName);
     if (window.ZBooks) ZBooks.setBot(botName);
+    if (window.ZQuiz && window.ZQuiz.setBot) ZQuiz.setBot(botName);
+    if (window.ZFood && window.ZFood.setBot) ZFood.setBot(botName);
     if (window.ZK_SEGS.length < 2) $("seg").outerHTML = `<h1 style="font-size:21px;margin:0;font-weight:800;letter-spacing:-.3px">🎬 Kinolar</h1>`;
   } catch (e) {
     $("main").innerHTML = `<div class="empty"><div class="big">📶</div><b>Yuklab bo'lmadi</b>Internetni tekshiring.<br><br>
@@ -1832,6 +1847,14 @@ async function load() {
     else if (bq && window.ZBooks) ZBooks.search(bq);
     return;
   }
+  const qzq = new URLSearchParams(location.search).get("quiz");
+  if (document.querySelector('#seg [data-m="quiz"]') && (/^(q\d{6}|qz\d+|quiz)/i.test(sp) || qzq !== null)) {
+    setMode("quiz"); const arg = qzq || (sp.match(/^q(\d{6})$/i) || [])[1] || ((sp.match(/^qz(\d+)$/i) || [])[1] ? "z" + sp.slice(2) : "");
+    if (arg && arg !== "1" && window.ZQuiz) ZQuiz.start(arg); return; }
+  const fdq = new URLSearchParams(location.search).get("food");
+  if (document.querySelector('#seg [data-m="food"]') && (/^(food|taom)/i.test(sp) || fdq !== null)) {
+    setMode("food"); const rid = (fdq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (rid && window.ZFood) ZFood.show(rid); return; }
+  if (document.querySelector('#seg [data-m="fx"]') && (/^(fx|kurs)/i.test(sp) || new URLSearchParams(location.search).has("fx"))) { setMode("fx"); return; }
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
   const code = +String(sp).replace(/\D/g, "");
   if (code && byCode.has(code)) openDetail(byCode.get(code), false);
