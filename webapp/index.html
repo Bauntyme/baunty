@@ -1114,10 +1114,6 @@ function setMode(m) {
     $("count").textContent = `${items.length} ta kino · posterini bosing`;
     render();
   }
-  const curBtn = $("seg")?.querySelector(`button[data-m="${m}"]`);
-  if (curBtn && window.ZK && window.ZK.updateIndicator) {
-    window.ZK.updateIndicator(curBtn);
-  }
   window.scrollTo({top: 0});
 }
 const KINO_CHIPS = $("chips").innerHTML;
