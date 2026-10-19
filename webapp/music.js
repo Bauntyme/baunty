@@ -35,6 +35,8 @@ const ICON = {
   dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10.5 12 15.5l5-5M5 20h14"/></svg>',
   share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
   queue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h12M4 12h12M4 18h8"/><path d="M17 15.5v5l4-2.5z" fill="currentColor"/></svg>',
+  flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
+  ban: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
   user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
   addq: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h12M4 12h8M4 18h8M18 12v8M14 16h8"/></svg>',
@@ -120,7 +122,7 @@ function addHist(it) {
   lsSet("zk_mhist", hist);
 }
 
-let home = null, bot = "", opened = false, mounted = false;
+let home = null, bot = "", opened = false, mounted = false, isAdmin = false;
 const stack = [];               // ko'rinishlar: {v:"home"|"search"|"list", ...}
 const lists = new Map();        // ro'yxat id → treklar (qatorlarni bosish uchun)
 let listSeq = 0;
@@ -144,9 +146,14 @@ async function search(q, n = 15, signal) {
 }
 
 // =================================================================== audio dvigatel
-const audio = new Audio();
-audio.preload = "auto";
-audio.setAttribute("playsinline", "");
+// Ikkita audio: biri chalyapti, ikkinchisida keyingi qo'shiq oldindan yuklanib turadi (tugashidan ~25 s oldin).
+// Qo'shiq tugashi bilan tayyor turgan elementga darhol o'tiladi — tarmoq kutilmaydi, shuning uchun ekran qulflangan
+// (yoki ilova yig'ilgan) holatda ham keyingi qo'shiq to'xtamasdan boshlanadi.
+const mkAudio = () => { const a = new Audio(); a.preload = "auto"; a.setAttribute("playsinline", ""); return a; };
+const AUD = [mkAudio(), mkAudio()];
+let audio = AUD[0];
+const spare = () => (AUD[0] === audio ? AUD[1] : AUD[0]);
+let pre = null, preBusy = false, radioFor = "";
 let queue = [], qi = -1, qName = "", shuffle = lsGet("zk_mshuf", false), repeat = lsGet("zk_mrep", 0);  // 0 yo'q, 1 hammasi, 2 bitta
 let order = [], loadingKey = "", token = 0, unlocked = false, failStreak = 0;
 const urlCache = new Map();     // kalit → {url, at}
@@ -157,7 +164,9 @@ const SILENT = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAA
 function unlock() {
   if (unlocked) return;
   unlocked = true;
-  try { if (!audio.src) { audio.src = SILENT; const p = audio.play(); p && p.then(() => audio.pause()).catch(() => {}); } } catch (e) {}
+  AUD.forEach((a) => {     // ikkala elementni ham foydalanuvchi bosganda "ochamiz" (iOS)
+    try { if (!a.src) { a.src = SILENT; const p = a.play(); p && p.then(() => a.pause()).catch(() => {}); } } catch (e) {}
+  });
 }
 
 async function prepare(it, signal) {
@@ -201,6 +210,7 @@ async function load(i, autoplay = true) {
     setLoading(false); loadingKey = ""; paintAll();
     const msg = {rate: "⏳ Juda ko'p tinglandi — birozdan keyin urinib ko'ring", auth: "⚠️ Ilovani yopib, qayta oching",
       too_long: "Bu juda uzun yozuv", too_large: "Fayl juda katta"}[e.code];
+    if (e.code === "banned") { dropKeys([keyOf(it)]); toast("🚫 Bu qo'shiq ilovada mavjud emas", 1800); if (peekNext()) next(true); return; }
     if (msg) { toast(msg, 3000); haptic("err"); return; }
     failStreak++;
     if (failStreak <= 3 && peekNext()) { toast("😔 Bu qo'shiq ochilmadi — keyingisi", 1800); next(true); }
@@ -208,13 +218,44 @@ async function load(i, autoplay = true) {
     return;
   }
   if (my !== token) return;
-  audio.src = url;
-  audio.currentTime = 0;
+  if (pre && pre.key === keyOf(it) && pre.el !== audio && pre.el.src) {
+    // oldindan yuklangan elementga o'tamiz — bir zumda boshlanadi
+    const old = audio;
+    audio = pre.el; pre = null;
+    old.pause();
+    try { old.removeAttribute("src"); old.load(); } catch (e) {}
+  } else {
+    audio.src = url;
+  }
+  try { audio.currentTime = 0; } catch (e) {}
   if (autoplay) {
     try { await audio.play(); failStreak = 0; }
     catch (e) { if (my === token) { setLoading(false); loadingKey = ""; paintAll(); } }
   }
   prefetchNext();
+}
+// Keyingi qo'shiqni oldindan yuklash: havola tayyorlanadi va ikkinchi audio elementga bufer qilinadi
+async function preloadNext() {
+  if (preBusy || !queue.length) return;
+  preBusy = true;
+  try {
+    let n = peekNext();
+    if (!n && repeat === 0 && cur() && radioFor !== keyOf(cur())) {   // navbat tugayapti — radio ro'yxatini oldindan olamiz
+      radioFor = keyOf(cur());
+      await radio(true);
+      n = peekNext();
+    }
+    if (!n) return;
+    const k = keyOf(n);
+    if (pre && pre.key === k) return;
+    const url = await prepare(n);
+    const el = spare();
+    if (el === audio || keyOf(peekNext() || {}) !== k) return;
+    el.src = url;
+    try { el.load(); } catch (e) {}
+    pre = {key: k, el};
+  } catch (e) { /* keyingi qo'shiq oddiy yo'l bilan yuklanadi */ }
+  finally { preBusy = false; }
 }
 function prefetchNext() {
   const n = peekNext();
@@ -226,9 +267,44 @@ function next(auto = false) {
   if (!auto && audio.currentTime > 0 && repeat === 2) { /* qo'lda "keyingi" — bitta takrorlashdan chiqadi */ }
   let np = p + 1;
   if (np >= order.length) {
-    if (repeat === 1 || !auto) np = 0; else { audio.pause(); audio.currentTime = 0; paintAll(); return; }
+    if (repeat === 1 || !auto) np = 0; else { radio(); return; }
   }
   load(order[np]);
+}
+// Navbat tugadi — jim qolmaydi: oxirgi ijrochining boshqa qo'shiqlari bilan davom etadi (radio)
+let radioBusy = false;
+async function radio(prefetch = false) {
+  const last = cur();
+  if (!last || radioBusy) { if (!prefetch) { audio.pause(); paintAll(); } return; }
+  radioBusy = true;
+  const my = token;
+  try {
+    const have = new Set(queue.map(keyOf));
+    const art = parse(last).artist;
+    let more = (await search(art && art !== "Noma'lum ijrochi" ? art : parse(last).song, 25)).filter((x) => !have.has(keyOf(x)));
+    if (more.length < 3) more = more.concat((await search(`${parse(last).song} ${art || ""}`.trim() + " mix", 25)).filter((x) => !have.has(keyOf(x))));
+    if (my !== token || cur() !== last) return;
+    const seen = new Set();
+    more = more.filter((x) => { const k = keyOf(x); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 20);
+    if (!more.length) { if (!prefetch) { audio.pause(); audio.currentTime = 0; paintAll(); } return; }
+    const start = queue.length;
+    more.forEach((x) => { queue.push(slim(x)); order.push(queue.length - 1); });
+    if (prefetch) return;                 // faqat navbatga qo'shildi — qo'shiq tugaganda o'zi o'tadi
+    toast("📻 Shu kayfiyatda davom etamiz", 1600);
+    load(start);
+  } catch (e) { if (!prefetch) { audio.pause(); paintAll(); } }
+  finally { radioBusy = false; }
+}
+// To'liq to'xtatish (✕): ovoz o'chadi, navbat tozalanadi, pleyer yo'qoladi
+function stopAll() {
+  token++;
+  audio.pause();
+  AUD.forEach((a) => { try { a.pause(); a.removeAttribute("src"); a.load(); } catch (e) {} });
+  pre = null; radioFor = "";
+  queue = []; qi = -1; order = []; loadingKey = ""; setLoading(false);
+  closePlayer();
+  try { if ("mediaSession" in navigator) { navigator.mediaSession.metadata = null; navigator.mediaSession.playbackState = "none"; } } catch (e) {}
+  paintAll(); haptic("hit"); toast("⏹ Musiqa o'chirildi", 1400);
 }
 function prev() {
   if (!queue.length) return;
@@ -246,15 +322,17 @@ function toggle() {
   } else audio.pause();
   haptic("hit");
 }
-audio.addEventListener("playing", () => { setLoading(false); loadingKey = ""; paintAll(); });
-audio.addEventListener("waiting", () => { if (!audio.paused) setLoading(true); });
-audio.addEventListener("pause", paintAll);
-audio.addEventListener("play", paintAll);
-audio.addEventListener("ended", () => {
+// Hodisalar ikkala elementga ulanadi, lekin faqat hozir chalayotgani (audio) javob beradi
+const onAudio = (type, fn) => AUD.forEach((a) => a.addEventListener(type, (e) => { if (a === audio) fn(e); }));
+onAudio("playing", () => { setLoading(false); loadingKey = ""; paintAll(); });
+onAudio("waiting", () => { if (!audio.paused) setLoading(true); });
+onAudio("pause", paintAll);
+onAudio("play", paintAll);
+onAudio("ended", () => {
   if (repeat === 2) { audio.currentTime = 0; audio.play().catch(() => {}); return; }
   next(true);
 });
-audio.addEventListener("error", () => {
+onAudio("error", () => {
   if (!cur() || !audio.src || audio.src === SILENT) return;
   // imzo eskirgan yoki fayl keshdan o'chgan — qaytadan tayyorlab, shu joydan davom etamiz
   const k = keyOf(cur()), at = audio.currentTime;
@@ -266,18 +344,20 @@ audio.addEventListener("error", () => {
   } else { setLoading(false); loadingKey = ""; paintAll(); }
 });
 let lastPaint = 0;
-audio.addEventListener("timeupdate", () => {
+onAudio("timeupdate", () => {
   const now = performance.now(); if (now - lastPaint < 240) return; lastPaint = now;
   paintProgress();
+  const d = audio.duration;
+  if (isFinite(d) && d > 30 && audio.currentTime > 3 && d - audio.currentTime < 25) preloadNext();
 });
-audio.addEventListener("loadedmetadata", paintProgress);
+onAudio("loadedmetadata", paintProgress);
 
 // Lock-screen / bildirishnoma boshqaruvi
 function updateMedia(it) {
   if (!("mediaSession" in navigator) || !it) return;
   const p = parse(it), art = thumb(it, true);
   try {
-    navigator.mediaSession.metadata = new MediaMetadata({title: p.song, artist: p.artist, album: qName || "Baunty Musiqa",
+    navigator.mediaSession.metadata = new MediaMetadata({title: p.song, artist: p.artist, album: qName || "Bauntys Musiqa",
       artwork: art ? [{src: art, sizes: "480x360", type: "image/jpeg"}] : []});
   } catch (e) {}
 }
@@ -307,6 +387,7 @@ function paintAll() {
   // mini pleyer
   const mini = $("mmini");
   document.body.classList.toggle("m-hasmini", !!it);
+  paintTop(); paintDeck();
   if (!it) { mini.hidden = true; $("mus").classList.add("nomini"); return; }
   mini.hidden = false; $("mus").classList.remove("nomini");
   const p = parse(it);
@@ -317,8 +398,123 @@ function paintAll() {
   }
   const pi = playing() || isLoading ? ICON.pause : ICON.play;
   if ($("mmplay").innerHTML !== pi) $("mmplay").innerHTML = pi;
-  paintTop();
   paintPlayer();
+}
+// Boshqa bo'limlarda: tepada ingichka "hozir ijroda" paneli (✕ — to'xtatish)
+// Musiqa bosh sahifasidagi plastinka: hozir chalayotgan qo'shiq aylanadi, igna tushadi, ekvalayzer o'ynaydi
+function paintDeck() {
+  const el = $("mdeck"); if (!el) return;
+  const it = cur(), k = it ? keyOf(it) : "-";
+  el.classList.toggle("on", playing());
+  el.classList.toggle("load", isLoading);
+  if (el.dataset.k !== k) {
+    el.dataset.k = k;
+    if (it) {
+      const p = parse(it), src = thumb(it, true);
+      $("dklbl").style.backgroundImage = `${src ? `url('${src.replace(/'/g, "%27")}'),` : ""}${ikatFor(it.id, 120, 120)}`;
+      $("dkk").textContent = "Hozir ijroda"; $("dkt").textContent = p.song; $("dka").textContent = p.artist;
+    } else {
+      $("dklbl").style.backgroundImage = ikat([P.mag, P.saf, P.ind, P.eme, "#1d0c33"], 11, 120, 120, 6);
+      $("dkk").textContent = "Siz uchun tuzildi"; $("dkt").textContent = "Atlas mix"; $("dka").textContent = "Bosing — sevimli qo'shiqlaringiz aylanadi";
+    }
+  }
+  const pi = playing() || isLoading ? ICON.pause : ICON.play;
+  if ($("dkplay").innerHTML !== pi) $("dkplay").innerHTML = pi;
+  paintDeckQueue();
+  paintArtist();
+}
+// ---------- cheksiz "Siz uchun yana" lentasi: pastga surilgan sari yangi qo'shiqlar qo'shilib boradi ----------
+const feed = {arr: [], id: "", seen: new Set(), n: 0, busy: false, dry: 0};
+function feedQueries() {
+  const qs = [];
+  const c = cur(); if (c) { const a = parse(c).artist; if (a && a !== "Noma'lum ijrochi") qs.push(a); }
+  topArtists().forEach((a) => qs.push(a));
+  (home?.artists || []).slice(0, 12).forEach((a) => a && a.n && qs.push(a.n));
+  MOODS.forEach((m) => qs.push(m.q[feed.n % m.q.length]));
+  qs.push("yangi o'zbek qo'shiqlari", "o'zbek xit qo'shiqlar", "o'zbekcha remix", "eng zo'r o'zbek qo'shiqlari", "o'zbek estrada");
+  return qs;
+}
+async function loadFeed() {
+  const v = stack[stack.length - 1];
+  if (feed.busy || !v || v.v !== "home" || feed.dry > 6) return;
+  feed.busy = true;
+  try {
+    for (let tries = 0; tries < 3; tries++) {
+      const qs = feedQueries(), q = qs[feed.n % qs.length]; feed.n++;
+      let got = [];
+      try { got = await search(q, 25); } catch (e) { got = []; }
+      (home?.top || []).forEach((x) => feed.seen.add(keyOf(x)));
+      const add = got.filter((x) => { const k = keyOf(x); if (feed.seen.has(k)) return false; feed.seen.add(k); return true; }).slice(0, 12);
+      if (!add.length) { feed.dry++; continue; }
+      feed.dry = 0;
+      const start = feed.arr.length;
+      add.forEach((x) => feed.arr.push(slim(x)));
+      const box = $("mfeed");
+      if (box) { if (!lists.has(feed.id)) feed.id = regList(feed.arr);
+        box.insertAdjacentHTML("beforeend", add.map((x, n) => trackRow(feed.arr[start + n], start + n, feed.id)).join("")); paintAll(); }
+      break;
+    }
+  } finally {
+    feed.busy = false;
+    const end = $("mfeedend"); if (end && feed.dry > 6) end.innerHTML = `<div class="m-empty" style="padding:18px">Hozircha shu — qidiruvdan istalgan qo'shiqni toping</div>`;
+  }
+}
+function feedNearEnd() {
+  const sc = $("mscroll"), v = stack[stack.length - 1];
+  if (!sc || !v || v.v !== "home" || !$("mfeed")) return;
+  if (sc.scrollTop + sc.clientHeight > sc.scrollHeight - 900) loadFeed();
+}
+
+// ---------- tanlangan qo'shiq ijrochisining boshqa qo'shiqlari ----------
+const artCache = new Map();
+let artShown = "", artPending = "";
+async function paintArtist() {
+  let box = $("dkart"); if (!box) return;
+  const it = cur(), a = it ? parse(it).artist : "";
+  if (!a || a === "Noma'lum ijrochi") { box.hidden = true; artShown = ""; return; }
+  if (artShown === a + "|" + keyOf(it) && box.dataset.ok) return;
+  artShown = a + "|" + keyOf(it); box.dataset.ok = "";
+  let items = artCache.get(a);
+  if (!items) {
+    if (artPending === a) return;
+    artPending = a;
+    box.hidden = false;
+    box.innerHTML = `<div class="m-sec"><h3 class="m-h">${esc(a)} qo'shiqlari</h3></div>${skel(3)}`;
+    try {
+      const got = await search(a, 30), low = a.toLowerCase();
+      const own = got.filter((x) => parse(x).artist.toLowerCase().includes(low) || low.includes(parse(x).artist.toLowerCase()));
+      items = (own.length >= 4 ? own : got).map(slim);
+      artCache.set(a, items);
+    } catch (e) { box.hidden = true; return; }
+    finally { artPending = ""; }
+    const now = cur(); if (!now || parse(now).artist !== a) return;
+  }
+  box = $("dkart"); if (!box) return;            // kutish paytida sahifa qayta chizilgan bo'lishi mumkin
+  const ck = keyOf(it), list = items.filter((x) => keyOf(x) !== ck).slice(0, 15);
+  if (!list.length) { box.hidden = true; return; }
+  const lid = regList(list);
+  box.hidden = false; box.dataset.ok = "1";
+  box.innerHTML = `<div class="m-sec"><h3 class="m-h">${esc(a)} qo'shiqlari</h3><button data-artist="${esc(a)}">Hammasi ›</button></div>${listHTML(list.slice(0, 8), lid)}`;
+  paintAll();
+}
+
+// Plastinka ostida — navbatdagi qo'shiqlar: bossangiz o'sha qo'shiq darhol boshlanadi
+function paintDeckQueue() {
+  const box = $("dkq"); if (!box) return;
+  const p = pos(), up = [];
+  if (p >= 0) for (let n = 1; n < order.length && up.length < 12; n++) {
+    const j = p + n; if (j >= order.length && repeat !== 1) break;
+    up.push(order[j % order.length]);
+  }
+  const sig = `${qi}|${queue.length}|${shuffle}|${repeat}|${up.join(",")}`;
+  if (box.dataset.k === sig) return;
+  box.dataset.k = sig;
+  box.hidden = !up.length;
+  if (!up.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="dk-qh"><b class="m-h">Navbatda</b><span>${up.length} ta · bosing — darhol boshlanadi</span></div>
+    <div class="dk-ql">${up.map((i, n) => { const it = queue[i], q = parse(it);
+      return `<button class="dk-qi" data-dq="${i}" style="--d:${n * 40}ms">${coverHTML(it)}<span class="tx"><b>${esc(q.song)}</b><small>${esc(q.artist)}</small></span>
+        <span class="go" aria-hidden="true">${ICON.play}</span></button>`; }).join("")}</div>`;
 }
 function paintTop() {
   const el = $("mtop"); if (!el) return;
@@ -349,12 +545,6 @@ function paintPlayer() {
     $("mpsrc").textContent = qName ? `${qName}` : "Hozir ijroda";
   }
   $("mbig").classList.toggle("paused", !playing() && !isLoading);
-  const isPl = playing();
-  const deck = $("mdeck");
-  if (deck) {
-    deck.classList.toggle("playing", isPl);
-    deck.classList.toggle("on", isPl);
-  }
   const pi = playing() || isLoading ? ICON.pause : ICON.play;
   if ($("mpplay").innerHTML !== pi) $("mpplay").innerHTML = pi;
   $("mpshuf").classList.toggle("on", shuffle);
@@ -372,8 +562,8 @@ function paintProgress() {
   const d = audio.duration && isFinite(audio.duration) ? audio.duration : (cur()?.d || 0);
   const t = scrubbing ? scrubT : audio.currentTime || 0;
   const f = d ? Math.min(1, t / d) : 0;
-  if ($("mtpr")) $("mtpr").style.width = (f * 100).toFixed(2) + "%";
   $("mmpr").style.width = (f * 100).toFixed(2) + "%";
+  if ($("mtpr")) $("mtpr").style.width = (f * 100).toFixed(2) + "%";
   if (!$("mplayer").classList.contains("open")) return;
   $("mpcur").textContent = dur(t); $("mpdur").textContent = d ? dur(d) : "--:--";
   waveF = f; drawWave();
@@ -381,7 +571,10 @@ function paintProgress() {
 
 // ---------- to'lqin (waveform) ----------
 let waveSeed = 1, waveF = 0, scrubbing = false, scrubT = 0;
+let waveAcc = P.saf;
 function drawWave() {
+  const acc = getComputedStyle(document.documentElement).getPropertyValue("--zk-acc").trim();   // umumiy dizayn rangi
+  if (/^#[0-9a-f]{6}$/i.test(acc)) waveAcc = acc;
   const cv = $("mwave"); if (!cv) return;
   const W = cv.clientWidth, H = cv.clientHeight; if (!W) return;
   const dpr = Math.min(3, window.devicePixelRatio || 1);
@@ -393,7 +586,7 @@ function drawWave() {
     const env = Math.sin(Math.PI * (i + 2) / (n + 4)) * .55 + .45;
     prev = prev * .45 + r() * .55;
     const h = Math.max(4, H * env * (.25 + prev * .75));
-    g.fillStyle = (i + .5) / n <= waveF ? P.saf : "rgba(255,255,255,.22)";
+    g.fillStyle = (i + .5) / n <= waveF ? waveAcc : "rgba(255,255,255,.22)";
     const x = i * (bw + gap), y = (H - h) / 2;
     g.beginPath(); g.roundRect ? g.roundRect(x, y, bw, h, 1.5) : g.rect(x, y, bw, h); g.fill();
   }
@@ -449,6 +642,15 @@ function renderHome() {
       <span class="m-play">${ICON.play}</span></button>`; }).join("");
   let h = `<div class="m-bar">${segHTML()}<button class="m-ib" data-go="search" aria-label="Qidirish">${ICON.search}</button></div>
     <h1 class="m-h m-greet">${greet()}${name ? `,<br>${esc(name)}` : ""}</h1>
+    <button class="m-bigq" data-go="search" aria-label="Qo'shiq qidirish">${ICON.search}<span><b>Qo'shiq qidirish</b><small>Qo'shiq, ijrochi yoki so'zlaridan</small></span><i>Izlash</i></button>
+    <div class="m-deck" id="mdeck">
+      <button class="dk-v" data-deck="open" aria-label="Pleyerni ochish"><span class="dk-disc"><span class="dk-lbl" id="dklbl"></span></span><span class="dk-arm"><i></i></span></button>
+      <div class="dk-t"><small id="dkk"></small><b class="m-h" id="dkt"></b><span id="dka"></span>
+        <span class="dk-eq" aria-hidden="true">${"<i></i>".repeat(22)}</span>
+        <div class="dk-c"><button data-deck="prev" aria-label="Oldingi">${ICON.prev}</button><button class="pl" data-deck="play" id="dkplay" aria-label="Ijro / pauza">${ICON.play}</button><button data-deck="next" aria-label="Keyingi">${ICON.next}</button></div></div>
+    </div>
+    <div class="dk-q" id="dkq" hidden></div>
+    <div class="dk-art" id="dkart" hidden></div>
     <div class="m-car" id="mcar"><button class="m-hero" id="mmix" style="background-image:${ikat([P.mag, P.saf, P.ind, P.eme, "#1d0c33"], 11, 390, 230, 6)}">
       <div class="tx"><div class="k">Siz uchun tuzildi</div><h2 class="m-h">Atlas<br>mix</h2><p>${esc(mixDesc)}</p></div>
       <span class="m-play">${ICON.play}</span></button>${slides}</div>
@@ -468,6 +670,9 @@ function renderHome() {
   else if (!top.length) h += `<div class="m-empty" style="padding:20px">Hozircha ro'yxat bo'sh — birinchi bo'lib tinglang!</div>`;
   else h += listHTML(top.slice(0, 15), topId, true) +
     (top.length > 15 ? `<div style="padding:6px 18px"><button class="m-btn ghost" style="width:100%" data-go="top">Barcha ${top.length} ta</button></div>` : "");
+  if (!lists.has(feed.id)) feed.id = regList(feed.arr);
+  h += `<div class="m-sec"><h3 class="m-h">Siz uchun yana</h3><span>pastga suring — tugamaydi</span></div>
+    <div class="m-list" id="mfeed">${feed.arr.map((x, i) => trackRow(x, i, feed.id)).join("")}</div><div id="mfeedend">${skel(3)}</div>`;
   return h;
 }
 // Katta muqovali gorizontal javon (big — kvadrat 150px, wide — klip kadri 16:9)
@@ -553,7 +758,7 @@ function render(keepScroll = false) {
   $("mus").classList.toggle("nofab", v.v !== "home");
   paintAll(); updateBack();
   if (v.v === "search") bindSearch(v);
-  if (v.v === "home") startCarousel(); else clearInterval(carTimer);
+  if (v.v === "home") { startCarousel(); if (feed.arr.length < 12) loadFeed(); else setTimeout(feedNearEnd, 50); } else clearInterval(carTimer);
 }
 function push(v) {
   const top = stack[stack.length - 1]; if (top) top.st = $("mscroll").scrollTop;
@@ -649,7 +854,7 @@ function openArtist(name) {
       return mine.length >= 4 ? mine : (await search(name, 50)).filter(okLen);
     }});
 }
-async function atlasMix() {
+async function atlasMix(stay = false) {
   const btn = $("mmix"); if (!btn || btn.classList.contains("busy")) return;
   unlock(); btn.classList.add("busy"); haptic();
   try {
@@ -663,7 +868,7 @@ async function atlasMix() {
     if (!mix.length) { toast("Hali mix tayyor emas — biror qo'shiq tinglang"); return; }
     if (!arts.length) mix.sort(() => Math.random() - .5);
     playList(mix.slice(0, 80), 0, "Atlas mix");
-    openPlayer();
+    if (!stay) openPlayer();
   } finally { btn.classList.remove("busy"); }
 }
 
@@ -683,25 +888,19 @@ function closePlayer() {
 }
 
 // =================================================================== chatga yuborish / ulashish
-const trackToken = (it) => ytOf(it) || (it.id ? String(it.id) : "");
 async function sendToChat(it) {
   if (!inTg) { toast("📱 Telegram ichida oching"); return; }
   haptic();
   let r;
   try { r = await api("api/music/send", {json: slim(it)}); } catch (e) { r = {ok: false, error: "network"}; }
   if (r.ok) { haptic("ok"); toast(r.dup ? "⏳ Allaqachon yuborilmoqda…" : "✅ MP3 chatga yuborilmoqda — botni oching", 2600); return; }
-  if (r.error === "need_start" && bot) {
-    const tok = trackToken(it);
-    if (tok) tg.openTelegramLink(`https://t.me/${bot}?start=m_${tok}`);
-    return;
-  }
+  if (r.error === "need_start" && bot && ytOf(it)) { tg.openTelegramLink(`https://t.me/${bot}?start=m_${ytOf(it)}`); return; }
   haptic("err");
-  toast({rate: "⏳ Juda ko'p so'rov — birozdan keyin", auth: "⚠️ Ilovani yopib, qayta oching"}[r.error] || "⚠️ Yuborib bo'lmadi, qayta urinib ko'ring", 3000);
+  toast({rate: "⏳ Juda ko'p so'rov — birozdan keyin", auth: "⚠️ Ilovani yopib, qayta oching", banned: "🚫 Bu qo'shiq ilovada mavjud emas"}[r.error] || "⚠️ Yuborib bo'lmadi, qayta urinib ko'ring", 3000);
 }
 function share(it) {
-  const tok = trackToken(it);
-  if (!tok || !bot) { toast("Bu qo'shiqni ulashib bo'lmaydi"); return; }
-  const p = parse(it), link = `https://t.me/${bot}?start=m_${tok}`;
+  if (!ytOf(it) || !bot) { toast("Bu qo'shiqni ulashib bo'lmaydi"); return; }
+  const p = parse(it), link = `https://t.me/${bot}?start=m_${ytOf(it)}`;
   const text = `🎧 ${p.artist} — ${p.song}\nBir bosishda tinglang 👇`;
   const u = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
   inTg ? tg.openTelegramLink(u) : window.open(u, "_blank");
@@ -725,7 +924,43 @@ function actionsSheet(it) {
     <button class="m-act" data-act="next">${ICON.addq}Keyingi bo'lib ijro etish</button>
     <button class="m-act" data-act="fav">${ICON.heart}${fav ? "Saqlanganlardan olib tashlash" : "Saqlab qo'yish"}</button>
     <button class="m-act" data-act="artist">${ICON.user}Ijrochi: ${esc(p.artist)}</button>
-    ${trackToken(it) ? `<button class="m-act" data-act="share">${ICON.share}Do'stga yuborish</button>` : ""}`);
+    ${ytOf(it) ? `<button class="m-act" data-act="share">${ICON.share}Do'stga yuborish</button>` : ""}
+    <button class="m-act" data-act="report">${ICON.flag}Shikoyat qilish</button>
+    ${isAdmin ? `<button class="m-act m-danger" data-act="ban">${ICON.ban}Butunlay taqiqlash (admin)</button>` : ""}`);
+}
+const REASONS = [["religion", "🕌 Diniy kontent"], ["politics", "⚖️ Siyosiy yoki noqonuniy"], ["obscene", "🔞 Haqoratli / 18+"],
+  ["notmusic", "🎙 Bu musiqa emas"], ["other", "❓ Boshqa sabab"]];
+function reportSheet(it) {
+  sheetItem = it;
+  openSheet(`<h3 class="m-h">Shikoyat sababi</h3><p class="m-note">Adminlar ko'rib chiqadi. Noo'rin qo'shiq butunlay olib tashlanadi.</p>
+    ${REASONS.map(([k, l]) => `<button class="m-act" data-rep="${k}">${l}</button>`).join("")}`);
+}
+async function sendReport(it, r) {
+  const res = await api("api/music/report", {json: {...slim(it), r}}).catch(() => ({ok: false}));
+  if (res.ok) { haptic("ok"); toast(res.dup ? "Siz allaqachon shikoyat qilgansiz" : "✅ Shikoyat yuborildi — rahmat!", 2200); }
+  else toast(res.error === "rate" ? "⏳ Juda ko'p shikoyat — birozdan keyin" : "⚠️ Yuborib bo'lmadi", 2200);
+}
+function dropKeys(bad) {
+  if (!bad || !bad.length) return false;
+  const B = new Set(bad);
+  const f = (arr) => arr.filter((x) => !B.has(keyOf(x)) && !(x.y && B.has("yt_" + x.y)));
+  favs = f(favs); hist = f(hist); lsSet("zk_mfav", favs); lsSet("zk_mhist", hist);
+  if (home) for (const k of ["top", "hero", "hits", "fresh", "clips"]) if (home[k]) home[k] = f(home[k]);
+  return true;
+}
+async function banItem(it) {
+  const res = await api("api/music/ban", {json: slim(it)}).catch(() => ({ok: false}));
+  if (!res.ok) { toast("⚠️ Taqiqlab bo'lmadi", 2000); return; }
+  haptic("ok"); toast("🚫 Taqiqlandi — endi hech kimga chiqmaydi", 2400);
+  dropKeys([keyOf(it)]);
+  if (cur() && keyOf(cur()) === keyOf(it)) next(true);
+  render(true);
+}
+async function purgeLocal() {
+  const items = [...hist, ...favs].slice(0, 700).map((x) => ({id: x.id, s: x.s, t: x.t, a: x.a, y: x.y}));
+  if (!items.length) return;
+  const r = await api("api/music/purge", {json: {items}}).catch(() => null);
+  if (r && r.ok && dropKeys(r.bad) && opened) render(true);
 }
 function queueSheet() {
   const p = pos();
@@ -897,6 +1132,19 @@ document.addEventListener("click", (e) => {
   const mood = t.closest("[data-mood]");
   if (mood) { const m = MOODS[+mood.dataset.mood]; openQuery(`${m.n} ${m.e}`, m.q, {sub: "Kayfiyat to'plami", bg: ikat([...m.pal, m.bg], 40 + +mood.dataset.mood, 390, 280, 5)}); return; }
   if (t.closest("#mmix")) { atlasMix(); return; }
+  const dk = t.closest("[data-deck]");
+  if (dk) {
+    const a = dk.dataset.deck, has = !!cur();
+    if (a === "play") { if (has) toggle(); else atlasMix(true); }
+    else if (a === "next") { if (has) { haptic("hit"); next(); } else atlasMix(true); }
+    else if (a === "prev") { if (has) { haptic("hit"); prev(); } }
+    else if (a === "open") { if (has) openPlayer(); else atlasMix(true); }
+    return;
+  }
+  const ab = t.closest("[data-artist]");
+  if (ab) { openArtist(ab.dataset.artist); return; }
+  const dq = t.closest("[data-dq]");
+  if (dq) { const i = +dq.dataset.dq; if (queue[i]) { haptic("hit"); load(i); } return; }
   if (t.closest("[data-recopen]")) { openRec(); return; }
   if (t.closest("[data-smore]")) { searchMore(); return; }
   if (t.closest("[data-back]")) { pop(); return; }
@@ -909,6 +1157,8 @@ document.addEventListener("click", (e) => {
   const q = t.closest("[data-q]");
   if (q) { const v = stack[stack.length - 1]; $("mq").value = q.dataset.q; runSearch(v, q.dataset.q, true); return; }
   if (t.closest("[data-clrq]")) { recentQ = []; lsSet("zk_mq", []); render(); return; }
+  const rp = t.closest("[data-rep]");
+  if (rp && sheetItem) { const it = sheetItem; closeSheet(); sendReport(it, rp.dataset.rep); return; }
   const act = t.closest("[data-act]");
   if (act && sheetItem) {
     const it = sheetItem, a = act.dataset.act; closeSheet();
@@ -916,6 +1166,8 @@ document.addEventListener("click", (e) => {
     else if (a === "fav") { toggleFav(it); if (cur() && keyOf(cur()) === keyOf(it)) $("mpheart").classList.toggle("on", isFav(it)); const v = stack[stack.length - 1]; if (v.v === "home" || v.title === "Saqlanganlar") { if (v.title === "Saqlanganlar") v.items = favs; render(true); } }
     else if (a === "artist") openArtist(parse(it).artist);
     else if (a === "share") share(it);
+    else if (a === "report") { setTimeout(() => reportSheet(it), 260); }
+    else if (a === "ban") banItem(it);
     else if (a === "next") {
       if (!cur()) { playList([it], 0, ""); return; }
       const k = keyOf(it), ex = queue.findIndex((y) => keyOf(y) === k);
@@ -939,12 +1191,19 @@ document.addEventListener("click", (e) => {
 });
 
 function wire() {
+  $("mscroll").addEventListener("scroll", () => { if (!feed.busy) requestAnimationFrame(feedNearEnd); }, {passive: true});
   $("mfab").onclick = () => { haptic(); openRec(); };
   $("mrecx").onclick = () => closeRec();
   $("mrecbtn").onclick = () => { if (rec && !rec.stopped) stopListening(); else if (!rec || rec.stopped) { if (!$("mrec").classList.contains("think")) startListening(); } };
   $("mmini").addEventListener("click", (e) => {
+    if (e.target.closest("#mmx")) { stopAll(); return; }
     if (e.target.closest("#mmplay")) { toggle(); return; }
     if (e.target.closest("#mmnext")) { haptic("hit"); next(); return; }
+    openPlayer();
+  });
+  $("mtop").addEventListener("click", (e) => {
+    if (e.target.closest("#mtx")) { stopAll(); return; }
+    if (e.target.closest("#mtplay")) { toggle(); return; }
     openPlayer();
   });
   $("mpdown").onclick = closePlayer;
@@ -975,14 +1234,6 @@ function wire() {
     // faqat eng tepada turganda pastga surish pleyerni yopadi (aks holda bu oddiy aylantirish)
     if (e.target.closest(".m-wave") || $("mplayer").querySelector(".m-pbody").scrollTop > 0) { sy = null; return; }
     sy = e.touches[0].clientY; }, {passive: true});
-  const mtop = $("mtop");
-  if (mtop) {
-    mtop.addEventListener("click", (e) => {
-      if (e.target.closest("#mtplay")) { e.stopPropagation(); toggle(); return; }
-      if (e.target.closest("#mtx")) { e.stopPropagation(); audio.pause(); qi = -1; paintAll(); return; }
-      if (e.target.closest(".mt-open")) { openPlayer(); return; }
-    });
-  }
   $("mplayer").addEventListener("touchend", (e) => { if (sy != null && e.changedTouches[0].clientY - sy > 110) closePlayer(); sy = null; }, {passive: true});
 }
 
@@ -997,15 +1248,18 @@ async function loadHome() {
 
 window.ZMusic = {
   open() {
-    if (!mounted) { mounted = true; wire(); stack.push({v: "home"}); loadHome(); }
+    if (!mounted) {
+      mounted = true; wire(); stack.push({v: "home"}); loadHome(); setTimeout(purgeLocal, 1500);
+      api("api/music/me").then((r) => { isAdmin = !!(r && r.admin); }).catch(() => {});
+    }
     opened = true;
-    $("mus").hidden = false; document.body.classList.add("m-on");
+    $("mus").hidden = false; document.body.classList.add("m-on"); paintTop();
     try { tg.setHeaderColor("#16132E"); tg.setBackgroundColor("#16132E"); if (tg.setBottomBarColor) tg.setBottomBarColor("#16132E"); } catch (e) {}
     render(true);
   },
   close() {
     opened = false; closeSheet();
-    $("mus").hidden = true; document.body.classList.remove("m-on");
+    $("mus").hidden = true; document.body.classList.remove("m-on"); paintTop();
     try { tg.setHeaderColor("bg_color"); tg.setBackgroundColor("bg_color"); if (tg.setBottomBarColor) tg.setBottomBarColor("bottom_bar_bg_color"); } catch (e) {}
     updateBack();
   },
@@ -1016,5 +1270,13 @@ window.ZMusic = {
   },
   busy() { return playerOpen || recOpen || sheetOpen || (opened && stack.length > 1); },
   pause() { audio.pause(); },
+  stop() { if (cur()) stopAll(); },
 };
 })();
+
+
+// Deck vinyl gramophone helper
+function updateDeckState() {
+  const deck = $("mdeck");
+  if (deck) deck.classList.toggle("playing", !audio.paused);
+}

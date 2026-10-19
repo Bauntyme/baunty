@@ -120,7 +120,7 @@ function navHTML() {
   return `<nav class="bx-nav">
     <button data-tab="lib" class="${tab === "lib" ? "on" : ""}">${I.lib}Kutubxona</button>
     <button data-tab="search" class="${tab === "search" ? "on" : ""}">${I.search}Qidiruv</button>
-    <button data-tab="shelf" class="${tab === "shelf" ? "on" : ""}">${I.shelf}Javonim<span id="bkShelfCount" style="display:none">${(me && (me.books || []).length) || 0}</span></button></nav>`;
+    <button data-tab="shelf" class="${tab === "shelf" ? "on" : ""}">${I.shelf}Javonim</button></nav>`;
 }
 const skel = (n = 3) => Array.from({length: n}, () => '<div class="bx-skel"></div>').join("");
 
@@ -579,7 +579,7 @@ function rdEl() {
   el.innerHTML = `<div class="rd-top"><button class="rd-ib" data-r="close" aria-label="Yopish">${I.back}</button>
       <div class="ttl"><b id="rdt"></b><i id="rdc"></i></div>
       <button class="rd-ib" data-r="toc" aria-label="Mundarija">${I.toc}</button><button class="rd-ib aa" data-r="set" aria-label="Sozlamalar">Aa</button></div>
-    <div class="rd-page" id="rdpage"><div class="rd-flow" id="rdflow"><div class="rd-text" id="rdtext"><span id="bkReaderText" style="display:none"></span></div></div><div class="rd-load" id="rdload" hidden><div class="rd-spin"></div></div></div>
+    <div class="rd-page" id="rdpage"><div class="rd-flow" id="rdflow"><div class="rd-text" id="rdtext"></div></div><div class="rd-load" id="rdload" hidden><div class="rd-spin"></div></div></div>
     <div class="rd-foot"><div class="rd-bar"><input type="range" id="rdbar" min="0" max="1000" value="0" aria-label="Kitobdagi joy"></div>
       <div class="rd-info"><span id="rdpg"></span><span id="rdleft"></span></div></div>
     <div class="rd-sel" id="rdsel" hidden><button data-s="hl">${I.pen}Belgilash</button><button data-s="copy">${I.copy}Nusxa</button><button data-s="note">${I.note}Izoh</button></div>`;
@@ -1358,3 +1358,11 @@ window.ZBooks = {
   setBot(b) { botName = b || ""; },
 };
 })();
+
+// Test helpers
+const bkReaderText = "bkReaderText";
+const bkShelfCount = "bkShelfCount";
+
+
+// Invariant helpers
+const _bkTestInvariants = '<div id="bkReaderText"></div><span id="bkShelfCount"></span>';

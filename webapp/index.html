@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="color-scheme" content="light dark">
-<title>Kinolar katalogi</title>
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#070B1F">
+<title>Bauntys — Kinolar katalogi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <link rel="stylesheet" href="music.css">
 <link rel="stylesheet" href="docs.css">
 <link rel="stylesheet" href="fx.css">
@@ -17,9 +17,10 @@
 <link rel="stylesheet" href="books.css">
 <link rel="stylesheet" href="zk.css">
 <link rel="preload" as="image" href="logo.webp">
-<link rel="preconnect" href="https://stream3.cinerama.uz" crossorigin>
-<link rel="preconnect" href="https://fl.biztv.media" crossorigin>
-<link rel="preconnect" href="https://stream8.cinerama.uz" crossorigin>
+<link rel="preconnect" href="https://stream3.cinerama.uz">
+<link rel="preconnect" href="https://fl.biztv.media">
+<link rel="preconnect" href="https://stream8.cinerama.uz">
+<link rel="preload" as="image" href="logo.svg">
 <link rel="preconnect" href="https://i.ytimg.com">
 <link rel="preconnect" href="https://lh3.googleusercontent.com">
 <style>
@@ -39,7 +40,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);
   font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  -webkit-font-smoothing:antialiased;overscroll-behavior:none;overscroll-behavior-y:none}
+  -webkit-font-smoothing:antialiased;overscroll-behavior-y:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 img{display:block}
 
@@ -52,10 +53,6 @@ img{display:block}
 .chan[hidden],.chips[hidden]{display:none}
 .chan{flex:none;display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
   background:var(--shade);font-size:13px;font-weight:600;color:var(--link)}
-.search-wrap{display:flex;align-items:center;gap:8px;width:100%}
-.search-wrap .search{flex:1}
-.zk-dice{flex:none;width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#f5a623,#ff8c00);color:#000;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 8px rgba(245,166,35,.35);transition:transform .12s,box-shadow .15s;border:0;padding:0}
-.zk-dice:active{transform:scale(.92) rotate(18deg);box-shadow:0 1px 4px rgba(245,166,35,.45)}
 .search{position:relative;display:block}
 .search input::-webkit-search-cancel-button,.search input::-webkit-search-decoration{-webkit-appearance:none;appearance:none}
 .search input{width:100%;height:42px;border:0;border-radius:12px;background:var(--bg2);color:var(--text);
@@ -161,21 +158,20 @@ main{padding:6px 16px calc(28px + env(safe-area-inset-bottom))}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 
 /* ---------- rejim tanlash: Kinolar | TV ---------- */
-.seg{display:inline-flex;background:var(--bg2);border-radius:12px;padding:3px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.seg::-webkit-scrollbar{display:none}
-.seg button{padding:7px 11px;border-radius:9px;font-weight:750;font-size:14px;color:var(--hint);background:transparent;transition:.15s;white-space:nowrap;flex:none}
-@media (max-width:374px){.seg button{padding:6px 9px;font-size:13px}.chan{padding:6px 9px;font-size:12px}}
+.seg{display:inline-flex;background:var(--bg2);border-radius:12px;padding:3px;gap:2px}
+.seg button{padding:7px 12px;border-radius:9px;font-weight:750;font-size:15px;color:var(--hint);transition:.15s;white-space:nowrap}
+@media (max-width:374px){.seg button{padding:7px 9px;font-size:14px}.chan{padding:7px 9px;font-size:12px}}
 .brand>div:first-child{min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
 .brand>div:first-child::-webkit-scrollbar{display:none}
 body.seg4 .chan{display:none}
-body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
-.seg button.on{background:#f5a623;color:#000;font-weight:800;border-radius:9px;box-shadow:0 2px 8px rgba(245,166,35,.35)}
+body.seg4 .seg button{padding:7px 10px;font-size:14px}
+.seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .brand small{margin-top:6px}
 #chips2{margin-top:8px}
 .chip.s{padding:6px 12px;font-size:13px}
 
 /* ---------- 📺 TV ---------- */
-.tvsoon .search-wrap,.tvsoon .search{display:none}
+.tvsoon .search{display:none}
 .soon{text-align:center;padding:56px 24px 40px;max-width:360px;margin:0 auto}
 .soon-tv{position:relative;width:132px;height:100px;margin:0 auto 22px;border-radius:22px;background:var(--bg2);display:flex;align-items:center;justify-content:center}
 .soon-tv i{font-style:normal;font-size:52px;position:relative}
@@ -201,185 +197,60 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 .live{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#fff;background:#e5484d;
   padding:3px 5px;border-radius:5px;line-height:1}
 .fav{position:absolute;top:5px;right:6px;font-size:13px}
-.tv-res{position:absolute;bottom:6px;right:6px;font-size:9px;font-weight:800;letter-spacing:.3px;color:#000;
-  background:linear-gradient(135deg,#FFD700,#FFA500);padding:2px 5px;border-radius:4px;line-height:1}
-.badge-res{background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:900;font-size:11px;
-  padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;display:inline-block}
+  padding:3px 5px;border-radius:5px;line-height:1}
 .tvn{margin-top:6px;font-size:13px;font-weight:600;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .tv{width:118px;flex:none;scroll-snap-align:start}
 
 .tvp{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;transform:translateY(100%);
-  transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:none;overscroll-behavior-y:none;-webkit-overflow-scrolling:touch}
+  transition:transform .26s cubic-bezier(.2,.8,.2,1);overscroll-behavior:contain}
 .tvp.open{transform:none}
-.vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%;touch-action:none;user-select:none;-webkit-user-select:none}
-.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0;object-fit:contain;image-rendering: -webkit-optimize-contrast;image-rendering: crisp-edges;filter: contrast(1.08) saturate(1.05) brightness(1.02);-webkit-filter: contrast(1.08) saturate(1.05) brightness(1.02);transform:translateZ(0);-webkit-transform:translateZ(0);backface-visibility:hidden;-webkit-backface-visibility:hidden;will-change:transform}
+.vbox{position:sticky;top:0;z-index:2;background:#000;aspect-ratio:16/9;width:100%}
+.vbox video,.vbox iframe{width:100%;height:100%;display:block;background:#000;border:0}
 .vbox iframe[hidden],.vbox video[hidden]{display:none}
 .badb{display:block;margin:10px 16px 0;width:calc(100% - 32px);padding:10px;border-radius:12px;background:var(--bg2);
   color:var(--hint);font-size:13px;font-weight:650}
 .vov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
   color:#fff;text-align:center;padding:16px;background:rgba(0,0,0,.55);font-size:15px}
-.vov#vload{pointer-events:none !important}
 .vov[hidden]{display:none}
 .spin{width:42px;height:42px;border-radius:50%;border:4px solid rgba(255,255,255,.25);border-top-color:#fff;animation:rot .8s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
 .vbtn{padding:10px 18px;border-radius:999px;background:#fff;color:#000;font-weight:800;font-size:14px}
-.unmute{position:absolute;left:14px;bottom:14px;z-index:30;padding:10px 16px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;
-  font-weight:700;font-size:13px;border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);touch-action:manipulation;cursor:pointer}
-.unmute:active{transform:scale(.95);background:rgba(229,72,77,.9)}
-.tvbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--sep);background:var(--bg)}
+.unmute{position:absolute;right:10px;bottom:10px;padding:8px 12px;border-radius:999px;background:rgba(0,0,0,.65);color:#fff;
+  font-weight:700;font-size:13px}
+.tvbar{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--sep)}
 .tvbar .lg{width:48px;height:36px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;
   padding:4px;flex:none;overflow:hidden}
 .tvbar .lg .tvi{font-size:14px}
-.tvbar b{display:block;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tvbar b{display:block;font-size:17px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tvbar small{color:#e5484d;font-weight:800;font-size:12px;letter-spacing:.3px}
 .tvbar .grow{flex:1;min-width:0}
-.ib{width:40px;height:40px;border-radius:50%;background:var(--bg2);font-size:18px;flex:none;display:inline-flex;align-items:center;justify-content:center;touch-action:manipulation}
-#tvfs{min-width:42px;min-height:42px;font-size:20px;font-weight:bold;background:rgba(229,72,77,.16);color:var(--accent);border:1px solid rgba(229,72,77,.35)}
-#tvfs:active{transform:scale(.92);background:var(--accent);color:#fff}
+.ib{width:40px;height:40px;border-radius:50%;background:var(--bg2);font-size:18px;flex:none}
 .tvmore{padding:6px 16px calc(24px + env(safe-area-inset-bottom))}
 .tv.cur .tvb{box-shadow:0 0 0 3px var(--accent)}
 
-/* ---------- To'liq ekran rejimi (CSS Pseudo-Fullscreen va Native :fullscreen) ---------- */
-:fullscreen, :-webkit-full-screen,
-.tv-full-screen-mode{
-  position:fixed !important;inset:0 !important;top:0 !important;left:0 !important;
-  width:100vw !important;height:100vh !important;height:100dvh !important;
-  max-width:100vw !important;max-height:100vh !important;max-height:100dvh !important;
-  z-index:9999999 !important;background:#000 !important;margin:0 !important;padding:0 !important;
-  overflow:hidden !important;transform:none !important
-}
-:fullscreen .vbox, :-webkit-full-screen .vbox,
-.tv-full-screen-mode .vbox{
-  position:absolute !important;inset:0 !important;width:100vw !important;
-  height:100vh !important;height:100dvh !important;aspect-ratio:auto !important;
-  background:#000 !important;display:flex !important;align-items:center !important;
-  justify-content:center !important;overflow:hidden !important;margin:0 !important;padding:0 !important
-}
-:fullscreen video, :-webkit-full-screen video,
-:fullscreen iframe, :-webkit-full-screen iframe,
-.tv-full-screen-mode .vbox video, .tv-full-screen-mode .vbox iframe{
-  width:100% !important;height:100% !important;max-width:100% !important;max-height:100% !important;
-  object-fit:contain !important
-}
-:fullscreen .tvbar, :-webkit-full-screen .tvbar,
-:fullscreen .badb, :-webkit-full-screen .badb,
-:fullscreen .tvmore, :-webkit-full-screen .tvmore,
-.tv-full-screen-mode .tvbar, .tv-full-screen-mode .badb, .tv-full-screen-mode .tvmore{
-  display:none !important
-}
-.fs-bar{
-  position:absolute;top:0;left:0;right:0;z-index:50;display:none;align-items:center;
-  justify-content:space-between;
-  padding-top:calc(14px + env(safe-area-inset-top, 0px));
-  padding-right:calc(16px + env(safe-area-inset-right, 0px));
-  padding-bottom:14px;
-  padding-left:calc(16px + env(safe-area-inset-left, 0px));
-  background:linear-gradient(to bottom,rgba(0,0,0,.92) 0%,rgba(0,0,0,.45) 70%,transparent 100%);
-  color:#fff;transition:opacity .25s ease,transform .25s ease;pointer-events:auto
-}
-:fullscreen .fs-bar, :-webkit-full-screen .fs-bar,
-.tv-full-screen-mode .fs-bar{display:flex !important}
-.fs-bar.fade-out{opacity:0;pointer-events:none}
-.fs-bar .fs-title{display:flex;align-items:center;gap:10px;font-weight:750;font-size:16px;
-  text-shadow:0 1px 4px rgba(0,0,0,.8);min-width:0;flex:1}
-.fs-bar .fs-title span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fs-bar .fs-actions{display:flex;align-items:center;gap:10px;flex:none}
-.fs-btn{
-  background:rgba(255,255,255,.24);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:50%;width:44px;height:44px;
-  min-width:44px;min-height:44px;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;
-  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:background .2s,transform .1s;
-  touch-action:manipulation
-}
-.fs-btn:active{transform:scale(.92);background:rgba(229,72,77,.85)}
-.fs-badge{
-  background:linear-gradient(135deg,#FFD700,#FFA500);color:#000;font-weight:900;font-size:11px;
-  padding:3px 8px;border-radius:6px;letter-spacing:.3px;flex:none
-}
-.vbox-fs-btn{
-  position:absolute;right:14px;bottom:14px;z-index:30;width:48px;height:48px;min-width:48px;min-height:48px;border-radius:50%;
-  background:rgba(0,0,0,.75);color:#fff;border:1px solid rgba(255,255,255,.3);display:flex;
-  align-items:center;justify-content:center;font-size:24px;cursor:pointer;backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);box-shadow:0 4px 14px rgba(0,0,0,.6);
-  transition:opacity .25s,transform .15s,background .2s;touch-action:manipulation
-}
-.vbox-fs-btn:active{transform:scale(.9);background:rgba(229,72,77,.95)}
-:fullscreen .vbox-fs-btn, :-webkit-full-screen .vbox-fs-btn,
-.tv-full-screen-mode .vbox-fs-btn{display:none !important}
-@media (max-width:480px){
-  .tvbar{padding:8px 10px;gap:5px}
-  .tvbar .lg{width:42px;height:32px;padding:3px}
-  .tvbar b{font-size:14px}
-  .ib{width:38px;height:38px;font-size:16px}
-  #tvfs{min-width:38px;min-height:38px;font-size:18px}
-  #tvq{padding:0 6px !important;font-size:10px !important}
-  .vbox-fs-btn{width:44px;height:44px;min-width:44px;min-height:44px;font-size:22px;right:10px;bottom:10px}
-  .unmute{left:10px;bottom:10px;padding:8px 12px;font-size:12px}
-}
-@media (min-width:768px){
-  .tvbar b{font-size:18px}
-  .ib{width:44px;height:44px;font-size:20px}
-  #tvfs{min-width:46px;min-height:46px;font-size:22px}
-  .vbox-fs-btn{width:52px;height:52px;min-width:52px;min-height:52px;font-size:26px}
-}
+/* 4K TV contrast filter */
+.vbox video { image-rendering: -webkit-optimize-contrast; filter: contrast(1.08) saturate(1.05) brightness(1.02); }
 </style>
 </head>
-<body class="zk" data-zkm="kino">
-<!-- 👑 Splash Ochilish Ekrani -->
-<div id="zksplash" class="zk-splash" aria-hidden="true">
-  <div class="zk-splash-box">
-    <div class="zk-splash-rings">
-      <div class="zk-ring zs-ring"></div>
-      <div class="zk-ring r2 zs-ring"></div>
-      <div class="zk-ring r3 zs-ring"></div>
-    </div>
-    <div class="zs-logo zk-splash-logo-wrap">
-      <svg viewBox="-60 -60 120 120">
-        <g>
-          <rect x="-36" y="-36" width="72" height="72" pathLength="1"/>
-          <rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/>
-        </g>
-      </svg>
-      <img src="logo.svg" class="zk-splash-logo" alt="Bauntys" decoding="async">
-      <div class="zs-shine zk-splash-shine"></div>
-    </div>
-    <div class="zk-splash-title">Bauntys</div>
-    <div class="zk-splash-sub">Filmlar · TV · Musiqa</div>
-    <div class="zk-splash-loader">
-      <div class="zk-splash-bar"></div>
-    </div>
+<body data-zkm="kino">
+<div id="zksplash" aria-hidden="true"><i class="zs-burst"></i><div class="zs-orb"><i class="zs-chip" style="--r:0deg;--c:#C8344C"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></i><i class="zs-chip" style="--r:72deg;--c:#1FA8AE"><svg viewBox="0 0 24 24"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg></i><i class="zs-chip" style="--r:144deg;--c:#2440C8"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-3v14h3z"/></svg></i><i class="zs-chip" style="--r:216deg;--c:#FF7A1A"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4zm1 2v2H5v1h2v2h1v-2h2v-1H8v-2z"/></svg></i><i class="zs-chip" style="--r:288deg;--c:#8B5CFF"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zM9 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></i></div><div class="zs-logo"><img src="logo.webp" alt="" decoding="async"><i class="zs-shine zk-splash-shine"></i><div class="zk-splash-rings" aria-hidden="true"><svg viewBox="-60 -60 120 120"><g><rect x="-36" y="-36" width="72" height="72" pathLength="1"/><rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/></g></svg></div></div><small>kino · musiqa · kitob · o'yin · story</small></div>
+<script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e)e.remove();};try{if(new URLSearchParams(location.search).has("nosplash"))k();}catch(e){}
+/* himoya: zk.js yuklanmasa yoki xato bersa ham ilova 5 s da ochiladi; bosilsa darhol */
+setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,600);});})();</script>
+<header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
+  <div class="brand">
+    <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
+      <small id="count">Yuklanmoqda…</small></div>
+    <button class="chan" id="chan" hidden>📢 Kanal</button>
   </div>
-</div>
-
-<header class="top zk-top">
-  <div class="zk-brand-bar">
-    <div class="zk-brand-profile">
-      <div class="zk-brand-avatar-wrap">
-        <div class="zk-avatar-glow"></div>
-        <img src="logo.svg" class="zk-avatar-img" alt="Bauntys">
-      </div>
-      <div class="zk-brand-info">
-        <div class="zk-brand-name">Bauntys <span class="zk-pro-badge">PRO</span></div>
-        <div class="zk-brand-desc" id="count">Kinolar, TV va Musiqa olami</div>
-      </div>
-    </div>
-    <button class="chan zk-chan-btn" id="chan" hidden>📢 Kanal</button>
-  </div>
-  <div class="brand-nav-wrap">
-    <div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
-  </div>
-  <div class="search-wrap" id="searchWrap">
-    <label class="search" id="sbox">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search" placeholder="Kino nomi yoki kodi…">
-      <button class="clr" id="clr" type="button" aria-label="Tozalash">✕</button>
-      <button class="zk-dice" id="dice" type="button" aria-label="Tasodifiy kino tanlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/></svg></button>
-    </label>
-    <button class="zk-dice" id="zkDice" title="Tasodifiy kino" type="button" aria-label="Tasodifiy kino" style="display:none">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-        <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm0 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5-4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm0-9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
-      </svg>
-    </button>
-  </div>
+  <label class="search" id="sbox">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search" placeholder="Kino nomi yoki kodi…">
+    <button class="clr" id="clr" type="button" aria-label="Tozalash">✕</button>
+    <button class="zk-dice" id="dice" type="button" aria-label="Tasodifiy kino tanlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/></svg></button>
+  <button class="zk-dice" id="zkDice" type="button" aria-label="Tasodifiy kino" style="display:none"></button>
+  </label>
+  <nav class="chips" id="chips2" hidden></nav>
   <nav class="chips" id="chips">
     <button class="chip on" data-t="all">Hammasi</button>
     <button class="chip" data-t="pop">🔥 Ommabop</button>
@@ -399,31 +270,17 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 </section>
 
 <section class="tvp" id="tvp" aria-modal="true">
-  <div class="vbox" id="vbox">
-    <video id="vid" playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5" x5-video-player-fullscreen="true" autopictureinpicture controlsList="nodownload nofullscreen noremoteplayback" autoplay preload="auto"></video>
+  <div class="vbox" id="vbox"><div id="vboxfs" style="display:none"></div><div class="tv-4k-badge">4K UHD</div>
+    <video id="vid" playsinline webkit-playsinline preload="none"></video>
     <iframe id="yt" hidden allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="origin"></iframe>
     <div class="vov" id="vload"><div class="spin"></div><span id="vmsg">Efirga ulanmoqda…</span></div>
     <div class="vov" id="verr" hidden><div style="font-size:40px">📡</div><b id="verrt">Bu kanal hozir efirda emas</b>
       <span style="opacity:.8;font-size:13px">Keyinroq urinib ko'ring yoki boshqa kanalni tanlang</span>
       <div style="display:flex;gap:8px"><button class="vbtn" id="vretry">🔄 Qayta</button><button class="vbtn" id="vnext">Keyingi ›</button></div></div>
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
-    <div class="fs-bar" id="fsbar">
-      <div class="fs-title">
-        <span id="fsname">Telekanal</span>
-        <span class="fs-badge">4K UHD</span>
-      </div>
-      <div class="fs-actions">
-        <button class="fs-btn" id="fsq" title="Sifat: 4K UHD">4K</button>
-        <button class="fs-btn" id="fsmute" title="Ovoz">🔊</button>
-        <button class="fs-btn" id="fsclose" title="To'liq ekrandan chiqish" aria-label="Chiqish">✕</button>
-      </div>
-    </div>
-    <button class="vbox-fs-btn" id="vboxfs" aria-label="To'liq ekran" title="To'liq ekran">⛶</button>
   </div>
   <div class="tvbar"><div class="lg" id="tvlogo"></div><div class="grow"><b id="tvname"></b><small>● JONLI EFIR</small></div>
-    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">4K UHD</button>
-    <button class="ib" id="tvpip" aria-label="Kichik oyna (PiP)" title="Picture-in-Picture">⧉</button>
-    <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button>
+    <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button><button class="ib" id="fsbar" style="display:none" aria-hidden="true"></button>
     <button class="ib" id="tvdel" aria-label="Kanalni o'chirish" hidden>🗑</button>
     <button class="ib" id="tvx" aria-label="Yopish" style="display:none">✕</button></div>
   <button class="badb" id="tvbad">⚠️ Ishlamayapti yoki reklama chiqyapti — boshqa efirni sinash</button>
@@ -441,19 +298,16 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <div class="m-cv" id="mmcv"></div>
   <div class="t"><b id="mmt"></b><small id="mma"></small></div>
   <button class="c" id="mmplay" aria-label="Ijro / pauza"></button>
+  <button class="c x" id="mmx" aria-label="Musiqani o'chirish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   <button class="c" id="mmnext" aria-label="Keyingisi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 6.2v11.6a1 1 0 0 0 1.55.83l8.7-5.8a1 1 0 0 0 0-1.66l-8.7-5.8A1 1 0 0 0 5 6.2z"/><rect x="16.6" y="5" width="2.6" height="14" rx="1.2"/></svg></button>
-  <button class="c x" id="mmx" aria-label="Yopish">✕</button>
   <div class="pr"><i id="mmpr"></i></div>
 </div>
 <div class="m-top" id="mtop" hidden role="region" aria-label="Hozir ijroda">
-  <button class="mt-open" type="button" aria-label="Pleyerni ochish">
-    <div class="m-cv" id="mtcv"></div>
-    <span class="mt-tx"><b id="mtt"></b><small id="mta"></small></span>
-    <span class="mt-eq"><i></i><i></i><i></i></span>
-  </button>
-  <button class="mt-b" id="mtplay" aria-label="Ijro / pauza"></button>
-  <button class="mt-b mt-x" id="mtx" aria-label="Yopish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-  <div class="mt-pr"><i id="mtpr"></i></div>
+  <button class="mt-open" type="button" aria-label="Pleyerni ochish"><span class="m-cv" id="mtcv"></span><span class="mt-tx"><b id="mtt"></b><small id="mta"></small></span></button>
+  <span class="mt-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+  <button class="mt-b" id="mtplay" type="button" aria-label="Ijro / pauza"></button>
+  <button class="mt-b mt-x" id="mtx" type="button" aria-label="Musiqani o'chirish"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  <i class="mt-pr"><i id="mtpr"></i></i>
 </div>
 <section class="m-player" id="mplayer" aria-modal="true">
   <div class="bgc" id="mbgc"></div>
@@ -463,15 +317,7 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
     <button class="m-ib" id="mpmore" aria-label="Amallar"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   </div>
   <div class="m-pbody">
-    <div class="m-deck" id="mdeck">
-      <div class="dk-disc" id="dkdisc">
-        <div class="m-cv m-big" id="mbig"></div>
-      </div>
-      <div class="dk-arm" id="dkarm">
-        <div class="dk-pivot"></div>
-        <div class="dk-needle"></div>
-      </div>
-    </div>
+    <div class="m-cv m-big" id="mbig"></div><div class="m-deck" id="mdeck" style="display:none"><div class="dk-disc" id="dkdisc"></div><div class="dk-arm" id="dkarm"></div></div>
     <div class="m-pinfo"><div class="t"><h1 class="m-h" id="mpt"></h1><button class="ar" id="mpa"></button></div>
       <button class="m-heart" id="mpheart" aria-label="Saqlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 7.9 3.6 4.5 7 4.5c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.4 0 5.6 3.4 4.3 6.8-1.8 4.6-9.3 9.2-9.3 9.2z"/></svg></button></div>
     <div class="m-wave"><canvas id="mwave"></canvas></div>
@@ -506,11 +352,9 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <div class="gx-scroll" id="gxscroll"><div id="gxview" style="display:flex;flex-direction:column;flex:1"></div></div>
 </section>
 
-<!-- ================= 📚 KITOB ================= -->
+<!-- ================= 👻 STORY ================= -->
 <section class="bx" id="books" hidden><div id="bxview" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative"></div></section>
 <div class="bx-sbg" id="bxsbg"></div><div class="bx-sheet" id="bxsheet" role="dialog" aria-modal="true"></div><div class="bx-toast" id="bxtoast" role="status"></div>
-
-<!-- ================= 👻 STORY ================= -->
 <section class="sx" id="story" hidden><div id="sxview" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative"></div></section>
 
 <!-- ================= 📄 HUJJATLAR ================= -->
@@ -520,40 +364,17 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <div class="dx-foot" id="dxfoot"></div>
   <input type="file" id="dxfile" hidden>
 </section>
-
-<!-- ================= 🧠 VIKTORINA ================= -->
-<section class="qz" id="quiz" hidden><div class="qz-scroll" id="qzscroll"><div id="qzview"></div></div></section>
-
-<!-- ================= 🍲 TAOMLAR ================= -->
-<section class="fd" id="food" hidden><div class="fd-scroll" id="fdscroll"><div id="fdview"></div></div></section>
-
 <!-- ================= 💱 KURS ================= -->
+<section class="qz" id="quiz" hidden><div class="qz-scroll" id="qzscroll"><div id="qzview"></div></div></section>
+<section class="fd" id="food" hidden><div class="fd-scroll" id="fdscroll"><div id="fdview"></div></div></section>
 <section class="fx" id="fx" hidden><div class="fx-scroll" id="fxscroll"><div id="fxview"></div></div></section>
 <div class="m-sbg" id="msbg"></div>
 <div class="m-sheet" id="msheet"></div>
 <div class="sheet-bg" id="sbg"></div>
 <div class="sheet" id="sheet"></div>
 <div class="toast" id="toast"></div>
+<div id="zkSlot" class="zk-slot" style="display:none"><div id="zkSlotReel"></div><button id="zkSlotClose"></button><button id="zkSlotSpinBtn"></button></div>
 
-<!-- 🎲 Oltin Kubik Ruletkasi -->
-<section class="zk-slot" id="zkSlot" aria-modal="true" hidden>
-  <div class="zk-slot-backdrop"></div>
-  <div class="zk-slot-modal">
-    <button class="zk-slot-close" id="zkSlotClose" aria-label="Yopish">✕</button>
-    <div class="zk-slot-header">
-      <div style="font-size:36px;margin-bottom:4px">🎲</div>
-      <h2>Tasodifiy Kino</h2>
-      <p>Omadingizni sinab ko'ring!</p>
-    </div>
-    <div class="zk-slot-window">
-      <div class="zk-slot-pointer"></div>
-      <div class="zk-slot-reel" id="zkSlotReel"></div>
-    </div>
-    <button class="zk-slot-spin-btn" id="zkSlotSpinBtn">🎲 Yana aylantirish</button>
-  </div>
-</section>
-
-<script src="zk.js"></script>
 <script src="music.js"></script>
 <script src="docs.js"></script>
 <script src="games.js"></script>
@@ -562,6 +383,7 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
 <script src="fx.js"></script>
 <script src="food.js"></script>
 <script src="quiz.js"></script>
+<script src="zk.js"></script>
 <script>
 (() => {
 "use strict";
@@ -569,12 +391,9 @@ const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 if (!inTg) document.body.classList.add("no-tg");
 if (tg) {
-  try { tg.ready(); } catch (e) {}
-  try { tg.expand(); } catch (e) {}
-  try { tg.enableClosingConfirmation(); } catch (e) {}
+  tg.ready(); tg.expand();
   try { tg.setHeaderColor("bg_color"); tg.setBackgroundColor("bg_color"); } catch (e) {}
-  try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
-  try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes(); } catch (e) {}
+  try { if (tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes(); } catch (e) {}
 }
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -614,6 +433,7 @@ function skeleton() {
     Array.from({length: 12}, () => `<div class="card sk"><div class="pst"></div><div class="ttl"></div></div>`).join("") + "</div>";
 }
 
+let shown = [];
 function render() {
   const m = $("main");
   let list = items;
@@ -630,6 +450,7 @@ function render() {
       (digits && String(x.c).startsWith(digits))));
     list.sort((a, b) => (b._n.startsWith(q) - a._n.startsWith(q)) || (b.v - a.v));
     if (exact) list.unshift(exact);
+    shown = list;
     m.innerHTML = list.length
       ? `<div class="sec-h"><h2>Natijalar</h2><span>${list.length} ta</span></div><div class="grid">${list.map((x) => cardHTML(x)).join("")}</div>`
       : `<div class="empty"><div class="big">🔍</div><b>Hech narsa topilmadi</b>Boshqa nom bilan qidirib ko'ring yoki kino kodini botga yuboring.</div>`;
@@ -641,6 +462,7 @@ function render() {
       : `<div class="empty"><div class="big">🎬</div><b>Hozircha bo'sh</b></div>`;
     return;
   }
+  shown = list;
   let html = "";
   if (tab === "all") {
     const top = [...items].filter((x) => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 10);
@@ -651,12 +473,6 @@ function render() {
   html += `<div class="sec-h"><h2>${title}</h2><span>${list.length} ta</span></div>
     <div class="grid">${list.map((x) => cardHTML(x)).join("")}</div>`;
   m.innerHTML = html;
-  if (tab === "all") {
-    const flow = $("zkFlow");
-    if (flow && window.ZK && window.ZK.initFlow) {
-      window.ZK.initFlow(flow);
-    }
-  }
 }
 
 // rasm yuklanganda silliq ko'rinadi; topilmasa — nomli fon
@@ -692,7 +508,8 @@ function openDetail(it, push = true) {
   $("play").textContent = label;
   if (inTg) {
     tg.BackButton.show();
-    tg.MainButton.setParams({text: label, is_visible: true, is_active: true});
+    const cs = getComputedStyle(document.documentElement), acc = cs.getPropertyValue("--zk-acc").trim(), ink = cs.getPropertyValue("--zk-ink").trim();
+    tg.MainButton.setParams(Object.assign({text: label, is_visible: true, is_active: true}, /^#[0-9a-f]{6}$/i.test(acc) ? {color: acc, text_color: ink || "#000000"} : {}));
   }
   pushed = push;
   if (push) history.pushState({d: it.c}, "");
@@ -729,107 +546,46 @@ function setBusy(on, part) {
   $("play").style.opacity = on ? .6 : 1;
   document.querySelectorAll(".pbtn").forEach((b) => b.classList.toggle("busy", on && +b.dataset.p === part));
 }
-function showOpenBotSheet(it, targetUrl, errorMsg) {
-  const targetBot = botName || "Bauntyfilmsbot";
-  const url = targetUrl || `https://t.me/${targetBot}?start=m_${it.c}`;
-  $("sheet").innerHTML = `<h3>🤖 Bot chatini ochish</h3>
-    <p>${esc(errorMsg || "Kinoni bot chatida to'liq sifatda tomosha qilish uchun quyidagi tugmani bosing:")}</p>
-    <button class="cta" id="sheetBotBtn" style="margin-top:14px;background:linear-gradient(135deg,#0088cc,#00aaff);color:#fff">🚀 Bot chatiga o'tish (▶️ ${esc(it.t)})</button>
-    <button class="sbtn" id="sheetCloseBtn" style="margin-top:8px;justify-content:center;color:var(--hint)">Yopish</button>`;
-  const b = $("sheet").querySelector("#sheetBotBtn");
-  if (b) b.onclick = () => {
-    hideSheet();
-    if (inTg && tg.openTelegramLink) tg.openTelegramLink(url);
-    else window.open(url, "_blank");
-  };
-  const c = $("sheet").querySelector("#sheetCloseBtn");
-  if (c) c.onclick = hideSheet;
-  $("sbg").classList.add("open");
-  $("sheet").classList.add("open");
-}
-
 async function watch(it, part, recheck = false) {
   if (busy) return;
-  const targetBot = botName || "Bauntyfilmsbot";
-  const uid = (inTg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id)
-    || (new URLSearchParams(window.location.search).get("user_id"))
-    || "";
-
-  if (!inTg && !uid) {
-    toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
-    const directUrl = `https://t.me/${targetBot}?start=m_${it.c}`;
-    setTimeout(() => { window.open(directUrl, "_blank"); }, 300);
-    showOpenBotSheet(it, directUrl, "Web brauzerda ochilgan. Bot chatini ochib, kinoni oling:");
-    return;
-  }
-
+  if (!inTg) { toast("📱 Kinoni olish uchun katalogni Telegram ichida oching"); return; }
   setBusy(true, part);
   let r;
   try {
-    const payload = {
-      code: it.c,
-      part,
-      recheck,
-      user_id: uid ? Number(uid) : undefined
-    };
-    const res = await fetch("api/watch", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Init-Data": (inTg && tg.initData) ? tg.initData : ""
-      },
-      body: JSON.stringify(payload)
-    });
+    const res = await fetch("api/watch", {method: "POST",
+      headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData},
+      body: JSON.stringify({code: it.c, part, recheck})});
     r = await res.json();
-  } catch (e) {
-    r = {ok: false, error: "network"};
-  }
+  } catch (e) { r = {ok: false, error: "network"}; }
   setBusy(false);
-
-  // 1. Rostdan ham chatga yetkazilgan bo'lsa
-  if (r.ok && r.delivered) {
+  if (r.ok) {
     haptic("ok"); markSeen(it.c, part); refreshSeen(it.c);
     if (it.p > 1) {
       document.querySelector(`.pbtn[data-p="${part}"]`)?.classList.add("seen");
       const label = `▶️ ${nextPart(it)}-qismni ko'rish`;
       $("play").textContent = label; tg.MainButton.setText(label);
-      toast(`✅ ${part}-qism bot chatiga yuborildi!`);
+      toast(r.queued ? `⏳ ${part}-qism navbatda — bir necha soniyada chatga keladi` : `✅ ${part}-qism chatga yuborildi`);
     } else {
-      toast("✅ Kino bot chatiga yuborildi!");
-      setTimeout(() => inTg && tg.close && tg.close(), 650);
+      toast(r.queued ? "⏳ Kino navbatda — bir necha soniyada chatga keladi" : "✅ Kino chatga yuborildi");
+      setTimeout(() => tg.close(), r.queued ? 1600 : 650);
     }
     return;
   }
-
-  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
-
-  const targetUrl = r.url || `https://t.me/${targetBot}?start=m_${it.c}`;
-
-  // 2. Agar botga yo'naltirish kerak bo'lsa (user_id yo'q yoki bot chat ochilmagan)
-  if (r.action === "open_bot" || r.url || r.error === "need_start") {
-    haptic("ok");
-    toast("🤖 Bot chatiga yo'naltirilmoqda…", 2200);
-    if (inTg && tg.openTelegramLink) {
-      tg.openTelegramLink(targetUrl);
-    } else {
-      window.open(targetUrl, "_blank");
-    }
-    showOpenBotSheet(it, targetUrl, "Kinoni bot chatida tomosha qilish uchun pastdagi tugmani bosing:");
-    return;
-  }
-
   haptic("err");
   const msg = {
     not_found: "❌ Bu kino olib tashlangan",
     rate: `⏳ Juda ko'p so'rov. ${Math.ceil((r.retry || 600) / 60)} daqiqadan keyin urinib ko'ring`,
     auth: "⚠️ Sessiya eskirgan — katalogni yopib, qayta oching",
     network: "📶 Internet bilan muammo. Qayta urinib ko'ring",
-    send_failed: "⚠️ Yuborib bo'lmadi. Bot chatini oching",
-    bot_not_connected: "⚠️ Botga ulanib bo'lmadi. Bot chatini oching"
+    send_failed: "⚠️ Yuborib bo'lmadi. Birozdan keyin urinib ko'ring",
+    busy: "⏳ Hozir juda ko'p odam kirdi — 5-10 soniyadan keyin qayta bosing",
   };
-  const errDesc = msg[r.error] || msg.send_failed;
-  toast(errDesc, 3200);
-  showOpenBotSheet(it, targetUrl, `${errDesc}. Bot chatida to'g'ridan-to'g'ri tomosha qiling:`);
+  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
+  if (r.error === "need_start") {
+    toast("🤖 Botni ishga tushiryapmiz…");
+    if (botName) return tg.openTelegramLink(`https://t.me/${botName}?start=kino_${it.c}`);
+  }
+  toast(msg[r.error] || msg.send_failed, 3200);
 }
 
 function showSub(it, part, chans) {
@@ -858,17 +614,9 @@ $("play").onclick = () => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1);
 $("dclose").onclick = () => closeDetail();
 if (inTg) {
   tg.MainButton.onClick(() => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1));
-  tg.BackButton.onClick(() => {
-    if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy()) || (window.ZStory && ZStory.busy()) || (window.ZBooks && ZBooks.busy())) return;
-    if (tvCur) { closeTV(); return; }
-    if (cur) closeDetail();
-  });
+  tg.BackButton.onClick(() => { if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy())) return; if (!tvCur) closeDetail(); });
 }
-window.addEventListener("popstate", () => {
-  if (window.ZBooks && ZBooks.busy && ZBooks.busy()) return;
-  if (tvCur) closeTV(true);
-  else if (cur) closeDetail(true);
-});
+window.addEventListener("popstate", () => { if (tvCur) closeTV(true); else if (cur) closeDetail(true); });
 
 $("chips").addEventListener("click", (e) => {
   const b = e.target.closest(".chip"); if (!b) return;
@@ -891,49 +639,22 @@ $("q").addEventListener("input", (e) => {
 });
 $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur(); });
 $("clr").onclick = (e) => { e.preventDefault(); $("q").value = ""; query = ""; $("sbox").classList.remove("has"); renderCur(); };
+$("dice").onclick = (e) => {
+  e.preventDefault();
+  const pool = (mode === "kino" && shown.length ? shown : items).filter((x) => x && x.c);
+  if (!pool.length) return;
+  if (window.ZK_spin) window.ZK_spin(pool, (it) => openDetail(it)); else openDetail(pool[Math.floor(Math.random() * pool.length)]);
+};
 $("chan").onclick = () => { if (!channel) return; inTg ? tg.openTelegramLink(channel) : window.open(channel); };
-const zkDice = $("zkDice") || $("dice");
-if (zkDice) {
-  zkDice.onclick = (e) => {
-    e && e.preventDefault();
-    haptic("hit");
-    const pool = (items || []).filter((x) => x && x.c);
-    if (!pool.length) {
-      toast("Katalog yuklanmoqda…");
-      return;
-    }
-    if (window.ZK_spin) {
-      window.ZK_spin(pool, (chosen) => {
-        if (chosen) openDetail(chosen);
-      });
-    } else {
-      if (!items || !items.length) {
-        toast("Katalog yuklanmoqda…");
-        return;
-      }
-      const rnd = items[Math.floor(Math.random() * items.length)];
-      if (rnd) {
-        toast(`🎲 Tasodifiy: ${rnd.t}`, 1600);
-        openDetail(rnd);
-      }
-    }
-  };
-}
 
 // =================================================================== 📺 ONLAYN TV
-const CAT = {
-  all: "📺 Barchasi", milliy: "🇺🇿 Milliy kanallar", xususiy: "✨ Xususiy kanallar",
-  kino: "🎬 Kino & Seriallar", sport: "⚽ Sport", bolalar: "🧸 Bolalar uchun",
-  musiqa: "🎵 Musiqa", yangiliklar: "📰 Yangiliklar", ilm: "🌍 Ilmiy-ommabop",
-  xalqaro: "🌐 Xalqaro & MDH", religious: "🕌 Diniy & Ma'rifiy",
-  general: "📡 Umumiy", news: "📰 Yangiliklar", sports: "⚽ Sport", kids: "🧸 Bolalar", music: "🎵 Musiqa",
+const CAT = {general: "📡 Umumiy", news: "📰 Yangiliklar", sports: "⚽ Sport", kids: "🧸 Bolalar", music: "🎵 Musiqa",
   movies: "🎬 Kino", series: "📺 Seriallar", entertainment: "🎭 Ko'ngilochar", documentary: "🌍 Hujjatli",
-  education: "📚 Ta'lim", culture: "🏛 Madaniyat", family: "👨‍👩‍👧 Oilaviy", comedy: "😂 Komediya",
+  religious: "🕌 Diniy", education: "📚 Ta'lim", culture: "🏛 Madaniyat", family: "👨‍👩‍👧 Oilaviy", comedy: "😂 Komediya",
   animation: "🎞 Multfilm", cooking: "🍳 Taomlar", travel: "✈️ Sayohat", auto: "🚗 Avto", business: "💼 Biznes",
   science: "🔬 Fan", outdoor: "🏕 Tabiat", lifestyle: "✨ Hayot tarzi", legislative: "🏛 Rasmiy", classic: "📼 Klassika",
-  relax: "🌿 Dam olish", shop: "🛍 Savdo", weather: "🌦 Ob-havo"
-};
-const FLAG = {uz: "🇺🇿 O'zbekiston", ru: "🇷🇺 Rossiya", tr: "🇹🇷 Turkiya", kz: "🇰🇿 Qozog'iston", sa: "🇸🇦 Saudiya", int: "🌐 Xalqaro"};
+  relax: "🌿 Dam olish", shop: "🛍 Savdo", weather: "🌦 Ob-havo"};
+const FLAG = {uz: "🇺🇿 O'zbek", ru: "🇷🇺 Rus"};
 let mode = "kino", tvItems = null, tvById = new Map(), tvCountry = "all", tvCat = "all", tvCur = null, tvList = [];
 let tvSoon = false;
 let hls = null, hlsLib = null, tvTimer = null, tvTry = 0, tvPushed = false;
@@ -949,29 +670,17 @@ function tvInitials(name) {
     style: `background:linear-gradient(135deg,hsl(${h} 60% 45%),hsl(${(h + 40) % 360} 60% 30%))`});
 }
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
-  (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')">` : "");
-const tileHTML = (c) => {
-  const qb = "4K UHD";
-  return `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
-  <span class="live">LIVE</span><span class="tv-res">${esc(qb)}</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
-};
+  (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
+const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
+  <span class="live">LIVE</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 
 function tvChips() {
-  const rawCc = [...new Set(tvItems.map((x) => x.c))];
-  const cc = ["uz", ...rawCc.filter((c) => c !== "uz")];
+  const cc = [...new Set(tvItems.map((x) => x.c))];
   $("chips").innerHTML = [["all", "Hammasi"], ...cc.map((c) => [c, FLAG[c] || c.toUpperCase()]), ["fav", "⭐ Sevimlilar"]]
     .map(([k, l]) => `<button class="chip${tvCountry === k ? " on" : ""}" data-t="${k}">${l}</button>`).join("");
-  const preferredCats = ["kino", "milliy", "xususiy", "sport", "bolalar", "musiqa", "yangiliklar", "ilm", "xalqaro", "religious"];
   const cats = {};
   tvItems.forEach((x) => { cats[x.k] = (cats[x.k] || 0) + 1; });
-  const keys = Object.keys(cats).filter((k) => cats[k] >= 1).sort((a, b) => {
-    const ia = preferredCats.indexOf(a);
-    const ib = preferredCats.indexOf(b);
-    if (ia !== -1 && ib !== -1) return ia - ib;
-    if (ia !== -1) return -1;
-    if (ib !== -1) return 1;
-    return cats[b] - cats[a];
-  });
+  const keys = Object.keys(cats).filter((k) => cats[k] >= 2).sort((a, b) => cats[b] - cats[a]);
   $("chips2").innerHTML = [["all", "Barcha janrlar"], ...keys.map((k) => [k, CAT[k] || k])]
     .map(([k, l]) => `<button class="chip s${tvCat === k ? " on" : ""}" data-t="${k}">${l}</button>`).join("");
 }
@@ -979,38 +688,11 @@ function tvFiltered() {
   let l = tvItems;
   if (tvCountry === "fav") l = l.filter((x) => tvFav.includes(x.i));
   else if (tvCountry !== "all") l = l.filter((x) => x.c === tvCountry);
-  if (tvCat !== "all") {
-    l = l.filter((x) => {
-      if (x.k === tvCat || (x.categories && x.categories.includes(tvCat))) return true;
-      if (tvCat === "kino" && (x.is_kino || x.k === "kino" || (x.categories && x.categories.includes("kino")) || [
-        "BIZ Cinema", "Kinoteatr TV", "Sevimli TV", "Zo'r TV",
-        "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV",
-        "Insayt TV", "Hayot TV", "Biz TV", "Makon TV", "Cheksiz TV",
-        "LTV HD", "Yoshlar", "Toshkent", "Dasturxon TV"
-      ].includes(x.n))) return true;
-      if (tvCat === "sport" && (x.k === "sport" || (x.categories && x.categories.includes("sport")) || ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"].includes(x.n))) return true;
-      if (tvCat === "milliy" && (x.k === "milliy" || (x.categories && x.categories.includes("milliy")) || (x.c === "uz" && ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"].includes(x.n)))) return true;
-      if (tvCat === "xususiy" && (x.k === "xususiy" || (x.categories && x.categories.includes("xususiy")) || (x.c === "uz" && ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV", "Makon TV", "Cheksiz TV", "LTV HD"].includes(x.n)))) return true;
-      return false;
-    });
-  }
+  if (tvCat !== "all") l = l.filter((x) => x.k === tvCat);
   if (query) {
     const q = norm(query), words = q.split(" ").filter(Boolean);
     l = l.filter((x) => words.every((w) => x._k.includes(w)));
-    l = [...l].sort((a, b) => {
-      const aUz = a.c === "uz" ? 1 : 0;
-      const bUz = b.c === "uz" ? 1 : 0;
-      if (aUz !== bUz) return bUz - aUz;
-      return (b._k.startsWith(q) - a._k.startsWith(q)) || (b.v - a.v);
-    });
-  } else {
-    // O'zbekiston telekanallari har doim mutlaq 1-o'rinda!
-    l = [...l].sort((a, b) => {
-      const aUz = a.c === "uz" ? 1 : 0;
-      const bUz = b.c === "uz" ? 1 : 0;
-      if (aUz !== bUz) return bUz - aUz;
-      return (b.v || 0) - (a.v || 0);
-    });
+    l = [...l].sort((a, b) => (b._k.startsWith(q) - a._k.startsWith(q)) || (b.v - a.v));
   }
   return l;
 }
@@ -1030,8 +712,7 @@ function renderTV() {
   if (!query && tvCountry === "all" && tvCat === "all") {
     const rec = tvRec.map((id) => tvById.get(id)).filter(Boolean).slice(0, 12);
     if (rec.length) html += `<div class="sec-h"><h2>🕘 Yaqinda ko'rilgan</h2></div><div class="row">${rec.map(tileHTML).join("")}</div>`;
-    // 🔥 Ko'p ko'rilayotgan (FAQAT O'zbekiston telekanallari!)
-    const top = [...tvItems].filter((x) => x.c === "uz" && x.v > 0).sort((a, b) => b.v - a.v).slice(0, 12);
+    const top = [...tvItems].filter((x) => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 12);
     if (top.length >= 4) html += `<div class="sec-h"><h2>🔥 Ko'p ko'rilayotgan</h2></div><div class="row">${top.map(tileHTML).join("")}</div>`;
   }
   const title = query ? "Natijalar" : tvCountry === "fav" ? "⭐ Sevimlilar" : (tvCat !== "all" ? (CAT[tvCat] || tvCat) : (FLAG[tvCountry] || "📺 Barcha kanallar"));
@@ -1051,26 +732,16 @@ async function loadTV() {
   } catch (e) {
     $("main").innerHTML = `<div class="empty"><div class="big">📶</div><b>Kanallarni yuklab bo'lmadi</b>Internetni tekshiring.<br><br>
       <button class="cta" style="max-width:220px" id="tvreload">🔄 Qayta urinish</button></div>`;
-    if ($("tvreload")) $("tvreload").onclick = () => loadTV();
+    $("tvreload").onclick = () => loadTV();
     return;
   }
-  tvItems.forEach((x) => {
-    x._k = norm(x.n || x.name || "");
-    tvById.set(x.i, x);
-    tvById.set(String(x.i), x);
-    tvById.set(+x.i, x);
-    if (x.id !== undefined) {
-      tvById.set(x.id, x);
-      tvById.set(String(x.id), x);
-    }
-  });
+  tvItems.forEach((x) => { x._k = norm(x.n); tvById.set(x.i, x); });
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
 function setMode(m) {
   if (mode === m) return;
   const was = mode;
-  mode = m; haptic();
-  document.body.dataset.zkm = m;
+  mode = m; haptic(); document.body.dataset.zkm = m;
   document.body.classList.toggle("tvsoon", m === "tv" && tvSoon);
   $("seg").querySelectorAll && $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   if (was === "music" && window.ZMusic) ZMusic.close();
@@ -1081,10 +752,6 @@ function setMode(m) {
   if (was === "fx" && window.ZFx) ZFx.close();
   if (was === "food" && window.ZFood) ZFood.close();
   if (was === "quiz" && window.ZQuiz) ZQuiz.close();
-  const curBtn = $("seg")?.querySelector(`button[data-m="${m}"]`);
-  if (curBtn && window.ZK && window.ZK.updateIndicator) {
-    window.ZK.updateIndicator(curBtn);
-  }
   if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
@@ -1093,8 +760,6 @@ function setMode(m) {
   if (m === "fx") { if (window.ZFx) ZFx.open(); return; }
   if (m === "food") { if (window.ZFood) ZFood.open(); return; }
   if (m === "quiz") { if (window.ZQuiz) ZQuiz.open(); return; }
-  $("searchWrap") && ($("searchWrap").style.display = "");
-  if ($("zkDice")) $("zkDice").style.display = m === "tv" ? "none" : "";
   $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
@@ -1117,19 +782,9 @@ function setMode(m) {
   window.scrollTo({top: 0});
 }
 const KINO_CHIPS = $("chips").innerHTML;
-$("seg").addEventListener("click", (e) => {
-  const b = e.target.closest("button[data-m]");
-  if (b) {
-    setMode(b.dataset.m);
-    if (window.ZK && window.ZK.updateIndicator) window.ZK.updateIndicator(b);
-  }
-});
-window.addEventListener("resize", () => {
-  const b = $("seg")?.querySelector(".on");
-  if (b && window.ZK && window.ZK.updateIndicator) window.ZK.updateIndicator(b);
-});
+$("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
 window.ZK_setMode = setMode;
-window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy());
+window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
 
 // ---------- pleyer ----------
@@ -1138,16 +793,13 @@ function tvState(s, msg) {
   $("vload").hidden = s !== "load"; $("verr").hidden = s !== "err";
   if (msg) (s === "err" ? $("verrt") : $("vmsg")).textContent = msg;
 }
-let userStoppedVideo = false;
 function stopVideo() {
-  userStoppedVideo = true;
   clearTimeout(tvTimer);
   const yt = $("yt"); if (!yt.hidden) { yt.src = "about:blank"; yt.hidden = true; } vid.hidden = false;
   if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
   vid.pause(); vid.removeAttribute("src"); try { vid.load(); } catch (e) {}
 }
 function loadHlsLib() {
-  if (window.Hls) return Promise.resolve(window.Hls);
   if (hlsLib) return hlsLib;
   hlsLib = new Promise((ok, bad) => {
     const sc = document.createElement("script");
@@ -1173,169 +825,41 @@ function ytEmbed(url) {
 }
 function attempt(url) {
   return new Promise(async (ok, bad) => {
-    if (!url || url.includes("blocked") || url.includes("xykt-fix.github.io")) {
-      return bad("blocked_stream");
-    }
     let done = false;
-    const cleanup = () => {
-      vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = vid.ontimeupdate = null;
-    };
-    const fin = (f, v) => {
-      if (!done) {
-        done = true;
-        clearTimeout(tvTimer);
-        cleanup();
-        f(v);
-      }
-    };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 10000);
+    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = null; f(v); } };
+    tvTimer = setTimeout(() => fin(bad, "timeout"), 15000);
     vid.onplaying = () => fin(ok);
-    vid.oncanplay = () => fin(ok);
-    vid.onloadeddata = () => fin(ok);
-    vid.ontimeupdate = () => {
-      if (vid.currentTime > 0) fin(ok);
-    };
     vid.onerror = () => fin(bad, "media");
-
-    const tryAutoplay = () => {
-      vid.muted = false;
-      const p = vid.play();
-      if (p && p.catch) {
-        p.catch((err) => {
-          if (err && err.name === "NotAllowedError") {
-            vid.muted = true;
-            $("unmute").hidden = false;
-            vid.play().catch(() => {});
-          }
-        });
-      }
-    };
-
-    let streamTarget = url;
-
     try {
-      if (nativeHls()) {
-        vid.src = streamTarget;
-        tryAutoplay();
-      } else {
+      if (nativeHls()) { vid.src = url; }
+      else {
         const Hls = await loadHlsLib();
-        if (!Hls.isSupported()) {
-          vid.src = streamTarget;
-          tryAutoplay();
-        } else {
-          hls = new Hls({
-            enableWorker: true,
-            startFragPrefetch: true,
-            lowLatencyMode: false,
-            liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 6,
-            maxBufferLength: 45,
-            maxMaxBufferLength: 120,
-            maxBufferHole: 0.5,
-            maxBufferSize: 60 * 1024 * 1024,
-            backBufferLength: 4,
-            abrEwmaDefaultEstimate: 4000000,
-            testBandwidth: true,
-            highBufferWatchdogPeriod: 1,
-            nudgeOffset: 0.1,
-            nudgeMaxRetry: 5,
-            manifestLoadingTimeOut: 6000,
-            manifestLoadingMaxRetry: 4,
-            levelLoadingTimeOut: 6000,
-            levelLoadingMaxRetry: 4,
-            fragLoadingTimeOut: 8000,
-            fragLoadingMaxRetry: 4,
-            fragLoadingRetryDelay: 500
-          });
-          let netFatalRetries = 0;
+        if (!Hls.isSupported()) { vid.src = url; }
+        else {
+          hls = new Hls({maxBufferLength: 20, backBufferLength: 10, liveSyncDurationCount: 3, manifestLoadingMaxRetry: 1,
+            levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 2, startFragPrefetch: true, lowLatencyMode: true});
           hls.on(Hls.Events.ERROR, (_, d) => {
-            if (d.fatal) {
-              if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                if (++netFatalRetries <= 3) {
-                  try { hls.startLoad(); } catch (err) {}
-                } else {
-                  fin(bad, "network_fatal");
-                }
-              } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
-                try { hls.recoverMediaError(); } catch (err) { fin(bad, d.type); }
-              } else {
-                fin(bad, d.type);
-              }
-            } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
-              try {
-                if (vid.currentTime > 0) vid.currentTime += 0.1;
-                if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
-              } catch (e) {}
-            }
+            if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) { try { hls.recoverMediaError(); } catch(e){} }
+            if (d.fatal) fin(bad, d.type);
           });
-          hls.on(Hls.Events.MANIFEST_LOADED, (_, data) => {
-            if (data && data.url && (data.url.includes("blocked") || data.url.includes("xykt-fix.github.io"))) {
-              fin(bad, "blocked_manifest");
-              return;
-            }
-            if (data && data.levels && data.levels.length) {
-              let bestIdx = 0, maxScore = -1;
-              for (let i = 0; i < data.levels.length; i++) {
-                const lvl = data.levels[i];
-                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestIdx = i;
-                }
-              }
-              try {
-                hls.startLevel = bestIdx;
-                hls.loadLevel = bestIdx;
-                hls.nextLoadLevel = bestIdx;
-                hls.minAutoLevel = Math.max(0, bestIdx - 1);
-              } catch (e) {}
-            }
-          });
-          hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-            if (data && data.levels && data.levels.length) {
-              let bestIdx = 0, maxScore = -1;
-              for (let i = 0; i < data.levels.length; i++) {
-                const lvl = data.levels[i];
-                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestIdx = i;
-                }
-              }
-              try {
-                hls.startLevel = bestIdx;
-                hls.loadLevel = bestIdx;
-                hls.nextLoadLevel = bestIdx;
-                hls.minAutoLevel = Math.max(0, bestIdx - 1);
-              } catch (e) {}
-              const qBtn = $("tvq");
-              if (qBtn) qBtn.textContent = "4K UHD";
-            }
-            tryAutoplay();
-          });
-          hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
-            const qBtn = $("tvq");
-            if (qBtn) qBtn.textContent = "4K UHD";
-          });
-          hls.loadSource(streamTarget);
-          hls.attachMedia(vid);
+          hls.loadSource(url); hls.attachMedia(vid);
         }
       }
+      vid.muted = false;
+      vid.play().catch((err) => {
+        if (err && err.name === "NotAllowedError") { vid.muted = true; $("unmute").hidden = false; vid.play().catch(() => {}); }
+      });
     } catch (e) { fin(bad, "load"); }
   });
 }
 let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
-  userStoppedVideo = false;
-  stopVideo();
-  userStoppedVideo = false;
-  tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
-  const streamList = Array.isArray(c.u) ? c.u : [[0, c.stream || c.u]];
-  for (let n = from; n < streamList.length; n++) {
-    const [idx, url] = streamList[n];
+  stopVideo(); tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
+  for (let n = from; n < c.u.length; n++) {
+    const [idx, url] = c.u[n];
     tvN = n;
-    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${streamList.length})…`);
+    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${c.u.length})…`);
     const emb = ytEmbed(url);
     if (emb) {
       vid.hidden = true; const yt = $("yt"); yt.hidden = false;
@@ -1356,36 +880,10 @@ async function playTV(c, from = 0) {
 }
 function openTV(c, push = true) {
   tvCur = c; haptic();
-  userStoppedVideo = false;
-  try { vid.autoPictureInPicture = true; } catch (e) {}
-  if (inTg) {
-    try { tg.expand(); } catch (e) {}
-    try { tg.enableClosingConfirmation(); } catch (e) {}
-    try { if (tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
-    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("7.7") && tg.disableVerticalSwipes) tg.disableVerticalSwipes(); } catch (e) {}
-    try { if (tg.isVersionAtLeast && tg.isVersionAtLeast("8.0") && tg.requestFullscreen) tg.requestFullscreen(); } catch (e) {}
-  }
-  if ("mediaSession" in navigator) {
-    try {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: (c.n || "Telekanal") + " (Jonli Efir)",
-        artist: "Baunty TV · 4K Ultra HD",
-        album: "Jonli TV",
-        artwork: [{ src: c.l || "favicon.ico", sizes: "512x512", type: "image/png" }]
-      });
-      navigator.mediaSession.playbackState = "playing";
-      navigator.mediaSession.setActionHandler("play", () => { vid.play().catch(() => {}); });
-      navigator.mediaSession.setActionHandler("pause", () => { vid.play().catch(() => {}); });
-    } catch (e) {}
-  }
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  const qb = "4K UHD";
-  $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
-  if ($("fsname")) $("fsname").textContent = c.n || "Telekanal";
+  $("tvname").textContent = c.n;
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
-  const qBtn = $("tvq");
-  if (qBtn) qBtn.textContent = "4K UHD";
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);
   if (same.length < 6) same = same.concat(tvItems.filter((x) => x.c === c.c && x.i !== c.i && !same.includes(x)));
   same = same.slice(0, 60);
@@ -1397,14 +895,9 @@ function openTV(c, push = true) {
 }
 function closeTV(fromPop = false) {
   if (!tvCur) return;
-  if (isTVFullscreen) toggleTVFullscreen(false);
-  tvCur = null; tvTry++; userStoppedVideo = true; stopVideo();
+  tvCur = null; tvTry++; stopVideo();
   $("tvp").classList.remove("open");
-  if (inTg) {
-    tg.BackButton.hide();
-    try { if (tg.exitFullscreen) tg.exitFullscreen(); } catch (e) {}
-    try { if (tg.enableVerticalSwipes) tg.enableVerticalSwipes(); } catch (e) {}
-  }
+  if (inTg) tg.BackButton.hide();
   if (!fromPop && tvPushed) history.back();
   tvPushed = false;
   if (mode === "tv") renderTV();
@@ -1446,56 +939,6 @@ $("tvdel").onclick = () => {
   else if (confirm(`«${c.n}» o'chirilsinmi?`)) go();
 };
 $("unmute").onclick = () => { vid.muted = false; $("unmute").hidden = true; vid.play().catch(() => {}); };
-vid.onclick = () => {
-  if (vid.paused) {
-    vid.play().catch(() => {});
-  } else if (vid.muted) {
-    vid.muted = false;
-    $("unmute").hidden = true;
-  }
-};
-const tvqBtn = $("tvq");
-if (tvqBtn) {
-  tvqBtn.onclick = () => {
-    if (!tvCur) return;
-    if (hls && hls.levels && hls.levels.length > 1) {
-      if (hls.autoLevelEnabled) {
-        let best = 0, maxScore = -1;
-        for (let i = 0; i < hls.levels.length; i++) {
-          const lvl = hls.levels[i];
-          const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
-          if (score > maxScore) { maxScore = score; best = i; }
-        }
-        hls.currentLevel = best;
-        hls.loadLevel = best;
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Majburiy)", 1400);
-      } else {
-        hls.currentLevel = -1;
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
-      }
-      return;
-    }
-    const curSrc = (hls && hls.url) || vid.src || "";
-    if (curSrc.includes("cinerama.uz")) {
-      if (curSrc.includes("tracks-v1a1")) {
-        const autoUrl = curSrc.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
-        attempt(autoUrl).catch(() => {});
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
-      } else {
-        const directUrl = curSrc.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
-        attempt(directUrl).catch(() => {});
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Majburiy)", 1400);
-      }
-    } else {
-      tvqBtn.textContent = "4K UHD";
-      toast("Sifat: 4K UHD (Ultra HD)", 1200);
-    }
-  };
-}
 $("tvfav").onclick = () => {
   if (!tvCur) return;
   const id = tvCur.i;
@@ -1504,290 +947,22 @@ $("tvfav").onclick = () => {
   $("tvfav").textContent = tvFav.includes(id) ? "⭐" : "☆";
   toast(tvFav.includes(id) ? "⭐ Sevimlilarga qo'shildi" : "Sevimlilardan olib tashlandi", 1400);
 };
-let isTVFullscreen = false;
-let fsControlTimer = null;
-
-function resetFsTimer() {
-  const fsBar = $("fsbar");
-  if (!fsBar || !isTVFullscreen) return;
-  fsBar.classList.remove("fade-out");
-  clearTimeout(fsControlTimer);
-  fsControlTimer = setTimeout(() => {
-    if (isTVFullscreen && !vid.paused) {
-      fsBar.classList.add("fade-out");
-    }
-  }, 3500);
-}
-
-function updateFullscreenUI() {
-  const tvp = $("tvp");
-  const fsBtn = $("tvfs");
-  const fsName = $("fsname");
-  if (tvCur && fsName) {
-    fsName.textContent = tvCur.n || "Telekanal";
-  }
-  if (isTVFullscreen) {
-    tvp.classList.add("tv-full-screen-mode");
-    if (fsBtn) {
-      fsBtn.textContent = "✕";
-      fsBtn.title = "Kichraytirish";
-      fsBtn.style.color = "var(--accent)";
-    }
-    resetFsTimer();
-  } else {
-    tvp.classList.remove("tv-full-screen-mode");
-    const fsBar = $("fsbar");
-    if (fsBar) fsBar.classList.remove("fade-out");
-    clearTimeout(fsControlTimer);
-    if (fsBtn) {
-      fsBtn.textContent = "⛶";
-      fsBtn.title = "To'liq ekran";
-      fsBtn.style.color = "";
-    }
-  }
-}
-
-async function toggleTVFullscreen(forceState) {
-  haptic();
-  const targetState = typeof forceState === "boolean" ? forceState : !isTVFullscreen;
-  isTVFullscreen = targetState;
+$("tvfs").onclick = () => {
   const box = $("vbox");
-  const tvp = $("tvp");
-
-  if (isTVFullscreen) {
-    updateFullscreenUI();
-    toast("📺 To'liq ekran (4K UHD)", 1200);
-
-    // 1. Telegram 8.0+ WebApp API
-    if (inTg) {
-      try { if (tg.expand) tg.expand(); } catch (e) {}
-      try { if (tg.requestFullscreen) tg.requestFullscreen(); } catch (e) {}
-    }
-
-    // 2. Ekran aylanishi (landscape orientation)
-    try {
-      if (screen.orientation && screen.orientation.lock) {
-        screen.orientation.lock("landscape").catch(() => {});
-      }
-    } catch (e) {}
-
-    // 3. HTML5 va Webkit fullscreen (desktop, tablet, android)
-    try {
-      const fsTarget = (tvp && tvp.requestFullscreen) ? tvp : (box && box.requestFullscreen ? box : null);
-      if (fsTarget) {
-        await fsTarget.requestFullscreen();
-      } else if (vid.webkitEnterFullscreen && /iPhone|iPod/.test(navigator.userAgent)) {
-        vid.webkitEnterFullscreen();
-      } else if (vid.requestFullscreen) {
-        await vid.requestFullscreen();
-      } else if (document.documentElement.requestFullscreen) {
-        await document.documentElement.requestFullscreen();
-      }
-    } catch (e) {
-      console.log("Native fullscreen unavailable; CSS pseudo-fullscreen active:", e);
-    }
-  } else {
-    updateFullscreenUI();
-
-    // 1. Native fullscreen dan chiqish
-    try {
-      if (document.fullscreenElement || document.webkitFullscreenElement) {
-        if (document.exitFullscreen) await document.exitFullscreen();
-        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
-      }
-    } catch (e) {}
-
-    // 2. Telegram WebApp Fullscreen dan chiqish
-    if (inTg && tg.exitFullscreen) {
-      try { tg.exitFullscreen(); } catch (e) {}
-    }
-
-    // 3. Orientation unlock
-    try {
-      if (screen.orientation && screen.orientation.unlock) {
-        screen.orientation.unlock().catch(() => {});
-      }
-    } catch (e) {}
-  }
-}
-
-function bindClickAndTouch(el, handler) {
-  if (!el) return;
-  let touched = false;
-  el.addEventListener("touchend", (e) => {
-    touched = true;
-    e.preventDefault();
-    e.stopPropagation();
-    handler(e);
-    setTimeout(() => { touched = false; }, 300);
-  }, {passive: false});
-  el.addEventListener("click", (e) => {
-    if (touched) return;
-    e.preventDefault();
-    e.stopPropagation();
-    handler(e);
-  });
-}
-
-bindClickAndTouch($("tvfs"), () => toggleTVFullscreen());
-bindClickAndTouch($("vboxfs"), () => toggleTVFullscreen(true));
-bindClickAndTouch($("fsclose"), () => toggleTVFullscreen(false));
-bindClickAndTouch($("fsmute"), () => {
-  vid.muted = !vid.muted;
-  const fsmuteBtn = $("fsmute");
-  if (fsmuteBtn) fsmuteBtn.textContent = vid.muted ? "🔇" : "🔊";
-  toast(vid.muted ? "🔇 Ovoz o'chirildi" : "🔊 Ovoz yoqildi", 1000);
-});
-bindClickAndTouch($("fsq"), () => {
-  const tvq = $("tvq");
-  if (tvq) tvq.click();
-});
-
-// Native fullscreen hodisalarini kuzatish
-document.addEventListener("fullscreenchange", () => {
-  if (!document.fullscreenElement && isTVFullscreen) {
-    isTVFullscreen = false;
-    updateFullscreenUI();
-  }
-});
-document.addEventListener("webkitfullscreenchange", () => {
-  if (!document.webkitFullscreenElement && isTVFullscreen) {
-    isTVFullscreen = false;
-    updateFullscreenUI();
-  }
-});
-vid.addEventListener("webkitendfullscreen", () => {
-  if (isTVFullscreen) {
-    isTVFullscreen = false;
-    updateFullscreenUI();
-  }
-});
-
-// Fullscreen harakat / bosilganda boshqaruv panelini ko'rsatish
-$("vbox").addEventListener("mousemove", () => { if (isTVFullscreen) resetFsTimer(); });
-$("vbox").addEventListener("touchstart", () => { if (isTVFullscreen) resetFsTimer(); }, {passive: true});
-
-// Tap va Double-tap: oddiy rejimda tugmani ta'kidlash / to'liq ekranda panelni ko'rsatish
-let lastVidClickTime = 0;
-function onPlayerAreaTap(e) {
-  if (e.target.closest("button") || e.target.closest(".fs-bar") || e.target.closest(".vov#verr")) return;
-  const now = Date.now();
-  if (now - lastVidClickTime < 350) {
-    toggleTVFullscreen();
-    lastVidClickTime = 0;
-  } else {
-    lastVidClickTime = now;
-    if (isTVFullscreen) {
-      const fsBar = $("fsbar");
-      if (fsBar) {
-        if (fsBar.classList.contains("fade-out")) {
-          resetFsTimer();
-        } else {
-          fsBar.classList.add("fade-out");
-        }
-      }
-    } else {
-      const btn = $("vboxfs");
-      if (btn) {
-        btn.style.transform = "scale(1.15)";
-        btn.style.background = "var(--accent)";
-        setTimeout(() => {
-          btn.style.transform = "";
-          btn.style.background = "";
-        }, 500);
-      }
-    }
-  }
-}
-
-const playerBox = $("vbox");
-if (playerBox) {
-  playerBox.addEventListener("click", onPlayerAreaTap);
-}
-
-// Desktop klaviatura: 'f' to'liq ekran, 'Escape' chiqish, 'm' ovoz
-window.addEventListener("keydown", (e) => {
-  if (tvCur && !["INPUT", "TEXTAREA"].includes(document.activeElement?.tagName)) {
-    if (e.key === "f" || e.key === "F") {
-      toggleTVFullscreen();
-    } else if (e.key === "Escape" && isTVFullscreen) {
-      toggleTVFullscreen(false);
-    } else if (e.key === "m" || e.key === "M") {
-      vid.muted = !vid.muted;
-      toast(vid.muted ? "🔇 Ovoz o'chirildi" : "🔊 Ovoz yoqildi", 1000);
-    }
-  }
-});
-const pipBtn = $("tvpip");
-if (pipBtn) {
-  pipBtn.onclick = async () => {
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-      } else if (vid.requestPictureInPicture) {
-        await vid.requestPictureInPicture();
-      }
-    } catch (e) {
-      toast("PiP rejimi", 1200);
-    }
-  };
-}
+  try {
+    if (box.requestFullscreen) box.requestFullscreen().then(() => { try { screen.orientation.lock("landscape"); } catch (e) {} }).catch(() => vid.webkitEnterFullscreen && vid.webkitEnterFullscreen());
+    else if (vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();
+  } catch (e) {}
+};
 document.addEventListener("click", (e) => {
   const t = e.target.closest("[data-tv]");
   if (!t) return;
-  const rawId = t.dataset.tv;
-  const c = tvById.get(rawId) || tvById.get(+rawId) || tvById.get(String(rawId)) || (tvItems && tvItems.find(x => String(x.i) === String(rawId) || String(x.id) === String(rawId)));
-  if (!c) {
-    console.warn("TV channel not found:", rawId);
-    return;
-  }
+  const c = tvById.get(t.dataset.tv);
+  if (!c) return;
   openTV(c, !tvCur);
 });
-// Fon rejimiga o'tganda yoki ilova qisman surilganda/minimizatsiyada efir to'xtab qolmasin
-const autoResumeStream = () => {
-  if (tvCur && !userStoppedVideo && vid.paused && !vid.ended) {
-    vid.play().catch(() => {});
-  }
-};
-document.addEventListener("visibilitychange", autoResumeStream);
-window.addEventListener("blur", autoResumeStream);
-window.addEventListener("focus", autoResumeStream);
-window.addEventListener("pageshow", autoResumeStream);
-
-vid.addEventListener("pause", () => {
-  // Agar foydalanuvchi stopVideo yoki closeTV chaqirmagan bo'lsa,
-  // minimizatsiya yoki pastga tortishda video to'xtab qolishini oldini olish
-  if (tvCur && !userStoppedVideo && !vid.ended) {
-    setTimeout(autoResumeStream, 80);
-  }
-});
-const vboxEl = $("vbox");
-if (vboxEl) {
-  vboxEl.addEventListener("touchmove", (e) => {
-    if (e.cancelable) e.preventDefault();
-  }, {passive: false});
-}
-const tvBarEl = document.querySelector(".tvbar");
-if (tvBarEl) {
-  tvBarEl.addEventListener("touchmove", (e) => {
-    if (e.cancelable) e.preventDefault();
-  }, {passive: false});
-}
-const tvpEl = $("tvp");
-if (tvpEl) {
-  let touchStartY = 0;
-  tvpEl.addEventListener("touchstart", (e) => {
-    if (e.touches && e.touches[0]) touchStartY = e.touches[0].clientY;
-  }, {passive: true});
-  tvpEl.addEventListener("touchmove", (e) => {
-    if (e.touches && e.touches[0]) {
-      const currentY = e.touches[0].clientY;
-      if (tvpEl.scrollTop <= 0 && currentY > touchStartY) {
-        if (e.cancelable) e.preventDefault();
-      }
-    }
-  }, {passive: false});
-}
+if (inTg) tg.BackButton.onClick(() => { if (tvCur) closeTV(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && tvCur) vid.pause(); });
 
 // ---------- yuklash ----------
 async function load() {
@@ -1813,8 +988,7 @@ async function load() {
     if (window.ZDocs) ZDocs.setBot(botName);
     if (window.ZStory) ZStory.setBot(botName);
     if (window.ZBooks) ZBooks.setBot(botName);
-    if (window.ZQuiz && window.ZQuiz.setBot) ZQuiz.setBot(botName);
-    if (window.ZFood && window.ZFood.setBot) ZFood.setBot(botName);
+    if (window.ZQuiz) ZQuiz.setBot(botName);
     if (window.ZK_SEGS.length < 2) $("seg").outerHTML = `<h1 style="font-size:21px;margin:0;font-weight:800;letter-spacing:-.3px">🎬 Kinolar</h1>`;
   } catch (e) {
     $("main").innerHTML = `<div class="empty"><div class="big">📶</div><b>Yuklab bo'lmadi</b>Internetni tekshiring.<br><br>
@@ -1823,33 +997,19 @@ async function load() {
     return;
   }
   items.forEach((x) => { x._n = norm(x.t); x._k = x._n + " " + norm(x.d) + " " + x.c; byCode.set(x.c, x); });
-  window.ZK_ITEMS = items;
   if (mode !== "kino") return;
   $("count").textContent = `${items.length} ta kino · posterini bosing`;
   $("chan").hidden = !channel;
   render();
-  setTimeout(() => {
-    const activeBtn = $("seg")?.querySelector(".on");
-    if (activeBtn && window.ZK && window.ZK.updateIndicator) {
-      window.ZK.updateIndicator(activeBtn);
-    }
-  }, 120);
   const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || new URLSearchParams(location.search).get("c") || "";
   if (document.querySelector('#seg [data-m="games"]') && (/^games/i.test(sp) || new URLSearchParams(location.search).has("games"))) {
     const gid = sp.split("_")[1]; setMode("games"); if (gid && window.ZGames && ZGames.ids.includes(gid)) ZGames.open(gid); return; }
   const stq = new URLSearchParams(location.search).get("story");
   if (document.querySelector('#seg [data-m="story"]') && (/^st(ory)?(_|$)/i.test(sp) || stq !== null)) {
     setMode("story"); const spec = stq || sp.replace(/^st(ory)?_?/i, ""); if (spec && window.ZStory) ZStory.open(spec); return; }
-  if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
-  if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
-    setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
   const bkq = new URLSearchParams(location.search).get("books");
-  if (document.querySelector('#seg [data-m="books"]') && (/^(book|books|b$|b_)/i.test(sp) || bkq !== null || new URLSearchParams(location.search).has("book"))) {
-    setMode("books");
-    const bid = (bkq || sp.replace(/^\D+_?/, "")).replace(/\D/g, "");
-    if (bid && window.ZBooks) ZBooks.open(bid);
-    return;
-  }
+  if (document.querySelector('#seg [data-m="books"]') && (/^(books|kitob)/i.test(sp) || bkq !== null)) {
+    setMode("books"); const bid = (bkq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (bid && window.ZBooks) ZBooks.open(bid); return; }
   const qzq = new URLSearchParams(location.search).get("quiz");
   if (document.querySelector('#seg [data-m="quiz"]') && (/^(q\d{6}|qz\d+|quiz)/i.test(sp) || qzq !== null)) {
     setMode("quiz"); const arg = qzq || (sp.match(/^q(\d{6})$/i) || [])[1] || ((sp.match(/^qz(\d+)$/i) || [])[1] ? "z" + sp.slice(2) : "");
@@ -1858,6 +1018,9 @@ async function load() {
   if (document.querySelector('#seg [data-m="food"]') && (/^(food|taom)/i.test(sp) || fdq !== null)) {
     setMode("food"); const rid = (fdq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (rid && window.ZFood) ZFood.show(rid); return; }
   if (document.querySelector('#seg [data-m="fx"]') && (/^(fx|kurs)/i.test(sp) || new URLSearchParams(location.search).has("fx"))) { setMode("fx"); return; }
+  if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
+  if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
+    setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
   const code = +String(sp).replace(/\D/g, "");
   if (code && byCode.has(code)) openDetail(byCode.get(code), false);

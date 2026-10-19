@@ -1409,6 +1409,7 @@ def create_web_app() -> web.Application:
     f_dir = webapp_dir / "f"
     if f_dir.exists():
         app.router.add_static("/f", f_dir, name="fonts")
+        app.router.add_static("/webapp/f", f_dir, name="webapp_fonts")
 
     # Asosiy Mini App papkasidagi barcha statik fayllarni root orqali ham berish
     for fpath in webapp_dir.iterdir():
