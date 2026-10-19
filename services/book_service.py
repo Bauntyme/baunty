@@ -125,17 +125,90 @@ def get_catalog(
 
 
 def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
-    """Kitobni ID orqali olish."""
+    """Kitobni ID orqali olish (mahalliy yoki upstream katalogidan)."""
     load_books()
-    return _BOOKS_BY_ID.get(str(book_id))
+    bid = str(book_id).strip()
+    book = _BOOKS_BY_ID.get(bid)
+    if book:
+        return book
+
+    # Agar lokal bazada bo'lmasa, upstream katalogidan olishga urinish
+    try:
+        import urllib.request
+        url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
+        req = urllib.request.Request(url, headers={"User-Agent": "BauntyBot/2.0"})
+        with urllib.request.urlopen(req, timeout=3.5) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                if data.get("ok") and data.get("book"):
+                    ub = data["book"]
+                    title = ub.get("t") or f"Kitob #{bid}"
+                    author = ub.get("a") or "Noma'lum muallif"
+                    category_code = ub.get("g") or "badiiy"
+                    meta = next((c for c in CATEGORIES_META if c["id"] == category_code), None)
+                    category_name = meta["name"] if meta else "Badiiy adabiyot"
+                    desc = ub.get("desc") or f"{title} — {author} asari."
+                    size_bytes = (ub.get("s") or {}).get("pdf") or 2500000
+                    size_mb = round(size_bytes / 1048576, 1) if size_bytes else 2.5
+
+                    book_obj = {
+                        "id": str(ub.get("i", bid)),
+                        "title": title,
+                        "author": author,
+                        "category": category_code,
+                        "category_name": category_name,
+                        "pages": ub.get("p") or 120,
+                        "lang": ub.get("l") or "uz",
+                        "year": ub.get("y"),
+                        "rating": ub.get("r") or 4.9,
+                        "views": (ub.get("rd") or 10) * 150,
+                        "format": "PDF",
+                        "size_mb": size_mb,
+                        "popular": True,
+                        "description": desc,
+                        "sample_text": f"«{title}» ({author}) kitobining mutolaa va tanishuv nusxasi.",
+                        "cover": f"https://161-97-96-58.sslip.io/bk/{ub.get('i', bid)}/cover_l.webp" if ub.get("c") else "",
+                        # Upstream mosligi (i, t, a, c, p, l, g, f)
+                        "i": ub.get("i", int(bid) if bid.isdigit() else 0),
+                        "t": title,
+                        "a": author,
+                        "c": ub.get("c", 0),
+                        "p": ub.get("p", 120),
+                        "l": ub.get("l", "uz"),
+                        "g": category_code,
+                        "f": ub.get("f", ["pdf"]),
+                    }
+                    _BOOKS_BY_ID[bid] = book_obj
+                    return book_obj
+    except Exception as e:
+        logger.debug(f"Upstreamdan kitob #{book_id} yuklab bo'lmadi: {e}")
+
+    return None
 
 
 def search_books(query: str, limit: int = 25) -> List[Dict[str, Any]]:
-    """Kitoblarni tezkor qidirish."""
+    """Kitoblarni tezkor qidirish (dual-schema: ham i, t, a, ham id, title, author bilan)."""
     if not query:
         return []
     res = get_catalog(query=query, limit=limit)
-    return res.get("items", [])
+    items = res.get("items", [])
+    normalized = []
+    for it in items:
+        b = dict(it)
+        b["id"] = str(b.get("i") or b.get("id", ""))
+        b["title"] = b.get("t") or b.get("title", "")
+        b["author"] = b.get("a") or b.get("author", "")
+        b["category"] = b.get("g") or b.get("category", "badiiy")
+        b["i"] = b.get("i") or (int(b["id"]) if str(b.get("id", "")).isdigit() else 0)
+        b["t"] = b["title"]
+        b["a"] = b["author"]
+        b["g"] = b["category"]
+        b["c"] = b.get("c") or (1 if b.get("cover") else 0)
+        b["p"] = b.get("p") or b.get("pages", 100)
+        b["l"] = b.get("l") or b.get("lang", "uz")
+        b["f"] = b.get("f") or [b.get("format", "pdf").lower()]
+        normalized.append(b)
+    return normalized
 
 
 def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:

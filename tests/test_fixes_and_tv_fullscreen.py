@@ -189,3 +189,68 @@ async def test_story_service_429_early_exit():
     assert len(called_urls) == 1
     assert "stories/syrex_support" in called_urls[0]
 
+
+@pytest.mark.asyncio
+async def test_upstream_books_search_and_dual_schema():
+    """Kitoblar qidiruvida upstream integratsiyasi va dual-schema (i, t, a va id, title, author) mavjudligi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        resp = await client.get("/api/books/search?q=Atom")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data.get("ok") is True
+        assert "items" in data
+        assert len(data["items"]) >= 1
+        item = data["items"][0]
+        # Dual-schema tekshiruvi: ham books.js (i, t, a), ham testlar (id, title, author)
+        assert "id" in item and "title" in item and "author" in item
+        assert "i" in item and "t" in item and "a" in item
+        assert item["id"] == str(item["i"])
+        assert item["title"] == item["t"]
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_book_send_accepts_i_parameter():
+    """POST /api/books/send endpointi books.js yuboradigan {i: ...} parametrini to'g'ri qabul qilishi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # 1. bodyda i parametri bilan yuborilganda not_found (400) xatosi bermasligi
+        resp = await client.post("/api/books/send", json={"i": 1})
+        assert resp.status == 200
+        data = await resp.json()
+        assert data.get("ok") is False
+        assert data.get("action") == "open_bot"
+        assert "start=b_1" in data.get("url", "")
+    finally:
+        await client.close()
+
+
+def test_music_home_json_zero_branding_leaks():
+    """data/music_home.json faylida Zakirova yoki Dilbar brendi 100% yo'qligini tekshirish."""
+    import re
+    music_file = BASE_DIR / "data" / "music_home.json"
+    if music_file.exists():
+        content = music_file.read_text(encoding="utf-8")
+        matches = re.findall(r'(zakirov\w*|dilbar\w*)', content, re.I)
+        assert len(matches) == 0, f"data/music_home.json faylida brend sizishi topildi: {matches}"
+
+
+def test_tv_200_channels_and_uzbek_expansion():
+    """TV kanallari 200 taga kengaytirilgani va 100+ o'zbek telekanali mavjudligi."""
+    from services.tv_data import CHANNELS_LIST, TV_CATEGORIES
+    assert len(CHANNELS_LIST) >= 200
+    uz_channels = [c for c in CHANNELS_LIST if c.get("c") == "uz"]
+    assert len(uz_channels) >= 100, f"O'zbek telekanallari kamida 100 ta bo'lishi kerak, hozir: {len(uz_channels)}"
+    assert TV_CATEGORIES[0]["title"] == "Barchasi (200)"
+
+

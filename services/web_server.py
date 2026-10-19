@@ -89,8 +89,13 @@ def sanitize_catalog_text(text: str) -> str:
     text = text.replace("@dilbarzakirova", config.CHANNEL_USERNAME)
     text = text.replace("Zakirovs Films", "Baunty Films")
     text = text.replace("Zakirovs_bot", config.BOT_USERNAME.lstrip('@'))
-    text = text.replace("Zakirovs", "Baunty")
-    text = text.replace("zakirovs", "baunty")
+    text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{config.CHANNEL_USERNAME.lstrip("@")}', text, flags=re.I)
+    text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{config.CHANNEL_USERNAME.lstrip("@")}', text, flags=re.I)
+    text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
+    text = re.sub(r'Zakirovs?\b', 'Baunty', text, flags=re.I)
+    text = re.sub(r'zakirovs?\b', 'baunty', text, flags=re.I)
+    text = re.sub(r'Zakirova\b', 'Baunty', text, flags=re.I)
+    text = re.sub(r'zakirova\b', 'baunty', text, flags=re.I)
     return text
 
 
@@ -278,7 +283,7 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
         if now - entry["ts"] < 120:
             return web.Response(
                 body=entry["body"],
-                content_type="application/json",
+                content_type=entry.get("content_type", "application/json"),
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
@@ -311,6 +316,7 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 timeout=aiohttp.ClientTimeout(total=6)
             ) as resp:
                 resp_bytes = await resp.read()
+                resp_content_type = resp.headers.get("Content-Type", "application/json")
                 try:
                     resp_text = resp_bytes.decode("utf-8")
                     clean_text = sanitize_catalog_text(resp_text)
@@ -319,12 +325,16 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                     pass
 
                 if request.method == "GET" and resp.status == 200:
-                    _UPSTREAM_API_CACHE[cache_key] = {"body": resp_bytes, "ts": now}
+                    _UPSTREAM_API_CACHE[cache_key] = {
+                        "body": resp_bytes,
+                        "content_type": resp_content_type,
+                        "ts": now
+                    }
 
                 return web.Response(
                     body=resp_bytes,
                     status=resp.status,
-                    content_type=resp.headers.get("Content-Type", "application/json"),
+                    content_type=resp_content_type,
                     headers={"Access-Control-Allow-Origin": "*"}
                 )
     except Exception as e:
@@ -1200,19 +1210,63 @@ async def handle_books_catalog(request: web.Request) -> web.Response:
 
 
 async def handle_books_search(request: web.Request) -> web.Response:
-    """Kitoblarni tezkor qidirish API."""
+    """Kitoblarni tezkor qidirish API (Upstream 3390+ kitoblar va mahalliy zaxira)."""
     q = request.query.get("q", "").strip()
     try:
-        limit = int(request.query.get("limit", 25))
+        limit = int(request.query.get("limit") or request.query.get("n") or 30)
     except (ValueError, TypeError):
-        limit = 25
-    from services import book_service
-    items = book_service.search_books(q, limit=limit)
-    return web.json_response({"ok": True, "items": items, "total": len(items)})
+        limit = 30
+    try:
+        offset = int(request.query.get("offset") or request.query.get("o") or 0)
+    except (ValueError, TypeError):
+        offset = 0
+
+    items = []
+    total = 0
+
+    # 1. Avval real-time upstream API ga so'rov (3390+ kitoblar)
+    upstream_url = "https://161-97-96-58.sslip.io/api/books/search"
+    if request.query_string:
+        upstream_url += f"?{request.query_string}"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    raw_data = await resp.json()
+                    if isinstance(raw_data, dict) and "items" in raw_data:
+                        raw_items = raw_data.get("items", [])
+                        total = raw_data.get("total", len(raw_items))
+                        for it in raw_items:
+                            b = dict(it)
+                            # Dual schema: ham tests uchun id, title, author, ham webapp uchun i, t, a
+                            b["id"] = str(b.get("i", b.get("id", "")))
+                            b["title"] = b.get("t", b.get("title", ""))
+                            b["author"] = b.get("a", b.get("author", ""))
+                            b["category"] = b.get("g", b.get("category", "badiiy"))
+                            b["i"] = b.get("i") or (int(b["id"]) if str(b["id"]).isdigit() else 0)
+                            b["t"] = b["title"]
+                            b["a"] = b["author"]
+                            b["g"] = b["category"]
+                            b["c"] = b.get("c", 0)
+                            b["p"] = b.get("p", 0)
+                            b["l"] = b.get("l", "uz")
+                            items.append(b)
+    except Exception as e:
+        logger.debug(f"Upstream books search xatosi ({e}), lokal qidiruvga o'tiladi")
+
+    # 2. Agar upstream natija bermasa yoki offline bo'lsa — mahalliy katalogdan qidirish
+    if not items and q:
+        from services import book_service
+        local_items = book_service.search_books(q, limit=limit)
+        total = len(local_items)
+        items = local_items
+
+    return web.json_response({"ok": True, "items": items, "total": total})
 
 
 async def handle_book_detail(request: web.Request) -> web.Response:
-    """Kitobning to'liq ma'lumotlarini olish."""
+    """Kitobning to'liq ma'lumotlarini olish (mahalliy yoki upstream)."""
     book_id = request.match_info.get("id", "").strip()
     from services import book_service
     book = book_service.get_book_by_id(book_id)
@@ -1234,7 +1288,7 @@ async def handle_book_send(request: web.Request) -> web.Response:
         or request.query.get("user_id")
         or body.get("user_id")
     )
-    book_id = str(body.get("id") or body.get("book_id") or "").strip()
+    book_id = str(body.get("id") or body.get("book_id") or body.get("i") or "").strip()
 
     if not book_id:
         return web.json_response({"ok": False, "error": "not_found"}, status=400)
