@@ -203,6 +203,65 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     return web.Response(status=404, text="Resurs topilmadi")
 
 
+async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
+    """Retseptlar rasmlarini (rc/...) keshlab uzatish."""
+    tail = request.match_info.get("tail", "").lstrip("/")
+    if not tail or ".." in tail:
+        return web.Response(status=404, text="Topilmadi")
+
+    ext = os.path.splitext(tail)[1].lower()
+    ct_map = {
+        ".webp": "image/webp",
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+    }
+    content_type = ct_map.get(ext, "image/webp")
+
+    rc_dir = BASE_DIR / "data" / "rc"
+    local_path = rc_dir / tail
+    if local_path.exists():
+        try:
+            with open(local_path, "rb") as f:
+                content = f.read()
+            return web.Response(
+                body=content,
+                content_type=content_type,
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "Access-Control-Allow-Origin": "*",
+                }
+            )
+        except Exception:
+            pass
+
+    upstream_url = f"https://161-97-96-58.sslip.io/rc/{tail}"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                if resp.status == 200:
+                    content = await resp.read()
+                    try:
+                        local_path.parent.mkdir(parents=True, exist_ok=True)
+                        with open(local_path, "wb") as bf:
+                            bf.write(content)
+                    except Exception:
+                        pass
+                    return web.Response(
+                        body=content,
+                        content_type=content_type,
+                        headers={
+                            "Cache-Control": "public, max-age=604800, immutable",
+                            "Access-Control-Allow-Origin": "*",
+                        }
+                    )
+    except Exception as e:
+        logger.warning(f"Taom rasmi yuklanmadi ({tail}): {e}")
+
+    return web.Response(status=404, text="Rasm topilmadi")
+
+
 _UPSTREAM_API_CACHE: Dict[str, Any] = {}
 
 
@@ -1334,6 +1393,8 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/p/{filename}", handle_poster_proxy)
     app.router.add_get("/bk/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/webapp/bk/{tail:.*}", handle_book_asset_proxy)
+    app.router.add_get("/rc/{tail:.*}", handle_rc_asset_proxy)
+    app.router.add_get("/webapp/rc/{tail:.*}", handle_rc_asset_proxy)
 
     # Statik fayllarni ulash (CSS, JS, Assetlar, Shriftlar)
     webapp_dir = BASE_DIR / "webapp"

@@ -372,8 +372,9 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
       <input id="q" type="search" inputmode="search" autocomplete="off" enterkeyhint="search" placeholder="Kino nomi yoki kodi…">
       <button class="clr" id="clr" type="button" aria-label="Tozalash">✕</button>
+      <button class="zk-dice" id="dice" type="button" aria-label="Tasodifiy kino tanlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/></svg></button>
     </label>
-    <button class="zk-dice" id="zkDice" title="Tasodifiy kino" type="button" aria-label="Tasodifiy kino">
+    <button class="zk-dice" id="zkDice" title="Tasodifiy kino" type="button" aria-label="Tasodifiy kino" style="display:none">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
         <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM7.5 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm0 9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5-4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm4.5 4.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm0-9a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
       </svg>
@@ -441,6 +442,7 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <div class="t"><b id="mmt"></b><small id="mma"></small></div>
   <button class="c" id="mmplay" aria-label="Ijro / pauza"></button>
   <button class="c" id="mmnext" aria-label="Keyingisi"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 6.2v11.6a1 1 0 0 0 1.55.83l8.7-5.8a1 1 0 0 0 0-1.66l-8.7-5.8A1 1 0 0 0 5 6.2z"/><rect x="16.6" y="5" width="2.6" height="14" rx="1.2"/></svg></button>
+  <button class="c x" id="mmx" aria-label="Yopish">✕</button>
   <div class="pr"><i id="mmpr"></i></div>
 </div>
 <div class="m-top" id="mtop" hidden role="region" aria-label="Hozir ijroda">
@@ -504,6 +506,10 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <div class="gx-scroll" id="gxscroll"><div id="gxview" style="display:flex;flex-direction:column;flex:1"></div></div>
 </section>
 
+<!-- ================= 📚 KITOB ================= -->
+<section class="bx" id="books" hidden><div id="bxview" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative"></div></section>
+<div class="bx-sbg" id="bxsbg"></div><div class="bx-sheet" id="bxsheet" role="dialog" aria-modal="true"></div><div class="bx-toast" id="bxtoast" role="status"></div>
+
 <!-- ================= 👻 STORY ================= -->
 <section class="sx" id="story" hidden><div id="sxview" style="display:flex;flex-direction:column;flex:1;min-height:0;position:relative"></div></section>
 
@@ -514,6 +520,15 @@ body.seg4 .seg button{padding:6px 10px;font-size:13.5px}
   <div class="dx-foot" id="dxfoot"></div>
   <input type="file" id="dxfile" hidden>
 </section>
+
+<!-- ================= 🧠 VIKTORINA ================= -->
+<section class="qz" id="quiz" hidden><div class="qz-scroll" id="qzscroll"><div id="qzview"></div></div></section>
+
+<!-- ================= 🍲 TAOMLAR ================= -->
+<section class="fd" id="food" hidden><div class="fd-scroll" id="fdscroll"><div id="fdview"></div></div></section>
+
+<!-- ================= 💱 KURS ================= -->
+<section class="fx" id="fx" hidden><div class="fx-scroll" id="fxscroll"><div id="fxview"></div></div></section>
 <div class="m-sbg" id="msbg"></div>
 <div class="m-sheet" id="msheet"></div>
 <div class="sheet-bg" id="sbg"></div>
@@ -1066,19 +1081,15 @@ function setMode(m) {
   if (was === "fx" && window.ZFx) ZFx.close();
   if (was === "food" && window.ZFood) ZFood.close();
   if (was === "quiz" && window.ZQuiz) ZQuiz.close();
+  const curBtn = $("seg")?.querySelector(`button[data-m="${m}"]`);
+  if (curBtn && window.ZK && window.ZK.updateIndicator) {
+    window.ZK.updateIndicator(curBtn);
+  }
   if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
   if (m === "story") { if (window.ZStory) ZStory.open(); return; }
-  if (m === "books") {
-    $("searchWrap") && ($("searchWrap").style.display = "none");
-    $("chips").innerHTML = "";
-    $("chips2").hidden = true;
-    $("chan").hidden = true;
-    $("count").textContent = "3 tilda kitoblar · bepul mutolaa";
-    if (window.ZBooks) ZBooks.open();
-    return;
-  }
+  if (m === "books") { if (window.ZBooks) ZBooks.open(); return; }
   if (m === "fx") { if (window.ZFx) ZFx.open(); return; }
   if (m === "food") { if (window.ZFood) ZFood.open(); return; }
   if (m === "quiz") { if (window.ZQuiz) ZQuiz.open(); return; }
@@ -1836,15 +1847,11 @@ async function load() {
   if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
     setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
-  if (document.querySelector('#seg [data-m="books"]') && (/^(book|books|b$|b_)/i.test(sp) || new URLSearchParams(location.search).has("books") || new URLSearchParams(location.search).has("book"))) {
+  const bkq = new URLSearchParams(location.search).get("books");
+  if (document.querySelector('#seg [data-m="books"]') && (/^(book|books|b$|b_)/i.test(sp) || bkq !== null || new URLSearchParams(location.search).has("book"))) {
     setMode("books");
-    const bq = new URLSearchParams(location.search).get("q");
-    let bid = new URLSearchParams(location.search).get("b") || new URLSearchParams(location.search).get("bid") || new URLSearchParams(location.search).get("book") || "";
-    if (!bid && sp && !/^(books?|b)$/i.test(sp)) {
-      bid = sp.replace(/^b(ook)?s?_?/i, "").trim();
-    }
-    if (bid && window.ZBooks) ZBooks.openDetail(bid);
-    else if (bq && window.ZBooks) ZBooks.search(bq);
+    const bid = (bkq || sp.replace(/^\D+_?/, "")).replace(/\D/g, "");
+    if (bid && window.ZBooks) ZBooks.open(bid);
     return;
   }
   const qzq = new URLSearchParams(location.search).get("quiz");
