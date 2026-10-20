@@ -622,6 +622,7 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     data["fx"] = True
     data["food"] = True
     data["quiz"] = True
+    data["prava"] = True
     data["maintenance"] = maintenance_service.get_state()
 
     _CATALOG_CACHE["data"] = data
@@ -1779,6 +1780,137 @@ async def handle_book_pdf(request: web.Request) -> web.Response:
     )
 
 
+# =================================================================== 🚗 PRAVA (DRIVING TEST) API
+async def handle_prava_home(request: web.Request) -> web.Response:
+    """Prava asosiy ma'lumotlari: biletlar, mavzular va statistika."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    data = prava_service.get_home_data(user_id=user_id)
+    return web.json_response(data)
+
+
+async def handle_prava_set(request: web.Request) -> web.Response:
+    """Bilet yoki mavzu bo'yicha savollar to'plamini olish."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    k = request.query.get("k", "rnd")
+    try:
+        a = int(request.query.get("a", 0))
+    except (ValueError, TypeError):
+        a = 0
+    data = prava_service.get_set(kind=k, arg=a, user_id=user_id)
+    return web.json_response(data)
+
+
+async def handle_prava_ans(request: web.Request) -> web.Response:
+    """Savol javobini serverda tekshirish."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    q_id = int(body.get("id", 0))
+    choice = int(body.get("c", -1))
+    data = prava_service.check_answer(q_id=q_id, choice=choice, user_id=user_id)
+    return web.json_response(data)
+
+
+async def handle_prava_bilet(request: web.Request) -> web.Response:
+    """Bilet natijasini saqlash."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    b = int(body.get("b", 0))
+    s = int(body.get("s", 0))
+    data = prava_service.save_bilet_score(bilet_num=b, score=s, user_id=user_id)
+    return web.json_response(data)
+
+
+async def handle_prava_exam_start(request: web.Request) -> web.Response:
+    """Rasmiy 20 talik imtihonni boshlash."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    data = prava_service.start_exam(user_id=user_id)
+    return web.json_response(data)
+
+
+async def handle_prava_exam_ans(request: web.Request) -> web.Response:
+    """Imtihon savoliga javob berish."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    k = int(body.get("k", 0))
+    c = int(body.get("c", -1))
+    data = prava_service.answer_exam(question_idx=k, choice=c, user_id=user_id)
+    return web.json_response(data)
+
+
+async def handle_prava_exam_finish(request: web.Request) -> web.Response:
+    """Imtihonni yakunlash va natijalarni hisoblash."""
+    from services.prava_service import prava_service
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", "")) or 0
+    data = prava_service.finish_exam(user_id=user_id)
+    return web.json_response(data)
+
+
+# =================================================================== 🔒 SUB GATE & 💛 DONATE API
+async def handle_api_sub(request: web.Request) -> web.Response:
+    """Majburiy kanal obunasini tekshirish API (subGate)."""
+    user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", ""))
+    channel = config.CHANNEL_USERNAME.strip()
+    if not user_id or not channel or not _bot_instance:
+        return web.json_response({"ok": True, "sub": True})
+
+    if config.is_admin(user_id):
+        return web.json_response({"ok": True, "sub": True})
+
+    try:
+        member = await _bot_instance.get_chat_member(chat_id=channel, user_id=user_id)
+        status = getattr(member, "status", None) or (member.get("status") if isinstance(member, dict) else "")
+        if status in ("creator", "administrator", "member", "restricted"):
+            return web.json_response({"ok": True, "sub": True})
+        else:
+            return web.json_response({
+                "ok": True,
+                "sub": False,
+                "channels": [
+                    {
+                        "title": "Baunty Films",
+                        "url": f"https://t.me/{channel.lstrip('@')}"
+                    }
+                ]
+            })
+    except Exception as e:
+        logger.debug(f"Kanal obunasini tekshirishda xatolik yoki bypass: {e}")
+        return web.json_response({"ok": True, "sub": True})
+
+
+async def handle_api_donate(request: web.Request) -> web.Response:
+    """Bauntys qo'llab-quvvatlash (donat) ma'lumotlari."""
+    return web.json_response({
+        "ok": True,
+        "on": True,
+        "text": "Har bir yordam Bauntys loyihasi rivoji va server xarajatlari uchun sarflanadi. Qo'llab-quvvatlaganingiz uchun rahmat! 💛",
+        "num": "8600 0000 0000 0000",
+        "name": "Bauntys Support",
+        "net": "Humo / Uzcard",
+        "cards": [
+            {
+                "num": "8600 0000 0000 0000",
+                "name": "Bauntys Support",
+                "net": "Humo / Uzcard"
+            }
+        ]
+    })
+
+
 def create_web_app() -> web.Application:
     """aiohttp web application yaratish va routerlarni sozlash."""
     app = web.Application()
@@ -1866,6 +1998,17 @@ def create_web_app() -> web.Application:
         ("GET", "/api/books/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/books/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/send_to_chat", handle_send_to_chat),
+        ("GET", "/api/prava/home", handle_prava_home),
+        ("GET", "/api/prava/set", handle_prava_set),
+        ("POST", "/api/prava/ans", handle_prava_ans),
+        ("POST", "/api/prava/bilet", handle_prava_bilet),
+        ("POST", "/api/prava/exam/start", handle_prava_exam_start),
+        ("POST", "/api/prava/exam/ans", handle_prava_exam_ans),
+        ("POST", "/api/prava/exam/finish", handle_prava_exam_finish),
+        ("GET", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/sub", handle_api_sub),
+        ("GET", "/api/donate", handle_api_donate),
     ]
     for method, path, handler in api_routes:
         if method == "GET":

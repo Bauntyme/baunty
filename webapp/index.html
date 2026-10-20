@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="fx.css">
 <link rel="stylesheet" href="food.css">
 <link rel="stylesheet" href="quiz.css">
+<link rel="stylesheet" href="prava.css">
 <link rel="stylesheet" href="games.css">
 <link rel="stylesheet" href="story.css">
 <link rel="stylesheet" href="books.css">
@@ -311,7 +312,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,600);});})();</script>
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
   <div class="brand">
-    <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
+    <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="prava">🚗 Prava</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
       <small id="count">Yuklanmoqda…</small></div>
     <button class="chan" id="chan" hidden>📢 Kanal</button>
   </div>
@@ -452,6 +453,7 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
 </section>
 <!-- ================= 💱 KURS ================= -->
 <section class="qz" id="quiz" hidden><div class="qz-scroll" id="qzscroll"><div id="qzview"></div></div></section>
+<section class="pv" id="prava" hidden><div class="pv-scroll" id="pvscroll"><div id="pvview"></div></div></section>
 <section class="fd" id="food" hidden><div class="fd-scroll" id="fdscroll"><div id="fdview"></div></div></section>
 <section class="fx" id="fx" hidden><div class="fx-scroll" id="fxscroll"><div id="fxview"></div></div></section>
 <div class="m-sbg" id="msbg"></div>
@@ -469,6 +471,7 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
 <script src="fx.js"></script>
 <script src="food.js"></script>
 <script src="quiz.js"></script>
+<script src="prava.js"></script>
 <script src="zk.js"></script>
 <script>
 (() => {
@@ -956,6 +959,7 @@ function setMode(m, force) {
   if (was === "fx" && window.ZFx) ZFx.close();
   if (was === "food" && window.ZFood) ZFood.close();
   if (was === "quiz" && window.ZQuiz) ZQuiz.close();
+  if (was === "prava" && window.ZPrava) ZPrava.close();
 
   const maint = getMaintenanceFor(m);
   if (maint) {
@@ -984,6 +988,7 @@ function setMode(m, force) {
   if (m === "fx") { if (window.ZFx) ZFx.open(); return; }
   if (m === "food") { if (window.ZFood) ZFood.open(); return; }
   if (m === "quiz") { if (window.ZQuiz) ZQuiz.open(); return; }
+  if (m === "prava") { if (window.ZPrava) ZPrava.open(); return; }
   $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
@@ -1696,6 +1701,7 @@ async function load() {
     if (!r.fx) $("seg").querySelector('[data-m="fx"]')?.remove();
     if (!r.food) $("seg").querySelector('[data-m="food"]')?.remove();
     if (!r.quiz) $("seg").querySelector('[data-m="quiz"]')?.remove();
+    if (!r.prava) $("seg").querySelector('[data-m="prava"]')?.remove();
     window.ZK_SEGS = [...$("seg").querySelectorAll("button")].map((b) => [b.dataset.m, b.textContent.replace(/^\S+\s/, "")]);
     // 3 va undan ko'p bo'lim — sig'ishi uchun belgilarsiz (🎬 🎧 📄) qisqa yozuv
     if (window.ZK_SEGS.length > 2) $("seg").querySelectorAll("button").forEach((b) => { b.textContent = b.textContent.replace(/^\S+\s/, ""); });
@@ -1737,6 +1743,9 @@ async function load() {
   const fdq = new URLSearchParams(location.search).get("food");
   if (document.querySelector('#seg [data-m="food"]') && (/^(food|taom)/i.test(sp) || fdq !== null)) {
     setMode("food"); const rid = (fdq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (rid && window.ZFood) ZFood.show(rid); return; }
+  const pvq = new URLSearchParams(location.search).get("prava");
+  if (document.querySelector('#seg [data-m="prava"]') && (/^(prava|avto)/i.test(sp) || pvq !== null)) {
+    setMode("prava"); if ((pvq === "exam" || /exam|imtihon/i.test(sp)) && window.ZPrava) ZPrava.start("exam"); return; }
   if (document.querySelector('#seg [data-m="fx"]') && (/^(fx|kurs)/i.test(sp) || new URLSearchParams(location.search).has("fx"))) { setMode("fx"); return; }
   if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {

@@ -22,6 +22,7 @@ const PAL = {
   fx:    {c: ["#04201A", "#1C8F6A", "#2440C8"], acc: "#4FE0A6", ink: "#04261A"},
   food:  {c: ["#2A0B12", "#C8344C", "#F2B84B"], acc: "#FF7A59", ink: "#2A0A05"},
   quiz:  {c: ["#120A3A", "#5B3FD8", "#12A99A"], acc: "#8F7CFF", ink: "#14093A"},
+  prava: {c: ["#0B1114", "#2B3A40", "#C99A2E"], acc: "#FFC53A", ink: "#2A1E00"},
 };
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
 const modeNow = () => body.dataset.zkm || "kino";

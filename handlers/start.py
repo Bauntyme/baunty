@@ -107,6 +107,25 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await message.answer(f"⚠️ #{book_id} raqamli kitob topilmadi.", parse_mode="HTML")
             return
 
+        elif param in ("prava", "exam") or param.startswith("prava_"):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            url = f"{base_url}?prava=exam" if param == "exam" else f"{base_url}?m=prava"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🚗 Prava Mini Appni ochish", web_app=WebAppInfo(url=url))
+            ]])
+            text = (
+                "🚗 <b>Haydovchilik guvohnomasi nazariy imtihoni (Prava)</b>\n\n"
+                "• 1235 ta rasmiy YHQ savollari\n"
+                "• 125 ta bilet (har birida 10 savol)\n"
+                "• 12 ta asosiy mavzular\n"
+                "• ⏱ Rasmiy 20 talik imtihon simulyatori\n"
+                "• ❌ Xatolar ustida ishlash bo'limi\n\n"
+                "Imtihonga tayyorgarlikni boshlash uchun quyidagi tugmani bosing:"
+            )
+            await message.answer(text, parse_mode="HTML", reply_markup=kb)
+            return
+
         elif param.startswith("q_"):
             target_id_str = param.replace("q_", "").strip()
             if target_id_str.isdigit():
@@ -258,6 +277,26 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(is_admin=is_admin)
     )
+
+
+@router.message(Command("prava"))
+async def cmd_prava(message: Message) -> None:
+    """/prava komandasi orqali to'g'ridan-to'g'ri Prava bo'limini ochish."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    url = f"{base_url}?m=prava"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🚗 Prava Mini Appni ochish", web_app=WebAppInfo(url=url))
+    ]])
+    text = (
+        "🚗 <b>Haydovchilik guvohnomasi nazariy imtihoni (Prava)</b>\n\n"
+        "• 1235 ta rasmiy YHQ savollari\n"
+        "• 125 ta bilet (har birida 10 savol)\n"
+        "• 12 ta asosiy mavzular\n"
+        "• ⏱ Rasmiy 20 talik imtihon simulyatori\n\n"
+        "Imtihonga tayyorgarlikni boshlash uchun quyidagi tugmani bosing:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
 
 
 
