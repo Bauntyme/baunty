@@ -219,18 +219,68 @@ def media_download_keyboard(cache_key: str) -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def music_results_keyboard(tracks: List[dict]) -> InlineKeyboardMarkup:
-    """Qo'shiq qidiruv natijalari klaviaturasi."""
+def music_results_keyboard(
+    tracks: List[dict],
+    page: int = 0,
+    per_page: int = 8,
+    search_id: str = ""
+) -> InlineKeyboardMarkup:
+    """
+    Qo'shiq qidiruv natijalari klaviaturasi (Kamida 15-30 ta natija uchun ixcham sahifalash bilan).
+    Har sahifada 8 tadan qo'shiq, ostida [⬅️ Oldingi], [Keyingi ➡️], [📄 1/3] tugmalari.
+    """
     builder = InlineKeyboardBuilder()
-    for idx, track in enumerate(tracks, 1):
-        title = f"{idx}. {track.get('artist', '')} - {track.get('title', '')}"[:40]
-        # track_id or index
+    if not tracks:
+        return builder.as_markup()
+
+    total = len(tracks)
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = max(0, min(page, total_pages - 1))
+
+    start_idx = page * per_page
+    end_idx = min(total, (page + 1) * per_page)
+    page_items = tracks[start_idx:end_idx]
+
+    for offset, track in enumerate(page_items):
+        idx = start_idx + offset + 1
+        artist = str(track.get("artist") or "").strip()
+        title = str(track.get("title") or "").strip()
+        full_name = f"{idx}. {artist} - {title}".strip(" -")
+        if len(full_name) > 40:
+            full_name = full_name[:39] + "…"
+        track_id = track.get("id", idx)
         builder.row(
             InlineKeyboardButton(
-                text=f"🎵 {title}",
-                callback_data=f"dl_track:{track.get('id', idx)}"
+                text=f"🎵 {full_name}",
+                callback_data=f"dl_track:{track_id}"
             )
         )
+
+    # Agar 1 dan ortiq sahifa bo'lsa, ixcham inline paginatsiya tugmalari
+    if total_pages > 1:
+        nav_row = []
+        if page > 0:
+            nav_row.append(
+                InlineKeyboardButton(
+                    text="⬅️ Oldingi",
+                    callback_data=f"music_page:{search_id}:{page - 1}"
+                )
+            )
+        nav_row.append(
+            InlineKeyboardButton(
+                text=f"📄 {page + 1}/{total_pages}",
+                callback_data="noop"
+            )
+        )
+        if page < total_pages - 1:
+            nav_row.append(
+                InlineKeyboardButton(
+                    text="Keyingi ➡️",
+                    callback_data=f"music_page:{search_id}:{page + 1}"
+                )
+            )
+        builder.row(*nav_row)
+
     return builder.as_markup()
 
 

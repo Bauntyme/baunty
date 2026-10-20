@@ -28,6 +28,12 @@ _SEARCH_CACHE: Dict[str, Dict[str, Any]] = {}
 @router.message(F.text.in_(["🎵 Qo'shiq topish", "🎵 Musiqa topish", "Qo'shiq topish", "Musiqa topish"]))
 async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     """Musiqa qidirish boshlanishi."""
+    # Agar buyruq bilan birga so'rov ham yozilgan bo'lsa (masalan: /music Konsta)
+    if message.text and message.text.startswith("/music") and len(message.text.strip().split(maxsplit=1)) > 1:
+        query = message.text.strip().split(maxsplit=1)[1].strip()
+        await _execute_music_search(message, query, state)
+        return
+
     await state.set_state(MusicStates.waiting_for_query)
     text = (
         "🎵 <b>Tezkor Musiqa qidirish xizmati!</b>\n\n"
@@ -39,14 +45,14 @@ async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
 
 
-@router.message(MusicStates.waiting_for_query, F.text)
-async def state_process_music_query(message: Message, state: FSMContext) -> None:
-    """Qo'shiq so'rovi bo'yicha qidirish."""
-    query = message.text.strip()
+async def _execute_music_search(message: Message, query: str, state: FSMContext) -> None:
+    """Kengaytirilgan musiqa qidiruvi (kamida 15-30 ta natija) va sahifalash bilan."""
+    import uuid
     status_msg = await message.reply("🔍 <b>Qo'shiqlar qidirilmoqda...</b>", parse_mode="HTML")
 
     try:
-        tracks = await music_service.search_tracks(query, limit=15)
+        # Kamida 15-30 ta natija qidirish (Deezer, Tarona, Soundcloud, iTunes parallel)
+        tracks = await music_service.search_tracks(query, limit=30)
         if not tracks:
             await status_msg.edit_text(
                 f"❌ <b>«{html.escape(query)}»</b> bo'yicha hech qanday qo'shiq topilmadi.\n"
@@ -55,27 +61,34 @@ async def state_process_music_query(message: Message, state: FSMContext) -> None
             )
             return
 
-        # Natijalarni keshga saqlash
         user_id = message.from_user.id
+        search_id = uuid.uuid4().hex[:8]
+
+        # Natijalarni keshga saqlash
+        formatted_tracks = []
         for t in tracks:
             track_key = f"{user_id}_{t['id']}"
             _SEARCH_CACHE[track_key] = t
-
-        text = (
-            f"🎵 <b>«{html.escape(query)}» bo'yicha topilgan natijalar:</b>\n"
-            "Yuklab olmoqchi bo'lgan qo'shiqni tanlang:"
-        )
-
-        # Inline tugmalar yaratish
-        formatted_tracks = []
-        for t in tracks:
             formatted_tracks.append({
-                "id": f"{user_id}_{t['id']}",
-                "title": t["title"],
-                "artist": t["artist"],
+                "id": track_key,
+                "title": t.get("title", ""),
+                "artist": t.get("artist", ""),
             })
 
-        markup = music_results_keyboard(formatted_tracks)
+        _SEARCH_CACHE[f"msearch:{search_id}"] = {
+            "user_id": user_id,
+            "query": query,
+            "tracks": formatted_tracks,
+        }
+
+        total_tracks = len(tracks)
+        total_pages = max(1, (total_tracks + 7) // 8)
+        text = (
+            f"🎵 <b>«{html.escape(query)}» bo'yicha {total_tracks} ta qo'shiq topildi:</b>\n"
+            f"Yuklab olmoqchi bo'lgan qo'shiqni tanlang (1-sahifa / {total_pages}):"
+        )
+
+        markup = music_results_keyboard(formatted_tracks, page=0, per_page=8, search_id=search_id)
         await status_msg.edit_text(text, parse_mode="HTML", reply_markup=markup)
         await state.clear()
 
@@ -84,9 +97,62 @@ async def state_process_music_query(message: Message, state: FSMContext) -> None
         await status_msg.edit_text("❌ Musiqa qidirishda texnik xatolik yuz berdi.", parse_mode="HTML")
 
 
-import uuid
-from aiogram.utils.keyboard import InlineKeyboardBuilder
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+@router.message(MusicStates.waiting_for_query, F.text)
+async def state_process_music_query(message: Message, state: FSMContext) -> None:
+    """Qo'shiq so'rovi bo'yicha qidirish."""
+    query = message.text.strip()
+    await _execute_music_search(message, query, state)
+
+
+@router.callback_query(F.data.startswith("music_page:"))
+async def cb_music_page(callback: CallbackQuery) -> None:
+    """Musiqa qidiruv natijalari bo'ylab inline sahifalash (Keyingi / Oldingi)."""
+    parts = callback.data.split(":")
+    if len(parts) < 3:
+        await callback.answer()
+        return
+
+    search_id = parts[1]
+    try:
+        page = int(parts[2])
+    except (ValueError, TypeError):
+        page = 0
+
+    search_data = _SEARCH_CACHE.get(f"msearch:{search_id}")
+    if not search_data:
+        await callback.answer("⚠️ Qidiruv muddati tugagan, iltimos qaytadan qidiring.", show_alert=True)
+        return
+
+    if isinstance(search_data, list):
+        formatted_tracks = search_data
+        query = "Qo'shiqlar"
+    else:
+        formatted_tracks = search_data.get("tracks", [])
+        query = search_data.get("query", "Qo'shiqlar")
+    total_tracks = len(formatted_tracks)
+    total_pages = max(1, (total_tracks + 7) // 8)
+
+    text = (
+        f"🎵 <b>«{html.escape(query)}» bo'yicha {total_tracks} ta qo'shiq topildi:</b>\n"
+        f"Yuklab olmoqchi bo'lgan qo'shiqni tanlang ({page + 1}-sahifa / {total_pages}):"
+    )
+    markup = music_results_keyboard(formatted_tracks, page=page, per_page=8, search_id=search_id)
+
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+    except Exception:
+        try:
+            await callback.message.edit_reply_markup(reply_markup=markup)
+        except Exception:
+            pass
+
+    await callback.answer()
+
+
+@router.callback_query(F.data == "noop")
+async def cb_noop(callback: CallbackQuery) -> None:
+    """Sahifa ko'rsatkichi bosilganda hech narsa o'zgarmaydi."""
+    await callback.answer()
 
 
 @router.message(F.voice | F.audio | F.video_note)

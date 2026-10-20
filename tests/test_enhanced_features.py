@@ -3,11 +3,12 @@ Kengaytirilgan imkoniyatlar uchun to'liq testlar:
 - Anonim story API (IG, TG, Send, Watch, Me)
 - iTunes + Deezer + Local kesh musiqalarni qidirish va MP3 yetkazish
 - YouTube ID resolver va Downloader zaxira mexanizmlari (Cobalt, TikWM)
-- Kinolar 1-qism va barcha qismlar yetkazilishi va @Zakirovsfilms_bot integratsiyasi
+- Kinolar 1-qism va barcha qismlar yetkazilishi va upstream integratsiyasi
 """
 import pytest
 import re
-from unittest.mock import AsyncMock
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 from aiohttp.test_utils import TestClient, TestServer
 from services.web_server import create_web_app, set_bot_instance
 from services.music_service import music_service
@@ -245,4 +246,208 @@ def test_story_username_and_url_preservation():
     story_url = "https://www.instagram.com/stories/cristiano/321456789/"
     is_url = "instagram.com" in story_url or "t.me" in story_url
     assert is_url is True
+
+
+def test_music_results_keyboard_30_tracks_pagination():
+    """30 ta trek uchun 8 tadan ixcham sahifalash va [⬅️ Oldingi], [Keyingi ➡️], [📄 1/4] tugmalari testi."""
+    from keyboards.inline import music_results_keyboard
+
+    sample_tracks = [
+        {"id": f"trk_{i}", "artist": "Konsta", "title": f"Qo'shiq {i}"}
+        for i in range(1, 31)
+    ]
+
+    # 1. 0-sahifa (1-8 treklar)
+    kb_p0 = music_results_keyboard(sample_tracks, page=0, per_page=8, search_id="test123")
+    rows_p0 = kb_p0.inline_keyboard
+    # 8 trek tugmasi + 1 navigatsiya qatori
+    assert len(rows_p0) == 9
+    track_btns_p0 = [row[0] for row in rows_p0[:8]]
+    assert "1. Konsta - Qo'shiq 1" in track_btns_p0[0].text
+    assert "8. Konsta - Qo'shiq 8" in track_btns_p0[-1].text
+
+    nav_row_p0 = rows_p0[8]
+    assert len(nav_row_p0) == 2  # [📄 1/4], [Keyingi ➡️]
+    assert nav_row_p0[0].text == "📄 1/4"
+    assert nav_row_p0[0].callback_data == "noop"
+    assert nav_row_p0[1].text == "Keyingi ➡️"
+    assert nav_row_p0[1].callback_data == "music_page:test123:1"
+
+    # 2. 1-sahifa (9-16 treklar)
+    kb_p1 = music_results_keyboard(sample_tracks, page=1, per_page=8, search_id="test123")
+    rows_p1 = kb_p1.inline_keyboard
+    assert len(rows_p1) == 9
+    track_btns_p1 = [row[0] for row in rows_p1[:8]]
+    assert "9. Konsta - Qo'shiq 9" in track_btns_p1[0].text
+    assert "16. Konsta - Qo'shiq 16" in track_btns_p1[-1].text
+
+    nav_row_p1 = rows_p1[8]
+    assert len(nav_row_p1) == 3  # [⬅️ Oldingi], [📄 2/4], [Keyingi ➡️]
+    assert nav_row_p1[0].text == "⬅️ Oldingi"
+    assert nav_row_p1[0].callback_data == "music_page:test123:0"
+    assert nav_row_p1[1].text == "📄 2/4"
+    assert nav_row_p1[2].text == "Keyingi ➡️"
+    assert nav_row_p1[2].callback_data == "music_page:test123:2"
+
+    # 3. 3-sahifa (oxirgi, 25-30 treklar: 6 ta trek)
+    kb_p3 = music_results_keyboard(sample_tracks, page=3, per_page=8, search_id="test123")
+    rows_p3 = kb_p3.inline_keyboard
+    assert len(rows_p3) == 7  # 6 trek + 1 navigatsiya qatori
+    track_btns_p3 = [row[0] for row in rows_p3[:6]]
+    assert "25. Konsta - Qo'shiq 25" in track_btns_p3[0].text
+    assert "30. Konsta - Qo'shiq 30" in track_btns_p3[-1].text
+
+    nav_row_p3 = rows_p3[6]
+    assert len(nav_row_p3) == 2  # [⬅️ Oldingi], [📄 4/4]
+    assert nav_row_p3[0].text == "⬅️ Oldingi"
+    assert nav_row_p3[0].callback_data == "music_page:test123:2"
+    assert nav_row_p3[1].text == "📄 4/4"
+
+
+@pytest.mark.asyncio
+async def test_bot_cb_music_page_pagination():
+    """Botdagi cb_music_page inline sahifalash callbacki xabar klaviaturasini to'g'ri yangilashi testi."""
+    from handlers.music import cb_music_page, _SEARCH_CACHE
+
+    sample_tracks = [
+        {"id": f"trk_{i}", "artist": "Konsta", "title": f"Trek {i}"}
+        for i in range(1, 25)
+    ]
+    test_search_id = "unit_test_search_id"
+    _SEARCH_CACHE[f"msearch:{test_search_id}"] = sample_tracks
+
+    cb = AsyncMock()
+    cb.data = f"music_page:{test_search_id}:1"
+    cb.message = AsyncMock()
+    cb.message.edit_reply_markup = AsyncMock()
+    cb.answer = AsyncMock()
+
+    await cb_music_page(cb)
+    assert cb.answer.called is True
+    assert cb.message.edit_text.called is True or cb.message.edit_reply_markup.called is True
+    call_kwargs = cb.message.edit_text.call_args[1] if cb.message.edit_text.called else cb.message.edit_reply_markup.call_args[1]
+    markup = call_kwargs["reply_markup"]
+    assert markup is not None
+    rows = markup.inline_keyboard
+    nav_row = rows[-1]
+    assert any("2/3" in btn.text for btn in nav_row)
+
+
+@pytest.mark.asyncio
+async def test_movie_service_resolve_video_source(tmp_path, monkeypatch):
+    """MovieService.resolve_video_source video_sources.json va lokal fayllarni to'g'ri aniqlashi testi."""
+    from services.movie_service import MovieService
+
+    v_data = {
+        "888": {
+            "file_id": "BAACAgIAAxkBAAE_RESOLVED_MOCK_VIDEO_888",
+            "file_type": "video",
+            "duration": 5400,
+            "file_size": 800 * 1024 * 1024
+        },
+        "888_2": {
+            "url": "https://example.com/videos/888_2.mp4",
+            "file_type": "video"
+        }
+    }
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "video_sources.json").write_text(json.dumps(v_data), encoding="utf-8")
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
+
+    src1 = MovieService.resolve_video_source("888", 1)
+    assert src1 is not None
+    assert src1["file_id"] == "BAACAgIAAxkBAAE_RESOLVED_MOCK_VIDEO_888"
+
+    src2 = MovieService.resolve_video_source("888", 2)
+    assert src2 is not None
+    assert src2["url"] == "https://example.com/videos/888_2.mp4"
+
+    # Mavjud bo'lmagan kino kodi uchun None qaytishi
+    src_none = MovieService.resolve_video_source("999999", 1)
+    assert src_none is None
+
+
+@pytest.mark.asyncio
+async def test_deliver_movie_with_resolved_video_source(tmp_path, monkeypatch):
+    """deliver_movie da resolved_source mavjud bo'lganda bot.send_video chaqirilishi testi."""
+    from services.movie_service import MovieService
+
+    v_data = {
+        "991": {
+            "file_id": "BAACAgIAAxkBAAE_RESOLVED_SOURCE_DELIVER_TEST_VIDEO_991",
+            "file_type": "video",
+            "duration": 3600
+        }
+    }
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "video_sources.json").write_text(json.dumps(v_data), encoding="utf-8")
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
+
+    bot_mock = AsyncMock()
+    bot_mock.send_video = AsyncMock()
+    bot_mock.send_photo = AsyncMock()
+    bot_mock.send_message = AsyncMock()
+
+    fake_session = AsyncMock()
+    mock_exec_res = MagicMock()
+    mock_exec_res.scalars.return_value.all.return_value = []
+    fake_session.execute = AsyncMock(return_value=mock_exec_res)
+    fake_session.commit = AsyncMock()
+
+    with patch("services.movie_service.crud.get_movie_by_code", new_callable=AsyncMock) as mock_get_movie, \
+         patch("services.movie_service.crud.set_movie_video", new_callable=AsyncMock) as mock_set_video, \
+         patch("services.movie_service.crud.increment_movie_views", new_callable=AsyncMock) as mock_inc:
+        mock_get_movie.return_value = None
+
+        res = await MovieService.deliver_movie(
+            bot=bot_mock,
+            chat_id=12345,
+            code="991",
+            part=1,
+            session=fake_session
+        )
+
+        assert res is True
+        assert bot_mock.send_video.called is True
+        video_arg = bot_mock.send_video.call_args[1]["video"]
+        assert video_arg == "BAACAgIAAxkBAAE_RESOLVED_SOURCE_DELIVER_TEST_VIDEO_991"
+        assert mock_set_video.called is True
+
+
+@pytest.mark.asyncio
+async def test_upstream_music_home_proxy_and_sanitization(tmp_path, monkeypatch):
+    """Web App musiqa bosh sahifasi upstreamdan olinib, eski brenddan to'liq tozalanishi testi."""
+    from services.web_server import get_cached_music_home, sanitize_catalog_text
+
+    (tmp_path / "data").mkdir(exist_ok=True)
+    monkeypatch.setattr("services.web_server.BASE_DIR", tmp_path)
+
+    raw_upstream_payload = (
+        '{"ok": true, "banner": "Zakirovs Music", "bot": "@Zakirovsfilm_bot", '
+        '"sections": [{"title": "Dilbar Zakirova treklari", "items": [{"id": "1", "artist": "Zakirova", "title": "Sevgi"}]}]}'
+    )
+
+    clean_payload = sanitize_catalog_text(raw_upstream_payload)
+    assert "Zakirov" not in clean_payload
+    assert "dilbar" not in clean_payload.lower()
+    assert "@Bauntyfilmsbot" in clean_payload or "Baunty" in clean_payload
+
+    mock_resp = AsyncMock()
+    mock_resp.status = 200
+    mock_resp.read = AsyncMock(return_value=raw_upstream_payload.encode("utf-8"))
+
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    mock_client.get = MagicMock(return_value=mock_resp)
+    mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("aiohttp.ClientSession", return_value=mock_client):
+        data = await get_cached_music_home(force_refresh=True)
+        assert data.get("ok") is True
+        data_str = json.dumps(data)
+        assert "Zakirov" not in data_str
+        assert "dilbar" not in data_str.lower()
+
 

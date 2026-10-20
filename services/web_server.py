@@ -86,12 +86,15 @@ def sanitize_catalog_text(text: str) -> str:
     if not text:
         return ""
     text = text.replace("@Zakirovsfilms_bot", f"@{config.BOT_USERNAME.lstrip('@')}")
+    text = text.replace("@Zakirovsfilm_bot", f"@{config.BOT_USERNAME.lstrip('@')}")
     text = text.replace("@ZakirovsKino", config.CHANNEL_USERNAME)
     text = text.replace("@dilbarzakirova", config.CHANNEL_USERNAME)
     text = text.replace("Zakirovs Films", "Baunty Films")
     text = text.replace("Zakirovs_bot", config.BOT_USERNAME.lstrip('@'))
-    text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{config.CHANNEL_USERNAME.lstrip("@")}', text, flags=re.I)
-    text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{config.CHANNEL_USERNAME.lstrip("@")}', text, flags=re.I)
+    text = text.replace("Zakirovsfilm_bot", config.BOT_USERNAME.lstrip('@'))
+    text = text.replace("Zakirovsfilms_bot", config.BOT_USERNAME.lstrip('@'))
+    text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|film_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{config.CHANNEL_USERNAME.lstrip("@")}', text, flags=re.I)
+    text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|film_bot|Kino)|dilbarzakirova)\b', f't.me/{config.CHANNEL_USERNAME.lstrip("@")}', text, flags=re.I)
     text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
     text = re.sub(r'Zakirovs?\b', 'Baunty', text, flags=re.I)
     text = re.sub(r'zakirovs?\b', 'baunty', text, flags=re.I)
@@ -732,12 +735,52 @@ _MUSIC_HOME_CACHE: Optional[Dict[str, Any]] = None
 _MUSIC_HOME_TS: float = 0.0
 
 
-def get_cached_music_home() -> Dict[str, Any]:
+def get_cached_music_home_sync() -> Dict[str, Any]:
+    global _MUSIC_HOME_CACHE
+    if _MUSIC_HOME_CACHE is not None:
+        return _MUSIC_HOME_CACHE
+    music_home_path = BASE_DIR / "data" / "music_home.json"
+    if music_home_path.exists():
+        try:
+            with open(music_home_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"ok": True, "top": TOP_50_TRACKS}
+
+
+async def get_cached_music_home(force_refresh: bool = False) -> Dict[str, Any]:
+    """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar) - upstream bilan to'g'ridan-to'g'ri bog'langan."""
     global _MUSIC_HOME_CACHE, _MUSIC_HOME_TS
     now = time.time()
-    if _MUSIC_HOME_CACHE is not None and (now - _MUSIC_HOME_TS < 300):
+    if not force_refresh and _MUSIC_HOME_CACHE is not None and (now - _MUSIC_HOME_TS < 300):
         return _MUSIC_HOME_CACHE
 
+    # 1. Upstream serverdan (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) to'g'ridan-to'g'ri yangilash
+    try:
+        import aiohttp
+        upstream_url = "https://161-97-96-58.sslip.io/api/music/home"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    resp_bytes = await resp.read()
+                    resp_text = resp_bytes.decode("utf-8", errors="replace")
+                    clean_text = sanitize_catalog_text(resp_text)
+                    data = json.loads(clean_text)
+                    if isinstance(data, dict) and data.get("ok"):
+                        _MUSIC_HOME_CACHE = data
+                        _MUSIC_HOME_TS = now
+                        music_home_path = BASE_DIR / "data" / "music_home.json"
+                        try:
+                            with open(music_home_path, "w", encoding="utf-8") as f:
+                                json.dump(data, f, ensure_ascii=False, indent=2)
+                        except Exception as fe:
+                            logger.debug(f"music_home.json saqlashda xatolik: {fe}")
+                        return data
+    except Exception as e:
+        logger.info(f"Upstream music/home ulanishida xatolik ({e}), lokal kesh ishlatiladi.")
+
+    # 2. Lokal music_home.json faylidan o'qish
     music_home_path = BASE_DIR / "data" / "music_home.json"
     if music_home_path.exists():
         try:
@@ -757,7 +800,7 @@ def get_cached_music_home() -> Dict[str, Any]:
 
 async def handle_music_home(request: web.Request) -> web.Response:
     """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar) - kesh orqali bir zumda."""
-    data = get_cached_music_home()
+    data = await get_cached_music_home()
     return web.json_response(data, headers={"Cache-Control": "public, max-age=180"})
 
 
@@ -876,7 +919,7 @@ async def handle_music_shazam(request: web.Request) -> web.Response:
 
 
 async def handle_music_search(request: web.Request) -> web.Response:
-    """Web App va qidiruv uchun musiqa qidirish API."""
+    """Web App va qidiruv uchun musiqa qidirish API — Upstream + Fallback bilan."""
     q = request.query.get("q", "").strip()
     try:
         n = int(request.query.get("n", 25))
@@ -886,6 +929,29 @@ async def handle_music_search(request: web.Request) -> web.Response:
     if not q:
         return web.json_response({"ok": True, "items": []})
 
+    init_data = request.headers.get("X-Init-Data", "")
+
+    # 1. Upstream (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) dan qidirishga urinish
+    try:
+        import aiohttp
+        import urllib.parse
+        upstream_url = f"https://161-97-96-58.sslip.io/api/music/search?q={urllib.parse.quote(q)}&n={n}"
+        req_headers = {"User-Agent": "Mozilla/5.0"}
+        if init_data:
+            req_headers["X-Init-Data"] = init_data
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, headers=req_headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    raw_text = await resp.text()
+                    clean_text = sanitize_catalog_text(raw_text)
+                    data = json.loads(clean_text)
+                    if isinstance(data, dict) and data.get("ok") and data.get("items"):
+                        return web.json_response(data, headers={"Cache-Control": "public, max-age=180"})
+    except Exception as e:
+        logger.info(f"Upstream music/search xatolik ({e}), lokal qidiruv ishlatiladi.")
+
+    # 2. Mahalliy parallel qidiruv (Deezer + Tarona + Soundcloud + iTunes + Invidious)
     try:
         tracks = await music_service.search_tracks(query=q, limit=n)
         return web.json_response({"ok": True, "items": tracks}, headers={"Cache-Control": "public, max-age=180"})
@@ -898,7 +964,7 @@ _PLAY_STREAM_CACHE: Dict[str, Tuple[float, str]] = {}
 
 
 async def handle_music_play(request: web.Request) -> web.Response:
-    """Web App musiqa tinglash uchun MP3 oqim havolasini tayyorlash API - in-memory kesh bilan."""
+    """Web App musiqa tinglash uchun MP3 oqim havolasini tayyorlash API — Upstream + in-memory kesh bilan."""
     try:
         body = await request.json()
     except Exception:
@@ -913,6 +979,29 @@ async def handle_music_play(request: web.Request) -> web.Response:
         ts, cached_url = _PLAY_STREAM_CACHE[cache_key]
         if now - ts < 3600:
             return web.json_response({"ok": True, "url": cached_url}, headers={"Cache-Control": "public, max-age=1800"})
+
+    init_data = request.headers.get("X-Init-Data", "")
+
+    # 1. Upstream (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) dan oqim havolasini olish
+    try:
+        import aiohttp
+        upstream_url = "https://161-97-96-58.sslip.io/api/music/play"
+        req_headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
+        if init_data:
+            req_headers["X-Init-Data"] = init_data
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(upstream_url, json=body, headers=req_headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    raw_text = await resp.text()
+                    clean_text = sanitize_catalog_text(raw_text)
+                    data = json.loads(clean_text)
+                    if isinstance(data, dict) and data.get("ok") and data.get("url"):
+                        stream_url = data["url"]
+                        _PLAY_STREAM_CACHE[cache_key] = (now, stream_url)
+                        return web.json_response(data, headers={"Cache-Control": "public, max-age=1800"})
+    except Exception as e:
+        logger.debug(f"Upstream music/play xatolik: {e}")
 
     # Tarona bazasi bo'lsa, to'g'ridan-to'g'ri .mp3 audio oqim havolasini aniqlash
     if body.get("s") == "tarona" or (url and any(d in str(url) for d in ["muzfm", "mp3uz", "/music/"])):

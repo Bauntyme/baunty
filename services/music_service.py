@@ -24,10 +24,10 @@ class MusicService:
         self._search_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
         self._resolve_cache: Dict[str, Tuple[float, str]] = {}
 
-    async def search_tracks(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
+    async def search_tracks(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
         """
-        Tarona, Deezer, iTunes, Soundcloud va Invidious ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
-        Phonk, EDM, ruscha, xorijiy va o'zbek musiqalari uchun eng mos manbalarni birlashtiradi.
+        Tarona, Deezer, iTunes, Soundcloud, Invidious va Upstream (@Bauntyfilmsbot) API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
+        Phonk, EDM, ruscha, xorijiy va o'zbek musiqalari uchun eng mos manbalarni birlashtiradi (kamida 15-30 ta natija).
         In-memory kesh bilan maksimal tezlikda (<0.1s) javob beradi.
         """
         clean_q = str(query or "").strip()
@@ -41,13 +41,14 @@ class MusicService:
             if now - ts < 900:  # 15 daqiqa TTL
                 return list(cached_tracks)
 
-        # 1. Tarona, Deezer, iTunes, Soundcloud va Invidious ochiq API larini parallel (bir vaqtda) ishga tushirish
+        # 1. Barcha ochiq API larni parallel (bir vaqtda) ishga tushirish
         tasks = [
             self._search_tarona(clean_q, limit=limit),
             self._search_deezer(clean_q, limit=limit),
             self._search_itunes(clean_q, limit=limit),
-            self._search_soundcloud(clean_q, limit=min(limit, 10)),
-            self._search_invidious_music(clean_q, limit=min(limit, 10)),
+            self._search_soundcloud(clean_q, limit=min(limit, 20)),
+            self._search_invidious_music(clean_q, limit=min(limit, 20)),
+            self._search_upstream(clean_q, limit=limit),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -56,6 +57,7 @@ class MusicService:
         itunes_tracks = results[2] if isinstance(results[2], list) else []
         soundcloud_tracks = results[3] if isinstance(results[3], list) else []
         invidious_tracks = results[4] if isinstance(results[4], list) else []
+        upstream_tracks = results[5] if isinstance(results[5], list) else []
 
         # 2. Lokal katalog (data/music_home.json) qidiruvi
         local_tracks = self._search_local_home(clean_q, limit=limit)
@@ -66,9 +68,9 @@ class MusicService:
             for w in ["phonk", "edm", "remix", "bass", "drill", "rap", "trap", "club", "house", "nightcore", "speed up", "slowed", "drift"]
         )
         if is_phonk_or_foreign:
-            source_lists = [soundcloud_tracks, deezer_tracks, itunes_tracks, invidious_tracks, tarona_tracks, local_tracks]
+            source_lists = [soundcloud_tracks, deezer_tracks, itunes_tracks, invidious_tracks, upstream_tracks, tarona_tracks, local_tracks]
         else:
-            source_lists = [tarona_tracks, deezer_tracks, itunes_tracks, soundcloud_tracks, invidious_tracks, local_tracks]
+            source_lists = [upstream_tracks, tarona_tracks, deezer_tracks, itunes_tracks, soundcloud_tracks, invidious_tracks, local_tracks]
 
         # Barcha manbalarni birlashtirish va takrorlarni olib tashlash
         seen_keys = set()
@@ -94,6 +96,26 @@ class MusicService:
         if yt_results:
             self._search_cache[cache_key] = (now, yt_results)
         return yt_results
+
+    async def _search_upstream(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
+        """Upstream (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) dan qo'shiqlarni qidirish."""
+        clean_q = str(query or "").strip()
+        if not clean_q:
+            return []
+        try:
+            url = f"https://161-97-96-58.sslip.io/api/music/search?q={urllib.parse.quote(clean_q)}&n={limit}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=2.5)) as resp:
+                    if resp.status == 200:
+                        raw = await resp.text()
+                        from services.web_server import sanitize_catalog_text
+                        clean = sanitize_catalog_text(raw)
+                        data = json.loads(clean)
+                        if isinstance(data, dict) and data.get("ok"):
+                            return data.get("items", [])
+        except Exception:
+            pass
+        return []
 
     async def _search_tarona(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """Tarona / Muzfm / Mp3uz o'zbek musiqa bazalari orqali qo'shiqlarni parallel qidirish."""

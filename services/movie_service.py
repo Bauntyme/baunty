@@ -12,6 +12,7 @@ from pathlib import Path
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, FSInputFile
 from sqlalchemy.ext.asyncio import AsyncSession
+import config as app_config
 from config import config, BASE_DIR
 from database import crud
 from database.models import Movie
@@ -35,25 +36,30 @@ class MovieService:
         bot_clean = config.BOT_USERNAME.lstrip("@")
         channel_clean = config.CHANNEL_USERNAME.lstrip("@")
         # URLs
-        text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
-        text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
+        text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|film_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
+        text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|film_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
         # Usernames with @
         text = re.sub(r'@Zakirovsfilms_bot\b', f'@{bot_clean}', text, flags=re.I)
+        text = re.sub(r'@Zakirovsfilm_bot\b', f'@{bot_clean}', text, flags=re.I)
         text = re.sub(r'@ZakirovsKino\b', f'@{channel_clean}', text, flags=re.I)
         text = re.sub(r'@dilbarzakirova\b', f'@{channel_clean}', text, flags=re.I)
         text = re.sub(r'@Zakirovs?\b', f'@{channel_clean}', text, flags=re.I)
         # Names
         text = re.sub(r'Zakirovs\s+Films\b', 'Baunty Films', text, flags=re.I)
         text = re.sub(r'Zakirovs_bot\b', bot_clean, text, flags=re.I)
+        text = re.sub(r'Zakirovsfilm_bot\b', bot_clean, text, flags=re.I)
+        text = re.sub(r'Zakirovsfilms_bot\b', bot_clean, text, flags=re.I)
         text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
         text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
         text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
+        text = re.sub(r'Zakirova\b', 'Baunty', text, flags=re.I)
+        text = re.sub(r'zakirova\b', 'baunty', text, flags=re.I)
         return text
 
     @staticmethod
     async def sync_catalog_from_upstream(session: Optional[AsyncSession] = None) -> int:
         """
-        @Zakirovsfilms_bot rasmiy upstream katalogi (https://161-97-96-58.sslip.io/api/catalog)
+        Upstream kino katalogi (https://161-97-96-58.sslip.io/api/catalog)
         bilan to'liq avtomatik integratsiya va sinxronizatsiya.
         Barcha ma'lumotlar @Bauntyfilmsbot va @BauntyFilms brendiga tozalangan holda
         bizning 'movies' jadvalimizga va data/catalog.json ga kiritiladi.
@@ -263,6 +269,66 @@ class MovieService:
         return await crud.get_top_movies(session, limit=limit)
 
     @staticmethod
+    def resolve_video_source(code: str, part: int = 1) -> Optional[dict]:
+        """
+        Kino uchun haqiqiy video manbasini (file_id, mp4 URL, lokal fayl) aniqlash.
+        1. data/video_sources.json
+        2. data/videos/ yoki media/videos/ katalogidagi lokal .mp4 fayllar
+        """
+        clean_code = str(code).strip().lstrip("#№")
+        keys_to_check = [
+            f"{clean_code}_{part}",
+            f"{clean_code}-{part}",
+            f"{clean_code}p{part}",
+        ]
+        if part == 1:
+            keys_to_check.insert(0, clean_code)
+
+        # 1. video_sources.json faylidan tekshirish
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        sources_file = base_dir / "data" / "video_sources.json"
+        if sources_file.exists():
+            try:
+                with open(sources_file, "r", encoding="utf-8") as f:
+                    sources_data = json.load(f)
+                if isinstance(sources_data, dict):
+                    items_dict = sources_data.get("items") if "items" in sources_data and isinstance(sources_data["items"], dict) else sources_data
+                    if isinstance(items_dict, list):
+                        items_dict = {str(item.get("code") or item.get("c")): item for item in items_dict if isinstance(item, dict)}
+
+                    for k in keys_to_check:
+                        if k in items_dict:
+                            entry = items_dict[k]
+                            if isinstance(entry, str):
+                                if entry.startswith("http://") or entry.startswith("https://"):
+                                    return {"url": entry, "file_type": "video"}
+                                return {"file_id": entry, "file_type": "video"}
+                            elif isinstance(entry, dict):
+                                return entry
+            except Exception as e:
+                logger.debug(f"video_sources.json o'qishda xatolik: {e}")
+
+        # 2. Lokal fayllar tekshiruvi (data/videos, media/videos)
+        search_dirs = [
+            base_dir / "data" / "videos",
+            base_dir / "data" / "movies",
+            base_dir / "media" / "videos",
+        ]
+        for vdir in search_dirs:
+            if vdir.exists():
+                for k in keys_to_check:
+                    for ext in [".mp4", ".mkv", ".mov"]:
+                        candidate = vdir / f"{k}{ext}"
+                        if candidate.exists() and candidate.stat().st_size > 1024:
+                            return {
+                                "file_path": str(candidate),
+                                "file_type": "video",
+                                "file_size": candidate.stat().st_size
+                            }
+
+        return None
+
+    @staticmethod
     async def deliver_movie(
         bot: Bot,
         chat_id: int,
@@ -273,8 +339,38 @@ class MovieService:
     ) -> bool:
         """
         Foydalanuvchiga kinoni yuborish (Video, HD Poster yoki tafsilotlar bilan).
-        100% oq brend: @Zakirovs o'rniga @Bauntyfilmsbot va @BauntyFilms.
+        100% oq brend: @Bauntyfilmsbot va @BauntyFilms.
         """
+        if session is not None:
+            return await MovieService._deliver_movie_impl(
+                bot=bot,
+                chat_id=chat_id,
+                code=code,
+                part=part,
+                session=session,
+                reply_to_message_id=reply_to_message_id
+            )
+        else:
+            from database.session import get_session
+            async with get_session() as s:
+                return await MovieService._deliver_movie_impl(
+                    bot=bot,
+                    chat_id=chat_id,
+                    code=code,
+                    part=part,
+                    session=s,
+                    reply_to_message_id=reply_to_message_id
+                )
+
+    @staticmethod
+    async def _deliver_movie_impl(
+        bot: Bot,
+        chat_id: int,
+        code: str,
+        part: int,
+        session: AsyncSession,
+        reply_to_message_id: Optional[int] = None
+    ) -> bool:
         clean_code = str(code).strip().lstrip("#№")
         if clean_code.startswith("kino_"):
             clean_code = clean_code[5:]
@@ -322,25 +418,14 @@ class MovieService:
             ]
 
         for p_code in part_codes:
-            if session:
-                db_movie = await crud.get_movie_by_code(session, p_code)
-            else:
-                from database.session import get_session
-                async with get_session() as s:
-                    db_movie = await crud.get_movie_by_code(s, p_code)
+            db_movie = await crud.get_movie_by_code(session, p_code)
             if db_movie:
                 break
 
         # Part > 1 bo'lganda, agar db_movie topilmagan bo'lsa yoki title/description bo'sh bo'lsa,
         # asosiy kino kodidan (clean_code) sarlavha va tavsifni olamiz
         if not title or not description:
-            base_movie = None
-            if session:
-                base_movie = await crud.get_movie_by_code(session, clean_code)
-            else:
-                from database.session import get_session
-                async with get_session() as s:
-                    base_movie = await crud.get_movie_by_code(s, clean_code)
+            base_movie = await crud.get_movie_by_code(session, clean_code)
             if base_movie:
                 if not title:
                     title = base_movie.title
@@ -356,18 +441,13 @@ class MovieService:
         if part > total_parts:
             total_parts = part
 
-        # Agar na katalogda, na bazada kino mavjud bo'lmasa — @Zakirovsfilms_bot dan tezkor sinxronlashga urinish
+        # Agar na katalogda, na bazada kino mavjud bo'lmasa — upstream dan tezkor sinxronlashga urinish
         if not cat_item and not db_movie:
             if time.time() - _LAST_SYNC_TS > 60:
                 try:
                     await MovieService.sync_catalog_from_upstream(session=session)
                     cat_item = MovieService.get_catalog_item(clean_code)
-                    if session:
-                        db_movie = await crud.get_movie_by_code(session, clean_code)
-                    else:
-                        from database.session import get_session
-                        async with get_session() as s:
-                            db_movie = await crud.get_movie_by_code(s, clean_code)
+                    db_movie = await crud.get_movie_by_code(session, clean_code)
                     if cat_item:
                         title = cat_item.get("t", "").strip()
                         total_parts = int(cat_item.get("p", 1))
@@ -385,29 +465,21 @@ class MovieService:
                 t_val = cat_item.get("t", f"Kino #{clean_code}").strip()
                 d_val = cat_item.get("d", "").strip() or None
                 v_val = int(cat_item.get("v", 150))
-                if session:
-                    db_movie, _ = await crud.upsert_movie(
-                        session=session,
-                        code=clean_code,
-                        title=t_val,
-                        description=d_val,
-                        views_count=v_val,
-                    )
-                else:
-                    from database.session import get_session
-                    async with get_session() as s:
-                        db_movie, _ = await crud.upsert_movie(
-                            session=s,
-                            code=clean_code,
-                            title=t_val,
-                            description=d_val,
-                            views_count=v_val,
-                        )
+                db_movie, _ = await crud.upsert_movie(
+                    session=session,
+                    code=clean_code,
+                    title=t_val,
+                    description=d_val,
+                    views_count=v_val,
+                )
             except Exception as e:
                 logger.debug(f"Auto-upsert movie on deliver failed: {e}")
 
+        resolved_source = None
         if not cat_item and not db_movie:
-            return False
+            resolved_source = MovieService.resolve_video_source(clean_code, part)
+            if not resolved_source:
+                return False
 
         if not title:
             title = f"Kino #{clean_code}"
@@ -424,8 +496,32 @@ class MovieService:
         )
         has_real_video = bool(db_movie and not is_placeholder)
 
-        # Agar serialning so'ralgan qismi (part > 1) uchun alohida video bo'lmasa ham, kino ma'lumotlari va posterini yuborish
-        # Shunda foydalanuvchi qismni tanlaganida xatolik chiqmaydi va chatga darhol yetkaziladi
+        # Video manbasini tekshirish (agar bazada haqiqiy video bo'lmasa)
+        if not has_real_video and not resolved_source:
+            resolved_source = MovieService.resolve_video_source(clean_code, part)
+
+        if resolved_source:
+            res_fid = resolved_source.get("file_id")
+            if res_fid and not (res_fid.startswith("mov_") or res_fid.endswith("_vid") or len(res_fid) < 20):
+                has_real_video = True
+                p_code = f"{clean_code}_{part}" if part > 1 else clean_code
+                try:
+                    saved_movie = await crud.set_movie_video(
+                        session=session,
+                        code=p_code,
+                        file_id=res_fid,
+                        file_type=resolved_source.get("file_type", "video"),
+                        duration=resolved_source.get("duration"),
+                        file_size=resolved_source.get("file_size"),
+                        title=title
+                    )
+                    if not db_movie:
+                        db_movie = saved_movie
+                    if db_movie:
+                        db_movie.file_id = res_fid
+                        db_movie.file_type = resolved_source.get("file_type", "video")
+                except Exception as e:
+                    logger.debug(f"set_movie_video error: {e}")
 
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
@@ -450,7 +546,7 @@ class MovieService:
         display_title = f"{clean_base_title}{part_suffix}"
 
         watch_note = ""
-        if not has_real_video:
+        if not has_real_video and not resolved_source:
             watch_note = (
                 f"\n\n🍿 <b>Kinoni tomosha qilish:</b> <i>Quyidagi «▶️ Kinoni tomosha qilish» tugmasi orqali tomosha qilishingiz mumkin!</i>"
             )
@@ -469,7 +565,9 @@ class MovieService:
             )
         else:
             reply_markup = movie_item_keyboard(clean_code)
-        if has_real_video:
+
+        # 1. Haqiqiy video yuborish
+        if has_real_video and db_movie:
             try:
                 if db_movie.file_type == "document":
                     await bot.send_document(
@@ -491,18 +589,38 @@ class MovieService:
                         reply_markup=reply_markup,
                         reply_to_message_id=reply_to_message_id
                     )
-                if session and db_movie:
-                    await crud.increment_movie_views(session, db_movie.id)
-                elif db_movie:
-                    from database.session import get_session
-                    async with get_session() as s:
-                        await crud.increment_movie_views(s, db_movie.id)
+                await crud.increment_movie_views(session, db_movie.id)
+                await session.commit()
                 return True
             except Exception as e:
                 logger.warning(f"Video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")
+        elif resolved_source:
+            try:
+                target_video = (
+                    FSInputFile(resolved_source["file_path"])
+                    if "file_path" in resolved_source
+                    else resolved_source.get("url") or resolved_source.get("file_id")
+                )
+                if target_video:
+                    await bot.send_video(
+                        chat_id=chat_id,
+                        video=target_video,
+                        caption=caption,
+                        parse_mode="HTML",
+                        duration=resolved_source.get("duration"),
+                        supports_streaming=True,
+                        reply_markup=reply_markup,
+                        reply_to_message_id=reply_to_message_id
+                    )
+                    if db_movie:
+                        await crud.increment_movie_views(session, db_movie.id)
+                    await session.commit()
+                    return True
+            except Exception as e:
+                logger.warning(f"Resolved video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")
 
         # 2. HD Poster rasmi orqali yuborish
-        posters_dir = BASE_DIR / "data" / "posters"
+        posters_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "posters"
         posters_dir.mkdir(parents=True, exist_ok=True)
         poster_path = posters_dir / f"{clean_code}_l.webp"
 
@@ -532,12 +650,9 @@ class MovieService:
                     reply_markup=reply_markup,
                     reply_to_message_id=reply_to_message_id
                 )
-                if session and db_movie:
+                if db_movie:
                     await crud.increment_movie_views(session, db_movie.id)
-                elif db_movie:
-                    from database.session import get_session
-                    async with get_session() as s:
-                        await crud.increment_movie_views(s, db_movie.id)
+                await session.commit()
                 return True
             except Exception as ep:
                 logger.warning(f"Poster yuborib bo'lmadi ({ep}), matn yuboriladi.")
@@ -551,12 +666,9 @@ class MovieService:
                 reply_markup=reply_markup,
                 reply_to_message_id=reply_to_message_id
             )
-            if session and db_movie:
+            if db_movie:
                 await crud.increment_movie_views(session, db_movie.id)
-            elif db_movie:
-                from database.session import get_session
-                async with get_session() as s:
-                    await crud.increment_movie_views(s, db_movie.id)
+            await session.commit()
             return True
         except Exception as em:
             logger.error(f"Xabar yuborib bo'lmadi: {em}")

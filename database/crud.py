@@ -278,6 +278,44 @@ async def update_movie(
     return movie
 
 
+async def set_movie_video(
+    session: AsyncSession,
+    code: str,
+    file_id: str,
+    file_type: str = "video",
+    duration: Optional[int] = None,
+    file_size: Optional[int] = None,
+    title: Optional[str] = None,
+) -> Optional[Movie]:
+    """Kinoga haqiqiy video file_id yoki video manbasini biriktirish."""
+    clean_code = str(code).strip()
+    movie = await get_movie_by_code(session, clean_code)
+    if not movie:
+        movie = Movie(
+            code=clean_code,
+            title=title.strip() if title else f"Kino #{clean_code}",
+            file_id=str(file_id).strip(),
+            file_type=file_type,
+            duration=duration,
+            file_size=file_size,
+            created_at=utc_now()
+        )
+        session.add(movie)
+        await session.flush()
+        return movie
+
+    movie.file_id = str(file_id).strip()
+    movie.file_type = file_type
+    if title:
+        movie.title = title.strip()
+    if duration is not None:
+        movie.duration = duration
+    if file_size is not None:
+        movie.file_size = file_size
+    await session.flush()
+    return movie
+
+
 async def delete_movie(session: AsyncSession, code: str) -> bool:
     """Kinoni kod bo'yicha o'chirish."""
     stmt = delete(Movie).where(Movie.code == str(code).strip())
