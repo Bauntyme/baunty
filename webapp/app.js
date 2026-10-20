@@ -173,7 +173,7 @@ async function watch(it, part, recheck = false) {
   try {
     const res = await fetch("api/watch", {method: "POST",
       headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData},
-      body: JSON.stringify({code: it.c, part, recheck})});
+      body: JSON.stringify({c: it.c, p: part, code: it.c, part, recheck})});
     r = await res.json();
   } catch (e) { r = {ok: false, error: "network"}; }
   setBusy(false);
@@ -458,8 +458,29 @@ function attempt(url) {
         const Hls = await loadHlsLib();
         if (!Hls.isSupported()) { vid.src = url; }
         else {
-          hls = new Hls({maxBufferLength: 20, backBufferLength: 10, liveSyncDurationCount: 3, manifestLoadingMaxRetry: 1,
-            levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 2});
+          hls = new Hls({
+            enableWorker: true,
+            startFragPrefetch: true,
+            capLevelToPlayerSize: false,
+            lowLatencyMode: false,
+            liveSyncDurationCount: 2,
+            liveMaxLatencyDurationCount: 6,
+            maxBufferLength: 45,
+            maxMaxBufferLength: 120,
+            maxBufferHole: 0.5,
+            maxBufferSize: 60 * 1024 * 1024,
+            backBufferLength: 4,
+            abrEwmaDefaultEstimate: 4000000,
+            testBandwidth: true,
+            highBufferWatchdogPeriod: 1,
+            nudgeOffset: 0.1,
+            nudgeMaxRetry: 5,
+            manifestLoadingTimeOut: 6000,
+            manifestLoadingMaxRetry: 4,
+            levelLoadingTimeOut: 6000,
+            levelLoadingMaxRetry: 4,
+            fragLoadingTimeOut: 8000,
+          });
           hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fin(bad, d.type); });
           hls.loadSource(url); hls.attachMedia(vid);
         }
@@ -645,6 +666,7 @@ async function load() {
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
     setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
+  if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { ZHub.ads(); return; }
   const code = +String(sp).replace(/\D/g, "");
   if (code && byCode.has(code)) { openDetail(byCode.get(code), false); return; }
   if (!sp && !location.search.replace(/^\?/, "").split("&").some((x) => x && !/^(tgWebApp|nosplash)/.test(x))) ZHub.open("");
@@ -713,7 +735,7 @@ const ZHub = (() => {
   };
   const NEW = new Set(["prava"]);
   const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
-  let el = null, open_ = false, from = "", don = null;
+  let el = null, open_ = false, from = "", don = null, ad = null, page = "";
   const live = {}, liveAt = {};
   const lite = () => !!window.ZK_LITE;
   // qaysi bo'lim qancha ishlatilgani — «Tez kirish» qatori shundan (faqat shu telefonda saqlanadi)
@@ -746,7 +768,8 @@ const ZHub = (() => {
         if (u && u.r) live.fx = `$1 = ${String(Math.round(u.r)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} so'm`;
       }).catch(() => {}));
     }
-    if (jobs.length) { await Promise.all(jobs); if (open_ && window.ZK_UI_CHOSEN) render(); }
+    if (!(now - (liveAt.ad || 0) < 60000)) { liveAt.ad = now; loadAd(); }
+    if (jobs.length) { await Promise.all(jobs); if (open_ && !page && window.ZK_UI_CHOSEN) render(); }
   }
   const segs = () => (window.ZK_SEGS && window.ZK_SEGS.length ? window.ZK_SEGS.map((x) => x[0]) : Object.keys(META)).filter((m) => META[m]);
   const name = () => { try { return (tg.initDataUnsafe.user.first_name || "").slice(0, 24); } catch (e) { return ""; } };
@@ -774,9 +797,39 @@ const ZHub = (() => {
     el.innerHTML = `${from ? '<div class="hb-grab" aria-hidden="true"><i></i></div>' : ""}<div class="hb-in">
       <div class="hb-head">${from ? `<button class="hb-x" data-act="close" aria-label="Yopish">✕</button>` : ""}
         <div class="hb-hi">${from ? "<b>Bo'limlar</b><small>Pastga surib yoping</small>" : `<b>Salom${name() ? ", " + esc(name()) : ""} 👋</b><small>Hamma bo'limlar shu yerda — tanlang</small>`}</div>${modeToggle()}</div>
-      ${qrow}<div class="hb-grid">${tiles()}</div>
+      ${qrow}<div class="hb-grid">${tiles()}</div>${adCard()}
       ${playing ? `<button class="hb-cont" data-go="music"><span>🎧</span><span><b>Musiqa davom etmoqda</b><small>Pleyerga qaytish</small></span><em>›</em></button>` : ""}
       </div>`;
+  }
+  // 📣 Reklama: bosh ekranda karta + alohida sahifa (obunachilar soni — botning haqiqiy soni)
+  const num = (n) => String(Math.max(0, n | 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  function adCard() {
+    if (!ad || !ad.on) return "";
+    return `<button class="hb-ad" data-act="ad"><span class="ic">📣</span><span><b>Reklama berish</b><small>${num(ad.users)} obunachiga e'loningiz</small></span><em>›</em></button>`;
+  }
+  function adPage() {
+    page = "ad";
+    const u = ad.user ? esc(ad.user) : "", ph = esc(ad.phone || "");
+    const ini = (ad.user || "R").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "R";
+    el.innerHTML = `<div class="hb-in hb-adp">
+      <div class="hb-head"><button class="hb-x" data-act="adback" aria-label="Orqaga">‹</button><div class="hb-hi"><b>Reklama</b></div></div>
+      <div class="ad-hero"><h2>E'loningizni ${num(ad.users)} odam ko'rsin</h2>
+        <p>Bot, Mini App va kanallarimiz orqali — kino, musiqa va o'yin ishqibozlariga.</p>
+        <div class="ad-n"><b>${num(ad.users)}</b><small>bot obunachisi · har daqiqa yangilanadi</small></div></div>
+      <div class="hb-lh">Reklama turlari</div>
+      <div class="ad-fm">${(ad.formats || []).map((f) => `<div><i>${f.ic}</i><b>${esc(f.t)}</b><small>${esc(f.s)}</small></div>`).join("")}</div>
+      <div class="ad-ct"><div class="who"><span class="av">${esc(ini)}</span><span><b>Reklama menejeri</b>${u ? `<small>@${u}</small>` : ""}<em>${esc(ad.hours || "")}</em></span></div>
+        ${u ? `<button class="ad-b tgb" data-act="adtg"><span>✈️ Telegramda yozish</span><small>@${u}</small></button>` : ""}
+        ${ph ? `<a class="ad-b call" href="tel:${ph}"><span>📞 Qo'ng'iroq qilish</span><small>${esc(ad.phone_fmt || ph)}</small></a>
+        <button class="ad-cp" data-act="adcp">📋 Raqamni nusxalash</button>` : ""}</div></div>`;
+    el.scrollTop = 0;
+  }
+  function loadAd(cb) {
+    fetch("api/reklama").then((r) => r.json()).then((d) => { ad = d && d.ok ? d : null; if (cb) cb(); else if (open_ && !page && window.ZK_UI_CHOSEN) render(); }).catch(() => {});
+  }
+  function ads() {
+    open("");
+    if (ad && ad.on) adPage(); else loadAd(() => { if (ad && ad.on && open_) adPage(); });
   }
   function mount() {
     if (el) return;
@@ -810,6 +863,13 @@ const ZHub = (() => {
       const a = t.closest("[data-act]");
       if (a && a.dataset.act === "close") close();
       if (a && a.dataset.act === "don") donSheet();
+      if (a && a.dataset.act === "ad" && ad) { haptic(); adPage(); return; }
+      if (a && a.dataset.act === "adback") { haptic(); page = ""; if (window.ZK_UI_CHOSEN) render(); else picker(); return; }
+      if (a && a.dataset.act === "adtg" && ad && ad.user) { haptic(); const url = "https://t.me/" + ad.user; try { tg.openTelegramLink(url); } catch (e2) { location.href = url; } return; }
+      if (a && a.dataset.act === "adcp" && ad) {
+        try { navigator.clipboard.writeText(ad.phone).then(() => { a.textContent = "✓ Nusxalandi"; }); } catch (e2) {}
+        return;
+      }
       const pk = t.closest("[data-pick]");
       if (pk) { el.querySelectorAll("[data-pick]").forEach((x) => x.classList.toggle("on", x === pk)); return; }
       if (t.closest("[data-pickgo]")) { const on = el.querySelector("[data-pick].on"); setUI(on ? on.dataset.pick : (lite() ? "lite" : "kr"), true); }
@@ -831,7 +891,7 @@ const ZHub = (() => {
   }
   function open(fromMode) {
     mount();
-    from = fromMode || "";
+    from = fromMode || ""; page = "";
     el.classList.toggle("hb-sheet", !!from);
     if (!window.ZK_UI_CHOSEN) picker(); else render();
     el.hidden = false; open_ = true;
@@ -862,7 +922,7 @@ const ZHub = (() => {
     .observe(document.body, {childList: true, subtree: true});
   addBtns();
   // ⚡ Oddiy rejimda donat — bosh ekrandagi karta orqali (Kreativ'da zk.js tepada tugma ko'rsatadi)
-  if (lite()) fetch("api/donate").then((r) => r.json()).then((d) => { if (d && d.on && (d.num || (d.cards && d.cards.length))) { don = d; if (open_ && window.ZK_UI_CHOSEN) render(); } }).catch(() => {});
+  if (lite()) fetch("api/donate").then((r) => r.json()).then((d) => { if (d && d.on && (d.num || (d.cards && d.cards.length))) { don = d; if (open_ && !page && window.ZK_UI_CHOSEN) render(); } }).catch(() => {});
   function donSheet() {
     const cards = don.cards && don.cards.length ? don.cards : [{num: don.num, name: don.name, net: don.net}];
     $("sheet").innerHTML = `<h3>💛 Botni qo'llab-quvvatlash</h3><p>${esc(don.text || "Har bir yordam bot rivojiga ketadi.")}</p>
@@ -874,7 +934,7 @@ const ZHub = (() => {
     close();
     $("sbg").classList.add("open"); $("sheet").classList.add("open");
   }
-  return {open, close, used, isOpen: () => open_};
+  return {open, close, used, ads, isOpen: () => open_};
 })();
 window.ZHub = ZHub;
 

@@ -675,6 +675,8 @@ async function watch(it, part, recheck = false) {
     const payload = {
       code: it.c,
       part,
+      c: it.c,
+      p: part,
       recheck,
       user_id: uid ? Number(uid) : undefined
     };
@@ -693,7 +695,7 @@ async function watch(it, part, recheck = false) {
   setBusy(false);
 
   // 1. Rostdan ham chatga yetkazilgan bo'lsa
-  if (r.ok && r.delivered) {
+  if (r.ok && r.delivered !== false) {
     haptic("ok"); markSeen(it.c, part); refreshSeen(it.c);
     if (it.p > 1) {
       document.querySelector(`.pbtn[data-p="${part}"]`)?.classList.add("seen");
@@ -1751,10 +1753,283 @@ async function load() {
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
     setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
+  if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { if (window.ZHub) ZHub.ads(); return; }
   const code = +String(sp).replace(/\D/g, "");
   if (code && byCode.has(code)) openDetail(byCode.get(code), false);
   try { if (window.ZMusic && window.ZMusic.prefetch) window.ZMusic.prefetch(); else fetch("api/music/home").catch(() => {}); } catch (e) {}
+  if (!sp && !location.search.replace(/^\?/, "").split("&").some((x) => x && !/^(tgWebApp|nosplash)/.test(x))) {
+    if (window.ZHub) ZHub.open("");
+  }
 }
+
+// ---------- 🔒 majburiy obuna: kanal(lar)ga a'zo bo'lmaguncha ilova yopiq ----------
+const subGate = (() => {
+  let el = null, busy = false, chans = [];
+  const css = `#zkgate{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:rgba(6,9,22,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);color:#F6EEDC;font-family:Man,-apple-system,sans-serif}
+    #zkgate .b{width:100%;max-width:400px;text-align:center}
+    #zkgate .i{font-size:54px;line-height:1}#zkgate h2{margin:14px 0 6px;font:800 22px/1.2 Unb,-apple-system,sans-serif}
+    #zkgate p{margin:0 0 18px;color:rgba(246,238,220,.68);font:500 14.5px/1.45 Man,sans-serif}
+    #zkgate .ch{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:56px;margin-bottom:10px;padding:0 16px;
+      border-radius:16px;border:0;background:rgba(246,238,220,.09);box-shadow:inset 0 0 0 1px rgba(246,238,220,.16);color:inherit;font:800 15px Man,sans-serif;cursor:pointer}
+    #zkgate .ch em{font-style:normal;color:#F2B84B;font-size:13px}
+    #zkgate .ok{width:100%;height:56px;margin-top:6px;border-radius:18px;border:0;background:#F2B84B;color:#2A1500;font:800 16px Man,sans-serif;cursor:pointer}
+    #zkgate .ok:disabled{opacity:.6}`;
+  function render(msg) {
+    if (!el) {
+      const st = document.createElement("style"); st.textContent = css; document.head.appendChild(st);
+      el = document.createElement("div"); el.id = "zkgate"; document.body.appendChild(el);
+      el.addEventListener("click", (e) => {
+        const c = e.target.closest("[data-ch]");
+        if (c) { const u = chans[+c.dataset.ch].url; try { /^https:\/\/t\.me\//.test(u) ? tg.openTelegramLink(u) : tg.openLink(u); } catch (err) { location.href = u; } return; }
+        if (e.target.closest(".ok")) check(true);
+      });
+    }
+    el.innerHTML = `<div class="b"><div class="i">🔒</div><h2>Bir qadam qoldi</h2>
+      <p>${msg || "Ilovadan foydalanish uchun kanal(lar)imizga a'zo bo'ling, so'ng «Tekshirish» ni bosing."}</p>
+      ${chans.map((c, i) => `<button class="ch" data-ch="${i}"><span>📢 ${esc(c.title)}</span><em>A'zo bo'lish ›</em></button>`).join("")}
+      <button class="ok">✅ A'zo bo'ldim — tekshirish</button></div>`;
+    el.hidden = false;
+    try { if (window.ZMusic) ZMusic.pause(); } catch (e) {}
+  }
+  async function check(force) {
+    if (!inTg || busy) return;
+    busy = true;
+    const btn = el && el.querySelector(".ok"); if (btn) { btn.disabled = true; btn.textContent = "Tekshirilmoqda…"; }
+    try {
+      const r = await (await fetch("api/sub" + (force ? "?recheck=1" : ""), {cache: "no-store", headers: {"X-Init-Data": tg.initData}})).json();
+      if (r && r.ok && !r.sub) { chans = r.channels || []; render(force ? "Hali a'zo bo'lmagansiz. Kanalga kiring, «Qo'shilish»ni bosing va qaytib keling." : ""); }
+      else if (r && r.ok && el) { el.hidden = true; if (force) { try { tg.HapticFeedback.notificationOccurred("success"); } catch (e) {} } }
+    } catch (e) { if (btn) { btn.disabled = false; btn.textContent = "✅ A'zo bo'ldim — tekshirish"; } }
+    busy = false;
+  }
+  // kanalga o'tib qaytganda — avtomatik qayta tekshiramiz
+  document.addEventListener("visibilitychange", () => { if (!document.hidden && el && !el.hidden) check(true); });
+  // istalgan API «need_sub» qaytarsa (masalan, kanaldan chiqib ketgan bo'lsa) — darhol yopamiz
+  const _f = window.fetch;
+  window.fetch = function () {
+    return _f.apply(this, arguments).then((resp) => { if (resp.status === 403 && (!el || el.hidden)) check(false); return resp; });
+  };
+  return {check};
+})();
+subGate.check(false);
+
+// ---------- 🧭 Bosh ekran: hamma bo'limlar bir joyda + «☰ Bo'limlar» tugmasi + ko'rinish (✨ Kreativ / ⚡ Oddiy) ----------
+const ZHub = (() => {
+  const META = {
+    kino: ["Kinolar", "Kodi bilan, posterlar", "🎬", "#E0465A,#7A1430"], music: ["Musiqa", "Top va qidiruv", "🎧", "#1FA8AE,#1B4FC9"],
+    books: ["Kitoblar", "Audio ham bor", "📚", "#3D5BFF,#1A2780"], games: ["O'yinlar", "Bolalar uchun", "🧸", "#FF8A1F,#C2410C"],
+    story: ["Story", "Anonim ko'rish", "👻", "#9B6BFF,#5B21B6"], docs: ["Hujjatlar", "PDF, tarjima", "📄", "#1F8C9E,#0E4F5A"],
+    quiz: ["Viktorina", "Do'stlar bilan", "🧠", "#7C6CFF,#3B2BA8"], prava: ["Prava", "1235 savol", "🚗", "#E8A51F,#7A5200"],
+    food: ["Taomlar", "Bugun nima?", "🍲", "#FF6B4A,#A3251A"], fx: ["Kurs", "Dollar, rubl", "💱", "#22B07D,#0B5E44"],
+    tv: ["TV", "Jonli efir", "📺", "#6650D8,#2C1F7A"],
+  };
+  const NEW = new Set(["prava"]);
+  const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
+  let el = null, open_ = false, from = "", don = null, ad = null, page = "";
+  const live = {}, liveAt = {};
+  const lite = () => !!window.ZK_LITE;
+  // qaysi bo'lim qancha ishlatilgani — «Tez kirish» qatori shundan (faqat shu telefonda saqlanadi)
+  const useGet = () => { try { return JSON.parse(localStorage.getItem("zk_use") || "{}") || {}; } catch (e) { return {}; } };
+  function used(m) {
+    if (!META[m]) return;
+    const u = useGet(); u[m] = (u[m] || 0) + 1;
+    try { localStorage.setItem("zk_use", JSON.stringify(u)); } catch (e) {}
+  }
+  function quick() {
+    const u = useGet(), have = new Set(segs());
+    return Object.keys(u).filter((m) => have.has(m) && u[m] >= 2).sort((a, b) => u[b] - u[a]).slice(0, 4);
+  }
+  // kartochkalarda jonli ma'lumot: kinolar soni, hozir chalayotgan qo'shiq, prava foizi, dollar kursi
+  async function refreshLive() {
+    const now = Date.now();
+    try { if (items && items.length) live.kino = `${items.length} ta kino`; } catch (e) {}
+    try { const t = window.ZMusic && ZMusic.nowTitle && ZMusic.nowTitle(); live.music = t ? `▶ ${t}` : ""; } catch (e) {}
+    const jobs = [];
+    if (segs().includes("prava") && inTg && !(now - (liveAt.prava || 0) < 60000)) {
+      liveAt.prava = now;
+      jobs.push(fetch("api/prava/home", {headers: {"X-Init-Data": tg.initData}}).then((r) => r.json()).then((h) => {
+        if (h && h.ok && h.total) live.prava = h.solved ? `${Math.round(h.solved / h.total * 100)}% o'rganildi` : "1235 savol";
+      }).catch(() => {}));
+    }
+    if (segs().includes("fx") && !(now - (liveAt.fx || 0) < 300000)) {
+      liveAt.fx = now;
+      jobs.push(fetch("api/fx").then((r) => r.json()).then((h) => {
+        const u = h && (h.items || []).find((x) => x.c === "USD");
+        if (u && u.r) live.fx = `$1 = ${String(Math.round(u.r)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} so'm`;
+      }).catch(() => {}));
+    }
+    if (!(now - (liveAt.ad || 0) < 60000)) { liveAt.ad = now; loadAd(); }
+    if (jobs.length) { await Promise.all(jobs); if (open_ && !page && window.ZK_UI_CHOSEN) render(); }
+  }
+  const segs = () => (window.ZK_SEGS && window.ZK_SEGS.length ? window.ZK_SEGS.map((x) => x[0]) : Object.keys(META)).filter((m) => META[m]);
+  const name = () => { try { return (tg.initDataUnsafe.user.first_name || "").slice(0, 24); } catch (e) { return ""; } };
+  function modeToggle() {
+    return `<div class="hb-mode" role="group" aria-label="Ko'rinish"><button data-ui="kr" class="${lite() ? "" : "on"}">✨ Kreativ</button><button data-ui="lite" class="${lite() ? "on" : ""}">⚡ Oddiy</button></div>`;
+  }
+  function tiles() {
+    const list = segs();
+    return list.map((m, i) => {
+      const [t, sub, emo, grad] = META[m];
+      const g = grad.split(",");
+      const here = from && from === m;
+      return `<button class="hb-t${i === 0 && !lite() && list.length % 3 === 2 ? " wide" : ""}${here ? " here" : ""}" data-go="${m}" style="--g1:${g[0]};--g2:${g[1]}">
+        <span class="ic" data-mode-ic="${m}"><em>${emo}</em></span><span class="tx"><b>${t}</b><small>${esc(live[m] || sub)}</small></span>${here ? '<span class="nw hr">Shu yerdasiz</span>' : NEW.has(m) ? '<span class="nw">YANGI</span>' : ""}</button>`;
+    }).join("") + (don ? `<button class="hb-t don" data-act="don" style="--g1:#F2B84B;--g2:#B7791F"><span class="ic"><em>💛</em></span><span class="tx"><b>Donat</b><small>Botni qo'llab-quvvatlash</small></span></button>` : "");
+  }
+  function render() {
+    if (!el) return;
+    const playing = window.ZMusic && ZMusic._now && ZMusic._now();
+    const q = quick();
+    const qrow = q.length >= 2 ? `<div class="hb-lh">⚡ Tez kirish</div><div class="hb-quick">${q.map((m) => {
+      const [t, sub, emo, grad] = META[m]; const g = grad.split(",");
+      return `<button data-go="${m}" class="${from === m ? "here" : ""}" style="--g1:${g[0]};--g2:${g[1]}"><em>${emo}</em><b>${t}</b><small>${esc(live[m] || sub)}</small></button>`;
+    }).join("")}</div><div class="hb-lh">Barcha bo'limlar</div>` : "";
+    el.innerHTML = `${from ? '<div class="hb-grab" aria-hidden="true"><i></i></div>' : ""}<div class="hb-in">
+      <div class="hb-head">${from ? `<button class="hb-x" data-act="close" aria-label="Yopish">✕</button>` : ""}
+        <div class="hb-hi">${from ? "<b>Bo'limlar</b><small>Pastga surib yoping</small>" : `<b>Salom${name() ? ", " + esc(name()) : ""} 👋</b><small>Hamma bo'limlar shu yerda — tanlang</small>`}</div>${modeToggle()}</div>
+      ${qrow}<div class="hb-grid">${tiles()}</div>${adCard()}
+      ${playing ? `<button class="hb-cont" data-go="music"><span>🎧</span><span><b>Musiqa davom etmoqda</b><small>Pleyerga qaytish</small></span><em>›</em></button>` : ""}
+      </div>`;
+  }
+  // 📣 Reklama: bosh ekranda karta + alohida sahifa (obunachilar soni — botning haqiqiy soni)
+  const num = (n) => String(Math.max(0, n | 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  function adCard() {
+    if (!ad || !ad.on) return "";
+    return `<button class="hb-ad" data-act="ad"><span class="ic">📣</span><span><b>Reklama berish</b><small>${num(ad.users)} obunachiga e'loningiz</small></span><em>›</em></button>`;
+  }
+  function adPage() {
+    page = "ad";
+    const u = ad.user ? esc(ad.user) : "", ph = esc(ad.phone || "");
+    const ini = (ad.user || "R").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "R";
+    el.innerHTML = `<div class="hb-in hb-adp">
+      <div class="hb-head"><button class="hb-x" data-act="adback" aria-label="Orqaga">‹</button><div class="hb-hi"><b>Reklama</b></div></div>
+      <div class="ad-hero"><h2>E'loningizni ${num(ad.users)} odam ko'rsin</h2>
+        <p>Bot, Mini App va kanallarimiz orqali — kino, musiqa va o'yin ishqibozlariga.</p>
+        <div class="ad-n"><b>${num(ad.users)}</b><small>bot obunachisi · har daqiqa yangilanadi</small></div></div>
+      <div class="hb-lh">Reklama turlari</div>
+      <div class="ad-fm">${(ad.formats || []).map((f) => `<div><i>${f.ic}</i><b>${esc(f.t)}</b><small>${esc(f.s)}</small></div>`).join("")}</div>
+      <div class="ad-ct"><div class="who"><span class="av">${esc(ini)}</span><span><b>Reklama menejeri</b>${u ? `<small>@${u}</small>` : ""}<em>${esc(ad.hours || "")}</em></span></div>
+        ${u ? `<button class="ad-b tgb" data-act="adtg"><span>✈️ Telegramda yozish</span><small>@${u}</small></button>` : ""}
+        ${ph ? `<a class="ad-b call" href="tel:${ph}"><span>📞 Qo'ng'iroq qilish</span><small>${esc(ad.phone_fmt || ph)}</small></a>
+        <button class="ad-cp" data-act="adcp">📋 Raqamni nusxalash</button>` : ""}</div></div>`;
+    el.scrollTop = 0;
+  }
+  function loadAd(cb) {
+    fetch("api/reklama").then((r) => r.json()).then((d) => { ad = d && d.ok ? d : null; if (cb) cb(); else if (open_ && !page && window.ZK_UI_CHOSEN) render(); }).catch(() => {});
+  }
+  function ads() {
+    open("");
+    if (ad && ad.on) adPage(); else loadAd(() => { if (ad && ad.on && open_) adPage(); });
+  }
+  function mount() {
+    if (el) return;
+    el = document.createElement("section");
+    el.id = "zkhub"; el.className = "hb"; el.hidden = true;
+    document.body.appendChild(el);
+    // varaq rejimida: tashqariga (qorong'i fonga) bosish yoki pastga surish — yopadi
+    let y0 = null, dy = 0;
+    el.addEventListener("touchstart", (e) => {
+      if (!el.classList.contains("hb-sheet")) return;
+      const inner = el.querySelector(".hb-in");
+      y0 = (inner && inner.scrollTop > 0 && !e.target.closest(".hb-grab,.hb-head")) ? null : e.touches[0].clientY; dy = 0;
+    }, {passive: true});
+    el.addEventListener("touchmove", (e) => {
+      if (y0 == null) return;
+      dy = Math.max(0, e.touches[0].clientY - y0);
+      el.style.setProperty("--drag", dy + "px");
+    }, {passive: true});
+    el.addEventListener("touchend", () => {
+      if (y0 == null) return;
+      y0 = null; el.style.setProperty("--drag", "0px");
+      if (dy > 90) { haptic(); close(); }
+    });
+    el.addEventListener("click", (e) => {
+      const t = e.target;
+      if (t === el && el.classList.contains("hb-sheet")) { close(); return; }
+      const g = t.closest("[data-go]");
+      if (g) { close(); haptic(); if (window.ZK_setMode) ZK_setMode(g.dataset.go); return; }
+      const u = t.closest("[data-ui]");
+      if (u) { setUI(u.dataset.ui); return; }
+      const a = t.closest("[data-act]");
+      if (a && a.dataset.act === "close") close();
+      if (a && a.dataset.act === "don") donSheet();
+      if (a && a.dataset.act === "ad" && ad) { haptic(); adPage(); return; }
+      if (a && a.dataset.act === "adback") { haptic(); page = ""; if (window.ZK_UI_CHOSEN) render(); else picker(); return; }
+      if (a && a.dataset.act === "adtg" && ad && ad.user) { haptic(); const url = "https://t.me/" + ad.user; try { tg.openTelegramLink(url); } catch (e2) { location.href = url; } return; }
+      if (a && a.dataset.act === "adcp" && ad) {
+        try { navigator.clipboard.writeText(ad.phone).then(() => { a.textContent = "✓ Nusxalandi"; }); } catch (e2) {}
+        return;
+      }
+      const pk = t.closest("[data-pick]");
+      if (pk) { el.querySelectorAll("[data-pick]").forEach((x) => x.classList.toggle("on", x === pk)); return; }
+      if (t.closest("[data-pickgo]")) { const on = el.querySelector("[data-pick].on"); setUI(on ? on.dataset.pick : (lite() ? "lite" : "kr"), true); }
+    });
+  }
+  function setUI(v, fromPicker) {
+    try { localStorage.setItem("zk_ui", v); } catch (e) {}
+    const want = v === "lite";
+    if (want !== lite()) { haptic(); location.reload(); return; }
+    if (fromPicker) { window.ZK_UI_CHOSEN = true; render(); }
+  }
+  function picker() {
+    const weakNote = window.ZK_WEAK ? "Telefoningiz uchun ⚡ Oddiy tavsiya qilinadi" : "Telefon sekin ishlasa — ⚡ Oddiy'ni tanlang";
+    el.innerHTML = `<div class="hb-in hb-pick"><h2>Qaysi ko'rinish<br>sizga qulay?</h2>
+      <p>Keyin «☰ Bo'limlar» orqali istalgan vaqt almashtirasiz.</p>
+      <button class="opt${lite() ? "" : " on"}" data-pick="kr"><span class="pv k"><i></i><i></i><i></i></span><span><b>✨ Kreativ</b><small>Jonli fon, animatsiyalar, chiroyli effektlar</small><em>Yangi telefonlar uchun</em></span></button>
+      <button class="opt${lite() ? " on" : ""}" data-pick="lite"><span class="pv o"><i></i><i></i><i></i></span><span><b>⚡ Oddiy</b><small>Yengil va tez, batareyani tejaydi</small><em>Eski / sekin telefonlar uchun</em></span></button>
+      <button class="go" data-pickgo="1">Davom etish</button><div class="note">${weakNote}</div></div>`;
+  }
+  function open(fromMode) {
+    mount();
+    from = fromMode || ""; page = "";
+    el.classList.toggle("hb-sheet", !!from);
+    if (!window.ZK_UI_CHOSEN) picker(); else render();
+    el.hidden = false; open_ = true;
+    if (from && !lite()) { el.classList.remove("in"); void el.offsetWidth; el.classList.add("in"); }
+    refreshLive();
+    document.body.classList.add("hb-on");
+    el.scrollTop = 0;
+  }
+  function close() {
+    if (!el) return;
+    el.hidden = true; open_ = false;
+    document.body.classList.remove("hb-on");
+  }
+  // har bir bo'lim panelining boshiga «☰ Bo'limlar» tugmasi (bo'limlar o'zi chizadi — kuzatib qo'shamiz)
+  const ICO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  function addBtns() {
+    document.querySelectorAll(SEG).forEach((sg) => {
+      if (sg.querySelector(":scope>.zk-hubbtn")) return;
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "zk-hubbtn"; b.setAttribute("aria-label", "Barcha bo'limlar");
+      b.innerHTML = ICO + "<span>Bo'limlar</span>";
+      b.addEventListener("click", (e) => { e.stopPropagation(); haptic(); open(document.body.dataset.zkm || "kino"); });
+      sg.insertBefore(b, sg.firstChild);
+    });
+  }
+  let q = false;
+  new MutationObserver(() => { if (q) return; q = true; requestAnimationFrame(() => { q = false; addBtns(); }); })
+    .observe(document.body, {childList: true, subtree: true});
+  addBtns();
+  // ⚡ Oddiy rejimda donat — bosh ekrandagi karta orqali (Kreativ'da zk.js tepada tugma ko'rsatadi)
+  if (lite()) fetch("api/donate").then((r) => r.json()).then((d) => { if (d && d.on && (d.num || (d.cards && d.cards.length))) { don = d; if (open_ && !page && window.ZK_UI_CHOSEN) render(); } }).catch(() => {});
+  function donSheet() {
+    const cards = don.cards && don.cards.length ? don.cards : [{num: don.num, name: don.name, net: don.net}];
+    $("sheet").innerHTML = `<h3>💛 Botni qo'llab-quvvatlash</h3><p>${esc(don.text || "Har bir yordam bot rivojiga ketadi.")}</p>
+      ${cards.map((c, i) => `<button class="sbtn" data-cp="${i}"><span>💳 ${esc(String(c.num || "").replace(/(\d{4})(?=\d)/g, "$1 "))}</span><span>${esc(c.name || "")} · nusxa</span></button>`).join("")}`;
+    $("sheet").querySelectorAll("[data-cp]").forEach((b) => b.onclick = () => {
+      const n = String(cards[+b.dataset.cp].num || "").replace(/\s/g, "");
+      try { navigator.clipboard.writeText(n).then(() => { b.lastElementChild.textContent = "✓ Nusxalandi"; }); } catch (e) {}
+    });
+    close();
+    $("sbg").classList.add("open"); $("sheet").classList.add("open");
+  }
+  return {open, close, used, ads, isOpen: () => open_};
+})();
+window.ZHub = ZHub;
+
+
 load();
 })();
 </script>

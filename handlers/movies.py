@@ -305,6 +305,28 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
                 reply_markup=markup
             )
         else:
+            cat_match = MovieService.search_catalog_by_title(title)
+            if cat_match and cat_match.get("c"):
+                c_str = str(cat_match["c"])
+                t_str = cat_match.get("t", f"Kino #{c_str}").strip()
+                d_str = cat_match.get("d", "").strip() or None
+                v_str = int(cat_match.get("v", 150))
+                db_m, _ = await crud.upsert_movie(
+                    session=session,
+                    code=c_str,
+                    title=t_str,
+                    description=d_str,
+                    views_count=v_str
+                )
+                await session.commit()
+                markup = movie_list_keyboard([db_m])
+                await message.answer(
+                    f"🔍 <b>«{title}» bo'yicha topilgan kino:</b>\nKeraklisini tanlang:",
+                    parse_mode="HTML",
+                    reply_markup=markup
+                )
+                return
+
             text = (
                 f"❌ <b>«{title}»</b> nomli kino bazamizda topilmadi!\n\n"
                 f"🍿 Eng so'nggi kinolar kanalimizda: {config.CHANNEL_USERNAME}\n"

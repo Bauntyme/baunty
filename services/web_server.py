@@ -638,9 +638,9 @@ async def handle_watch(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    code = str(body.get("code", "")).strip()
+    code = str(body.get("code") or body.get("c") or "").strip()
     try:
-        part = int(body.get("part") or 1)
+        part = int(body.get("part") or body.get("p") or 1)
     except (ValueError, TypeError):
         part = 1
 
@@ -1911,6 +1911,25 @@ async def handle_api_donate(request: web.Request) -> web.Response:
     })
 
 
+async def handle_api_reklama(request: web.Request) -> web.Response:
+    """Bauntys reklama berish ma'lumotlari."""
+    channel_clean = config.CHANNEL_USERNAME.lstrip("@")
+    return web.json_response({
+        "ok": True,
+        "on": True,
+        "users": 250000,
+        "user": channel_clean,
+        "phone": "+998900000000",
+        "phone_fmt": "+998 90 000 00 00",
+        "hours": "09:00–22:00",
+        "formats": [
+            {"ic": "📩", "t": "Botda xabar", "s": "Hamma obunachiga, muddatli (o'zi o'chadi)"},
+            {"ic": "📌", "t": "Pin xabar", "s": "Chat tepasida turadi"},
+            {"ic": "🎬", "t": "Kino posteri", "s": "Poster kanali va katalogda"}
+        ]
+    })
+
+
 def create_web_app() -> web.Application:
     """aiohttp web application yaratish va routerlarni sozlash."""
     app = web.Application()
@@ -2009,6 +2028,7 @@ def create_web_app() -> web.Application:
         ("POST", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/sub", handle_api_sub),
         ("GET", "/api/donate", handle_api_donate),
+        ("GET", "/api/reklama", handle_api_reklama),
     ]
     for method, path, handler in api_routes:
         if method == "GET":

@@ -659,20 +659,25 @@ class MovieService:
                             reply_to_message_id=reply_to_message_id
                         )
                         # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish
-                        if sent_msg and hasattr(sent_msg, "video") and sent_msg.video:
-                            new_fid = getattr(sent_msg.video, "file_id", None)
+                        sent_media = (
+                            getattr(sent_msg, "video", None)
+                            or getattr(sent_msg, "document", None)
+                        ) if sent_msg else None
+                        if sent_media:
+                            new_fid = getattr(sent_media, "file_id", None)
                             if isinstance(new_fid, str) and not new_fid.startswith("<") and len(new_fid) > 10:
-                                dur = getattr(sent_msg.video, "duration", None)
+                                dur = getattr(sent_media, "duration", None)
                                 dur_val = int(dur) if isinstance(dur, (int, float)) else resolved_source.get("duration")
-                                fsize = getattr(sent_msg.video, "file_size", None)
+                                fsize = getattr(sent_media, "file_size", None)
                                 fsize_val = int(fsize) if isinstance(fsize, (int, float)) else resolved_source.get("file_size")
                                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
+                                ftype = "video" if getattr(sent_msg, "video", None) else "document"
                                 try:
                                     await crud.set_movie_video(
                                         session=session,
                                         code=p_code,
                                         file_id=new_fid,
-                                        file_type="video",
+                                        file_type=ftype,
                                         duration=dur_val,
                                         file_size=fsize_val,
                                         title=title

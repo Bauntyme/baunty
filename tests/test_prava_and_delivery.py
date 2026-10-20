@@ -300,3 +300,127 @@ async def test_movie_video_delivery_real_stream():
     call_kwargs2 = bot_mock.send_video.call_args.kwargs
     assert "2-qism" in call_kwargs2["caption"]
     assert call_kwargs2["supports_streaming"] is True
+
+
+@pytest.mark.asyncio
+async def test_api_reklama_and_watch_frontend_payload():
+    """/api/reklama va /api/watch ning {c, p} formatidagi frontend so'rovlari testi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # 1. /api/reklama
+        r_ad = await client.get("/api/reklama")
+        assert r_ad.status == 200
+        d_ad = await r_ad.json()
+        assert d_ad["ok"] is True
+        assert d_ad["on"] is True
+        assert "formats" in d_ad
+        assert len(d_ad["formats"]) == 3
+        assert "Baunty" in d_ad["user"] or config.CHANNEL_USERNAME.lstrip("@") in d_ad["user"]
+        ad_str = json.dumps(d_ad)
+        assert "zakirov" not in ad_str.lower()
+        assert "dilbar" not in ad_str.lower()
+
+        # Alias /webapp/api/reklama
+        r_ad2 = await client.get("/webapp/api/reklama")
+        assert r_ad2.status == 200
+
+        # 2. /api/watch with frontend payload {c: 717, p: 1, user_id: 887766}
+        r_watch = await client.post("/api/watch", json={"c": 717, "p": 1, "user_id": 887766})
+        assert r_watch.status == 200
+        d_watch = await r_watch.json()
+        assert d_watch["code"] == "717"
+        assert d_watch["part"] == 1
+        assert d_watch.get("error") != "not_found"
+    finally:
+        await client.close()
+
+
+def test_hub_and_ad_styles_in_zk_css_and_zk_js():
+    """webapp/zk.css da Hub, Bo'limlar va Reklama stillari va zk.js da pv-seg mavjudligi testi."""
+    css_content = (BASE_DIR / "webapp" / "zk.css").read_text(encoding="utf-8")
+    js_content = (BASE_DIR / "webapp" / "zk.js").read_text(encoding="utf-8")
+    html_content = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
+    app_js_content = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+
+    # 1. zk.css da Hub va Reklama selektorlari
+    assert ".hb" in css_content
+    assert ".hb-in" in css_content
+    assert ".hb-ad" in css_content
+    assert ".hb-grid" in css_content
+    assert ".ad-hero" in css_content
+    assert ".ad-fm" in css_content
+    assert ".ad-ct" in css_content
+
+    # 2. zk.js da ZK_LITE va .pv-seg
+    assert "window.ZK_LITE" in js_content
+    assert ".pv-seg" in js_content
+
+    # 3. index.html va app.js da ZHub va subGate mavjudligi
+    assert "ZHub" in html_content
+    assert "subGate" in html_content
+    assert "ZHub" in app_js_content
+    assert "subGate" in app_js_content
+    assert "startFragPrefetch: true" in app_js_content
+
+
+@pytest.mark.asyncio
+async def test_state_process_title_catalog_fallback():
+    """FSM nom bo'yicha qidiruvda (state_process_title) katalogdagi kino darhol topilishi testi."""
+    from handlers.movies import state_process_title
+    from utils.states import MovieSearchStates
+    from aiogram.fsm.storage.memory import MemoryStorage
+    from aiogram.fsm.context import FSMContext
+
+    await init_db()
+    message = AsyncMock()
+    message.from_user.id = 667788
+    message.chat.id = 667788
+    message.message_id = 4455
+    message.text = "Attack on Titan"
+    message.answer = AsyncMock()
+    message.reply = AsyncMock()
+
+    bot_mock = AsyncMock()
+    sent_mock = MagicMock()
+    sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_SAMPLE_TITAN_STREAM_FID", duration=1200, file_size=25000000)
+    bot_mock.send_video = AsyncMock(return_value=sent_mock)
+    bot_mock.send_photo = AsyncMock()
+    message.bot = bot_mock
+
+    storage = MemoryStorage()
+    state = FSMContext(storage=storage, key=__import__("aiogram.fsm.storage.base", fromlist=["StorageKey"]).StorageKey(
+        bot_id=1, chat_id=667788, user_id=667788
+    ))
+    await state.set_state(MovieSearchStates.waiting_for_title)
+
+    await state_process_title(message, state)
+
+    # 1. Nom bo'yicha qidiruvda tugmalar ro'yxati qaytishi
+    assert message.answer.called is True
+    ans_args = message.answer.call_args
+    ans_text = ans_args[0][0]
+    assert "Attack on Titan" in ans_text
+    reply_markup = ans_args.kwargs.get("reply_markup")
+    assert reply_markup is not None
+    buttons = [b for row in reply_markup.inline_keyboard for b in row]
+    titan_btn = next((b for b in buttons if b.callback_data == "get_movie:717"), None)
+    assert titan_btn is not None
+
+    # 2. Foydalanuvchi kinoni tanlaganda (cb_get_movie_by_code) video yetkazilishi
+    from handlers.movies import cb_get_movie_by_code
+    cb = AsyncMock()
+    cb.data = "get_movie:717"
+    cb.bot = bot_mock
+    cb.message.chat.id = 667788
+    cb.answer = AsyncMock()
+    await cb_get_movie_by_code(cb)
+
+    assert bot_mock.send_video.called is True
+    video_call = bot_mock.send_video.call_args.kwargs
+    assert "Attack on Titan" in video_call["caption"]
+    assert video_call["supports_streaming"] is True
+

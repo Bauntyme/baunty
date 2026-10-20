@@ -8,6 +8,12 @@ const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const body = document.body;
 const tg = window.Telegram && Telegram.WebApp;
 const haptic = (k) => { try { k === "ok" ? tg.HapticFeedback.notificationOccurred("success") : tg.HapticFeedback.impactOccurred(k || "light"); } catch (e) {} };
+if (window.ZK_LITE) {
+  // ⚡ Oddiy rejim: jonli fon (WebGL), xiralashtirish va animatsiyalarsiz — Telegram'ning o'z ranglari.
+  // Kirish animatsiyasi ham yo'q; donat — bosh ekrandagi «💛 Donat» kartasi orqali (app.js).
+  const s = document.getElementById("zksplash"); if (s) s.remove();
+  return;
+}
 body.classList.add("zk");
 
 // ------------------------------------------------------------------ bo'lim ranglari
@@ -148,7 +154,7 @@ applyMode(modeNow());
 requestAnimationFrame(frame);
 
 // ------------------------------------------------------------------ bo'limlar paneli: siljuvchi indikator
-const SEG_SEL = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg";
+const SEG_SEL = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
 let prevRect = null;
 function decorate(seg) {
   const on = seg.querySelector("button.on");

@@ -481,3 +481,173 @@ body:is(.rd-on):not(#x) .zk-don,body:has(#det.open,#tvp.open,.m-player.open,.m-r
 
 @keyframes zkring { 0%{transform:scale(.8)} 100%{transform:scale(1.2)} }
 @keyframes zkdrop { 0%{transform:translateY(-10px)} 100%{transform:translateY(0)} }
+
+
+/* ================================================================== 🧭 Bosh ekran (hamma bo'limlar) + «☰ Bo'limlar» */
+.hb{position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;color:var(--zk-cream);
+  font:500 15px/1.4 var(--zk-fb)}
+.hb[hidden]{display:none!important}
+body.hb-on{overflow:hidden}
+body.hb-on>.top,body.hb-on>main{visibility:hidden}
+body.zk .hb{background:linear-gradient(180deg,rgba(7,9,26,.9),rgba(7,9,26,.97))}
+.hb-in{max-width:560px;margin:0 auto;padding:14px 16px calc(40px + env(safe-area-inset-bottom))}
+.hb button{font:inherit;color:inherit;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:left}
+.hb button:focus-visible{outline:2px solid #F2B84B;outline-offset:2px}
+.hb-head{display:flex;align-items:flex-start;gap:10px;margin:4px 0 16px}
+.hb-hi{flex:1;min-width:0}.hb-hi b{display:block;font:800 21px/1.15 var(--zk-fd);letter-spacing:-.01em}
+.hb-hi small{display:block;font:500 13px var(--zk-fb);color:var(--zk-mute);margin-top:6px}
+.hb-x{width:40px;height:40px;border-radius:13px;background:rgba(7,11,31,.55);box-shadow:inset 0 0 0 1px var(--zk-line);font:800 15px var(--zk-fb)!important;flex:none;text-align:center!important}
+.hb-mode{display:flex;flex:none;padding:3px;border-radius:13px;background:rgba(7,11,31,.55);box-shadow:inset 0 0 0 1px var(--zk-line)}
+.hb-mode button{padding:7px 9px;border-radius:10px;background:none;font:800 11.5px var(--zk-fb)!important;color:var(--zk-mute)!important}
+.hb-mode button.on{background:#F2B84B;color:#2A1500!important}
+.hb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.hb-t{position:relative;min-height:106px;border-radius:20px;padding:11px;display:flex;flex-direction:column;justify-content:space-between;gap:8px;overflow:hidden;
+  color:#fff!important;background:linear-gradient(150deg,var(--g1),var(--g2));box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 10px 24px rgba(0,0,0,.28);transition:transform .15s}
+.hb-t:active{transform:scale(.96)}
+.hb-t.wide{grid-column:span 2}
+.hb-t::after{content:"";position:absolute;right:-16px;bottom:-18px;width:66px;height:66px;border-radius:50%;background:rgba(255,255,255,.12)}
+.hb-t .ic{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.2);display:grid;place-items:center}
+.hb-t .ic em{font-style:normal;font-size:19px;line-height:1}
+.hb-t b{display:block;font:800 13.5px/1.15 var(--zk-fb)}.hb-t small{display:block;font:700 10.5px/1.25 var(--zk-fb);opacity:.82;margin-top:2px}
+.hb-t .nw{position:absolute;top:9px;right:9px;padding:3px 7px;border-radius:8px;background:#fff;color:#111;font:800 9.5px var(--zk-fb)}
+.hb-cont{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:12px 14px;border-radius:18px;background:rgba(7,11,31,.5);box-shadow:inset 0 0 0 1px var(--zk-line)}
+.hb-cont>span:first-child{font-size:24px}.hb-cont b{display:block;font:800 14px var(--zk-fb)}.hb-cont small{font:600 12px var(--zk-fb);color:var(--zk-mute)}
+.hb-cont em{margin-left:auto;font:800 20px var(--zk-fb);font-style:normal;opacity:.6}
+/* tanlov oynasi */
+.hb-pick{min-height:100%;display:flex;flex-direction:column;justify-content:center}
+.hb-pick h2{margin:0;font:800 24px/1.15 var(--zk-fd);text-align:center}
+.hb-pick p{text-align:center;color:var(--zk-mute);font:500 14px/1.45 var(--zk-fb);margin:8px 0 18px}
+.hb-pick .opt{display:flex;gap:14px;align-items:center;width:100%;margin-bottom:12px;padding:14px;border-radius:22px;background:rgba(7,11,31,.55);box-shadow:inset 0 0 0 1.5px rgba(246,238,220,.18)}
+.hb-pick .opt.on{box-shadow:inset 0 0 0 2.5px #F2B84B}
+.hb-pick .pv{position:relative;width:76px;height:106px;border-radius:14px;flex:none;overflow:hidden}
+.hb-pick .pv.k{background:radial-gradient(90% 60% at 20% 10%,#8F7CFF,transparent 60%),radial-gradient(80% 50% at 100% 60%,#C8344C,transparent 60%),#0A0B22}
+.hb-pick .pv.o{background:#F3F4F7}
+.hb-pick .pv i{position:absolute;left:8px;right:8px;height:15px;border-radius:5px;background:rgba(255,255,255,.22)}
+.hb-pick .pv i:nth-child(1){top:14px}.hb-pick .pv i:nth-child(2){top:37px}.hb-pick .pv i:nth-child(3){top:60px}
+.hb-pick .pv.o i{background:#fff;box-shadow:0 0 0 1px #E3E5EA}
+.hb-pick .opt b{display:block;font:800 16px var(--zk-fb)}.hb-pick .opt small{display:block;font:600 12.5px/1.4 var(--zk-fb);color:var(--zk-mute);margin-top:4px}
+.hb-pick .opt em{display:inline-block;margin-top:8px;padding:3px 8px;border-radius:8px;background:rgba(242,184,75,.16);color:#F2B84B;font:800 11px var(--zk-fb);font-style:normal}
+.hb-pick .go{width:100%;height:54px;border-radius:18px;background:#F2B84B;color:#2A1500!important;font:800 15.5px var(--zk-fb)!important;text-align:center!important;margin-top:6px}
+.hb-pick .note{font:600 12px var(--zk-fb);text-align:center;color:var(--zk-dim);margin-top:10px}
+/* kreativ: fon zk.js canvas'idan ko'rinadi; zk bo'lmasa (WebGL yo'q) — gradient */
+body:not(.zk) .hb{background:var(--bg,#0B0E1A)}
+body.zk.zk-nogl .hb{background:radial-gradient(120% 60% at 15% 0%,#5B3FD8 0,transparent 60%),radial-gradient(90% 50% at 100% 30%,#C8344C 0,transparent 55%),#0A0B22}
+
+/* «☰ Bo'limlar» — har bo'lim panelining boshida, panel yon tomonga surilsa ham joyida turadi */
+.zk-hubbtn{position:sticky;left:0;z-index:3;display:inline-flex!important;align-items:center;gap:6px;flex:none;height:38px;padding:0 12px 0 10px!important;margin-right:4px;
+  border:0;border-radius:13px;background:#F2B84B!important;color:#2A1500!important;font:800 13px var(--zk-fb,sans-serif)!important;white-space:nowrap;cursor:pointer;
+  box-shadow:0 6px 16px rgba(242,184,75,.32)!important}
+.zk-hubbtn svg{width:17px;height:17px;flex:none}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-hubbtn::before{display:none}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-hubbtn{position:sticky!important;left:0;z-index:3!important;background:#F2B84B!important;color:#2A1500!important;padding:0 12px 0 10px!important}
+@media (max-width:440px){.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-hubbtn{font-size:13px!important;gap:6px!important}}
+
+/* ================================================================== ⚡ Oddiy rejim (body.lite): Telegram ranglari, effektlarsiz */
+body.lite *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+body.lite #zkbg{display:none}
+body.lite .seg{max-width:100%;overflow-x:auto;scrollbar-width:none}
+body.lite .seg::-webkit-scrollbar{display:none}
+body.lite .zk-dice{display:none}
+body.lite .zk-hubbtn{box-shadow:none!important;height:34px;border-radius:10px;background:var(--tg-theme-button-color,#2563EB)!important;color:var(--tg-theme-button-text-color,#fff)!important}
+body.lite .hb{background:var(--bg2,#F3F4F7);color:var(--text,#15171C)}
+body.lite .hb-hi b{font-family:var(--zk-fb)}
+body.lite .hb-hi small,body.lite .hb-pick p,body.lite .hb-pick .opt small,body.lite .hb-cont small,body.lite .hb-pick .note{color:var(--hint,#6B7280)}
+body.lite .hb-mode,body.lite .hb-x{background:var(--bg,#fff);box-shadow:inset 0 0 0 1px rgba(127,127,127,.25)}
+body.lite .hb-mode button{color:var(--hint,#6B7280)!important}
+body.lite .hb-mode button.on{background:var(--tg-theme-button-color,#2563EB);color:var(--tg-theme-button-text-color,#fff)!important}
+body.lite .hb-grid{gap:8px}
+body.lite .hb-t{min-height:88px;align-items:center;justify-content:center;text-align:center;gap:6px;border-radius:14px;background:var(--bg,#fff);
+  color:var(--text,#15171C)!important;box-shadow:inset 0 0 0 1px rgba(127,127,127,.2);transition:none}
+body.lite .hb-t::after{display:none}
+body.lite .hb-t .ic{background:none;width:auto;height:auto}
+body.lite .hb-t .ic em{font-size:25px}
+body.lite .hb-t small{display:none}
+body.lite .hb-t b{font-size:12.5px}
+body.lite .hb-t .nw{background:var(--tg-theme-button-color,#2563EB);color:#fff;top:6px;right:6px}
+body.lite .hb-cont,body.lite .hb-pick .opt{background:var(--bg,#fff);box-shadow:inset 0 0 0 1px rgba(127,127,127,.2)}
+body.lite .hb-pick .opt.on{box-shadow:inset 0 0 0 2.5px var(--tg-theme-button-color,#2563EB)}
+body.lite .hb-pick .go{background:var(--tg-theme-button-color,#2563EB);color:var(--tg-theme-button-text-color,#fff)!important}
+
+/* ⚡ Oddiy: bo'limlar paneli (Kreativ'da zk.css bezaydi) */
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg){display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--bg2,#17181e);
+  max-width:100%;overflow-x:auto;scrollbar-width:none}
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg)::-webkit-scrollbar{display:none}
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.zk-hubbtn){flex:none;height:34px;padding:0 11px;border-radius:9px;
+  font:750 13.5px var(--zk-fb,sans-serif);color:var(--hint,#8b8e98);white-space:nowrap}
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button.on{background:var(--bg,#0e0f13);color:var(--text,#f2f3f5)}
+
+/* 🧭 bo'lim ichidan ochilganda — pastdan chiqadigan varaq (fon ko'rinib turadi, pastga surib yopiladi) */
+.hb.hb-sheet{background:rgba(3,5,16,.55)!important;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.hb.hb-sheet .hb-grab{flex:none;display:flex;justify-content:center;padding:10px 0 4px;border-radius:26px 26px 0 0;
+  background:#151838;transform:translateY(var(--drag,0px));margin-top:auto}
+.hb.hb-sheet .hb-grab i{width:42px;height:5px;border-radius:3px;background:rgba(246,238,220,.28)}
+.hb.hb-sheet .hb-in{width:100%;max-height:84vh;overflow-y:auto;overscroll-behavior:contain;background:#151838;padding-top:4px;transform:translateY(var(--drag,0px));
+  box-shadow:0 -24px 60px rgba(0,0,0,.45)}
+.hb.hb-sheet .hb-grab{max-width:560px;width:100%;align-self:center}
+.hb.hb-sheet .hb-in{max-width:560px;align-self:center}
+.hb.hb-sheet.in .hb-grab,.hb.hb-sheet.in .hb-in{animation:hbup .32s cubic-bezier(.2,.9,.3,1.15)}
+@keyframes hbup{from{transform:translateY(60%);opacity:.4}}
+.hb.hb-sheet .hb-hi b{font-size:19px}
+/* ⚡ tez kirish — ko'p ishlatiladigan bo'limlar */
+.hb-lh{margin:2px 2px 9px;font:800 12.5px var(--zk-fb);color:var(--zk-mute);letter-spacing:.01em}
+.hb-quick{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:16px}
+.hb-quick button{position:relative;display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:10px;align-items:center;padding:12px;border-radius:18px;
+  color:#fff!important;background:linear-gradient(150deg,var(--g1),var(--g2));box-shadow:inset 0 0 0 1px rgba(255,255,255,.14),0 8px 20px rgba(0,0,0,.25);transition:transform .15s}
+.hb-quick button:active{transform:scale(.96)}
+.hb-quick em{grid-row:span 2;width:40px;height:40px;border-radius:13px;background:rgba(255,255,255,.2);display:grid;place-items:center;font-style:normal;font-size:21px}
+.hb-quick b{font:800 14px/1.15 var(--zk-fb)}.hb-quick small{font:700 10.5px/1.25 var(--zk-fb);opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb-t.here,.hb-quick button.here{box-shadow:inset 0 0 0 2.5px #fff,0 10px 24px rgba(0,0,0,.28)}
+.hb-t .nw.hr{background:rgba(0,0,0,.45);color:#fff}
+.hb-t small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ⚡ Oddiy rejimda */
+body.lite .hb.hb-sheet{background:rgba(0,0,0,.45)!important}
+body.lite .hb.hb-sheet .hb-grab,body.lite .hb.hb-sheet .hb-in{background:var(--bg2,#F3F4F7);box-shadow:none}
+body.lite .hb.hb-sheet .hb-grab i{background:var(--hint,#9CA3AF)}
+body.lite .hb-lh{color:var(--hint,#6B7280)}
+body.lite .hb-quick button{background:var(--bg,#fff);color:var(--text,#15171C)!important;box-shadow:inset 0 0 0 1px rgba(127,127,127,.22);transition:none}
+body.lite .hb-quick em{background:var(--bg2,#F3F4F7)}
+body.lite .hb-t.here,body.lite .hb-quick button.here{box-shadow:inset 0 0 0 2px var(--tg-theme-button-color,#2563EB)}
+body.lite .hb-t .nw.hr{background:var(--tg-theme-button-color,#2563EB)}
+@media (prefers-reduced-motion:reduce){.hb.hb-sheet.in .hb-grab,.hb.hb-sheet.in .hb-in{animation:none}}
+
+/* ================================================================== 📣 Reklama: bosh ekran kartasi + sahifa (Kreativ) */
+.hb-ad{display:flex;align-items:center;gap:12px;width:100%;margin-top:14px;padding:13px 14px;border-radius:20px;
+  background:linear-gradient(120deg,rgba(242,184,75,.2),rgba(200,52,76,.16));box-shadow:inset 0 0 0 1.5px rgba(242,184,75,.5)}
+.hb-ad .ic{width:42px;height:42px;flex:none;border-radius:14px;display:grid;place-items:center;font-size:22px;background:#F2B84B}
+.hb-ad b{display:block;font:800 15px var(--zk-fb)}.hb-ad small{display:block;font:600 12px var(--zk-fb);color:var(--zk-mute);margin-top:2px}
+.hb-ad em{margin-left:auto;font:800 22px var(--zk-fb);font-style:normal;color:#F2B84B}
+.hb-adp .hb-x{font-size:22px!important}
+.ad-hero{padding:18px 16px 16px;border-radius:24px;background:rgba(7,11,31,.55);box-shadow:inset 0 0 0 1px var(--zk-line)}
+.ad-hero h2{margin:0;font:800 23px/1.15 var(--zk-fd);letter-spacing:-.01em}
+.ad-hero p{margin:8px 0 14px;font:500 13.5px/1.45 var(--zk-fb);color:var(--zk-mute)}
+.ad-n{padding:14px 10px;border-radius:16px;background:rgba(246,238,220,.07);text-align:center}
+.ad-n b{display:block;font:800 30px/1.1 var(--zk-fb);color:#F2B84B;font-variant-numeric:tabular-nums}
+.ad-n small{display:block;margin-top:4px;font:700 11.5px var(--zk-fb);color:var(--zk-mute)}
+.hb-adp .hb-lh{margin:18px 2px 9px}
+.ad-fm{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ad-fm>div{padding:12px;border-radius:18px;background:rgba(7,11,31,.45);box-shadow:inset 0 0 0 1px var(--zk-line)}
+.ad-fm>div:last-child:nth-child(odd){grid-column:1/-1}
+.ad-fm i{display:block;font-style:normal;font-size:22px}.ad-fm b{display:block;margin-top:6px;font:800 14px var(--zk-fb)}
+.ad-fm small{display:block;margin-top:3px;font:600 12px/1.35 var(--zk-fb);color:var(--zk-mute)}
+.ad-ct{margin-top:14px;padding:14px;border-radius:22px;background:rgba(7,11,31,.55);box-shadow:inset 0 0 0 1.5px rgba(242,184,75,.55)}
+.ad-ct .who{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.ad-ct .av{width:50px;height:50px;flex:none;border-radius:50%;display:grid;place-items:center;font:800 18px var(--zk-fb);color:#2A1500;background:linear-gradient(140deg,#F2B84B,#C8344C)}
+.ad-ct .who b{display:block;font:800 15.5px var(--zk-fb)}.ad-ct .who small{display:block;font:600 13px var(--zk-fb);color:var(--zk-mute)}
+.ad-ct .who em{display:block;font:700 12px var(--zk-fb);font-style:normal;color:#3DDC97;margin-top:2px}
+.ad-b{display:flex!important;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;margin-top:8px;padding:0 16px;border-radius:16px;
+  font:800 15px var(--zk-fb)!important;text-decoration:none;color:#fff!important}
+.ad-b small{font:700 12.5px var(--zk-fb);opacity:.85}
+.ad-b.tgb{background:#2AABEE}
+.ad-b.call{background:rgba(246,238,220,.1);box-shadow:inset 0 0 0 1px var(--zk-line);color:var(--zk-cream)!important}
+.ad-cp{display:block;width:100%;margin-top:8px;padding:9px;border-radius:12px;background:none;text-align:center!important;font:700 13px var(--zk-fb)!important;color:var(--zk-mute)!important}
+
+/* 📣 Reklama — ⚡ Oddiy rejim: Telegram ranglari, gradient va soyasiz */
+body.lite .hb-ad{background:var(--bg,#fff);box-shadow:inset 0 0 0 1px rgba(127,127,127,.22)}
+body.lite .hb-ad .ic{background:var(--bg2,#F3F4F7)}
+body.lite .hb-ad small,body.lite .ad-hero p,body.lite .ad-n small,body.lite .ad-fm small,body.lite .ad-ct .who small,body.lite .ad-cp{color:var(--hint,#6B7280)!important}
+body.lite .hb-ad em,body.lite .ad-n b{color:var(--tg-theme-button-color,#2563EB)}
+body.lite .ad-hero h2{font-family:var(--zk-fb);font-size:20px}
+body.lite .ad-hero,body.lite .ad-fm>div,body.lite .ad-ct{background:var(--bg,#fff);box-shadow:inset 0 0 0 1px rgba(127,127,127,.2)}
+body.lite .ad-n{background:var(--bg2,#F3F4F7)}
+body.lite .ad-ct .av{background:var(--tg-theme-button-color,#2563EB);color:#fff}
+body.lite .ad-b.call{background:var(--bg2,#F3F4F7);box-shadow:none;color:var(--text,#15171C)!important}
