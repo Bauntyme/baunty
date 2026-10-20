@@ -214,7 +214,10 @@ const App = {
         try {
             const res = await fetch('/api/send_to_chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Init-Data': this.tg?.initData || ''
+                },
                 body: JSON.stringify({ user_id: tgUser, type: 'movie', code: code })
             });
             const data = await res.json();
@@ -356,7 +359,10 @@ const App = {
         try {
             const res = await fetch('/api/send_to_chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Init-Data': this.tg?.initData || ''
+                },
                 body: JSON.stringify({ user_id: this.userId, type: 'music', title: title, artist: artist })
             });
             const data = await res.json();

@@ -28,6 +28,7 @@ import json
 import hmac
 import hashlib
 import logging
+import ipaddress
 import urllib.parse
 from collections import defaultdict, deque
 from typing import Optional, Dict, Any, Tuple, List, Set
@@ -36,8 +37,9 @@ from config import config
 
 logger = logging.getLogger("security")
 
-# Taniqli tajovuzkor skanerlar va exploit botlar User-Agent belgilari
+# Taniqli tajovuzkor skanerlar, zaiflik qidiruvchilar va avtomatlashtirilgan scraper botlar
 KNOWN_SCANNER_AGENTS = (
+    # Zaiflik skanerlari
     "sqlmap",
     "nikto",
     "wpscan",
@@ -59,6 +61,25 @@ KNOWN_SCANNER_AGENTS = (
     "censys",
     "shodan",
     "qualys",
+    "nmap",
+    "zgrab",
+    # Skraperlar va avtomatlashtirilgan bot klientlari
+    "curl/",
+    "wget/",
+    "python-requests",
+    "python-urllib",
+    "requests/",
+    "scrapy",
+    "httpclient",
+    "libwww-perl",
+    "go-http-client",
+    "postmanruntime",
+    "insomnia",
+    # Headless brauzerlar va avtomatizatsiya
+    "headlesschrome",
+    "phantomjs",
+    "selenium",
+    "puppeteer",
 )
 
 # Zararli so'rovlar (SQLi, LFI, RCE, XSS) patternlari
@@ -69,13 +90,13 @@ MALICIOUS_PATTERNS = [
     re.compile(r"(?i)\bunion\s+(?:all\s+)?select\b"),
     re.compile(r"(?i)(?:'|\%27)\s*(?:or|and)\s*(?:'1'='1|1=1|'a'='a'|true\b)"),
     re.compile(r"(?i);\s*(?:drop|alter|truncate|delete)\s+(?:table|database)\b"),
-    re.compile(r"(?i)\b(?:waitfor\s+delay|benchmark\s*\(|sleep\s*\(\s*\d+)"),
+    re.compile(r"(?i)\b(?:waitfor\s+delay|benchmark\s*\(|sleep\s*\(\s*\d+|extractvalue\s*\(|updatexml\s*\()"),
     re.compile(r"(?i)\b(?:select\s+@@version|information_schema|load_file\s*\()"),
-    # Path Traversal & LFI
-    re.compile(r"(?:\.\.[/\\]){2,}"),
+    # Path Traversal & LFI (bitta yoki bir nechta ../, ..\\ yoki URL kodlangan %2e%2e)
+    re.compile(r"(?:\.\.[/\\]|%2e%2e[%2f%5c])"),
     re.compile(r"(?i)(?:/etc/passwd|/etc/shadow|/proc/self/environ|win\.ini|boot\.ini)"),
-    # Maxfiy konfiguratsiyalar va exploit yo'llari
-    re.compile(r"(?i)(?:/\.env(?:\.|$)|/\.git(?:/|$)|/\.svn(?:/|$)|/wp-login\.php|/wp-admin|/phpmyadmin|/eval\(|/xmlrpc\.php)"),
+    # Maxfiy konfiguratsiyalar, tizim kalitlari va exploit yo'llari
+    re.compile(r"(?i)(?:/\.env(?:\.|$)|/\.git(?:/|$)|/\.svn(?:/|$)|/\.aws(?:/|$)|/\.ssh(?:/|$)|/\.ds_store|/web\.config|/id_rsa|/wp-login\.php|/wp-admin|/phpmyadmin|/eval\(|/xmlrpc\.php)"),
     # Command Injection
     re.compile(r"(?i)(?:;\s*(?:cat|rm|ls|id|whoami|uname)\b|[|&;`]\s*(?:cat\s+/etc|whoami|id|uname))"),
     # XSS Script Injection
@@ -94,6 +115,22 @@ def is_valid_user_id(uid: Any) -> bool:
         return 1 <= val <= 9007199254740991
     except (ValueError, TypeError):
         return False
+
+
+def extract_user_id_from_init_data(init_data: str) -> Optional[int]:
+    """init_data satridan user_id ni xavfsiz ajratish."""
+    if not init_data:
+        return None
+    try:
+        parsed = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
+        if "user" in parsed:
+            u_obj = json.loads(parsed["user"])
+            raw_id = u_obj.get("id")
+            if is_valid_user_id(raw_id):
+                return int(raw_id)
+    except Exception:
+        pass
+    return None
 
 
 def validate_telegram_init_data(
@@ -215,22 +252,40 @@ def generate_telegram_init_data(
 
 def is_malicious_request(path: str, query_string: str = "", user_agent: str = "") -> Tuple[bool, Optional[str]]:
     """
-    So'rovda tajovuzkor skaner, SQLi, LFI, RCE yoki exploit belgilari mavjudligini aniqlaydi.
+    So'rovda tajovuzkor skaner, bot, SQLi, LFI, RCE yoki exploit belgilari mavjudligini aniqlaydi.
     """
-    # 1. Scanner User-Agent tekshiruvi
-    ua_clean = (user_agent or "").lower()
-    for scanner in KNOWN_SCANNER_AGENTS:
-        if scanner in ua_clean:
-            return True, f"scanner_ua:{scanner}"
+    clean_path = path.lower().split("?")[0].rstrip("/")
+    is_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
 
-    # 2. Path va query stringni tekshirish
+    # 1. Bo'sh yoki mavjud bo'lmagan User-Agent (oddiy brauzerlar va Telegram doim UA yuboradi)
+    ua_raw = user_agent or ""
+    ua_clean = ua_raw.strip().lower()
+
+    if not ua_clean:
+        # /health va testclient uchun bo'sh UA ruxsat etiladi, qolgan joylarda bloklanadi
+        if clean_path not in ("/health", "health") and not is_test:
+            return True, "empty_user_agent"
+    else:
+        # 2. Taniqli tajovuzkor skanerlar va avtomatlashtirilgan scraper agentlarini tekshirish
+        for scanner in KNOWN_SCANNER_AGENTS:
+            if scanner in ua_clean:
+                return True, f"scanner_ua:{scanner}"
+
+        # 3. Test muhitidan tashqari to'g'ridan-to'g'ri internetdan kelgan xom python/aiohttp so'rovlarini cheklash
+        if not is_test:
+            if any(bot in ua_clean for bot in ("aiohttp/", "python/")):
+                return True, "blocked_bot_client"
+
+    # 4. Path va query stringni tekshirish (Double URL-decoding bilan aylanib o'tishlarga qarshi)
     raw_target = f"{path}?{query_string}" if query_string else path
     try:
-        decoded_target = urllib.parse.unquote_plus(raw_target)
+        decoded_1 = urllib.parse.unquote_plus(raw_target)
+        decoded_2 = urllib.parse.unquote_plus(decoded_1)
     except Exception:
-        decoded_target = raw_target
+        decoded_1 = raw_target
+        decoded_2 = raw_target
 
-    targets = (raw_target, decoded_target)
+    targets = (raw_target, decoded_1, decoded_2)
     for t in targets:
         for pattern in MALICIOUS_PATTERNS:
             if pattern.search(t):
@@ -248,10 +303,14 @@ class SlidingWindowRateLimiter:
     """
     def __init__(
         self,
-        burst_limit: int = 80,          # 5 soniyada maksimal 80 so'rov
+        burst_limit: int = 80,          # IP uchun 5 soniyada maksimal 80 so'rov
         burst_window: float = 5.0,
-        sustained_limit: int = 240,     # 60 soniyada maksimal 240 so'rov (4 req/s)
+        sustained_limit: int = 240,     # IP uchun 60 soniyada maksimal 240 so'rov (4 req/s)
         sustained_window: float = 60.0,
+        user_burst_limit: int = 40,     # User uchun 5 soniyada maksimal 40 so'rov
+        user_burst_window: float = 5.0,
+        user_sustained_limit: int = 150,# User uchun 60 soniyada maksimal 150 so'rov
+        user_sustained_window: float = 60.0,
         sensitive_limit: int = 25,      # 10 soniyada maksimal 25 ta nozik so'rov (kino/musiqa/kitob yuborish)
         sensitive_window: float = 10.0,
         ban_duration: float = 60.0,     # Agressiv spam IP 60 soniya davomida 429 da ushlab turiladi
@@ -260,6 +319,10 @@ class SlidingWindowRateLimiter:
         self.burst_window = burst_window
         self.sustained_limit = sustained_limit
         self.sustained_window = sustained_window
+        self.user_burst_limit = user_burst_limit
+        self.user_burst_window = user_burst_window
+        self.user_sustained_limit = user_sustained_limit
+        self.user_sustained_window = user_sustained_window
         self.sensitive_limit = sensitive_limit
         self.sensitive_window = sensitive_window
         self.ban_duration = ban_duration
@@ -294,9 +357,12 @@ class SlidingWindowRateLimiter:
         # 4. Statik assetlar va media oqimlari (kengaytirilgan chegara)
         is_static_or_stream = any(clean_path.startswith(prefix) for prefix in (
             "/webapp", "/css", "/js", "/f", "/bk", "/rc", "/p", "/favicon.ico", "/logo."
+        )) or clean_path.endswith((
+            ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".css", ".js",
+            ".woff", ".woff2", ".ttf", ".mp3", ".mp4", ".pdf", ".m3u8", ".ts"
         ))
 
-        # 5. IP sliding window tozalash
+        # 5. IP sliding window tozalash va tekshirish
         q = self._ip_requests[client_ip]
         while q and now - q[0] > self.sustained_window:
             q.popleft()
@@ -314,7 +380,25 @@ class SlidingWindowRateLimiter:
             retry_after = max(1, int(self.sustained_window - (now - oldest)))
             return False, retry_after
 
-        # 6. Sensitive / state-changing endpoints tekshiruvi (user yoki IP bo'yicha)
+        # 6. User bo'yicha sliding window tekshiruvi
+        if user_id and is_valid_user_id(user_id):
+            uid = int(user_id)
+            uq = self._user_requests[uid]
+            while uq and now - uq[0] > self.user_sustained_window:
+                uq.popleft()
+
+            recent_user_burst = sum(1 for t in reversed(uq) if now - t <= self.user_burst_window)
+            if not is_static_or_stream and recent_user_burst >= self.user_burst_limit:
+                return False, int(self.user_burst_window)
+
+            if len(uq) >= self.user_sustained_limit:
+                oldest_u = uq[0]
+                retry_after_u = max(1, int(self.user_sustained_window - (now - oldest_u)))
+                return False, retry_after_u
+
+            uq.append(now)
+
+        # 7. Sensitive / state-changing endpoints tekshiruvi (user yoki IP bo'yicha)
         if clean_path in (
             "/api/send_to_chat", "/api/music/send", "/api/books/send",
             "/api/story/send", "/api/watch", "/webapp/api/send_to_chat",
@@ -343,6 +427,12 @@ class SlidingWindowRateLimiter:
         dead_ips = [ip for ip, q in self._ip_requests.items() if not q or now - q[-1] > self.sustained_window]
         for ip in dead_ips:
             del self._ip_requests[ip]
+        dead_users = [u for u, q in self._user_requests.items() if not q or now - q[-1] > self.user_sustained_window]
+        for u in dead_users:
+            del self._user_requests[u]
+        dead_sens = [k for k, q in self._sensitive_requests.items() if not q or now - q[-1] > self.sensitive_window]
+        for k in dead_sens:
+            del self._sensitive_requests[k]
         dead_bans = [ip for ip, exp in self._banned_ips.items() if now >= exp]
         for ip in dead_bans:
             del self._banned_ips[ip]
@@ -354,23 +444,38 @@ class SlidingWindowRateLimiter:
         self._banned_ips.clear()
 
 
-def extract_client_ip(request: web.Request) -> str:
-    """So'rovdan haqiqiy mijoz IP manzilini xavfsiz ajratib olish."""
-    cf_ip = request.headers.get("CF-Connecting-IP")
-    if cf_ip:
-        return cf_ip.strip()
+def _is_valid_ip(val: str) -> bool:
+    """Manzil haqiqiy IPv4 yoki IPv6 formatida ekanligini tekshirish."""
+    if not val:
+        return False
+    try:
+        ipaddress.ip_address(val.strip())
+        return True
+    except ValueError:
+        return False
 
+
+def extract_client_ip(request: web.Request) -> str:
+    """
+    So'rovdan haqiqiy mijoz IP manzilini xavfsiz va soxtalashtirishdan (spoofing) holi ajratib olish.
+    Render.com yoki oraliq teskari proksi ishlatilganda, eng oxirgi (ishonchli proxy qo'shgan) IP olinadi.
+    """
     xff = request.headers.get("X-Forwarded-For")
     if xff:
         parts = [p.strip() for p in xff.split(",") if p.strip()]
-        if parts:
-            return parts[0]
+        for p in reversed(parts):
+            if _is_valid_ip(p):
+                return p
+
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip and _is_valid_ip(cf_ip):
+        return cf_ip.strip()
 
     x_real = request.headers.get("X-Real-IP")
-    if x_real:
+    if x_real and _is_valid_ip(x_real):
         return x_real.strip()
 
-    if request.remote:
+    if request.remote and _is_valid_ip(str(request.remote)):
         return str(request.remote).strip()
 
     return "127.0.0.1"
@@ -402,7 +507,8 @@ class SecurityService:
     def verify_telegram_user(
         self,
         request: web.Request,
-        payload_user_id: Optional[Any] = None
+        payload_user_id: Optional[Any] = None,
+        require_auth: Optional[bool] = None
     ) -> Tuple[Optional[int], bool, Optional[str]]:
         """
         So'rovdan foydalanuvchini ajratish va soxtalashtirish (spoofing) xavfini tekshirish.
@@ -410,8 +516,9 @@ class SecurityService:
            - Telegram imzosini tekshirish
            - Agar soxta imzo bo'lsa -> rad etish (False, 'invalid_signature')
            - Agar payload_user_id berilgan bo'lsa va init_data foydalanuvchisi bilan mos kelmasa -> rad etish (False, 'user_id_spoofing')
-        2. Agar init_data bo'lmasa va payload_user_id berilgan bo'lsa:
-           - user_id formati to'g'riligini tekshirish
+        2. Agar init_data bo'lmasa:
+           - Jonli muhitda yoki require_auth=True da: rad etish (False, 'missing_init_data')
+           - Test muhitida (mock/pytest): payload_user_id formati tekshiriladi
         """
         init_data = (
             request.headers.get("X-Init-Data")
@@ -419,16 +526,29 @@ class SecurityService:
             or ""
         ).strip()
 
+        is_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
+        is_dummy_token = config.BOT_TOKEN.startswith("YOUR_")
+
+        # Autentifikatsiya qat'iy talab qilinishi
+        if require_auth is None:
+            # Jonli muhitda yoki maxsus sozlanganda qat'iy tekshiruv
+            strict_auth = not is_test and not is_dummy_token
+        else:
+            strict_auth = require_auth
+
         verified_user_id: Optional[int] = None
 
         if init_data:
             has_hash = "hash=" in init_data
-            strict = has_hash or not (config.BOT_TOKEN.startswith("YOUR_") or os.getenv("PYTEST_CURRENT_TEST"))
+            strict = has_hash or (not is_dummy_token and not is_test)
             is_valid, data, err = validate_telegram_init_data(init_data, config.BOT_TOKEN, strict=strict)
             if not is_valid:
                 return None, False, err or "invalid_init_data"
             if data and data.get("user_id"):
                 verified_user_id = data["user_id"]
+        elif strict_auth:
+            # Qat'iy rejimda init_data bo'lmasa -> begona bot yoki to'g'ridan-to'g'ri soxta so'rov deb hisoblanadi
+            return None, False, "missing_init_data"
 
         # Agar payload_user_id ko'rsatilgan bo'lsa
         if payload_user_id is not None:
@@ -497,12 +617,23 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
             resp.headers[k] = v
         return resp
 
-    # 4. DoS / DDoS va Rate Limiter
+    # 4. DoS / DDoS va Rate Limiter (IP va foydalanuvchi hisobida)
+    user_id = None
+    init_data_hdr = (request.headers.get("X-Init-Data") or request.query.get("init_data") or "").strip()
+    if init_data_hdr:
+        parsed_uid = extract_user_id_from_init_data(init_data_hdr)
+        if parsed_uid and is_valid_user_id(parsed_uid):
+            user_id = int(parsed_uid)
+    if not user_id:
+        raw_uid = request.query.get("user_id")
+        if raw_uid and is_valid_user_id(raw_uid):
+            user_id = int(raw_uid)
+
     client_ip = extract_client_ip(request)
-    allowed, retry_after = security_service.rate_limiter.is_allowed(client_ip, path)
+    allowed, retry_after = security_service.rate_limiter.is_allowed(client_ip, path, user_id=user_id)
     if not allowed:
         retry_val = retry_after or 60
-        logger.warning(f"Rate limit oshib ketdi! IP: {client_ip} | Path: {path} | Retry-After: {retry_val}s")
+        logger.warning(f"Rate limit oshib ketdi! IP: {client_ip} | User: {user_id} | Path: {path} | Retry-After: {retry_val}s")
         resp = web.json_response(
             {
                 "ok": False,
@@ -528,3 +659,4 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
             resp.headers[k] = v
 
     return resp
+

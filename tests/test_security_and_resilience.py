@@ -23,7 +23,10 @@ from services.security_service import (
     is_malicious_request,
     SlidingWindowRateLimiter,
     get_security_headers,
+    extract_client_ip,
 )
+from middlewares.throttling import ThrottlingMiddleware
+from aiogram.types import CallbackQuery, User
 
 
 @pytest.fixture(autouse=True)
@@ -83,13 +86,13 @@ async def test_security_headers_and_clickjacking_protection():
 # =====================================================================
 @pytest.mark.asyncio
 async def test_scanner_user_agents_blocked_with_403():
-    """sqlmap, nikto, wpscan, masscan kabi tajovuzkor skanerlar darhol 403 Forbidden olishi kerak."""
+    """sqlmap, nikto, wpscan, curl, python-requests kabi skaner va botlar 403 Forbidden olishi kerak."""
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
     await client.start_server()
 
-    scanners = [
+    scanners_and_bots = [
         "sqlmap/1.7#stable",
         "Mozilla/5.0 (compatible; Nikto/2.1.6)",
         "WPScan v3.8.22",
@@ -98,10 +101,16 @@ async def test_scanner_user_agents_blocked_with_403():
         "gobuster 3.5",
         "dirbuster 1.0",
         "Acunetix Web Vulnerability Scanner",
+        "curl/8.4.0",
+        "python-requests/2.31.0",
+        "Wget/1.21.4",
+        "Scrapy/2.11.0 (+https://scrapy.org)",
+        "Go-http-client/1.1",
+        "PostmanRuntime/7.32.3",
     ]
 
     try:
-        for scanner_ua in scanners:
+        for scanner_ua in scanners_and_bots:
             resp = await client.get("/api/movies", headers={"User-Agent": scanner_ua})
             assert resp.status == 403, f"{scanner_ua} bloklanmadi! Status: {resp.status}"
             data = await resp.json()
@@ -113,24 +122,49 @@ async def test_scanner_user_agents_blocked_with_403():
 
 
 @pytest.mark.asyncio
+async def test_empty_user_agent_handling():
+    """Bo'sh User-Agent oddiy API larda bloklanishi, /health da esa ruxsat etilishi kerak."""
+    # is_test ni vaqtincha False qilib tekshiramiz
+    with patch.dict("os.environ", {"PYTEST_CURRENT_TEST": ""}):
+        is_mal, threat = is_malicious_request("/api/movies", user_agent="")
+        assert is_mal is True
+        assert threat == "empty_user_agent"
+
+        # /health monitoring uchun esa ruxsat beriladi
+        is_mal_h, threat_h = is_malicious_request("/health", user_agent="")
+        assert is_mal_h is False
+        assert threat_h is None
+
+
+@pytest.mark.asyncio
 async def test_malicious_sqli_and_lfi_patterns_blocked_with_403():
-    """SQL injection, LFI va konfiguratsiya qidiruvlari 403 Forbidden olishi kerak."""
+    """SQL injection, single/double traversal LFI va konfiguratsiya qidiruvlari 403 Forbidden olishi kerak."""
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
     await client.start_server()
 
     attack_urls = [
+        # SQL Injection
         "/api/movies?q=' UNION SELECT 1,2,3--",
         "/api/movies?q=%27%20UNION%20SELECT%201,2,3--",
         "/api/movies?q=' OR '1'='1",
         "/api/movies?q=; DROP TABLE users;",
+        "/api/movies?q=%2527%2520UNION%2520SELECT", # Double URL encode
+        # LFI & Path Traversal (ikki karra va bitta ../)
         "/api/movies?q=../../etc/passwd",
         "/api/movies?q=..%2F..%2Fetc%2Fpasswd",
+        "/api/movies?q=../config.py",
+        "/api/movies?q=..%2Fconfig.py",
+        "/api/movies?q=%252e%252e%252fconfig.py",   # Double URL encode
+        # Maxfiy fayllar
         "/.env",
         "/.git/config",
+        "/.aws/credentials",
+        "/.ssh/id_rsa",
         "/wp-login.php",
         "/phpmyadmin",
+        # XSS
         "/api/movies?q=<script>alert('xss')</script>",
     ]
 
@@ -435,6 +469,79 @@ async def test_http_rate_limiter_returns_429_too_many_requests():
     finally:
         security_service.rate_limiter = original_limiter
         await client.close()
+
+
+def test_client_ip_spoofing_defense():
+    """X-Forwarded-For orqali soxta IP yuborilganda oxirgi haqiqiy IP olinishi va zararli belgilar tozalanishi."""
+    req_mock = MagicMock()
+    req_mock.headers = {"X-Forwarded-For": "1.1.1.1, 198.51.100.99"}
+    req_mock.remote = "10.0.0.1"
+    # 1.1.1.1 tajovuzkor tomonidan soxtalashtirilgan, Render esa 198.51.100.99 ni biriktirgan
+    assert extract_client_ip(req_mock) == "198.51.100.99"
+
+    # Zararli kod yuborilganda xavfsiz tozalash
+    req_bad = MagicMock()
+    req_bad.headers = {"X-Forwarded-For": "<script>alert(1)</script>"}
+    req_bad.remote = "127.0.0.1"
+    assert extract_client_ip(req_bad) == "127.0.0.1"
+
+
+def test_per_user_rate_limiting():
+    """Bitta foydalanuvchi turli IP manzillar orqali spam yuborganda ham user_id bo'yicha rate limiting ishlashi."""
+    limiter = SlidingWindowRateLimiter(
+        burst_limit=100,
+        sustained_limit=200,
+        user_burst_limit=4,
+        user_burst_window=2.0,
+        user_sustained_limit=10,
+        user_sustained_window=10.0,
+    )
+
+    uid = 777888999
+    # Turli IP lardan bitta user nomidan so'rovlar
+    for i in range(4):
+        allowed, _ = limiter.is_allowed(f"192.0.2.{i}", path="/api/movies", user_id=uid)
+        assert allowed is True
+
+    # 5-so'rov foydalanuvchi chegarasidan oshadi
+    allowed_5, retry_5 = limiter.is_allowed("192.0.2.99", path="/api/movies", user_id=uid)
+    assert allowed_5 is False
+    assert retry_5 is not None
+
+
+def test_missing_init_data_in_strict_mode_rejected():
+    """Qat'iy xavfsizlik rejimida init_data bo'lmasa, state-changing so'rovlar rad etilishi kerak."""
+    mock_req = MagicMock()
+    mock_req.headers = {}
+    mock_req.query = {}
+
+    # Strict rejimda init_data yo'q bo'lsa
+    user_id, is_valid, err = security_service.verify_telegram_user(
+        mock_req, payload_user_id=12345, require_auth=True
+    )
+    assert is_valid is False
+    assert err == "missing_init_data"
+    assert user_id is None
+
+
+@pytest.mark.asyncio
+async def test_callback_query_throttling():
+    """Tugma bosishlarni (CallbackQuery) spam qilayotgan botlar ThrottlingMiddleware tomonidan to'xtatilishi."""
+    middleware = ThrottlingMiddleware(rate_limit=1.0)
+    handler = AsyncMock(return_value="handled")
+
+    cb_mock = MagicMock(spec=CallbackQuery)
+    cb_mock.from_user = User(id=999111, is_bot=False, first_name="Test")
+    cb_mock.answer = AsyncMock()
+
+    # Birinchi so'rov o'tadi
+    res1 = await middleware(handler, cb_mock, {})
+    assert res1 == "handled"
+
+    # Darhol ikkinchi so'rov yuborilganda throttled bo'ladi
+    res2 = await middleware(handler, cb_mock, {})
+    assert res2 is None
+    cb_mock.answer.assert_called_once()
 
 
 # =====================================================================

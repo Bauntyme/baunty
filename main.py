@@ -90,6 +90,7 @@ async def main() -> None:
 
     # Middlewarelarni ulash
     dp.message.middleware(ThrottlingMiddleware(rate_limit=config.RATE_LIMIT_SECONDS))
+    dp.callback_query.middleware(ThrottlingMiddleware(rate_limit=config.RATE_LIMIT_SECONDS))
     dp.message.middleware(SubscriptionMiddleware())
     dp.callback_query.middleware(SubscriptionMiddleware())
 

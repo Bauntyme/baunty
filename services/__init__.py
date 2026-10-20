@@ -10,7 +10,11 @@ from services.security_service import (
     security_service,
     validate_telegram_init_data,
     generate_telegram_init_data,
+    extract_user_id_from_init_data,
     is_valid_user_id,
+    is_malicious_request,
+    SlidingWindowRateLimiter,
+    extract_client_ip,
     security_middleware,
 )
 
@@ -28,7 +32,11 @@ __all__ = [
     "security_service",
     "validate_telegram_init_data",
     "generate_telegram_init_data",
+    "extract_user_id_from_init_data",
     "is_valid_user_id",
+    "is_malicious_request",
+    "SlidingWindowRateLimiter",
+    "extract_client_ip",
     "security_middleware",
 ]
 

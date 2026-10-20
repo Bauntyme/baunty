@@ -5,14 +5,14 @@ import time
 import logging
 from typing import Callable, Dict, Any, Awaitable
 from aiogram import BaseMiddleware
-from aiogram.types import TelegramObject, Message
+from aiogram.types import TelegramObject, Message, CallbackQuery
 from config import config
 
 logger = logging.getLogger(__name__)
 
 
 class ThrottlingMiddleware(BaseMiddleware):
-    """Xabarlar oralig'ini nazorat qiluvchi anti-flood middleware."""
+    """Xabarlar va tugma bosishlar oralig'ini nazorat qiluvchi anti-flood middleware."""
 
     def __init__(self, rate_limit: float = 1.0):
         self.rate_limit = rate_limit
@@ -24,10 +24,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         event: TelegramObject,
         data: Dict[str, Any]
     ) -> Any:
-        if not isinstance(event, Message):
-            return await handler(event, data)
-
-        user = event.from_user
+        user = getattr(event, "from_user", None)
         if not user or config.is_admin(user.id):
             return await handler(event, data)
 
@@ -41,10 +38,16 @@ class ThrottlingMiddleware(BaseMiddleware):
             }
 
         if now - last_time < self.rate_limit:
-            # Juda tez xabar yuborilgan - cooldown yangilanadi va xabar e'tiborsiz qoldiriladi
-            logger.debug(f"User {user.id} spam chekloviga tushdi")
+            # Juda tez so'rov yuborilgan - cooldown yangilanadi va so'rov e'tiborsiz qoldiriladi
+            logger.debug(f"User {user.id} spam/flood chekloviga tushdi")
             self.user_timestamps[user.id] = now
+            if isinstance(event, CallbackQuery):
+                try:
+                    await event.answer("⚠️ Iltimos, biroz kuting...", show_alert=False)
+                except Exception:
+                    pass
             return
 
         self.user_timestamps[user.id] = now
         return await handler(event, data)
+
