@@ -42,10 +42,10 @@ html,body{margin:0;background:var(--bg);color:var(--text);
   font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   -webkit-font-smoothing:antialiased;overscroll-behavior:none;overscroll-behavior-y:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-img{display:block}
+img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 
 /* ---------- sarlavha ---------- */
-.top{position:sticky;top:0;z-index:20;background:var(--bg);padding:12px 16px 8px;
+.top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(7,11,31,0.92);padding:12px 16px 8px;
   box-shadow:0 1px 0 var(--sep)}
 .brand{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .brand h1{font-size:21px;line-height:1.15;margin:0;font-weight:800;letter-spacing:-.3px}
@@ -880,8 +880,48 @@ async function loadTV() {
   tvItems.forEach((x) => { x._k = norm(x.n); tvById.set(x.i, x); });
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
-function setMode(m) {
-  if (mode === m) return;
+const MODE_TO_PAGE = {
+  kino: "kinolar",
+  music: "musiqa",
+  books: "kitoblar",
+  games: "o'yinlar",
+  story: "story",
+  docs: "hujjatlar",
+  quiz: "viktorina",
+  food: "taomlar",
+  fx: "kurs",
+  tv: "tv"
+};
+const PAGE_EMOJIS = {
+  kinolar: "🎬",
+  musiqa: "🎧",
+  kitoblar: "📚",
+  "o'yinlar": "🧸",
+  story: "👻",
+  hujjatlar: "📄",
+  viktorina: "🧠",
+  taomlar: "🍲",
+  kurs: "💱",
+  tv: "📺"
+};
+
+function getMaintenanceFor(m) {
+  if (!window.ZK_MAINTENANCE) return null;
+  const g = window.ZK_MAINTENANCE.global;
+  const pageKey = MODE_TO_PAGE[m] || m;
+  const p = window.ZK_MAINTENANCE.pages && window.ZK_MAINTENANCE.pages[pageKey];
+  const emoji = PAGE_EMOJIS[pageKey] || "🛠️";
+  if (g && g.active) {
+    return { active: true, message: g.message || "Tizimda profilaktika ishlari olib borilmoqda. Tez orada qaytamiz!", emoji };
+  }
+  if (p && p.active) {
+    return { active: true, message: p.message || "Ushbu bo'limda yangilanish ishlari olib borilmoqda. Tez orada qaytamiz!", emoji };
+  }
+  return null;
+}
+
+function setMode(m, force) {
+  if (mode === m && !force && !getMaintenanceFor(m)) return;
   const was = mode;
   mode = m; haptic(); document.body.dataset.zkm = m;
   document.body.classList.toggle("tvsoon", m === "tv" && tvSoon);
@@ -894,6 +934,26 @@ function setMode(m) {
   if (was === "fx" && window.ZFx) ZFx.close();
   if (was === "food" && window.ZFood) ZFood.close();
   if (was === "quiz" && window.ZQuiz) ZQuiz.close();
+
+  const maint = getMaintenanceFor(m);
+  if (maint) {
+    $("chan").hidden = true;
+    $("chips").hidden = true;
+    $("chips2").hidden = true;
+    $("sbox").hidden = true;
+    $("count").textContent = "Texnik ta'mirlash";
+    $("main").innerHTML = `<div class="empty maintenance-screen" style="padding:48px 16px;text-align:center">
+      <div style="font-size:56px;line-height:1;margin-bottom:16px">${maint.emoji}</div>
+      <h2 style="font-size:20px;font-weight:800;margin:0 0 12px;color:var(--text)">Texnik ishlar olib borilmoqda</h2>
+      <div style="font-size:15px;line-height:1.55;color:var(--hint);max-width:360px;margin:0 auto 24px;white-space:pre-wrap">${maint.message}</div>
+      <button class="cta" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:14px;background:var(--accent);color:var(--accent-text);font-weight:700;font-size:15px;border:none;cursor:pointer" onclick="location.reload()">🔄 Qayta tekshirish</button>
+    </div>`;
+    window.scrollTo({top: 0});
+    return;
+  }
+  $("sbox").hidden = false;
+  $("chips").hidden = false;
+
   if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
@@ -1041,8 +1101,28 @@ function attempt(url) {
             levelLoadingTimeOut: 6000,
             levelLoadingMaxRetry: 4,
             fragLoadingTimeOut: 8000,
-            fragLoadingMaxRetry: 5
           });
+          try {
+            const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+            const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
+            const _isSlow = (_conn && (_conn.saveData || _downlink < 2.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
+            if (_isSlow) {
+              hls.config.maxBufferLength = 90;
+              hls.config.maxMaxBufferLength = 120;
+              hls.config.maxBufferSize = 120 * 1024 * 1024;
+            } else {
+              hls.config.maxBufferLength = 60;
+              hls.config.maxMaxBufferLength = 120;
+            }
+            if (_conn && _conn.addEventListener) {
+              _conn.addEventListener("change", () => {
+                const curDl = _conn.downlink || 10;
+                if (curDl < 2.5 || /2g|3g/.test(_conn.effectiveType || "")) {
+                  hls.config.maxBufferLength = 90;
+                }
+              });
+            }
+          } catch (e) {}
           let netFatalRetries = 0;
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
@@ -1565,6 +1645,7 @@ async function load() {
   try {
     const r = await (await fetch("api/catalog", {cache: "no-cache"})).json();
     items = r.items || []; channel = r.channel || ""; botName = r.bot || "";
+    window.ZK_MAINTENANCE = r.maintenance || null;
     tvSoon = !!r.tv_soon;
     if (!r.tv && !tvSoon) $("seg").querySelector('[data-m="tv"]')?.remove();  // TV vaqtincha o'chiq
     if (!r.music) $("seg").querySelector('[data-m="music"]')?.remove();
@@ -1593,6 +1674,10 @@ async function load() {
   }
   items.forEach((x) => { x._n = norm(x.t); x._k = x._n + " " + norm(x.d) + " " + x.c; byCode.set(x.c, x); });
   if (mode !== "kino") return;
+  if (getMaintenanceFor("kino")) {
+    setMode("kino", true);
+    return;
+  }
   $("count").textContent = `${items.length} ta kino · posterini bosing`;
   $("chan").hidden = !channel;
   render();

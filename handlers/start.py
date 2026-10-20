@@ -215,6 +215,27 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 return
 
 
+    from services.maintenance_service import maintenance_service
+    from keyboards.default import maintenance_menu_keyboard
+
+    if not is_admin and maintenance_service.is_global_maintenance():
+        m_msg = maintenance_service.get_global_message()
+        maint_text = (
+            f"<b>{m_msg}</b>\n\n"
+            "Botda texnik yangilanish olib borilayotgani sababli ayrim xizmatlar vaqtincha to'xtatilgan.\n\n"
+            "⚡ <b>Lekin hozirda quyidagi bo'limlar to'liq va uzluksiz ishlamoqda:</b>\n"
+            "• 🎵 <b>Qo'shiq topish</b> (Istalgan musiqa va ijrochini topish)\n"
+            "• ⭕️ <b>Dumaloq video</b> (1 soniyada video xabar tayyorlash)\n"
+            "• 📥 <b>Media yuklash</b> (Instagram, TikTok, YouTube va b.)\n\n"
+            "Quyidagi tugmalardan birini tanlab foydalanishingiz mumkin:"
+        )
+        await message.answer(
+            maint_text,
+            parse_mode="HTML",
+            reply_markup=maintenance_menu_keyboard(is_admin=False)
+        )
+        return
+
     welcome_text = (
         f"👋 <b>Assalomu alaykum, {user.first_name or 'qadrdon'}!</b>\n\n"
         f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')}</b> ga xush kelibsiz!\n\n"
@@ -232,6 +253,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(is_admin=is_admin)
     )
+
 
 
 @router.callback_query(F.data == "check_subscription")

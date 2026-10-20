@@ -22,7 +22,18 @@ from keyboards.inline import (
     admin_movie_detail_keyboard,
     movie_edit_keyboard,
     admin_settings_keyboard,
+    admin_maintenance_main_keyboard,
+    admin_maintenance_templates_keyboard,
+    admin_maintenance_pages_keyboard,
+    admin_maintenance_page_detail_keyboard,
 )
+from services.maintenance_service import (
+    maintenance_service,
+    MAINTENANCE_TEMPLATES,
+    PAGE_EMOJIS,
+    PAGE_NAMES,
+)
+
 from utils.states import (
     MovieAddStates,
     MovieDeleteStates,
@@ -960,4 +971,163 @@ async def reply_admin_settings(message: Message) -> None:
         f"👑 <b>Adminlar soni:</b> {len(config.admin_ids)} ta\n"
     )
     await message.answer(text, parse_mode="HTML", reply_markup=admin_settings_keyboard())
+
+
+# ==========================================
+# 🛠️ PROFILAKTIKA VA YANGILANISH (MAINTENANCE)
+# ==========================================
+
+@router.callback_query(F.data == "admin:maint:menu")
+async def cb_admin_maint_menu(callback: CallbackQuery) -> None:
+    """Profilaktika boshqaruv asosiy menyusi."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("Ruxsat berilmagan!", show_alert=True)
+        return
+
+    is_global = maintenance_service.is_global_maintenance()
+    global_msg = maintenance_service.get_global_message()
+    status_text = "🔴 <b>PROFILAKTIKA YOQILGAN (Tizim to'xtatilgan)</b>" if is_global else "🟢 <b>NORMAL ISHLAMOQDA (Faol)</b>"
+
+    text = (
+        "🛠️ <b>Profilaktika va Yangilanish Boshqaruvi</b>\n\n"
+        f"📊 <b>Bot & Web App holati:</b> {status_text}\n"
+        f"📝 <b>Amaldagi xabar:</b>\n<i>«{global_msg}»</i>\n\n"
+        "💡 <i>Eslatma: Butun bot to'xtatilganda ham foydalanuvchilar uchun 3 ta muhim funksiya:\n"
+        "• 🎵 Musiqa topish\n"
+        "• ⭕️ Dumaloq video\n"
+        "• 📥 Media yuklash\n"
+        "to'xtovsiz ishlashda davom etadi!</i>\n\n"
+        "Kerakli amalni tanlang:"
+    )
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_main_keyboard(is_global))
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=admin_maintenance_main_keyboard(is_global))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:maint:global:pick")
+async def cb_admin_maint_global_pick(callback: CallbackQuery) -> None:
+    """Butun bot va Web Appni to'xtatish uchun 5 ta xabar shablonini ko'rsatish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+
+    text = (
+        "🛑 <b>Butun tizimni profilaktikaga qo'yish</b>\n\n"
+        "Foydalanuvchilar /start bosganda yoki Web App sahifalariga kirganda "
+        "ko'rinishi kerak bo'lgan xabarni tanlang (5 ta tayyor variant):"
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_templates_keyboard("global"))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:maint:global:off")
+async def cb_admin_maint_global_off(callback: CallbackQuery) -> None:
+    """Butun tizim profilaktikasini o'chirish (Normal ishga qaytarish)."""
+    if not is_admin_check(callback.from_user.id):
+        return
+
+    maintenance_service.set_global_maintenance(False)
+    await callback.answer("✅ Profilaktika o'chirildi! Tizim to'liq ishga tushirildi.", show_alert=True)
+    await cb_admin_maint_menu(callback)
+
+
+@router.callback_query(F.data.startswith("admin:maint:set_tmpl:"))
+async def cb_admin_maint_set_template(callback: CallbackQuery) -> None:
+    """Tanlangan shablon xabarni biriktirish va profilaktikani yoqish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+
+    parts = callback.data.split(":")
+    target = parts[4]
+    try:
+        idx = int(parts[5])
+    except (IndexError, ValueError):
+        idx = 0
+
+    if target == "global":
+        maintenance_service.set_global_maintenance(True, message_idx=idx)
+        await callback.answer("✅ Butun bot va Web App profilaktikaga olindi!", show_alert=True)
+        await cb_admin_maint_menu(callback)
+    else:
+        maintenance_service.set_page_maintenance(target, True, message_idx=idx)
+        page_name = PAGE_NAMES.get(target, target)
+        await callback.answer(f"✅ {page_name} sahifasi profilaktikaga olindi!", show_alert=True)
+        await cb_admin_maint_page_detail(callback, override_page=target)
+
+
+@router.callback_query(F.data == "admin:maint:pages")
+async def cb_admin_maint_pages(callback: CallbackQuery) -> None:
+    """10 ta Web App sahifasini alohida profilaktikaga qo'yish ro'yxati."""
+    if not is_admin_check(callback.from_user.id):
+        return
+
+    state = maintenance_service.get_state()
+    pages_state = state.get("pages", {})
+
+    text = (
+        "📱 <b>Alohida Web App sahifalarini boshqarish:</b>\n\n"
+        "O'zingiz xohlagan sahifani tanlab, faqat o'sha bo'limni profilaktikaga qo'yishingiz mumkin.\n"
+        "Qolgan barcha bo'limlar uzluksiz ishlayveradi!\n\n"
+        "🟢 — Normal ishlamoqda\n"
+        "🔴 — Profilaktikada (Yangilanishda)\n\n"
+        "Boshqarish uchun sahifani bosing:"
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_pages_keyboard(pages_state))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:maint:page:"))
+async def cb_admin_maint_page_detail_query(callback: CallbackQuery) -> None:
+    """Sahifa ustiga bosilganda uning tafsilotlarini ko'rsatish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    page_id = callback.data.split("admin:maint:page:")[-1]
+    await cb_admin_maint_page_detail(callback, override_page=page_id)
+
+
+async def cb_admin_maint_page_detail(callback: CallbackQuery, override_page: str) -> None:
+    page_id = override_page
+    em = PAGE_EMOJIS.get(page_id, "📱")
+    nm = PAGE_NAMES.get(page_id, page_id.capitalize())
+    is_active = maintenance_service.is_page_maintenance(page_id)
+    msg = maintenance_service.get_page_message(page_id)
+
+    status_str = "🔴 <b>Profilaktika yoqilgan</b>" if is_active else "🟢 <b>Normal ishlamoqda</b>"
+
+    text = (
+        f"{em} <b>{nm} sahifasi profilaktika sozlamasi</b>\n\n"
+        f"📊 Holati: {status_str}\n"
+        f"📝 Biriktirilgan xabar:\n<i>«{msg}»</i>\n\n"
+        "Ushbu sahifa profilaktikasini o'zgartirish:"
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_page_detail_keyboard(page_id, is_active))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:maint:page_pick:"))
+async def cb_admin_maint_page_pick(callback: CallbackQuery) -> None:
+    """Alohida sahifa uchun 5 ta xabar shablonidan birini tanlash."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    page_id = callback.data.split("admin:maint:page_pick:")[-1]
+    nm = PAGE_NAMES.get(page_id, page_id)
+    text = (
+        f"📝 <b>{nm} sahifasi uchun profilaktika xabarini tanlang:</b>\n\n"
+        "Quyidagi 5 ta tayyor xabardan birini bosing:"
+    )
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_templates_keyboard(page_id))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("admin:maint:page_off:"))
+async def cb_admin_maint_page_off(callback: CallbackQuery) -> None:
+    """Alohida sahifa profilaktikasini o'chirish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    page_id = callback.data.split("admin:maint:page_off:")[-1]
+    maintenance_service.set_page_maintenance(page_id, False)
+    nm = PAGE_NAMES.get(page_id, page_id)
+    await callback.answer(f"✅ {nm} sahifasi profilaktikadan chiqarildi!", show_alert=True)
+    await cb_admin_maint_page_detail(callback, override_page=page_id)
 

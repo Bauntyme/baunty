@@ -27,18 +27,18 @@ class VideoService:
 
         output_path = str(config.download_path / f"round_{uuid.uuid4().hex[:8]}.mp4")
 
-        # ffmpeg buyrug'i: kvadratga qirqish, 360x360 o'lcham, h264/aac, yuqori tezlik (ultrafast, zerolatency, threads 0)
+        # ffmpeg buyrug'i: kvadratga qirqish, 384x384 o'lcham, h264/aac, 1-soniyada konvertatsiya (ultrafast, zerolatency, threads 0)
         cmd = [
             ffmpeg_bin,
             "-y",
             "-threads", "0",
             "-i", input_path,
             "-t", "60",
-            "-vf", "crop='min(iw,ih)':'min(iw,ih)',scale=360:360:flags=fast_bilinear",
+            "-vf", "crop='min(iw,ih)':'min(iw,ih)',scale=384:384:flags=fast_bilinear",
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
-            "-crf", "26",
+            "-crf", "28",
             "-c:a", "aac",
             "-b:a", "64k",
             "-ac", "1",

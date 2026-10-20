@@ -246,10 +246,14 @@ def admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🔒 Homiylar (Kanallar)", callback_data="admin:sponsors"),
     )
     builder.row(
+        InlineKeyboardButton(text="🛠️ Yangilanish / Profilaktika", callback_data="admin:maint:menu"),
         InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="admin:settings"),
+    )
+    builder.row(
         InlineKeyboardButton(text="❌ Yopish", callback_data="admin:close"),
     )
     return builder.as_markup()
+
 
 
 def admin_movies_menu_keyboard() -> InlineKeyboardMarkup:
@@ -379,5 +383,99 @@ def story_platform_keyboard() -> InlineKeyboardMarkup:
         builder.row(
             InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=f"{app_url}#story"))
         )
+    return builder.as_markup()
+
+
+def admin_maintenance_main_keyboard(is_global_active: bool) -> InlineKeyboardMarkup:
+    """Profilaktika boshqaruv asosiy menyusi."""
+    builder = InlineKeyboardBuilder()
+    if is_global_active:
+        builder.row(
+            InlineKeyboardButton(text="🟢 Tizimni qayta yoqish (Oddiy holat)", callback_data="admin:maint:global:off")
+        )
+    else:
+        builder.row(
+            InlineKeyboardButton(text="🛑 Butun tizimni to'xtatish (Profilaktika)", callback_data="admin:maint:global:pick")
+        )
+
+    builder.row(
+        InlineKeyboardButton(text="📱 Alohida Web App sahifalari", callback_data="admin:maint:pages")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu")
+    )
+    return builder.as_markup()
+
+
+def admin_maintenance_templates_keyboard(target: str) -> InlineKeyboardMarkup:
+    """Profilaktika xabarlari shablonlarini tanlash (1 dan 5 gacha).
+    target: 'global' yoki sahifa id (masalan 'kino', 'food')
+    """
+    builder = InlineKeyboardBuilder()
+    templates_labels = [
+        "1️⃣ 🛠️ Texnik yangilanish...",
+        "2️⃣ 🚀 Yangi zo'r funksiyalar...",
+        "3️⃣ ⚡ Tezlik va sifat...",
+        "4️⃣ ✨ Server optimallashtirilmoqda...",
+        "5️⃣ 🎯 Yangi sara kontentlar...",
+    ]
+    for idx, lbl in enumerate(templates_labels):
+        builder.row(
+            InlineKeyboardButton(text=lbl, callback_data=f"admin:maint:set_tmpl:{target}:{idx}")
+        )
+
+    back_target = "admin:maint:pages" if target != "global" else "admin:maint:menu"
+    builder.row(
+        InlineKeyboardButton(text="🔙 Bekor qilish", callback_data=back_target)
+    )
+    return builder.as_markup()
+
+
+def admin_maintenance_pages_keyboard(pages_state: dict) -> InlineKeyboardMarkup:
+    """10 ta Web App sahifasining profilaktika holati va tanlash ro'yxati."""
+    builder = InlineKeyboardBuilder()
+    from services.maintenance_service import PAGE_EMOJIS, PAGE_NAMES
+
+    # 2 qatorli tugmalar
+    page_keys = list(PAGE_EMOJIS.keys())
+    for i in range(0, len(page_keys), 2):
+        row_buttons = []
+        for k in page_keys[i:i+2]:
+            em = PAGE_EMOJIS[k]
+            nm = PAGE_NAMES.get(k, k.capitalize())
+            is_on = pages_state.get(k, {}).get("enabled", False)
+            status_dot = "🔴" if is_on else "🟢"
+            row_buttons.append(
+                InlineKeyboardButton(
+                    text=f"{em} {nm} {status_dot}",
+                    callback_data=f"admin:maint:page:{k}"
+                )
+            )
+        builder.row(*row_buttons)
+
+    builder.row(
+        InlineKeyboardButton(text="🔙 Orqaga", callback_data="admin:maint:menu")
+    )
+    return builder.as_markup()
+
+
+def admin_maintenance_page_detail_keyboard(page_id: str, is_active: bool) -> InlineKeyboardMarkup:
+    """Alohida sahifa profilaktikasini yoqish/o'chirish va xabar tanlash."""
+    builder = InlineKeyboardBuilder()
+    if is_active:
+        builder.row(
+            InlineKeyboardButton(text="🟢 Profilaktikani o'chirish (Yoqish)", callback_data=f"admin:maint:page_off:{page_id}")
+        )
+        builder.row(
+            InlineKeyboardButton(text="📝 Xabarni o'zgartirish (5 shablon)", callback_data=f"admin:maint:page_pick:{page_id}")
+        )
+    else:
+        builder.row(
+            InlineKeyboardButton(text="🛑 Profilaktikaga qo'yish (O'chirish)", callback_data=f"admin:maint:page_pick:{page_id}")
+        )
+
+    builder.row(
+        InlineKeyboardButton(text="🔙 Sahifalar ro'yxatiga qaytish", callback_data="admin:maint:pages")
+    )
     return builder.as_markup()
 

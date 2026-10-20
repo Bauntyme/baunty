@@ -53,6 +53,63 @@ def _normalize(text: str) -> str:
     return " ".join(t.split())
 
 
+def sanitize_book_text(text: str) -> str:
+    """
+    Kitoblar matnidagi kodirovka xatolari (mojibake), noto'g'ri UTF-8 belgilari,
+    siniq ligaturalar va bo'g'in ajratuvchi chalkashliklarni tozalash.
+    """
+    if not text:
+        return ""
+
+    mojibake_map = {
+        "Ã¢â‚¬â„¢": "'",
+        "Ã¢â‚¬Å“": "“",
+        "Ã¢â‚¬Â": "”",
+        "Ã¢â‚¬â€": " — ",
+        "Ã¢â‚¬â€“": " – ",
+        "Ã¢â‚¬Â¦": "…",
+        "â€™": "'",
+        "â€˜": "'",
+        "â€œ": "“",
+        "â€": "”",
+        "â€”": " — ",
+        "â€“": " – ",
+        "â€¦": "…",
+        "Ã‚Â": " ",
+        "Â ": " ",
+        "Â": "",
+        "\ufeff": "",
+        "\ufffd": "",
+        "\u00ad": "",
+    }
+    for bad, good in mojibake_map.items():
+        if bad in text:
+            text = text.replace(bad, good)
+
+    # O'zbekcha harflardagi chalkash apostroflar
+    text = re.sub(r"o[‘`ʻʼ’´]", "o'", text)
+    text = re.sub(r"O[‘`ʻʼ’´]", "O'", text)
+    text = re.sub(r"g[‘`ʻʼ’´]", "g'", text)
+    text = re.sub(r"G[‘`ʻʼ’´]", "G'", text)
+
+    # Siniq so'z bo'g'inlari
+    text = re.sub(r"(\b[A-Za-zА-Яа-яЎўҒғҚқҲҳ]+)-[ \t\r\n]+([A-Za-zА-Яа-яЎўҒғҚқҲҳ]+\b)", r"\1\2", text)
+
+    # Siniq ligaturalar
+    ligature_map = {
+        "ﬁ": "fi",
+        "ﬂ": "fl",
+        "ﬀ": "ff",
+        "ﬃ": "ffi",
+        "ﬄ": "ffl",
+    }
+    for lig, rep in ligature_map.items():
+        if lig in text:
+            text = text.replace(lig, rep)
+
+    return text
+
+
 def load_books() -> List[Dict[str, Any]]:
     """Kitoblar ro'yxatini yuklash va keshlashtirish."""
     global _BOOKS_CACHE, _BOOKS_BY_ID
@@ -69,9 +126,14 @@ def load_books() -> List[Dict[str, Any]]:
 
     for item in items:
         bid = str(item.get("id"))
-        title = item.get("title", "")
-        author = item.get("author", "")
-        desc = item.get("description", "")
+        title = sanitize_book_text(item.get("title", ""))
+        author = sanitize_book_text(item.get("author", ""))
+        desc = sanitize_book_text(item.get("description", ""))
+        item["title"] = title
+        item["author"] = author
+        item["description"] = desc
+        if "sample_text" in item:
+            item["sample_text"] = sanitize_book_text(item["sample_text"])
         norm_lat = f"{_normalize(title)} {_normalize(author)} {_normalize(desc)}"
         raw_lower = f"{title} {author} {desc}".lower()
         item["_search"] = f"{norm_lat} {raw_lower} {bid}"

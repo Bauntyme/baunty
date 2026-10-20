@@ -71,3 +71,24 @@ def admin_reply_keyboard() -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
     )
+
+
+def maintenance_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
+    """Profilaktika / Yangilanish holatida ishlaydigan ruxsat etilgan funksiyalar klaviaturasi."""
+    buttons = [
+        [
+            KeyboardButton(text="🎵 Qo'shiq topish"),
+            KeyboardButton(text="⭕️ Dumaloq video"),
+        ],
+        [
+            KeyboardButton(text="📥 Media yuklash"),
+        ],
+    ]
+    if is_admin:
+        buttons.append([KeyboardButton(text="👑 Admin Panel")])
+
+    return ReplyKeyboardMarkup(
+        keyboard=buttons,
+        resize_keyboard=True,
+        input_field_placeholder="Profilaktika davomida musiqa, dumaloq video va yuklash ishlaydi...",
+    )

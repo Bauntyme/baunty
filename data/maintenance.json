@@ -1,0 +1,59 @@
+{
+  "global": {
+    "enabled": false,
+    "message_idx": 0,
+    "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+  },
+  "pages": {
+    "kino": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "music": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "books": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "games": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "story": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "docs": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "quiz": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "food": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "fx": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    },
+    "tv": {
+      "enabled": false,
+      "message_idx": 0,
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    }
+  }
+}

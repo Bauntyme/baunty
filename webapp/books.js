@@ -632,6 +632,24 @@ async function openReader(id, ch, off) {
   updateBack();
   if (R.scan) openScan(c0, o0); else await loadChapter(Math.min(Math.max(0, c0), R.toc.length - 1), o0);
 }
+function cleanBookText(s) {
+  if (!s) return "";
+  let t = String(s);
+  const map = {
+    "â€™": "'", "â€˜": "'", "Ã¢â‚¬â„¢": "'", "Ã¢â‚¬Å“": "“", "Ã¢â‚¬Â": "”",
+    "â€œ": "“", "â€": "”", "â€”": " — ", "â€“": " – ", "Ã¢â‚¬â€": " — ",
+    "Ã¢â‚¬â€“": " – ", "â€¦": "…", "Ã¢â‚¬Â¦": "…", "Ã‚Â": " ", "Â ": " ", "Â": "",
+    "\ufeff": "", "\ufffd": "", "\u00ad": ""
+  };
+  for (const [bad, good] of Object.entries(map)) {
+    if (t.includes(bad)) t = t.replaceAll(bad, good);
+  }
+  t = t.replace(/o[‘`ʻʼ’´]/g, "o'").replace(/O[‘`ʻʼ’´]/g, "O'")
+       .replace(/g[‘`ʻʼ’´]/g, "g'").replace(/G[‘`ʻʼ’´]/g, "G'")
+       .replace(/(\b[A-Za-zА-Яа-яЎўҒғҚқҲҳ]+)-[ \t\r\n]+([A-Za-zА-Яа-яЎўҒғҚқҲҳ]+\b)/gu, "$1$2");
+  return t;
+}
+
 async function loadChapter(n, where) {
   R.loading = true; $("rdload").hidden = false;
   let data;
@@ -643,22 +661,25 @@ async function loadChapter(n, where) {
   let first = true;
   const used = new Set();
   const paras = (data.p || []).map((p, pi) => {
-    if (typeof p !== "string") return `<h3 data-pi="${pi}">${esc(p.h)}</h3>`;
-    let html = esc(p);
+    if (typeof p !== "string") return `<h3 data-pi="${pi}">${esc(cleanBookText(p.h))}</h3>`;
+    const cleanP = cleanBookText(p);
+    let html = esc(cleanP);
     for (const nt of notes) {
       if (used.has(nt.id) || (nt.pos >= 0 && nt.pos !== pi)) continue;
-      const q = esc(nt.q.trim());
+      const q = esc(cleanBookText(nt.q.trim()));
       const k = q ? html.indexOf(q) : -1;
       if (k >= 0) { html = html.slice(0, k) + `<mark class="${nt.n ? "n" : ""}">${q}</mark>` + html.slice(k + q.length); used.add(nt.id); }
     }
-    const cls = first && /^[\p{L}«"„]/u.test(p) ? "f dc" : first ? "f" : "";
+    const cls = first && /^[\p{L}«"„]/u.test(cleanP) ? "f dc" : first ? "f" : "";
     first = false;
     return `<p data-pi="${pi}"${cls ? ` class="${cls}"` : ""}>${html}</p>`;
   }).join("");
   const last = n === R.toc.length - 1;
-  $("rdtext").innerHTML = `<div class="ch-h"><small>${n + 1}-BO'LIM · ${R.toc.length} DAN</small><b>${esc(data.t || "")}</b></div>${paras}
+  const cleanTitle = cleanBookText(data.t || "");
+  $("rdtext").innerHTML = `<div class="ch-h"><small>${n + 1}-BO'LIM · ${R.toc.length} DAN</small><b>${esc(cleanTitle)}</b></div>${paras}
     ${last ? `<div class="end">— Tamom —<br><br>${inTg ? `Kitob sizga yoqdimi?<div class="bx-stars" style="margin-top:6px">${[1, 2, 3, 4, 5].map((s) => `<button data-rstar="${s}" style="color:var(--pacc)">☆</button>`).join("")}</div>` : ""}</div>` : ""}`;
-  $("rdc").textContent = data.t || "";
+  $("rdc").textContent = cleanTitle;
+
   await layout(where);
   $("rdload").hidden = true; R.loading = false;
 }
