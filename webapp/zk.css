@@ -23,7 +23,8 @@ img{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 body.splashing > .top, body.splashing > main,
 body.zk:has(#zksplash:not(.out)) > .top, body.zk:has(#zksplash:not(.out)) > main{display:none!important}
 body.zk>.top{position:sticky;top:0;z-index:999;transition:opacity .3s ease}
-body.zk:has(#det.open)>.top,body.zk:has(#tvp.open)>.top,body.zk:has(#zkslot.on)>.top{display:none!important}
+body.zk:has(#det.open)>.top,body.zk:has(#tvp.open)>.top,body.zk:has(#zkslot.on)>.top,
+body.det-open>.top,body.tvp-open>.top,body.slot-open>.top{display:none!important}
 body.zk>main{position:relative;z-index:2}
 .zk :focus-visible{outline:2px solid var(--zk-acc);outline-offset:2px}
 
@@ -63,12 +64,16 @@ body.zk>main{position:relative;z-index:2}
   background:rgba(7,11,31,.46);box-shadow:inset 0 0 0 1px var(--zk-line),0 10px 30px rgba(0,0,0,.25);
   -webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;isolation:isolate}
 .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg)::-webkit-scrollbar{display:none}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button{position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;height:38px;
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.zk-hubbtn){position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;height:38px;
   padding:0 11px;border-radius:13px;font:800 13.5px var(--zk-fb);color:var(--zk-mute);white-space:nowrap;background:none!important;box-shadow:none;
   transition:color .35s,padding .35s}
 .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button.on{color:var(--zk-ink)!important}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button::before{content:"";width:17px;height:17px;flex:none;background:currentColor;
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.zk-hubbtn)::before{content:"";width:17px;height:17px;flex:none;background:currentColor;
   -webkit-mask:var(--zk-ic) center/contain no-repeat;mask:var(--zk-ic) center/contain no-repeat}
+.zk .zk-hubbtn{flex:none;height:38px;padding:0 12px;border-radius:13px;font:800 13px var(--zk-fb);color:var(--zk-cream)!important;background:var(--zk-glass)!important;box-shadow:inset 0 0 0 1px var(--zk-line)!important;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;transition:background .2s,transform .15s}
+.zk .zk-hubbtn:active{transform:scale(.96)}
+.zk .zk-hubbtn::before{display:none!important}
+.zk .zk-hubbtn svg{width:16px;height:16px;flex:none;color:var(--zk-acc)}
 .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-ind{position:absolute;z-index:0;left:0;top:4px;bottom:4px;border-radius:13px;background:var(--zk-acc);
   box-shadow:0 6px 18px color-mix(in srgb,var(--zk-acc) 45%,transparent);transition:background .8s;pointer-events:none}
 /* panel ikonkalari */
@@ -85,14 +90,15 @@ body.zk>main{position:relative;z-index:2}
 .zk [data-m="tv"],.zk [data-mode="tv"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='3'/%3E%3Cpath d='m8 3 4 4 4-4'/%3E%3C/svg%3E")}
 /* tor ekran: faqat tanlangan bo'limda yozuv, qolganlari — ikonka */
 @media (max-width:440px){
-  .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.on){font-size:0;gap:0;padding:0 11px}
-  .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.on)::before{width:19px;height:19px}
+  .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.on):not(.zk-hubbtn){font-size:0;gap:0;padding:0 11px}
+  .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.on):not(.zk-hubbtn)::before{width:19px;height:19px}
 }
 
 /* ================================================================== 🎬 KINO (asosiy oyna) */
 .zk>.top{background:linear-gradient(rgba(7,11,31,.78),rgba(7,11,31,.5));-webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);
   box-shadow:0 1px 0 var(--zk-line);padding:12px 16px 10px}
-.zk .brand > div:first-child{overflow:visible;width:100%;display:flex;flex-direction:column;gap:4px}
+.zk .brand > div:first-child{overflow:visible;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+
 .zk .brand small{color:var(--zk-mute);font-weight:600;margin-top:8px}
 .zk .chan{background:var(--zk-glass);box-shadow:inset 0 0 0 1px var(--zk-line);color:var(--zk-cream)}
 .zk .search input{height:48px;border-radius:17px;background:rgba(246,238,220,.09);box-shadow:inset 0 0 0 1.5px var(--zk-line);color:var(--zk-cream);

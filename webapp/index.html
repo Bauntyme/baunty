@@ -53,7 +53,9 @@ body.splashing > .top, body.splashing > main,
 body:has(#zksplash:not(.out)) > .top, body:has(#zksplash:not(.out)) > main{display:none!important}
 .top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:var(--bg);padding:12px 16px 8px;
   box-shadow:0 1px 0 var(--sep)}
-body:has(#det.open) > .top, body:has(#tvp.open) > .top{display:none!important}
+body:has(#det.open) > .top, body:has(#tvp.open) > .top,
+body.det-open > .top, body.tvp-open > .top, body.slot-open > .top{display:none!important}
+
 .brand{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .brand h1{font-size:21px;line-height:1.15;margin:0;font-weight:800;letter-spacing:-.3px}
 .brand small{display:block;color:var(--hint);font-size:13px;font-weight:500;margin-top:2px}
@@ -592,6 +594,7 @@ function openDetail(it, push = true) {
     ${parts}`;
   $("det").scrollTop = 0;
   $("det").classList.add("open");
+  document.body.classList.add("det-open");
   const label = it.p > 1 ? `▶️ ${nextPart(it)}-qismni ko'rish` : "▶️ Tomosha qilish";
   $("play").textContent = label;
   if (inTg) {
@@ -617,6 +620,7 @@ function closeDetail(fromPop = false) {
   if (!cur) return;
   cur = null; hideSheet();
   $("det").classList.remove("open");
+  document.body.classList.remove("det-open");
   if (inTg) { tg.BackButton.hide(); tg.MainButton.hide(); }
   if (!fromPop && pushed) history.back();
   pushed = false;
@@ -1313,6 +1317,7 @@ function openTV(c, push = true) {
   same = same.slice(0, 60);
   $("tvlist").innerHTML = same.map(tileHTML).join("");
   $("tvp").scrollTop = 0; $("tvp").classList.add("open");
+  document.body.classList.add("tvp-open");
   if (inTg) { tg.BackButton.show(); tg.MainButton.hide(); } else $("tvx").style.display = "";
   if (push && !tvPushed) { history.pushState({tv: c.i}, ""); tvPushed = true; }
   playTV(c);
@@ -1322,6 +1327,7 @@ function closeTV(fromPop = false) {
   if (isTVFullscreen) toggleTVFullscreen(false);
   tvCur = null; tvTry++; userStoppedVideo = true; stopVideo();
   $("tvp").classList.remove("open");
+  document.body.classList.remove("tvp-open");
   if (inTg) {
     tg.BackButton.hide();
     try { if (tg.exitFullscreen) tg.exitFullscreen(); } catch (e) {}

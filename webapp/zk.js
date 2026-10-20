@@ -164,7 +164,7 @@ function decorate(seg) {
   if (fresh) { ind = document.createElement("i"); ind.className = "zk-ind"; ind.setAttribute("aria-hidden", "true"); seg.prepend(ind); }
   const sr = seg.getBoundingClientRect(), br = on.getBoundingClientRect();
   if (br.width <= 0 || sr.width <= 0) return false;
-  const x = br.left - sr.left + seg.scrollLeft, w = br.width;
+  const x = on.offsetParent === seg ? on.offsetLeft : (br.left - sr.left + seg.scrollLeft), w = br.width;
   const key = `${x.toFixed(1)}:${w.toFixed(1)}`;
   if (ind.dataset.k === key) return fresh;
   ind.dataset.k = key;
@@ -237,14 +237,18 @@ window.ZK_spin = (items, open) => {
   for (let i = 0; i < N; i++) html += poster(i === N - 1 ? pick : items[Math.floor(Math.random() * items.length)]);
   strip.innerHTML = html;
   document.getElementById("zkslotn").textContent = "";
-  slot.hidden = false; requestAnimationFrame(() => slot.classList.add("on"));
+  slot.hidden = false; document.body.classList.add("slot-open"); requestAnimationFrame(() => slot.classList.add("on"));
   const hgt = strip.firstElementChild.getBoundingClientRect().height || 270, dist = (N - 1) * hgt;
   const tick = setInterval(() => haptic("light"), 120);
   const done = () => {
     clearInterval(tick); haptic("ok");
     document.getElementById("zkslotn").textContent = pick.t;
     ripple = {x: 0, y: 0, t0: performance.now() / 1000};
-    setTimeout(() => { slot.classList.remove("on"); setTimeout(() => { slot.hidden = true; spinning = false; open(pick); }, 260); }, 850);
+    setTimeout(() => {
+      slot.classList.remove("on");
+      document.body.classList.remove("slot-open");
+      setTimeout(() => { slot.hidden = true; spinning = false; open(pick); }, 260);
+    }, 850);
   };
   if (RM || !strip.animate) { strip.style.transform = `translateY(-${dist}px)`; done(); return; }
   const a = strip.animate([

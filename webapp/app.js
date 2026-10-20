@@ -123,6 +123,7 @@ function openDetail(it, push = true) {
     ${parts}`;
   $("det").scrollTop = 0;
   $("det").classList.add("open");
+  document.body.classList.add("det-open");
   const label = it.p > 1 ? `▶️ ${nextPart(it)}-qismni ko'rish` : "▶️ Tomosha qilish";
   $("play").textContent = label;
   if (inTg) {
@@ -148,6 +149,7 @@ function closeDetail(fromPop = false) {
   if (!cur) return;
   cur = null; hideSheet();
   $("det").classList.remove("open");
+  document.body.classList.remove("det-open");
   if (inTg) { tg.BackButton.hide(); tg.MainButton.hide(); }
   if (!fromPop && pushed) history.back();
   pushed = false;
@@ -482,6 +484,13 @@ function attempt(url) {
             fragLoadingTimeOut: 8000,
           });
           hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fin(bad, d.type); });
+          hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+            if (data && data.levels && data.levels.length > 0) {
+              const topLvl = data.levels.length - 1;
+              hls.startLevel = topLvl;
+              hls.currentLevel = topLvl;
+            }
+          });
           hls.loadSource(url); hls.attachMedia(vid);
         }
       }
@@ -529,6 +538,7 @@ function openTV(c, push = true) {
   same = same.slice(0, 60);
   $("tvlist").innerHTML = same.map(tileHTML).join("");
   $("tvp").scrollTop = 0; $("tvp").classList.add("open");
+  document.body.classList.add("tvp-open");
   if (inTg) { tg.BackButton.show(); tg.MainButton.hide(); } else $("tvx").style.display = "";
   if (push && !tvPushed) { history.pushState({tv: c.i}, ""); tvPushed = true; }
   playTV(c);
@@ -537,6 +547,7 @@ function closeTV(fromPop = false) {
   if (!tvCur) return;
   tvCur = null; tvTry++; stopVideo();
   $("tvp").classList.remove("open");
+  document.body.classList.remove("tvp-open");
   if (inTg) tg.BackButton.hide();
   if (!fromPop && tvPushed) history.back();
   tvPushed = false;
