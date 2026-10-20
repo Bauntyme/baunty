@@ -424,24 +424,28 @@ const App = {
         const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
         const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
         let targetUrl = streamUrl;
-        if (!_isSlow && streamUrl.includes('cinerama.uz') && streamUrl.includes('playlist.m3u8')) {
-            targetUrl = streamUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
-        } else if (_isSlow && streamUrl.includes('cinerama.uz') && streamUrl.includes('tracks-v1a1')) {
-            targetUrl = streamUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
+        if (targetUrl.includes('cinerama.uz') && targetUrl.includes('tracks-v1a1')) {
+            targetUrl = targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
         }
+
+        try {
+            video.style.filter = "contrast(1.06) saturate(1.05)";
+            video.style.webkitFilter = "contrast(1.06) saturate(1.05)";
+            video.style.imageRendering = "-webkit-optimize-contrast";
+        } catch (e) {}
 
         if (window.Hls && window.Hls.isSupported()) {
             if (this.hls) this.hls.destroy();
             this.hls = new window.Hls({
                 testBandwidth: false,
                 startLevel: -1,
-                abrEwmaDefaultEstimate: _isSlow ? 2000000 : 8000000,
+                abrEwmaDefaultEstimate: _isSlow ? 2000000 : 6000000,
                 abrEwmaDefaultEstimateMax: 40000000,
                 capLevelToPlayerSize: false,
                 enableWorker: true,
                 liveSyncDurationCount: 2,
                 liveMaxLatencyDurationCount: 5,
-                maxBufferLength: _isSlow ? 20 : 30,
+                maxBufferLength: 20,
                 maxMaxBufferLength: 45,
                 maxBufferSize: 30 * 1024 * 1024,
                 maxBufferHole: 0.5,
@@ -463,8 +467,7 @@ const App = {
                     }
                     try {
                         this.hls.startLevel = _isSlow ? 0 : bestIdx;
-                        this.hls.loadLevel = bestIdx;
-                        this.hls.nextLoadLevel = bestIdx;
+                        this.hls.currentLevel = -1;
                         this.hls.minAutoLevel = 0;
                     } catch (err) {}
                 }
@@ -479,8 +482,7 @@ const App = {
                     }
                     try {
                         this.hls.startLevel = _isSlow ? 0 : bestIdx;
-                        this.hls.loadLevel = bestIdx;
-                        this.hls.nextLoadLevel = bestIdx;
+                        this.hls.currentLevel = -1;
                         this.hls.minAutoLevel = 0;
                     } catch (err) {}
                 }

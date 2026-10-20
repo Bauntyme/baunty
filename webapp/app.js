@@ -293,7 +293,7 @@ function tvInitials(name) {
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
   (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
 const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
-  <span class="live">LIVE</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
+  <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 
 function tvChips() {
   const cc = [...new Set(tvItems.map((x) => x.c))];
@@ -461,7 +461,7 @@ function attempt(url) {
     vid.onerror = () => fin(bad, "media");
 
     let streamTarget = url;
-    if (_isSlow && streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
+    if (streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
       streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
     }
 
@@ -478,7 +478,7 @@ function attempt(url) {
             lowLatencyMode: false,
             liveSyncDurationCount: 2,
             liveMaxLatencyDurationCount: 5,
-            maxBufferLength: _isSlow ? 20 : 25,
+            maxBufferLength: 20,
             maxMaxBufferLength: 45,
             maxBufferHole: 0.5,
             maxBufferSize: 30 * 1024 * 1024,
@@ -494,8 +494,23 @@ function attempt(url) {
             levelLoadingMaxRetry: 4,
             fragLoadingTimeOut: 7000,
           });
+          let fallbackTried = false;
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
+              if (!fallbackTried && streamTarget.includes("cinerama.uz")) {
+                fallbackTried = true;
+                const nextUrl = streamTarget.includes("tracks-v1a1")
+                  ? streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8")
+                  : streamTarget.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
+                if (nextUrl !== streamTarget) {
+                  streamTarget = nextUrl;
+                  try {
+                    hls.loadSource(streamTarget);
+                    hls.startLoad();
+                    return;
+                  } catch (err) {}
+                }
+              }
               if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
                 try { hls.recoverMediaError(); } catch (err) { fin(bad, d.type); }
               } else {
@@ -505,7 +520,10 @@ function attempt(url) {
               try {
                 if (vid.currentTime > 0) vid.currentTime += 0.1;
                 if (vid.paused) vid.play().catch(() => {});
-                if (hls) hls.currentLevel = -1;
+                if (hls) {
+                  hls.currentLevel = -1;
+                  if (hls.nextLoadLevel > 0) hls.nextLoadLevel = Math.max(0, hls.nextLoadLevel - 1);
+                }
               } catch (e) {}
             }
           });
@@ -536,8 +554,10 @@ function attempt(url) {
         if (err && err.name === "NotAllowedError") { vid.muted = true; $("unmute").hidden = false; vid.play().catch(() => {}); }
       });
     } catch (e) {
-      if (url.includes("cinerama.uz") && url.includes("tracks-v1a1")) {
-        const altUrl = url.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+      if (url.includes("cinerama.uz")) {
+        const altUrl = url.includes("tracks-v1a1")
+          ? url.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8")
+          : url.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
         if (altUrl !== url) {
           try {
             await attempt(altUrl);
@@ -578,7 +598,7 @@ async function playTV(c, from = 0) {
 function openTV(c, push = true) {
   tvCur = c; haptic();
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  $("tvname").textContent = c.n;
+  $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">1440p QHD</span>`;
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);

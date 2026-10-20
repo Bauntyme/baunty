@@ -49,30 +49,41 @@ def test_webapp_hls_instant_startup_and_adaptive_bitrate():
 
     # 1. Sifat nishonlari 1440p QHD
     assert "1440p QHD" in index_html
+    assert '1440p QHD</span>' in index_html  # Hamma TV kartalarida 1440p nishoni
     assert 'id="tv4kbadge"' in index_html
     assert 'id="tvq"' in index_html
+    assert "1440p QHD" in app_js
 
-    # 2. Qotirib qo'yilgan currentLevel yo'qligi (Adaptive Bitrate faol)
+    # 2. Qotirib qo'yilgan currentLevel va loadLevel yo'qligi (Adaptive Bitrate to'liq faol)
     assert "hls.currentLevel = bestIdx;" not in index_html
     assert "hls.currentLevel = topLvl;" not in app_js
+    assert "this.hls.loadLevel = bestIdx;" not in js_app
+    assert "this.hls.nextLoadLevel = bestIdx;" not in js_app
     assert "hls.currentLevel = -1;" in index_html
     assert "hls.currentLevel = -1;" in app_js
+    assert "this.hls.currentLevel = -1;" in js_app
 
-    # 3. Past internetda ham zudlik bilan ochilish va kam kechikish sozlamalari
+    # 3. Past internetda ham zudlik bilan ochilish va kam kechikish sozlamalari (20s/45s)
     assert "startFragPrefetch: true" in index_html
     assert "liveSyncDurationCount: 2" in index_html
     assert "liveMaxLatencyDurationCount: 5" in index_html
+    assert "maxBufferLength: 20" in index_html
+    assert "maxMaxBufferLength: 45" in index_html
     assert "startFragPrefetch: true" in app_js
     assert "liveSyncDurationCount: 2" in app_js
+    assert "maxBufferLength: 20" in app_js
+    assert "maxMaxBufferLength: 45" in app_js
 
-    # 4. Past internetda tracks-v1a1 dan playlist.m3u8 ga avtomatik o'tish mexanizmi
+    # 4. Cinerama da playlist.m3u8 orqali ko'p darajali adaptiv oqim
     assert 'tracks-v1a1/mono.ts.m3u8", "playlist.m3u8"' in index_html
     assert 'tracks-v1a1/mono.ts.m3u8", "playlist.m3u8"' in app_js
+    assert 'tracks-v1a1/mono.ts.m3u8\', \'playlist.m3u8\'' in js_app
 
     # 5. Tasvir tiniqligi filtrlari
     assert "contrast(1.06) saturate(1.05)" in index_html
     assert "-webkit-optimize-contrast" in index_html
     assert "contrast(1.06) saturate(1.05)" in app_js
+    assert "contrast(1.06) saturate(1.05)" in js_app
 
     # 6. js/app.js da minAutoLevel 0 qilinganligi (cheksiz pastga tushish imkoni)
     assert "this.hls.minAutoLevel = 0;" in js_app
