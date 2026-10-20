@@ -88,13 +88,17 @@ function toast(msg, ms = 2600) {
 function cover(b, size = "") {
   const k = ((b.i || 0) * 7 + String(b.t || "").length) % 14;
   const img = b.c ? `<img src="bk/${b.i}/cover_${size === "big" || size === "feat" ? "l" : "s"}.webp${b.cv ? "?v=" + b.cv : ""}" alt="" loading="lazy" decoding="async">` : "";
-  const lw = Math.max(0, ...String(b.t || "").split(/\s+/).map((w) => w.length));
-  const tl = lw > 11 || String(b.t || "").length > 42 ? " t3" : lw > 8 || String(b.t || "").length > 28 ? " t2" : "";
-  return `<div class="cv k${k} ${size}${tl}${b.c ? " has" : ""}" lang="${esc(b.l || "uz")}" aria-hidden="true"><span class="d"></span>${img}${b.au ? '<span class="aub" title="Audiokitob">🎧</span>' : ""}<b>${esc(b.t)}</b><i>${esc(shortA(b.a))}</i></div>`;
+  const cleanTitle = cleanBookText(b.t);
+  const cleanAuthor = cleanBookText(b.a);
+  const lw = Math.max(0, ...String(cleanTitle || "").split(/\s+/).map((w) => w.length));
+  const tl = lw > 11 || String(cleanTitle || "").length > 42 ? " t3" : lw > 8 || String(cleanTitle || "").length > 28 ? " t2" : "";
+  return `<div class="cv k${k} ${size}${tl}${b.c ? " has" : ""}" lang="${esc(b.l || "uz")}" aria-hidden="true"><span class="d"></span>${img}${b.au ? '<span class="aub" title="Audiokitob">🎧</span>' : ""}<b>${esc(cleanTitle)}</b><i>${esc(shortA(cleanAuthor))}</i></div>`;
 }
 function itemHTML(b, sub) {
-  return `<button class="bx-it" data-book="${b.i}">${cover(b)}<div class="nm">${esc(b.t)}</div>
-    <div class="${sub ? "sub" : "au"}">${sub ? esc(sub) : esc(shortA(b.a))}</div></button>`;
+  const cleanTitle = cleanBookText(b.t);
+  const cleanAuthor = cleanBookText(b.a);
+  return `<button class="bx-it" data-book="${b.i}">${cover(b)}<div class="nm">${esc(cleanTitle)}</div>
+    <div class="${sub ? "sub" : "au"}">${sub ? esc(sub) : esc(shortA(cleanAuthor))}</div></button>`;
 }
 function badges(b) {
   const out = [`<span class="bx-bdg l">${(b.l || "").toUpperCase()}</span>`];
@@ -104,9 +108,11 @@ function badges(b) {
   return `<div class="bx-badges">${out.join("")}</div>`;
 }
 function resHTML(b) {
-  return `<div class="bx-res" role="group"><button class="cvw" data-book="${b.i}" aria-label="${esc(b.t)}">${cover(b)}</button>
-    <div class="mt"><button data-book="${b.i}" style="text-align:left;display:block"><b>${esc(b.t)}</b></button>
-    <div class="au">${esc(shortA(b.a) || "Muallif noma'lum")}${b.y ? " · " + b.y : ""}</div>${badges(b)}
+  const cleanTitle = cleanBookText(b.t);
+  const cleanAuthor = cleanBookText(b.a);
+  return `<div class="bx-res" role="group"><button class="cvw" data-book="${b.i}" aria-label="${esc(cleanTitle)}">${cover(b)}</button>
+    <div class="mt"><button data-book="${b.i}" style="text-align:left;display:block"><b>${esc(cleanTitle)}</b></button>
+    <div class="au">${esc(shortA(cleanAuthor) || "Muallif noma'lum")}${b.y ? " · " + b.y : ""}</div>${badges(b)}
     <div class="bx-acts">${b.m === "audio" ? `<button data-play="${b.i}"><span>🎧 Tinglash · ${dur(b.au)}</span></button>`
       : `<button data-read="${b.i}"><span>O'qish</span></button><button data-dl="${b.i}"><span>Yuklab olish</span></button>${b.au ? `<button data-play="${b.i}"><span>Tinglash</span></button>` : ""}`}</div></div></div>`;
 }

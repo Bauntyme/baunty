@@ -49,7 +49,16 @@ def get_books_main_keyboard() -> InlineKeyboardMarkup:
 @router.message(Command("books", "kitob", "kutubxona"))
 @router.message(F.text.in_(["📚 Kitoblar", "📚 Kitob", "Kitoblar", "Kutubxona"]))
 async def cmd_books(message: Message) -> None:
-    """Kutubxona bo'limi bosh menyusi."""
+    from services.maintenance_service import maintenance_service
+    from keyboards.default import maintenance_menu_keyboard
+    if not config.is_admin(message.from_user.id) and (maintenance_service.is_global_maintenance() or maintenance_service.is_page_maintenance("books")):
+        msg = maintenance_service.get_page_message("books") if maintenance_service.is_page_maintenance("books") else maintenance_service.get_global_message()
+        await message.answer(
+            f"📚 <b>{msg}</b>\n\n<i>Kitoblar bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
+            parse_mode="HTML",
+            reply_markup=maintenance_menu_keyboard(is_admin=False)
+        )
+        return
     cat = book_service.get_catalog(limit=6)
     total = cat.get("total", 20)
 

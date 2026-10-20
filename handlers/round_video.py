@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="round_video_router")
 
 
-@router.message(F.text == "⭕️ Dumaloq video")
+@router.message(F.text.in_(["⭕️ Dumaloq video", "📹 Dumaloq video", "Dumaloq video", "dumaloq video"]))
 async def cmd_round_video_prompt(message: Message, state: FSMContext) -> None:
     """Dumaloq video tayyorlash bo'limi."""
     await state.set_state(RoundVideoStates.waiting_for_video)

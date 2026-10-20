@@ -24,8 +24,17 @@ router = Router(name="story_router")
 @router.message(Command("story"))
 @router.message(F.text == "👀 Anonim story")
 async def cmd_story_prompt(message: Message, state: FSMContext) -> None:
-    """Anonim story ko'rish uchun platforma tanlash (Telegram yoki Instagram)."""
     await state.clear()
+    from services.maintenance_service import maintenance_service
+    from keyboards.default import maintenance_menu_keyboard
+    if not config.is_admin(message.from_user.id) and (maintenance_service.is_global_maintenance() or maintenance_service.is_page_maintenance("story")):
+        msg = maintenance_service.get_page_message("story") if maintenance_service.is_page_maintenance("story") else maintenance_service.get_global_message()
+        await message.answer(
+            f"👻 <b>{msg}</b>\n\n<i>Story bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
+            parse_mode="HTML",
+            reply_markup=maintenance_menu_keyboard(is_admin=False)
+        )
+        return
     text = (
         "👀 <b>Anonim Story ko'rish va yuklash!</b>\n\n"
         "Qaysi ijtimoiy tarmoqdagi hikoyalarni (stories) ko'rmoqchisiz? Tanlang:\n\n"

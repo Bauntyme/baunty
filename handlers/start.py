@@ -47,6 +47,32 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     except Exception as e:
         logger.warning(f"cmd_start foydalanuvchini bazada saqlashda xatolik: {e}")
 
+    from services.maintenance_service import maintenance_service
+    from keyboards.default import maintenance_menu_keyboard
+
+    # Global profilaktika tekshiruvi: faqat musiqa deep linklari ruxsat etiladi
+    if not is_admin and maintenance_service.is_global_maintenance():
+        args = message.text.split(maxsplit=1)
+        param = args[1].strip() if len(args) > 1 else ""
+        is_music_link = bool(param and (param.startswith("m_") or param.startswith("music_") or param.startswith("song_")))
+        if not is_music_link:
+            m_msg = maintenance_service.get_global_message()
+            maint_text = (
+                f"<b>{m_msg}</b>\n\n"
+                "Botda texnik yangilanish olib borilayotgani sababli ayrim xizmatlar vaqtincha to'xtatilgan.\n\n"
+                "⚡ <b>Lekin hozirda quyidagi bo'limlar to'liq va uzluksiz ishlamoqda:</b>\n"
+                "• 🎵 <b>Qo'shiq topish</b> (Istalgan musiqa va ijrochini topish)\n"
+                "• ⭕️ <b>Dumaloq video</b> (1 soniyada video xabar tayyorlash)\n"
+                "• 📥 <b>Media yuklash</b> (Instagram, TikTok, YouTube va b.)\n\n"
+                "Quyidagi tugmalardan birini tanlab foydalanishingiz mumkin:"
+            )
+            await message.answer(
+                maint_text,
+                parse_mode="HTML",
+                reply_markup=maintenance_menu_keyboard(is_admin=False)
+            )
+            return
+
     # Deep linking tekshiruvi (masalan: /start movie_123, /start q_12345, /start r_12345)
     args = message.text.split(maxsplit=1)
     if len(args) > 1:
@@ -214,27 +240,6 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                     pass
                 return
 
-
-    from services.maintenance_service import maintenance_service
-    from keyboards.default import maintenance_menu_keyboard
-
-    if not is_admin and maintenance_service.is_global_maintenance():
-        m_msg = maintenance_service.get_global_message()
-        maint_text = (
-            f"<b>{m_msg}</b>\n\n"
-            "Botda texnik yangilanish olib borilayotgani sababli ayrim xizmatlar vaqtincha to'xtatilgan.\n\n"
-            "⚡ <b>Lekin hozirda quyidagi bo'limlar to'liq va uzluksiz ishlamoqda:</b>\n"
-            "• 🎵 <b>Qo'shiq topish</b> (Istalgan musiqa va ijrochini topish)\n"
-            "• ⭕️ <b>Dumaloq video</b> (1 soniyada video xabar tayyorlash)\n"
-            "• 📥 <b>Media yuklash</b> (Instagram, TikTok, YouTube va b.)\n\n"
-            "Quyidagi tugmalardan birini tanlab foydalanishingiz mumkin:"
-        )
-        await message.answer(
-            maint_text,
-            parse_mode="HTML",
-            reply_markup=maintenance_menu_keyboard(is_admin=False)
-        )
-        return
 
     welcome_text = (
         f"👋 <b>Assalomu alaykum, {user.first_name or 'qadrdon'}!</b>\n\n"

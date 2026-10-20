@@ -25,7 +25,7 @@ _SEARCH_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 @router.message(Command("music"))
-@router.message(F.text == "🎵 Qo'shiq topish")
+@router.message(F.text.in_(["🎵 Qo'shiq topish", "🎵 Musiqa topish", "Qo'shiq topish", "Musiqa topish"]))
 async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     """Musiqa qidirish boshlanishi."""
     await state.set_state(MusicStates.waiting_for_query)

@@ -388,13 +388,16 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 raw_ct = resp.headers.get("Content-Type", "application/json")
                 clean_ct = raw_ct.split(";")[0].strip() if raw_ct else "application/json"
                 try:
-                    resp_text = resp_bytes.decode("utf-8")
+                    resp_text = resp_bytes.decode("utf-8", errors="replace")
                     clean_text = sanitize_catalog_text(resp_text)
                     if "books" in path:
                         clean_text = sanitize_book_text(clean_text)
                     resp_bytes = clean_text.encode("utf-8")
                 except Exception:
                     pass
+
+                if resp.status >= 500 and "quiz" in path:
+                    raise aiohttp.ClientError(f"Upstream quiz returned {resp.status}")
 
                 if request.method == "GET" and resp.status == 200:
                     _UPSTREAM_API_CACHE[cache_key] = {
@@ -437,6 +440,24 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                     "c": "b"
                 }
             })
+        if "quiz/me" in path:
+            return web.json_response({"ok": True, "mine": []})
+        if "quiz/solo/start" in path:
+            return web.json_response({
+                "ok": True,
+                "sid": "solo_local_session",
+                "title": "Kino & Adabiyot",
+                "total": 5,
+                "q": {
+                    "t": "«O'tkan kunlar» romanida Otabekning Marg'ilondagi sevgilisi kim edi?",
+                    "o": [["a", "Zaynab"], ["b", "Kumushbibi"], ["c", "Ra'no"], ["d", "Saodat"]],
+                    "c": "b"
+                }
+            })
+        if "quiz/solo/answer" in path:
+            return web.json_response({"ok": True, "correct": True, "c": "b", "pts": 100})
+        if "quiz/solo/next" in path:
+            return web.json_response({"ok": True, "final": True, "score": 500, "total": 5, "rank": 1})
         return web.json_response({"ok": False, "error": "upstream_unavailable"}, status=502)
 
 
@@ -641,6 +662,17 @@ async def handle_watch(request: web.Request) -> web.Response:
                 user_id = val
         except (ValueError, TypeError):
             user_id = None
+
+    if maintenance_service.is_page_maintenance("kino"):
+        is_adm = bool(user_id and config.is_admin(user_id))
+        if not is_adm:
+            m_msg = maintenance_service.get_page_message("kino")
+            return web.json_response({
+                "ok": False,
+                "error": "maintenance",
+                "message": m_msg,
+                "code": clean_code
+            })
 
     delivered = False
     if _bot_instance and user_id:
@@ -1336,6 +1368,9 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
 
     try:
         if action_type == "movie" and code:
+            if not config.is_admin(chat_id) and maintenance_service.is_page_maintenance("kino"):
+                m_msg = maintenance_service.get_page_message("kino")
+                return web.json_response({"success": False, "error": "maintenance", "message": m_msg})
             clean_code = str(code).strip().lstrip("#№")
             delivered = await movie_service.deliver_movie(
                 bot=_bot_instance,

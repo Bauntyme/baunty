@@ -881,26 +881,42 @@ async function loadTV() {
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
 const MODE_TO_PAGE = {
-  kino: "kinolar",
-  music: "musiqa",
-  books: "kitoblar",
-  games: "o'yinlar",
+  kino: "kino",
+  kinolar: "kino",
+  music: "music",
+  musiqa: "music",
+  books: "books",
+  kitoblar: "books",
+  games: "games",
+  "o'yinlar": "games",
   story: "story",
-  docs: "hujjatlar",
-  quiz: "viktorina",
-  food: "taomlar",
-  fx: "kurs",
+  docs: "docs",
+  hujjatlar: "docs",
+  quiz: "quiz",
+  viktorina: "quiz",
+  food: "food",
+  taomlar: "food",
+  fx: "fx",
+  kurs: "fx",
   tv: "tv"
 };
 const PAGE_EMOJIS = {
+  kino: "🎬",
   kinolar: "🎬",
+  music: "🎧",
   musiqa: "🎧",
+  books: "📚",
   kitoblar: "📚",
+  games: "🧸",
   "o'yinlar": "🧸",
   story: "👻",
+  docs: "📄",
   hujjatlar: "📄",
+  quiz: "🧠",
   viktorina: "🧠",
+  food: "🍲",
   taomlar: "🍲",
+  fx: "💱",
   kurs: "💱",
   tv: "📺"
 };
@@ -909,12 +925,12 @@ function getMaintenanceFor(m) {
   if (!window.ZK_MAINTENANCE) return null;
   const g = window.ZK_MAINTENANCE.global;
   const pageKey = MODE_TO_PAGE[m] || m;
-  const p = window.ZK_MAINTENANCE.pages && window.ZK_MAINTENANCE.pages[pageKey];
-  const emoji = PAGE_EMOJIS[pageKey] || "🛠️";
-  if (g && g.active) {
+  const p = window.ZK_MAINTENANCE.pages && (window.ZK_MAINTENANCE.pages[pageKey] || window.ZK_MAINTENANCE.pages[m]);
+  const emoji = PAGE_EMOJIS[pageKey] || PAGE_EMOJIS[m] || "🛠️";
+  if (g && (g.enabled || g.active)) {
     return { active: true, message: g.message || "Tizimda profilaktika ishlari olib borilmoqda. Tez orada qaytamiz!", emoji };
   }
-  if (p && p.active) {
+  if (p && (p.enabled || p.active)) {
     return { active: true, message: p.message || "Ushbu bo'limda yangilanish ishlari olib borilmoqda. Tez orada qaytamiz!", emoji };
   }
   return null;
@@ -1160,10 +1176,15 @@ function attempt(url) {
                 }
               }
               try {
-                hls.startLevel = bestIdx;
-                hls.loadLevel = bestIdx;
-                hls.nextLoadLevel = bestIdx;
-                hls.minAutoLevel = Math.max(0, bestIdx - 1);
+                if (_isSlow) {
+                  hls.startLevel = -1;
+                  hls.autoLevelCapping = -1;
+                } else {
+                  hls.startLevel = bestIdx;
+                  hls.loadLevel = bestIdx;
+                  hls.nextLoadLevel = bestIdx;
+                  hls.autoLevelCapping = -1;
+                }
               } catch (e) {}
             }
           });
@@ -1179,10 +1200,15 @@ function attempt(url) {
                 }
               }
               try {
-                hls.startLevel = bestIdx;
-                hls.loadLevel = bestIdx;
-                hls.nextLoadLevel = bestIdx;
-                hls.minAutoLevel = Math.max(0, bestIdx - 1);
+                if (_isSlow) {
+                  hls.startLevel = -1;
+                  hls.autoLevelCapping = -1;
+                } else {
+                  hls.startLevel = bestIdx;
+                  hls.loadLevel = bestIdx;
+                  hls.nextLoadLevel = bestIdx;
+                  hls.autoLevelCapping = -1;
+                }
               } catch (e) {}
               const qBtn = $("tvq");
               if (qBtn) qBtn.textContent = "4K UHD";
@@ -1193,6 +1219,10 @@ function attempt(url) {
             const qBtn = $("tvq");
             if (qBtn) qBtn.textContent = "4K UHD";
           });
+          try {
+            vid.style.filter = "contrast(1.05) saturate(1.06)";
+            vid.style.imageRendering = "-webkit-optimize-contrast";
+          } catch (e) {}
           hls.loadSource(streamTarget);
           hls.attachMedia(vid);
         }

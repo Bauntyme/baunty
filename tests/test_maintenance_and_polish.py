@@ -175,3 +175,221 @@ def test_sticky_header_and_image_rendering_css():
     assert "image-rendering:-webkit-optimize-contrast" in index_html.replace(" ", "")
     assert "z-index:999" in index_html.replace(" ", "")
     assert "backdrop-filter:blur(16px)" in index_html.replace(" ", "")
+
+
+@pytest.mark.asyncio
+async def test_cb_admin_maint_set_template():
+    """cb_admin_maint_set_template callback data to'g'ri target va idx ni olishi va IndexError bermasligi."""
+    from handlers.admin import cb_admin_maint_set_template
+    from aiogram.types import CallbackQuery
+
+    cb = MagicMock(spec=CallbackQuery)
+    cb.from_user = User(id=11111111, is_bot=False, first_name="Admin")
+    cb.data = "admin:maint:set_tmpl:global:2"
+    cb.answer = AsyncMock()
+    cb.message = MagicMock()
+    cb.message.edit_text = AsyncMock()
+
+    with patch("handlers.admin.is_admin_check", return_value=True), \
+         patch.object(maintenance_service, "set_global_maintenance") as mock_set_global:
+        await cb_admin_maint_set_template(cb)
+        mock_set_global.assert_called_once_with(True, message_idx=2)
+        assert cb.answer.call_count >= 1
+
+    # Per-page template test: admin:maint:set_tmpl:kino:3
+    cb2 = MagicMock(spec=CallbackQuery)
+    cb2.from_user = User(id=11111111, is_bot=False, first_name="Admin")
+    cb2.data = "admin:maint:set_tmpl:kino:3"
+    cb2.answer = AsyncMock()
+    cb2.message = MagicMock()
+    cb2.message.edit_text = AsyncMock()
+
+    with patch("handlers.admin.is_admin_check", return_value=True), \
+         patch.object(maintenance_service, "set_page_maintenance") as mock_set_page, \
+         patch("handlers.admin.cb_admin_maint_page_detail", new_callable=AsyncMock) as mock_page_detail:
+        await cb_admin_maint_set_template(cb2)
+        mock_set_page.assert_called_once_with("kino", True, message_idx=3)
+        mock_page_detail.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_start_movie_deep_link_blocked_by_maintenance():
+    """Foydalanuvchi /start movie_284 yuborganida profilaktika yoqilgan bo'lsa kino berilmasligi."""
+    from services.movie_service import movie_service
+    with patch.object(maintenance_service, "is_global_maintenance", return_value=True), \
+         patch.object(maintenance_service, "get_global_message", return_value="Profilaktika!"):
+
+        msg = MagicMock(spec=Message)
+        msg.from_user = User(id=99999999, is_bot=False, first_name="Ali")
+        msg.chat = Chat(id=99999999, type="private")
+        msg.text = "/start movie_284"
+        msg.answer = AsyncMock()
+
+        state = MagicMock(spec=FSMContext)
+        state.clear = AsyncMock()
+
+        with patch.object(Settings, "is_admin", return_value=False), \
+             patch("database.session.get_session") as mock_session_ctx, \
+             patch.object(movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliver:
+            mock_session = AsyncMock()
+            mock_session_ctx.return_value.__aenter__.return_value = mock_session
+
+            await cmd_start(msg, state)
+
+            mock_deliver.assert_not_called()
+            msg.answer.assert_called_once()
+            called_args = msg.answer.call_args
+            assert "Profilaktika!" in called_args[0][0]
+            kb = called_args[1].get("reply_markup")
+            buttons = [b.text for row in kb.keyboard for b in row]
+            assert "🎬 Kinolar" not in buttons
+
+
+@pytest.mark.asyncio
+async def test_movie_code_input_blocked_by_maintenance():
+    """Foydalanuvchi kino kodi yuborganida profilaktika paytida kino berilmasligi."""
+    from handlers.movies import process_numeric_movie_code
+    from services.movie_service import movie_service
+
+    with patch.object(maintenance_service, "is_global_maintenance", return_value=True), \
+         patch.object(maintenance_service, "get_global_message", return_value="Profilaktika!"):
+
+        msg = MagicMock(spec=Message)
+        msg.from_user = User(id=99999999, is_bot=False, first_name="Ali")
+        msg.chat = Chat(id=99999999, type="private")
+        msg.text = "284"
+        msg.reply = AsyncMock()
+
+        with patch.object(Settings, "is_admin", return_value=False), \
+             patch.object(movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliver:
+
+            await process_numeric_movie_code(msg)
+
+            mock_deliver.assert_not_called()
+            msg.reply.assert_called_once()
+            assert "Profilaktika!" in msg.reply.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_quiz_solo_endpoints_offline_fallbacks():
+    """Quiz/viktorina solo rejimida upstream ishlamay qolsa ham 502 bermasligi va offline savollar berishi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        import aiohttp
+        real_request = aiohttp.ClientSession.request
+
+        class MockRespContext:
+            async def __aenter__(self):
+                raise aiohttp.ClientError("Upstream connection refused")
+            async def __aexit__(self, exc_type, exc, tb):
+                pass
+
+        def mock_request(self, method, url, **kwargs):
+            if "161-97-96-58.sslip.io" in str(url):
+                return MockRespContext()
+            return real_request(self, method, url, **kwargs)
+
+        with patch("aiohttp.ClientSession.request", new=mock_request):
+            # /api/quiz/me
+            resp = await client.get("/api/quiz/me")
+            assert resp.status == 200
+            d_me = await resp.json()
+            assert d_me["ok"] is True
+            assert "mine" in d_me
+
+            # /api/quiz/solo/start
+            resp_start = await client.post("/api/quiz/solo/start", json={"category": "general"})
+            assert resp_start.status == 200
+            d_start = await resp_start.json()
+            assert d_start["ok"] is True
+            assert "q" in d_start
+            assert "o" in d_start["q"]
+            assert len(d_start["q"]["o"]) == 4
+
+            # /api/quiz/solo/answer
+            resp_ans = await client.post("/api/quiz/solo/answer", json={"question_id": 1, "selected": 0})
+            assert resp_ans.status == 200
+            d_ans = await resp_ans.json()
+            assert d_ans["ok"] is True
+            assert d_ans["correct"] is True
+
+            # /api/quiz/solo/next
+            resp_next = await client.get("/api/quiz/solo/next?category=general")
+            assert resp_next.status == 200
+            d_next = await resp_next.json()
+            assert d_next["ok"] is True
+            assert "final" in d_next
+    finally:
+        await client.close()
+
+
+def test_maintenance_dual_keys_active_and_enabled():
+    """Frontend va backend muvofiqligi: get_state() ichida 'enabled' hamda 'active' kalitlari mavjudligi."""
+    st = maintenance_service.get_state()
+    assert "enabled" in st["global"]
+    assert "active" in st["global"]
+    assert st["global"]["enabled"] == st["global"]["active"]
+
+    for page_id, p_data in st["pages"].items():
+        assert "enabled" in p_data
+        assert "active" in p_data
+        assert p_data["enabled"] == p_data["active"]
+
+
+@pytest.mark.asyncio
+async def test_admin_cache_sync_and_server_health_handlers():
+    """Admin cache sync va server health callbacklarining xatoliksiz ishlashi."""
+    from handlers.admin import cb_admin_cache_sync, cb_admin_server_health
+    from services.movie_service import movie_service
+    from aiogram.types import CallbackQuery
+
+    cb = MagicMock(spec=CallbackQuery)
+    cb.from_user = User(id=11111111, is_bot=False, first_name="Admin")
+    cb.data = "admin:cache:sync"
+    cb.answer = AsyncMock()
+    cb.message = MagicMock()
+    cb.message.edit_text = AsyncMock()
+
+    with patch("handlers.admin.is_admin_check", return_value=True), \
+         patch("handlers.admin.get_session") as mock_sess_ctx, \
+         patch.object(movie_service, "sync_catalog_from_upstream", new_callable=AsyncMock) as mock_sync, \
+         patch("database.crud.get_total_movies_count", new_callable=AsyncMock) as mock_count:
+        mock_sess = AsyncMock()
+        mock_sess_ctx.return_value.__aenter__.return_value = mock_sess
+        mock_sync.return_value = 5
+        mock_count.return_value = 100
+
+        await cb_admin_cache_sync(cb)
+        cb.message.edit_text.assert_called_once()
+        text = cb.message.edit_text.call_args[0][0]
+        assert "Katalog va Kesh muvaffaqiyatli yangilandi" in text
+
+    # Server health
+    cb_h = MagicMock(spec=CallbackQuery)
+    cb_h.from_user = User(id=11111111, is_bot=False, first_name="Admin")
+    cb_h.data = "admin:server:health"
+    cb_h.answer = AsyncMock()
+    cb_h.message = MagicMock()
+    cb_h.message.edit_text = AsyncMock()
+
+    with patch("handlers.admin.is_admin_check", return_value=True), \
+         patch("handlers.admin.get_session") as mock_sess_ctx2, \
+         patch("database.crud.get_total_users_count", new_callable=AsyncMock) as mock_u, \
+         patch("database.crud.get_total_movies_count", new_callable=AsyncMock) as mock_m, \
+         patch("database.crud.get_total_downloads_count", new_callable=AsyncMock) as mock_d:
+        mock_sess2 = AsyncMock()
+        mock_sess_ctx2.return_value.__aenter__.return_value = mock_sess2
+        mock_u.return_value = 500
+        mock_m.return_value = 120
+        mock_d.return_value = 2500
+
+        await cb_admin_server_health(cb_h)
+        cb_h.message.edit_text.assert_called_once()
+        h_text = cb_h.message.edit_text.call_args[0][0]
+        assert "Server va Tizim Salomatligi" in h_text
+
+

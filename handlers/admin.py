@@ -5,7 +5,8 @@ import asyncio
 import logging
 from typing import Dict, Any, List
 from aiogram import Router, F, Bot
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from config import config
@@ -33,6 +34,7 @@ from services.maintenance_service import (
     PAGE_EMOJIS,
     PAGE_NAMES,
 )
+from services.movie_service import movie_service
 
 from utils.states import (
     MovieAddStates,
@@ -1039,10 +1041,15 @@ async def cb_admin_maint_set_template(callback: CallbackQuery) -> None:
         return
 
     parts = callback.data.split(":")
-    target = parts[4]
-    try:
-        idx = int(parts[5])
-    except (IndexError, ValueError):
+    # callback_data: admin:maint:set_tmpl:<target>:<idx>
+    if len(parts) >= 5:
+        target = parts[3]
+        try:
+            idx = int(parts[4])
+        except (IndexError, ValueError):
+            idx = 0
+    else:
+        target = "global"
         idx = 0
 
     if target == "global":
@@ -1130,4 +1137,95 @@ async def cb_admin_maint_page_off(callback: CallbackQuery) -> None:
     nm = PAGE_NAMES.get(page_id, page_id)
     await callback.answer(f"✅ {nm} sahifasi profilaktikadan chiqarildi!", show_alert=True)
     await cb_admin_maint_page_detail(callback, override_page=page_id)
+
+
+# ==========================================
+# 🔄 KESH & KATALOGNI SINXRONLASH
+# ==========================================
+
+@router.callback_query(F.data == "admin:cache:sync")
+async def cb_admin_cache_sync(callback: CallbackQuery) -> None:
+    """Upstream katalog bilan sinxronlash va barcha keshni tozalash."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("Ruxsat berilmagan!", show_alert=True)
+        return
+
+    await callback.answer("⏳ Katalog va kesh yangilanmoqda...", show_alert=False)
+    async with get_session() as session:
+        synced = await movie_service.sync_catalog_from_upstream(session=session)
+        total_movies = await crud.get_total_movies_count(session)
+
+    # Web server keshlarini tozalash
+    try:
+        from services import web_server
+        web_server._UPSTREAM_API_CACHE.clear()
+        web_server._FX_CACHE = {"data": None, "ts": 0}
+        web_server._CATALOG_CACHE = {"data": None, "ts": 0}
+    except Exception:
+        pass
+
+    text = (
+        "✅ <b>Katalog va Kesh muvaffaqiyatli yangilandi!</b>\n\n"
+        f"🎬 Yangilangan/ko'rib chiqilgan kinolar: <b>{synced}</b> ta\n"
+        f"📦 Bazadagi jami kinolar: <b>{total_movies}</b> ta\n"
+        "⚡ API va valyuta keshlar tozalandi."
+    )
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"))
+    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
+
+
+# ==========================================
+# 🖥️ SERVER & TIZIM HOLATI (HEALTH)
+# ==========================================
+
+@router.callback_query(F.data == "admin:server:health")
+async def cb_admin_server_health(callback: CallbackQuery) -> None:
+    """Server, xotira va tizim resurslari holatini ko'rsatish."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("Ruxsat berilmagan!", show_alert=True)
+        return
+
+    import os
+    import sys
+    import platform
+
+    mem_mb = "N/A"
+    try:
+        import psutil
+        process = psutil.Process(os.getpid())
+        mem_mb = f"{process.memory_info().rss / 1024 / 1024:.1f} MB"
+    except Exception:
+        pass
+
+    async with get_session() as session:
+        u_count = await crud.get_total_users_count(session)
+        m_count = await crud.get_total_movies_count(session)
+        d_count = await crud.get_total_downloads_count(session)
+
+    maint_status = "🔴 Profilaktika" if maintenance_service.is_global_maintenance() else "🟢 Faol (Normal)"
+
+    text = (
+        "🖥️ <b>Server va Tizim Salomatligi:</b>\n\n"
+        f"🟢 <b>Status:</b> Onlayn va barqaror\n"
+        f"🛠️ <b>Rejim:</b> {maint_status}\n"
+        f"💾 <b>Baza:</b> <code>{config.DB_TYPE}</code>\n"
+        f"🧠 <b>Python:</b> {platform.python_version()} ({platform.system()})\n"
+        f"📊 <b>Bot RAM sarfi:</b> {mem_mb}\n"
+        f"🌐 <b>Web App Port:</b> {config.PORT}\n\n"
+        f"👥 <b>Foydalanuvchilar:</b> {u_count:,} ta\n"
+        f"🎬 <b>Kinolar:</b> {m_count:,} ta\n"
+        f"📥 <b>Jami yuklamalar:</b> {d_count:,} marta"
+    )
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🔄 Yangilash", callback_data="admin:server:health"),
+        InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"),
+    )
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
+    except Exception:
+        await callback.message.answer(text, parse_mode="HTML", reply_markup=builder.as_markup())
+    await callback.answer()
+
 

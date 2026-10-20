@@ -250,6 +250,10 @@ def admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="⚙️ Sozlamalar", callback_data="admin:settings"),
     )
     builder.row(
+        InlineKeyboardButton(text="🔄 Kesh & Sinxronlash", callback_data="admin:cache:sync"),
+        InlineKeyboardButton(text="🖥️ Server holati", callback_data="admin:server:health"),
+    )
+    builder.row(
         InlineKeyboardButton(text="❌ Yopish", callback_data="admin:close"),
     )
     return builder.as_markup()

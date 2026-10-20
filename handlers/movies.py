@@ -30,8 +30,17 @@ router = Router(name="movies_router")
 
 @router.message(F.text.in_(["🎬 Kino", "🎬 K I N O — kod orqali qidirish"]))
 async def cmd_movies_menu(message: Message, state: FSMContext) -> None:
-    """Kino bo'limi asosiy menyusi."""
     await state.clear()
+    from services.maintenance_service import maintenance_service
+    from keyboards.default import maintenance_menu_keyboard
+    if not config.is_admin(message.from_user.id) and (maintenance_service.is_global_maintenance() or maintenance_service.is_page_maintenance("kino")):
+        msg = maintenance_service.get_page_message("kino") if maintenance_service.is_page_maintenance("kino") else maintenance_service.get_global_message()
+        await message.answer(
+            f"🎬 <b>{msg}</b>\n\n<i>Kinolar bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
+            parse_mode="HTML",
+            reply_markup=maintenance_menu_keyboard(is_admin=False)
+        )
+        return
     text = (
         "🎬 <b>Kino olamiga xush kelibsiz!</b>\n\n"
         "Quyidagi imkoniyatlardan foydalanishingiz mumkin:\n"
@@ -357,10 +366,17 @@ async def process_numeric_movie_code(message: Message) -> None:
     Foydalanuvchi faqat raqam yoki kod (masalan: 123, #123, kod 123, 289 2) yuborganida avtomatik kinoni topib berish.
     """
     extracted = extract_movie_code_and_part(message.text)
-    if not extracted:
-        return
-
     code, part = extracted
+    from services.maintenance_service import maintenance_service
+    from keyboards.default import maintenance_menu_keyboard
+    if not config.is_admin(message.from_user.id) and (maintenance_service.is_global_maintenance() or maintenance_service.is_page_maintenance("kino")):
+        msg = maintenance_service.get_page_message("kino") if maintenance_service.is_page_maintenance("kino") else maintenance_service.get_global_message()
+        await message.reply(
+            f"🎬 <b>{msg}</b>\n\n<i>Kinolar bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
+            parse_mode="HTML",
+            reply_markup=maintenance_menu_keyboard(is_admin=False)
+        )
+        return
     delivered = await movie_service.deliver_movie(
         bot=message.bot,
         chat_id=message.chat.id,

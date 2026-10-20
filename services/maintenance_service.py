@@ -49,12 +49,14 @@ PAGE_NAMES: Dict[str, str] = {
 DEFAULT_STATE: Dict[str, Any] = {
     "global": {
         "enabled": False,
+        "active": False,
         "message_idx": 0,
         "message": MAINTENANCE_TEMPLATES[0],
     },
     "pages": {
         page_id: {
             "enabled": False,
+            "active": False,
             "message_idx": 0,
             "message": MAINTENANCE_TEMPLATES[0],
         }
@@ -82,11 +84,17 @@ class MaintenanceService:
                     # To'liq kalitlar mavjudligini ta'minlash
                     if "global" not in data:
                         data["global"] = dict(DEFAULT_STATE["global"])
+                    is_g = bool(data["global"].get("enabled", False) or data["global"].get("active", False))
+                    data["global"]["enabled"] = is_g
+                    data["global"]["active"] = is_g
                     if "pages" not in data:
                         data["pages"] = dict(DEFAULT_STATE["pages"])
                     for p in PAGE_EMOJIS:
                         if p not in data["pages"]:
                             data["pages"][p] = dict(DEFAULT_STATE["pages"][p])
+                        is_p = bool(data["pages"][p].get("enabled", False) or data["pages"][p].get("active", False))
+                        data["pages"][p]["enabled"] = is_p
+                        data["pages"][p]["active"] = is_p
                     _CACHE = data
                     return _CACHE
             except Exception as e:
@@ -112,7 +120,8 @@ class MaintenanceService:
     def is_global_maintenance(cls) -> bool:
         """Butun tizim profilaktikada ekanligini tekshirish."""
         state = cls.get_state()
-        return bool(state.get("global", {}).get("enabled", False))
+        g = state.get("global", {})
+        return bool(g.get("enabled", False) or g.get("active", False))
 
     @classmethod
     def get_global_message(cls) -> str:
@@ -130,6 +139,7 @@ class MaintenanceService:
             else MAINTENANCE_TEMPLATES[0]
         )
         state["global"]["enabled"] = enabled
+        state["global"]["active"] = enabled
         state["global"]["message_idx"] = message_idx
         state["global"]["message"] = msg
         cls.save_state(state)
@@ -138,15 +148,18 @@ class MaintenanceService:
     def is_page_maintenance(cls, page_id: str) -> bool:
         """Alohida Web App sahifasi profilaktikada ekanligini tekshirish."""
         state = cls.get_state()
-        if state.get("global", {}).get("enabled", False):
+        g = state.get("global", {})
+        if g.get("enabled", False) or g.get("active", False):
             return True
-        return bool(state.get("pages", {}).get(page_id, {}).get("enabled", False))
+        p = state.get("pages", {}).get(page_id, {})
+        return bool(p.get("enabled", False) or p.get("active", False))
 
     @classmethod
     def get_page_message(cls, page_id: str) -> str:
         """Sahifa profilaktika xabarini olish."""
         state = cls.get_state()
-        if state.get("global", {}).get("enabled", False):
+        g = state.get("global", {})
+        if g.get("enabled", False) or g.get("active", False):
             return state.get("global", {}).get("message") or MAINTENANCE_TEMPLATES[0]
         page_info = state.get("pages", {}).get(page_id, {})
         return page_info.get("message") or MAINTENANCE_TEMPLATES[0]
@@ -160,6 +173,7 @@ class MaintenanceService:
         if page_id not in state["pages"]:
             state["pages"][page_id] = dict(DEFAULT_STATE["pages"].get(page_id, {
                 "enabled": False,
+                "active": False,
                 "message_idx": 0,
                 "message": MAINTENANCE_TEMPLATES[0],
             }))
@@ -169,6 +183,7 @@ class MaintenanceService:
             else MAINTENANCE_TEMPLATES[0]
         )
         state["pages"][page_id]["enabled"] = enabled
+        state["pages"][page_id]["active"] = enabled
         state["pages"][page_id]["message_idx"] = message_idx
         state["pages"][page_id]["message"] = msg
         cls.save_state(state)
