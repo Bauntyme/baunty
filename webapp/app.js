@@ -37,7 +37,7 @@ const norm = (s) => String(s || "").toLowerCase().replace(/[а-яёғқўҳ]/g, 
 let items = [], byCode = new Map(), tab = "all", query = "", channel = "", botName = "";
 
 const posterHTML = (it, size, extra = "") => {
-  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="" decoding="async" ${size === "s" ? 'loading="lazy"' : ""}>` : "";
+  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${size === "s" ? 'loading="lazy"' : ""} onload="this.classList.add('ok')">` : "";
   const hue = (it.c * 47) % 360;
   return `<div class="pst"${it.i ? "" : ` style="background:linear-gradient(160deg,hsl(${hue} 45% 32%),hsl(${(hue+40)%360} 50% 14%))"`}>
     ${img || `<div class="ph">${esc(it.t)}</div>`}${extra}</div>`;
@@ -59,7 +59,9 @@ function render() {
   if (tab === "film") list = list.filter((x) => x.p <= 1);
   else if (tab === "ser") list = list.filter((x) => x.p > 1);
   else if (tab === "seen") list = list.filter((x) => seen[x.c]);
-  if (tab === "pop") list = [...list].sort((a, b) => b.v - a.v);
+  else if (tab === "pop") list = [...list].sort((a, b) => b.v - a.v);
+  else if (tab === "mult") list = list.filter((x) => /mult|multfilm|multik|panda|shrek|disney|pixar|ajdaho|maymoq|boss|madagaskar|muzlik/i.test(x.t + " " + (x.d || "")));
+  else if (tab === "anime") list = list.filter((x) => /anime|titan|naruto|ghoul|hero|daha|bleach|one\s*piece|hunter|jujutsu|demon/i.test(x.t + " " + (x.d || "")));
 
   if (query) {
     const q = norm(query), digits = query.replace(/\D/g, "");
@@ -88,7 +90,7 @@ function render() {
     if (top.length >= 3) html += `<div class="sec-h"><h2>🔥 Top ${top.length}</h2><span>eng ko'p ko'rilgan</span></div>
       <div class="row">${top.map((x, i) => cardHTML(x, i + 1)).join("")}</div>`;
   }
-  const title = {all: "🆕 Yangi qo'shilganlar", pop: "🔥 Ommabop", film: "🎬 Filmlar", ser: "📺 Seriallar", seen: "✓ Ko'rganlarim"}[tab];
+  const title = {all: "🆕 Yangi qo'shilganlar", pop: "🔥 Ommabop", film: "🎬 Filmlar", ser: "📺 Seriallar", mult: "🧸 Multfilmlar", anime: "🎌 Anime", seen: "✓ Ko'rganlarim"}[tab] || "🎬 Kinolar";
   html += `<div class="sec-h"><h2>${title}</h2><span>${list.length} ta</span></div>
     <div class="grid">${list.map((x) => cardHTML(x)).join("")}</div>`;
   m.innerHTML = html;
@@ -291,7 +293,7 @@ function tvInitials(name) {
     style: `background:linear-gradient(135deg,hsl(${h} 60% 45%),hsl(${(h + 40) % 360} 60% 30%))`});
 }
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
-  (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
+  (c.l ? `<img class="ico tvl" src="${esc(c.l)}" alt="${esc(c.n)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.onerror=null;this.src='logo.svg';this.classList.add('ok');">` : `<img class="ico tvl ok" src="logo.svg" alt="${esc(c.n)}">`);
 const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
   <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 
@@ -454,16 +456,13 @@ function attempt(url) {
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
     const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
-    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 9000 : 7500);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 12000 : 10000);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
     vid.onerror = () => fin(bad, "media");
 
     let streamTarget = url;
-    if (streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
-      streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
-    }
 
     try {
       if (nativeHls()) { vid.src = streamTarget; }
@@ -956,8 +955,13 @@ const ZHub = (() => {
   }
   function setUI(v, fromPicker) {
     try { localStorage.setItem("zk_ui", v); } catch (e) {}
-    const want = v === "lite";
-    if (want !== lite()) { haptic(); location.reload(); return; }
+    const want = (v === "lite" || v === "classic" || v === "oddy" || v === "oddiy");
+    if (want !== lite()) {
+      window.ZK_LITE = want;
+      haptic();
+      location.reload();
+      return;
+    }
     if (fromPicker) { window.ZK_UI_CHOSEN = true; render(); }
   }
   function picker() {

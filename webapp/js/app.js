@@ -389,7 +389,9 @@ const App = {
 
             container.innerHTML = channels.map(c => `
                 <div class="channel-card" onclick="App.playTVChannel('${c.name}', '${c.stream}', this)">
-                    <div class="channel-logo">${c.logo}</div>
+                    <div class="channel-logo">
+                        ${(c.logo_url || c.l) ? `<img class="ico tvl" src="${c.logo_url || c.l}" alt="${c.name}" loading="lazy" decoding="async" onload="this.classList.add('ok')" onerror="this.onerror=null;this.src='logo.svg';this.classList.add('ok');" style="width:100%;height:100%;object-fit:contain;">` : `<img class="ico tvl ok" src="logo.svg" alt="${c.name}" style="width:100%;height:100%;object-fit:contain;">`}
+                    </div>
                     <div class="channel-info">
                         <h4>${c.name}</h4>
                         <p>${c.desc}</p>
@@ -424,9 +426,6 @@ const App = {
         const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
         const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
         let targetUrl = streamUrl;
-        if (targetUrl.includes('cinerama.uz') && targetUrl.includes('tracks-v1a1')) {
-            targetUrl = targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
-        }
 
         try {
             video.style.filter = "contrast(1.06) saturate(1.05)";
@@ -457,6 +456,21 @@ const App = {
             });
             this.hls.loadSource(targetUrl);
             this.hls.attachMedia(video);
+            let fallbackTried = false;
+            this.hls.on(window.Hls.Events.ERROR, (e, data) => {
+                if (data && data.fatal && !fallbackTried && targetUrl.includes('cinerama.uz')) {
+                    fallbackTried = true;
+                    const altUrl = targetUrl.includes('tracks-v1a1')
+                        ? targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8')
+                        : targetUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
+                    if (altUrl !== targetUrl) {
+                        targetUrl = altUrl;
+                        this.hls.loadSource(targetUrl);
+                        this.hls.startLoad();
+                        return;
+                    }
+                }
+            });
             this.hls.on(window.Hls.Events.MANIFEST_LOADED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
                     let bestIdx = 0, maxScore = -1;

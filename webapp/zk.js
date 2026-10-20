@@ -12,6 +12,7 @@ if (window.ZK_LITE) {
   // ⚡ Oddiy rejim: jonli fon (WebGL), xiralashtirish va animatsiyalarsiz — Telegram'ning o'z ranglari.
   // Kirish animatsiyasi ham yo'q; donat — bosh ekrandagi «💛 Donat» kartasi orqali (app.js).
   const s = document.getElementById("zksplash"); if (s) s.remove();
+  document.body.classList.remove("splashing");
   return;
 }
 body.classList.add("zk");

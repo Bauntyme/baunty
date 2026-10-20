@@ -7,6 +7,22 @@
 <meta name="theme-color" content="#070B1F">
 <title>Bauntys — Kinolar katalogi</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+(function(){
+  try {
+    var p = new URLSearchParams(location.search);
+    var u = p.get("ui") || p.get("design") || p.get("theme") || p.get("mode") || localStorage.getItem("zk_ui");
+    if (u === "lite" || u === "classic" || u === "oddy" || u === "oddiy" || p.has("lite")) {
+      window.ZK_LITE = true;
+      window.ZK_UI_CHOSEN = true;
+      document.documentElement.classList.add("zk-lite");
+    } else if (u === "kr" || u === "modern" || u === "yangi") {
+      window.ZK_LITE = false;
+      window.ZK_UI_CHOSEN = true;
+    }
+  } catch(e){}
+})();
+</script>
 <link rel="stylesheet" href="music.css">
 <link rel="stylesheet" href="docs.css">
 <link rel="stylesheet" href="fx.css">
@@ -195,11 +211,11 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
   align-items:center;justify-content:center;padding:12px;transition:transform .12s;
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
 .tv:active .tvb{transform:scale(.96)}
-.tvb img,.tvbar .lg img{position:absolute;inset:10px;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;
+.tvb img,.tvb .ico,.tvbar .lg img,.tvbar .lg .ico{position:absolute;inset:10px;width:calc(100% - 20px);height:calc(100% - 20px);object-fit:contain;
   opacity:0;transition:opacity .2s;background:#fff}
 .tvbar .lg{position:relative}
-.tvbar .lg img{inset:3px;width:calc(100% - 6px);height:calc(100% - 6px)}
-.tvb img.ok,.tvbar .lg img.ok{opacity:1}
+.tvbar .lg img,.tvbar .lg .ico{inset:3px;width:calc(100% - 6px);height:calc(100% - 6px)}
+.tvb img.ok,.tvb .ico.ok,.tvbar .lg img.ok,.tvbar .lg .ico.ok{opacity:1}
 .tvi{width:100%;height:100%;border-radius:8px;display:flex;align-items:center;justify-content:center;
   color:#fff;font-weight:900;font-size:22px;letter-spacing:-.5px}
 .live{position:absolute;top:6px;left:6px;font-size:9px;font-weight:800;letter-spacing:.5px;color:#fff;background:#e5484d;
@@ -308,7 +324,7 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 </head>
 <body data-zkm="kino" class="splashing">
 <div id="zksplash" aria-hidden="true"><i class="zs-burst"></i><div class="zs-orb"><i class="zs-chip" style="--r:0deg;--c:#C8344C"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></i><i class="zs-chip" style="--r:72deg;--c:#1FA8AE"><svg viewBox="0 0 24 24"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg></i><i class="zs-chip" style="--r:144deg;--c:#2440C8"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-3v14h3z"/></svg></i><i class="zs-chip" style="--r:216deg;--c:#FF7A1A"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4zm1 2v2H5v1h2v2h1v-2h2v-1H8v-2z"/></svg></i><i class="zs-chip" style="--r:288deg;--c:#8B5CFF"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zM9 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></i></div><div class="zs-logo"><img src="logo.webp" alt="" decoding="async"><i class="zs-shine zk-splash-shine"></i><div class="zk-splash-rings" aria-hidden="true"><svg viewBox="-60 -60 120 120"><g><rect x="-36" y="-36" width="72" height="72" pathLength="1"/><rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/></g></svg></div></div><small>kino · musiqa · kitob · o'yin · story</small></div>
-<script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e){e.classList.add("out");setTimeout(function(){e.remove();},650);}document.body.classList.remove("splashing");};try{if(new URLSearchParams(location.search).has("nosplash"))k();}catch(e){}
+<script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e){e.classList.add("out");setTimeout(function(){e.remove();},650);}document.body.classList.remove("splashing");};try{if(new URLSearchParams(location.search).has("nosplash") || window.ZK_LITE)k();}catch(e){}
 /* himoya: zk.js yuklanmasa yoki xato bersa ham ilova 5 s da ochiladi; bosilsa darhol */
 setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,600);});})();</script>
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
@@ -329,6 +345,8 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
     <button class="chip" data-t="pop">🔥 Ommabop</button>
     <button class="chip" data-t="film">🎬 Filmlar</button>
     <button class="chip" data-t="ser">📺 Seriallar</button>
+    <button class="chip" data-t="mult">🧸 Multfilmlar</button>
+    <button class="chip" data-t="anime">🎌 Anime</button>
     <button class="chip" data-t="seen">✓ Ko'rganlarim</button>
   </nav>
   <nav class="chips" id="chips2" hidden></nav>
@@ -508,7 +526,7 @@ const norm = (s) => String(s || "").toLowerCase().replace(/[а-яёғқўҳ]/g, 
 let items = [], byCode = new Map(), tab = "all", query = "", channel = "", botName = "";
 
 const posterHTML = (it, size, extra = "") => {
-  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="" decoding="async" ${size === "s" ? 'loading="lazy"' : ""}>` : "";
+  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${size === "s" ? 'loading="lazy"' : ""} onload="this.classList.add('ok')">` : "";
   const hue = (it.c * 47) % 360;
   return `<div class="pst"${it.i ? "" : ` style="background:linear-gradient(160deg,hsl(${hue} 45% 32%),hsl(${(hue+40)%360} 50% 14%))"`}>
     ${img || `<div class="ph">${esc(it.t)}</div>`}${extra}</div>`;
@@ -530,7 +548,9 @@ function render() {
   if (tab === "film") list = list.filter((x) => x.p <= 1);
   else if (tab === "ser") list = list.filter((x) => x.p > 1);
   else if (tab === "seen") list = list.filter((x) => seen[x.c]);
-  if (tab === "pop") list = [...list].sort((a, b) => b.v - a.v);
+  else if (tab === "pop") list = [...list].sort((a, b) => b.v - a.v);
+  else if (tab === "mult") list = list.filter((x) => /mult|multfilm|multik|panda|shrek|disney|pixar|ajdaho|maymoq|boss|madagaskar|muzlik/i.test(x.t + " " + (x.d || "")));
+  else if (tab === "anime") list = list.filter((x) => /anime|titan|naruto|ghoul|hero|daha|bleach|one\s*piece|hunter|jujutsu|demon/i.test(x.t + " " + (x.d || "")));
 
   if (query) {
     const q = norm(query), digits = query.replace(/\D/g, "");
@@ -559,7 +579,7 @@ function render() {
     if (top.length >= 3) html += `<div class="sec-h zk-top10-h"><h2>🔥 Top ${top.length}</h2><span>eng ko'p ko'rilgan</span></div>
       <div class="row zk-flow" id="zkFlow">${top.map((x, i) => cardHTML(x, i + 1)).join("")}</div>`;
   }
-  const title = {all: "🆕 Yangi qo'shilganlar", pop: "🔥 Ommabop", film: "🎬 Filmlar", ser: "📺 Seriallar", seen: "✓ Ko'rganlarim"}[tab];
+  const title = {all: "🆕 Yangi qo'shilganlar", pop: "🔥 Ommabop", film: "🎬 Filmlar", ser: "📺 Seriallar", mult: "🧸 Multfilmlar", anime: "🎌 Anime", seen: "✓ Ko'rganlarim"}[tab] || "🎬 Kinolar";
   html += `<div class="sec-h"><h2>${title}</h2><span>${list.length} ta</span></div>
     <div class="grid">${list.map((x) => cardHTML(x)).join("")}</div>`;
   m.innerHTML = html;
@@ -826,7 +846,7 @@ function tvInitials(name) {
     style: `background:linear-gradient(135deg,hsl(${h} 60% 45%),hsl(${(h + 40) % 360} 60% 30%))`});
 }
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
-  (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
+  (c.l ? `<img class="ico tvl" src="${esc(c.l)}" alt="${esc(c.n)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.onerror=null;this.src='logo.svg';this.classList.add('ok');">` : `<img class="ico tvl ok" src="logo.svg" alt="${esc(c.n)}">`);
 const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
   <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 
@@ -1080,7 +1100,7 @@ function attempt(url) {
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
     const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
-    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 9000 : 7500);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 12000 : 10000);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
@@ -1104,9 +1124,6 @@ function attempt(url) {
     };
 
     let streamTarget = url;
-    if (streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
-      streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
-    }
 
     try {
       if (nativeHls()) {
@@ -2007,8 +2024,13 @@ const ZHub = (() => {
   }
   function setUI(v, fromPicker) {
     try { localStorage.setItem("zk_ui", v); } catch (e) {}
-    const want = v === "lite";
-    if (want !== lite()) { haptic(); location.reload(); return; }
+    const want = (v === "lite" || v === "classic" || v === "oddy" || v === "oddiy");
+    if (want !== lite()) {
+      window.ZK_LITE = want;
+      haptic();
+      location.reload();
+      return;
+    }
     if (fromPicker) { window.ZK_UI_CHOSEN = true; render(); }
   }
   function picker() {
