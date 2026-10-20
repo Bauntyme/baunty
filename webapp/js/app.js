@@ -426,6 +426,9 @@ const App = {
         const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
         const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
         let targetUrl = streamUrl;
+        if (targetUrl.includes('cinerama.uz') && targetUrl.includes('tracks-v1a1')) {
+            targetUrl = targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
+        }
 
         try {
             video.style.filter = "contrast(1.06) saturate(1.05)";
@@ -438,7 +441,7 @@ const App = {
             this.hls = new window.Hls({
                 testBandwidth: false,
                 startLevel: -1,
-                abrEwmaDefaultEstimate: _isSlow ? 2000000 : 6000000,
+                abrEwmaDefaultEstimate: _isSlow ? 1800000 : 2500000,
                 abrEwmaDefaultEstimateMax: 40000000,
                 capLevelToPlayerSize: false,
                 enableWorker: true,
@@ -473,11 +476,10 @@ const App = {
             });
             this.hls.on(window.Hls.Events.MANIFEST_LOADED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
-                    let bestIdx = 0, maxScore = -1;
+                    let bestIdx = 0;
                     for (let i = 0; i < data.levels.length; i++) {
-                        const l = data.levels[i];
-                        const s = (l.height || 0) * 100000 + (l.bitrate || 0);
-                        if (s > maxScore) { maxScore = s; bestIdx = i; }
+                        const h = data.levels[i].height || 0;
+                        if (h <= 720) bestIdx = i;
                     }
                     try {
                         this.hls.startLevel = _isSlow ? 0 : bestIdx;
@@ -488,11 +490,10 @@ const App = {
             });
             this.hls.on(window.Hls.Events.MANIFEST_PARSED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
-                    let bestIdx = 0, maxScore = -1;
+                    let bestIdx = 0;
                     for (let i = 0; i < data.levels.length; i++) {
-                        const l = data.levels[i];
-                        const s = (l.height || 0) * 100000 + (l.bitrate || 0);
-                        if (s > maxScore) { maxScore = s; bestIdx = i; }
+                        const h = data.levels[i].height || 0;
+                        if (h <= 720) bestIdx = i;
                     }
                     try {
                         this.hls.startLevel = _isSlow ? 0 : bestIdx;

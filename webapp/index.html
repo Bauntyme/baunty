@@ -526,7 +526,7 @@ const norm = (s) => String(s || "").toLowerCase().replace(/[а-яёғқўҳ]/g, 
 let items = [], byCode = new Map(), tab = "all", query = "", channel = "", botName = "";
 
 const posterHTML = (it, size, extra = "") => {
-  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${size === "s" ? 'loading="lazy"' : ""} onload="this.classList.add('ok')">` : "";
+  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${size === "s" ? 'loading="lazy"' : ""} onload="this.classList.add('ok')" onerror="this.style.display='none'">` : "";
   const hue = (it.c * 47) % 360;
   return `<div class="pst"${it.i ? "" : ` style="background:linear-gradient(160deg,hsl(${hue} 45% 32%),hsl(${(hue+40)%360} 50% 14%))"`}>
     ${img || `<div class="ph">${esc(it.t)}</div>`}${extra}</div>`;
@@ -549,8 +549,8 @@ function render() {
   else if (tab === "ser") list = list.filter((x) => x.p > 1);
   else if (tab === "seen") list = list.filter((x) => seen[x.c]);
   else if (tab === "pop") list = [...list].sort((a, b) => b.v - a.v);
-  else if (tab === "mult") list = list.filter((x) => /mult|multfilm|multik|panda|shrek|disney|pixar|ajdaho|maymoq|boss|madagaskar|muzlik/i.test(x.t + " " + (x.d || "")));
-  else if (tab === "anime") list = list.filter((x) => /anime|titan|naruto|ghoul|hero|daha|bleach|one\s*piece|hunter|jujutsu|demon/i.test(x.t + " " + (x.d || "")));
+  else if (tab === "mult") list = list.filter((x) => /mult|multfilm|multik|multserial|panda|shrek|disney|pixar|ajdaho|maymoq|boss|madagaskar|muzlik|bahodir|alvasti|maugli|minion|qariya|avatar|simba|sher|ertak|krokodil|masha|ayiq/i.test(x.t + " " + (x.d || "")));
+  else if (tab === "anime") list = list.filter((x) => /anime|titan|naruto|ghoul|hero|daha|bleach|one\s*piece|hunter|jujutsu|demon|saitama|death\s*note|dragon\s*ball|spirited|miyazaki|totoro|pokemon|ninja|samuray/i.test(x.t + " " + (x.d || "")));
 
   if (query) {
     const q = norm(query), digits = query.replace(/\D/g, "");
@@ -838,17 +838,25 @@ const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "nu
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 let tvFav = lsGet("zk_tvfav", []), tvRec = lsGet("zk_tvrec", []);
 
-function tvInitials(name) {
-  const w = String(name).replace(/[^\p{L}\p{N} ]/gu, "").trim().split(/\s+/);
+const _re = (p, f, fb) => { try { return new RegExp(p, f); } catch (e) { return fb; } };
+const RE_NONNAME = _re("[^\\p{L}\\p{N} ]", "gu", /[^0-9A-Za-z\u00C0-\u024F\u0400-\u04FF\u02BB\u02BC ]/g);
+
+function tvInitials(c) {
+  const name = typeof c === "object" ? (c.n || c.name || "") : String(c);
+  const ico = typeof c === "object" && c.logo ? c.logo : "";
+  const w = String(name).replace(RE_NONNAME, "").trim().split(/\s+/);
   const t = (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || "TV").slice(0, 3)).toUpperCase();
   let h = 0; for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return Object.assign(document.createElement("div"), {className: "tvi", textContent: t,
-    style: `background:linear-gradient(135deg,hsl(${h} 60% 45%),hsl(${(h + 40) % 360} 60% 30%))`});
+  const d = document.createElement("div");
+  d.className = "tvi";
+  d.style = `background:linear-gradient(135deg,hsl(${h} 60% 45%),hsl(${(h + 40) % 360} 60% 30%))`;
+  d.innerHTML = ico ? `<span class="tvi-ico" style="font-size:24px;line-height:1;margin-bottom:2px;display:block">${ico}</span><span style="font-size:12px;opacity:.9">${t}</span>` : t;
+  return d;
 }
-const logoHTML = (c) => tvInitials(c.n).outerHTML +
-  (c.l ? `<img class="ico tvl" src="${esc(c.l)}" alt="${esc(c.n)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.onerror=null;this.src='logo.svg';this.classList.add('ok');">` : `<img class="ico tvl ok" src="logo.svg" alt="${esc(c.n)}">`);
+const logoHTML = (c) => tvInitials(c).outerHTML +
+  (c.l ? `<img class="ico tvl" src="${esc(c.l)}" alt="${esc(c.n)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.onerror=null;this.src='api/tv/icon/${c.i}';this.classList.add('ok');">` : `<img class="ico tvl ok" src="api/tv/icon/${c.i}" alt="${esc(c.n)}" onerror="this.onerror=null;this.src='logo.svg';">`);
 const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
-  <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
+  <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${c.logo ? `<span class="ch-ico" style="margin-right:2px">${c.logo}</span>` : ""}${esc(c.n)}</div></button>`;
 
 function tvChips() {
   const cc = [...new Set(tvItems.map((x) => x.c))];
@@ -1100,7 +1108,7 @@ function attempt(url) {
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
     const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
-    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 12000 : 10000);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 15000 : 12000);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
@@ -1124,6 +1132,9 @@ function attempt(url) {
     };
 
     let streamTarget = url;
+    if (streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
+      streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+    }
 
     try {
       if (nativeHls()) {
@@ -1147,7 +1158,7 @@ function attempt(url) {
             maxBufferHole: 0.5,
             maxBufferSize: 30 * 1024 * 1024,
             backBufferLength: 4,
-            abrEwmaDefaultEstimate: _isSlow ? 2000000 : 6000000,
+            abrEwmaDefaultEstimate: _isSlow ? 1800000 : 2500000,
             testBandwidth: true,
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
@@ -1163,11 +1174,11 @@ function attempt(url) {
               hls.config.maxBufferLength = 20;
               hls.config.maxMaxBufferLength = 45;
               hls.config.maxBufferSize = 25 * 1024 * 1024;
-              hls.config.abrEwmaDefaultEstimate = 2000000;
+              hls.config.abrEwmaDefaultEstimate = 1800000;
             } else {
               hls.config.maxBufferLength = 20;
               hls.config.maxMaxBufferLength = 45;
-              hls.config.abrEwmaDefaultEstimate = 6000000;
+              hls.config.abrEwmaDefaultEstimate = 2500000;
             }
             if (_conn && _conn.addEventListener) {
               _conn.addEventListener("change", () => {
@@ -1226,14 +1237,11 @@ function attempt(url) {
               return;
             }
             if (data && data.levels && data.levels.length) {
-              let targetIdx = data.levels.length - 1;
-              for (let i = data.levels.length - 1; i >= 0; i--) {
+              let targetIdx = 0;
+              for (let i = 0; i < data.levels.length; i++) {
                 const lvl = data.levels[i];
                 const h = lvl.height || 0;
-                if (h <= 1440 && h >= 720) {
-                  targetIdx = i;
-                  break;
-                }
+                if (h <= 720) targetIdx = i;
               }
               try {
                 hls.config.capLevelToPlayerSize = false;
@@ -1249,14 +1257,11 @@ function attempt(url) {
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
             if (data && data.levels && data.levels.length) {
-              let targetIdx = data.levels.length - 1;
-              for (let i = data.levels.length - 1; i >= 0; i--) {
+              let targetIdx = 0;
+              for (let i = 0; i < data.levels.length; i++) {
                 const lvl = data.levels[i];
                 const h = lvl.height || 0;
-                if (h <= 1440 && h >= 720) {
-                  targetIdx = i;
-                  break;
-                }
+                if (h <= 720) targetIdx = i;
               }
               try {
                 hls.config.capLevelToPlayerSize = false;

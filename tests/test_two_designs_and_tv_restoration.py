@@ -99,3 +99,49 @@ def test_cartoons_and_anime_categories_and_delivery():
     assert 'tab === "anime"' in index_html
     assert 'tab === "mult"' in app_js
     assert 'tab === "anime"' in app_js
+
+
+@pytest.mark.asyncio
+async def test_tv_icon_vector_endpoint_and_2mbps_resilience():
+    """TV ikonkalari (/api/tv/icon/{id}) SVG endpointi, 2Mbps buferlash va zk-lite CSS testi."""
+    from services.web_server import create_web_app
+    from aiohttp.test_utils import TestServer, TestClient
+
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # 1. /api/tv/icon/1 va /p/tv/2 SVG formatda qaytishi
+        r1 = await client.get("/api/tv/icon/1", headers={"User-Agent": "Mozilla/5.0"})
+        assert r1.status == 200
+        assert "image/svg+xml" in r1.headers.get("Content-Type", "")
+        svg1 = await r1.text()
+        assert "<svg" in svg1
+        assert "BIZ" in svg1 or "CINEMA" in svg1
+
+        r2 = await client.get("/p/tv/2", headers={"User-Agent": "Mozilla/5.0"})
+        assert r2.status == 200
+        assert "image/svg+xml" in r2.headers.get("Content-Type", "")
+        svg2 = await r2.text()
+        assert "<svg" in svg2
+
+        # 2. 2Mbps internet uchun ABR boshlang'ich startLevel <= 720p va ewma estimate
+        index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
+        app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+        zk_css = (BASE_DIR / "webapp" / "zk.css").read_text(encoding="utf-8")
+
+        assert "1800000" in index_html
+        assert "1800000" in app_js
+        assert "h <= 720" in index_html
+        assert "h <= 720" in app_js
+        assert "playlist.m3u8" in index_html
+        assert "playlist.m3u8" in app_js
+
+        # 3. zk-lite stillari mavjudligi
+        assert "html.zk-lite" in zk_css
+        assert "body.zk-lite" in zk_css
+    finally:
+        await client.close()
+

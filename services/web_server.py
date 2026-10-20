@@ -1274,6 +1274,61 @@ async def handle_get_tv(request: web.Request) -> web.Response:
     })
 
 
+async def handle_tv_icon(request: web.Request) -> web.Response:
+    """Telekanal logosi / ikonkasini tiniq vektor SVG sifatida uzatish (100% tezkor va barqaror)."""
+    raw_id = request.match_info.get("id", "").replace(".svg", "").replace(".ico", "").replace(".png", "")
+    try:
+        cid = int(raw_id)
+    except ValueError:
+        cid = -1
+
+    target_ch = None
+    for ch in CHANNELS_LIST:
+        if ch.get("i") == cid or ch.get("id") == cid or str(ch.get("i")) == raw_id:
+            target_ch = ch
+            break
+
+    name = (target_ch.get("name") or target_ch.get("n")) if target_ch else "TV"
+    emoji = target_ch.get("logo", "📺") if target_ch else "📺"
+
+    # Nomiga mos gradient va ranglar
+    hue = sum(ord(c) * 31 for c in name) % 360
+    c1 = f"hsl({hue}, 68%, 38%)"
+    c2 = f"hsl({(hue + 45) % 360}, 72%, 20%)"
+
+    # Qisqa abreviatura yoki nom
+    clean_n = re.sub(r"[^\w\s]", "", name).strip()
+    words = clean_n.split()
+    abbr = (words[0][:8] if len(words) == 1 else (words[0][:4] + " " + words[1][:4])).upper()
+
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 110" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="{c1}"/>
+      <stop offset="100%" stop-color="{c2}"/>
+    </linearGradient>
+    <filter id="ds" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+  <rect width="160" height="110" rx="14" fill="url(#bg)"/>
+  <rect x="1" y="1" width="158" height="108" rx="13" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5"/>
+  <text x="80" y="48" font-size="34" text-anchor="middle" dominant-baseline="central" filter="url(#ds)">{emoji}</text>
+  <text x="80" y="86" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" font-size="12" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="0.6" filter="url(#ds)">{abbr}</text>
+</svg>"""
+
+    return web.Response(
+        text=svg,
+        content_type="image/svg+xml",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "public, max-age=604800, immutable",
+            "Access-Control-Allow-Origin": "*",
+        }
+    )
+
+
+
 async def handle_get_games(request: web.Request) -> web.Response:
     """50 ta mini HTML5 o'yinlar ro'yxati, hayvon va sandiq holati."""
     cat = request.query.get("category", "all").strip()
@@ -1985,6 +2040,7 @@ def create_web_app() -> web.Application:
         ("GET", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/tv", handle_get_tv),
+        ("GET", "/api/tv/icon/{id}", handle_tv_icon),
         ("POST", "/api/tv/report", handle_tv_report),
         ("GET", "/api/tv/me", handle_tv_me),
         ("POST", "/api/tv/hide", handle_tv_hide),
@@ -2049,6 +2105,8 @@ def create_web_app() -> web.Application:
 
     app.router.add_get("/p/{filename}", handle_poster_proxy)
     app.router.add_get("/webapp/p/{filename}", handle_poster_proxy)
+    app.router.add_get("/p/tv/{id}", handle_tv_icon)
+    app.router.add_get("/webapp/p/tv/{id}", handle_tv_icon)
     app.router.add_get("/bk/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/webapp/bk/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/rc/{tail:.*}", handle_rc_asset_proxy)

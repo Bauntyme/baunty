@@ -657,3 +657,17 @@ body.lite .ad-hero,body.lite .ad-fm>div,body.lite .ad-ct{background:var(--bg,#ff
 body.lite .ad-n{background:var(--bg2,#F3F4F7)}
 body.lite .ad-ct .av{background:var(--tg-theme-button-color,#2563EB);color:#fff}
 body.lite .ad-b.call{background:var(--bg2,#F3F4F7);box-shadow:none;color:var(--text,#15171C)!important}
+
+
+/* ⚡ Oddiy rejim: Tez, yengil, batareyani tejaydi, eski telefonlar uchun */
+html.zk-lite, body.zk-lite, body:not(.zk) {
+  background: var(--bg, #0e0f13);
+  color: var(--text, #f2f3f5);
+}
+html.zk-lite #zkbg, body.zk-lite #zkbg, body:not(.zk) #zkbg,
+html.zk-lite #zksplash, body.zk-lite #zksplash, body:not(.zk) #zksplash {
+  display: none !important;
+}
+html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
+  box-shadow: none !important;
+}
