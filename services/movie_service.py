@@ -424,9 +424,8 @@ class MovieService:
         )
         has_real_video = bool(db_movie and not is_placeholder)
 
-        # Agar serialning so'ralgan qismi (part > 1) mavjud bo'lmasa, soxta poster yubormasdan False qaytarish
-        if part > 1 and not has_real_video:
-            return False
+        # Agar serialning so'ralgan qismi (part > 1) uchun alohida video bo'lmasa ham, kino ma'lumotlari va posterini yuborish
+        # Shunda foydalanuvchi qismni tanlaganida xatolik chiqmaydi va chatga darhol yetkaziladi
 
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"

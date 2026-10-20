@@ -19,13 +19,16 @@ body.zk{background:transparent!important;color:var(--zk-cream);font-family:var(-
 body.zk::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
   background:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1.2px) 0 0/3px 3px}
 img{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
-body.zk>.top{position:sticky;top:0;z-index:999}
+/* Splash paytida header va sahifa kontenti 100% yashiriladi */
+body.splashing > .top, body.splashing > main,
+body.zk:has(#zksplash:not(.out)) > .top, body.zk:has(#zksplash:not(.out)) > main{display:none!important}
+body.zk>.top{position:sticky;top:0;z-index:999;transition:opacity .3s ease}
 body.zk:has(#det.open)>.top,body.zk:has(#tvp.open)>.top{display:none!important}
 body.zk>main{position:relative;z-index:2}
 .zk :focus-visible{outline:2px solid var(--zk-acc);outline-offset:2px}
 
 /* ---------- kirish animatsiyasi: 5 bo'lim (kino, musiqa, kitob, o'yin, story) aylanib logoga yig'iladi ---------- */
-#zksplash{position:fixed;inset:0;z-index:200;background:var(--zk-night);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
+#zksplash{position:fixed!important;inset:0!important;z-index:999999!important;background:var(--zk-night);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;
   transition:opacity .55s ease,transform .55s ease;overflow:hidden;--zs:min(44vw,170px)}
 #zksplash.out{opacity:0;transform:scale(1.08);pointer-events:none}
 #zksplash::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 46%,rgba(242,184,75,.16),transparent 42%);animation:zkfade 1s ease both}

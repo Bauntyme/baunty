@@ -949,38 +949,57 @@ async def handle_music_play(request: web.Request) -> web.Response:
         except Exception as e:
             logger.info(f"Deezer preview olishda xatolik: {e}")
 
-    # Qo'shiq va ijrochi nomi bo'yicha ochiq audio oqim qidirish
+    # Qo'shiq va ijrochi nomi bo'yicha haqiqiy audio oqim qidirish (Tarona direct MP3 va Deezer/iTunes)
     artist = body.get("a") or body.get("artist") or ""
     title = body.get("t") or body.get("title") or ""
-    clean_title = re.sub(r'\|.*$|\(.*?\)|\[.*?\]', '', title)
+    # Emojilar, yil, shovqin so'zlarni tozalash
+    clean_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', title)
+    clean_title = re.sub(r'\|.*$|\(.*?\)|\[.*?\]', '', clean_title)
+    clean_title = re.sub(r'\b(202\d|xit|premyera|official|video|mp3|remix|hd|klip)\b', '', clean_title, flags=re.IGNORECASE)
     clean_title = re.sub(r'[^\w\s\'-]', ' ', clean_title).strip()
-    query = f"{artist} {clean_title or title}".strip()
-    if query:
+    
+    clean_artist = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', artist)
+    clean_artist = re.sub(r'[^\w\s\'-]', ' ', clean_artist).strip()
+
+    search_queries = [
+        f"{clean_artist} {clean_title}".strip(),
+        f"{clean_title}".strip(),
+        f"{artist} {title}".strip()
+    ]
+
+    for q in search_queries:
+        if not q or len(q) < 2:
+            continue
         try:
-            results = await music_service.search_tracks(query=query, limit=3)
+            results = await music_service.search_tracks(query=q, limit=5)
             for res in results:
-                stream_res = res.get("preview") or res.get("u")
+                # 1. Tarona / Muzfm to'g'ridan-to'g'ri MP3 faylini olish
+                tarona_link = res.get("link") or res.get("u") or res.get("preview")
+                if tarona_link and ("muzfm" in str(tarona_link) or "tarona" in str(tarona_link) or "/music/" in str(tarona_link)):
+                    direct_mp3 = await music_service._resolve_tarona_direct_mp3(res)
+                    if direct_mp3 and direct_mp3.startswith("http"):
+                        _PLAY_STREAM_CACHE[cache_key] = (now, direct_mp3)
+                        return web.json_response({"ok": True, "url": direct_mp3}, headers={"Cache-Control": "public, max-age=1800"})
+
+                # 2. To'g'ridan-to'g'ri audio preview yoki CDN oqimi
+                stream_res = res.get("preview") or res.get("url") or res.get("u")
                 if stream_res and str(stream_res).startswith("http") and not any(p in str(stream_res) for p in ["youtube.com", "youtu.be", "/watch?", ".html", "/music/"]):
-                    _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
-                    return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
-                if res.get("url") and str(res["url"]).endswith((".mp3", ".m4a", ".ogg")):
-                    stream_res = res["url"]
-                    _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
-                    return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
+                    if any(ext in str(stream_res) for ext in [".mp3", ".m4a", ".ogg", "dzcdn", "mzstatic", "sndcdn", "audio-preview"]):
+                        _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
+                        return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
         except Exception as e:
-            logger.warning(f"Play search fallback xatosi: {e}")
+            logger.debug(f"Play search query '{q}' xatosi: {e}")
 
-    # Oxirgi chora: top 50 dan biror ishlaydigan audio oqim namunasi
-    if TOP_50_TRACKS:
-        for track in TOP_50_TRACKS:
-            if track.get("url") and str(track["url"]).startswith("http") and not "youtube.com" in str(track["url"]):
-                _PLAY_STREAM_CACHE[cache_key] = (now, track["url"])
-                return web.json_response({"ok": True, "url": track["url"]}, headers={"Cache-Control": "public, max-age=1800"})
-        if TOP_50_TRACKS[0].get("url"):
-            _PLAY_STREAM_CACHE[cache_key] = (now, TOP_50_TRACKS[0]["url"])
-            return web.json_response({"ok": True, "url": TOP_50_TRACKS[0]["url"]}, headers={"Cache-Control": "public, max-age=1800"})
+    # Agar YouTube ID (y) mavjud bo'lsa, Invidious ochiq audio oqimini sinash
+    yt_id = body.get("y") or (track_id if len(track_id) == 11 and not track_id.isdigit() else None)
+    if yt_id:
+        for host in ["invidious.jing.rocks", "invidious.nerdvpn.de", "invidious.private.coffee"]:
+            inv_stream = f"https://{host}/latest_version?id={yt_id}&itag=140"
+            _PLAY_STREAM_CACHE[cache_key] = (now, inv_stream)
+            return web.json_response({"ok": True, "url": inv_stream}, headers={"Cache-Control": "public, max-age=1800"})
 
-    return web.json_response({"ok": False, "error": "not_found"}, status=404)
+    # Begona yoki adashgan qo'shiqni qo'ymaslik uchun random fallback olib tashlandi
+    return web.json_response({"ok": False, "error": "stream_not_found"}, status=404)
 
 
 async def handle_music_send(request: web.Request) -> web.Response:

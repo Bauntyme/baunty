@@ -365,6 +365,7 @@ if (sp) {
   const end = () => {
     if (!sp.isConnected) return;
     sp.classList.add("out");
+    document.body.classList.remove("splashing");
     ripple = {x: 0, y: 0, t0: performance.now() / 1000};
     setTimeout(() => sp.remove(), 650);
   };
@@ -382,4 +383,5 @@ window.updateFlowCenter = function() { try { if (window.ZK_updateFlow) window.ZK
 window.initFlow = function() { try { if (window.ZK_initFlow) window.ZK_initFlow(); } catch(e){} };
 window.spinRoulette = function(pool, cb) { if (window.ZK_spin) return window.ZK_spin(pool, cb); if (pool && pool.length) cb(pool[0]); };
 window.updateIndicator = function() { try { const seg = document.getElementById("seg"); if (seg && seg._zkUpdate) seg._zkUpdate(); } catch(e){} };
-window.initSplash = function() { try { const sp = document.getElementById("zksplash"); if (sp) sp.classList.add("out"); } catch(e){} };
+window.initSplash = function() { try { const sp = document.getElementById("zksplash"); if (sp) sp.classList.add("out");
+    document.body.classList.remove("splashing"); } catch(e){} };

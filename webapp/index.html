@@ -45,6 +45,11 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 
 /* ---------- sarlavha ---------- */
+/* Splash paytida header va sahifa kontenti 100% yashiriladi */
+#zksplash{position:fixed!important;inset:0!important;z-index:999999!important;background:#070B1F!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:30px!important;overflow:hidden!important}
+#zksplash.out{opacity:0!important;transform:scale(1.08)!important;pointer-events:none!important;transition:opacity .55s ease,transform .55s ease!important}
+body.splashing > .top, body.splashing > main,
+body:has(#zksplash:not(.out)) > .top, body:has(#zksplash:not(.out)) > main{display:none!important}
 .top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:var(--bg);padding:12px 16px 8px;
   box-shadow:0 1px 0 var(--sep)}
 body:has(#det.open) > .top, body:has(#tvp.open) > .top{display:none!important}
@@ -299,9 +304,9 @@ body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .tv-full-screen-mode .vbox-fs-btn{display:none !important}
 </style>
 </head>
-<body data-zkm="kino">
+<body data-zkm="kino" class="splashing">
 <div id="zksplash" aria-hidden="true"><i class="zs-burst"></i><div class="zs-orb"><i class="zs-chip" style="--r:0deg;--c:#C8344C"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></i><i class="zs-chip" style="--r:72deg;--c:#1FA8AE"><svg viewBox="0 0 24 24"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg></i><i class="zs-chip" style="--r:144deg;--c:#2440C8"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-3v14h3z"/></svg></i><i class="zs-chip" style="--r:216deg;--c:#FF7A1A"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4zm1 2v2H5v1h2v2h1v-2h2v-1H8v-2z"/></svg></i><i class="zs-chip" style="--r:288deg;--c:#8B5CFF"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zM9 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></i></div><div class="zs-logo"><img src="logo.webp" alt="" decoding="async"><i class="zs-shine zk-splash-shine"></i><div class="zk-splash-rings" aria-hidden="true"><svg viewBox="-60 -60 120 120"><g><rect x="-36" y="-36" width="72" height="72" pathLength="1"/><rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/></g></svg></div></div><small>kino · musiqa · kitob · o'yin · story</small></div>
-<script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e)e.remove();};try{if(new URLSearchParams(location.search).has("nosplash"))k();}catch(e){}
+<script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e){e.classList.add("out");setTimeout(function(){e.remove();},650);}document.body.classList.remove("splashing");};try{if(new URLSearchParams(location.search).has("nosplash"))k();}catch(e){}
 /* himoya: zk.js yuklanmasa yoki xato bersa ham ilova 5 s da ochiladi; bosilsa darhol */
 setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,600);});})();</script>
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
