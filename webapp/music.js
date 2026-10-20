@@ -173,7 +173,7 @@ async function prepare(it, signal) {
   const k = keyOf(it), c = urlCache.get(k);
   if (c && Date.now() - c.at < URL_TTL) return c.url;
   const directCandidate = it.u || it.preview;
-  if (directCandidate && typeof directCandidate === "string" && directCandidate.startsWith("http") && !directCandidate.includes("/music/") && !directCandidate.includes(".html") && !directCandidate.includes("search?")) {
+  if (directCandidate && typeof directCandidate === "string" && directCandidate.startsWith("http") && !directCandidate.includes("youtube.com") && !directCandidate.includes("youtu.be") && !directCandidate.includes("/watch?") && !directCandidate.includes("/music/") && !directCandidate.includes(".html") && !directCandidate.includes("search?") && !directCandidate.includes("t.me")) {
     urlCache.set(k, {url: directCandidate, at: Date.now()});
     return directCandidate;
   }

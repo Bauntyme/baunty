@@ -921,7 +921,16 @@ async def handle_music_play(request: web.Request) -> web.Response:
             _PLAY_STREAM_CACHE[cache_key] = (now, direct_tarona)
             return web.json_response({"ok": True, "url": direct_tarona}, headers={"Cache-Control": "public, max-age=1800"})
 
-    if url and str(url).startswith("http") and not any(p in str(url) for p in ["/music/", ".html", "search?"]):
+    # Faqat haqiqiy audio oqim yoki CDN bo'lsa darhol qaytarish (YouTube yoki HTML sahifalar audio emas)
+    is_direct_audio = (
+        url and str(url).startswith("http")
+        and not any(p in str(url) for p in ["/music/", ".html", "search?", "youtube.com", "youtu.be", "/watch?", "t.me"])
+        and (
+            any(ext in str(url) for ext in [".mp3", ".m4a", ".ogg", "dzcdn", "mzstatic", "sndcdn", "audio-preview"])
+            or not any(w in str(url) for w in ["youtube", "youtu.be", "watch?"])
+        )
+    )
+    if is_direct_audio:
         _PLAY_STREAM_CACHE[cache_key] = (now, url)
         return web.json_response({"ok": True, "url": url}, headers={"Cache-Control": "public, max-age=1800"})
 
@@ -940,27 +949,18 @@ async def handle_music_play(request: web.Request) -> web.Response:
         except Exception as e:
             logger.info(f"Deezer preview olishda xatolik: {e}")
 
-    # Qo'shiq va ijrochi nomi bo'yicha Deezer ochiq preview qidirish
+    # Qo'shiq va ijrochi nomi bo'yicha ochiq audio oqim qidirish
     artist = body.get("a") or body.get("artist") or ""
     title = body.get("t") or body.get("title") or ""
-    query = f"{artist} {title}".strip()
-    if query:
-        try:
-            results = await music_service.search_tracks(query=query, limit=1)
-            if results and results[0].get("preview"):
-                stream_res = results[0]["preview"]
-                _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
-                return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
-        except Exception as e:
-            logger.warning(f"Play search fallback xatosi: {e}")
-
-    # YouTube yoki noma'lum manba bo'lsa, avval qidiruv orqali MP3 audio topish
+    clean_title = re.sub(r'\|.*$|\(.*?\)|\[.*?\]', '', title)
+    clean_title = re.sub(r'[^\w\s\'-]', ' ', clean_title).strip()
+    query = f"{artist} {clean_title or title}".strip()
     if query:
         try:
             results = await music_service.search_tracks(query=query, limit=3)
             for res in results:
-                if res.get("preview") and str(res["preview"]).startswith("http"):
-                    stream_res = res["preview"]
+                stream_res = res.get("preview") or res.get("u")
+                if stream_res and str(stream_res).startswith("http") and not any(p in str(stream_res) for p in ["youtube.com", "youtu.be", "/watch?", ".html", "/music/"]):
                     _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
                     return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
                 if res.get("url") and str(res["url"]).endswith((".mp3", ".m4a", ".ogg")):

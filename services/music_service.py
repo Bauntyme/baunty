@@ -392,12 +392,12 @@ class MusicService:
             "Accept": "application/json",
         }
 
-        for cid in client_ids:
+        async def _fetch_sc_cid(cid: str) -> List[Dict[str, Any]]:
             try:
                 url = "https://api-v2.soundcloud.com/search/tracks"
                 params = {"q": clean_q, "client_id": cid, "limit": str(limit)}
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                    async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=2.5)) as resp:
                         if resp.status == 200:
                             data = await resp.json()
                             collection = data.get("collection", [])
@@ -443,6 +443,12 @@ class MusicService:
                                     return tracks
             except Exception as e:
                 logger.debug(f"Soundcloud qidiruv xatosi ({cid}): {e}")
+            return []
+
+        sc_results = await asyncio.gather(*[_fetch_sc_cid(cid) for cid in client_ids], return_exceptions=True)
+        for r in sc_results:
+            if isinstance(r, list) and r:
+                return r
 
         # 2. Ochiq global musiqa tarmog'i fallback (Phonk, EDM, Bass, Drift uchun zaxira)
         try:

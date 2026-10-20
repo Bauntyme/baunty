@@ -20,6 +20,7 @@ body.zk::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;o
   background:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1.2px) 0 0/3px 3px}
 img{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 body.zk>.top{position:sticky;top:0;z-index:999}
+body.zk:has(#det.open)>.top,body.zk:has(#tvp.open)>.top{display:none!important}
 body.zk>main{position:relative;z-index:2}
 .zk :focus-visible{outline:2px solid var(--zk-acc);outline-offset:2px}
 
