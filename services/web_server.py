@@ -22,6 +22,12 @@ from services.games_data import GAMES_LIST, PET_DATA, CHEST_DATA
 from services.doc_service import doc_service
 from services.story_service import story_service
 from services.maintenance_service import maintenance_service
+from services.security_service import (
+    security_service,
+    security_middleware,
+    is_valid_user_id,
+    validate_telegram_init_data,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +78,9 @@ def extract_user_id_from_init_data(init_data: str) -> Optional[int]:
         if "user" in parsed:
             u_str = parsed["user"][0]
             u_obj = json.loads(u_str)
-            return u_obj.get("id")
+            raw_id = u_obj.get("id")
+            if is_valid_user_id(raw_id):
+                return int(raw_id)
     except Exception:
         pass
     return None
@@ -644,28 +652,29 @@ async def handle_watch(request: web.Request) -> web.Response:
     except (ValueError, TypeError):
         part = 1
 
-    init_data = request.headers.get("X-Init-Data", "")
-    user_id_raw = (
-        body.get("user_id")
-        or extract_user_id_from_init_data(init_data)
-        or request.query.get("user_id")
-    )
-
-    if not code:
-        return web.json_response({"ok": False, "error": "not_found"})
-
     bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
     clean_code = code.lstrip("#№").strip()
     bot_url = f"https://t.me/{bot_username}?start=m_{clean_code}"
 
-    user_id = None
-    if user_id_raw is not None:
-        try:
-            val = int(user_id_raw)
-            if val > 0:
-                user_id = val
-        except (ValueError, TypeError):
-            user_id = None
+    if not code:
+        return web.json_response({"ok": False, "error": "not_found"})
+
+    raw_payload_uid = body.get("user_id") or request.query.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_payload_uid)
+
+    if not is_valid:
+        if err == "user_id_spoofing":
+            return web.json_response({
+                "ok": False,
+                "error": "spoofing",
+                "message": "Foydalanuvchi identifikatori soxtalashtirilgan."
+            }, status=403)
+        elif err in ("invalid_signature", "fake_init_data"):
+            return web.json_response({
+                "ok": False,
+                "error": "auth_failed",
+                "message": "Telegram hisobi tasdiqlanmadi."
+            }, status=401)
 
     if maintenance_service.is_page_maintenance("kino"):
         is_adm = bool(user_id and config.is_admin(user_id))
@@ -1127,8 +1136,15 @@ async def handle_music_send(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    init_data = request.headers.get("X-Init-Data", "")
-    user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id") or body.get("user_id")
+    raw_uid = request.query.get("user_id") or body.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_uid)
+
+    if not is_valid:
+        if err == "user_id_spoofing":
+            return web.json_response({"ok": False, "error": "spoofing", "message": "ID soxtalashtirish aniqlandi"}, status=403)
+        if err == "invalid_user_id_format":
+            return web.json_response({"ok": False, "error": "invalid_user"}, status=400)
+        return web.json_response({"ok": False, "error": "auth"}, status=401)
 
     if not user_id:
         return web.json_response({"ok": False, "error": "auth"}, status=401)
@@ -1136,10 +1152,7 @@ async def handle_music_send(request: web.Request) -> web.Response:
     if not _bot_instance:
         return web.json_response({"ok": False, "error": "bot_not_ready"}, status=503)
 
-    try:
-        chat_id = int(user_id)
-    except (ValueError, TypeError):
-        return web.json_response({"ok": False, "error": "invalid_user"}, status=400)
+    chat_id = user_id
 
     title = body.get("t") or body.get("title") or "Musiqa"
     artist = body.get("a") or body.get("artist") or ""
@@ -1387,18 +1400,23 @@ async def handle_story_send(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    init_data = request.headers.get("X-Init-Data", "")
-    user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id") or body.get("user_id")
+    raw_uid = request.query.get("user_id") or body.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_uid)
+
+    if not is_valid:
+        if err == "user_id_spoofing":
+            return web.json_response({"ok": False, "error": "spoofing", "message": "ID soxtalashtirish aniqlandi"}, status=403)
+        if err == "invalid_user_id_format":
+            return web.json_response({"ok": False, "error": "invalid_user"}, status=400)
+        return web.json_response({"ok": False, "error": "auth"}, status=401)
+
     if not user_id:
         return web.json_response({"ok": False, "error": "auth"}, status=401)
 
     if not _bot_instance:
         return web.json_response({"ok": False, "error": "bot_not_ready"}, status=503)
 
-    try:
-        chat_id = int(user_id)
-    except (ValueError, TypeError):
-        return web.json_response({"ok": False, "error": "invalid_user"}, status=400)
+    chat_id = user_id
 
     u = body.get("u", "").strip()
     if not u:
@@ -1541,10 +1559,16 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
     if not user_id_raw or not _bot_instance:
         return web.json_response({"error": "Bot yoki user_id topilmadi"}, status=400)
 
-    try:
-        chat_id = int(user_id_raw)
-    except (ValueError, TypeError):
-        return web.json_response({"error": "Noto'g'ri user_id formati"}, status=400)
+    user_id, is_valid, err = security_service.verify_telegram_user(request, user_id_raw)
+    if not is_valid:
+        if err == "invalid_user_id_format":
+            return web.json_response({"error": "Noto'g'ri user_id formati"}, status=400)
+        elif err == "user_id_spoofing":
+            return web.json_response({"error": "ID soxtalashtirish aniqlandi", "code": "spoofing"}, status=403)
+        else:
+            return web.json_response({"error": "Telegram WebApp xavfsizlik tekshiruvidan o'tmadi", "code": err}, status=401)
+
+    chat_id = user_id
 
     try:
         if action_type == "movie" and code:
@@ -1701,12 +1725,8 @@ async def handle_book_send(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    init_data = request.headers.get("X-Init-Data", "")
-    user_id = (
-        extract_user_id_from_init_data(init_data)
-        or request.query.get("user_id")
-        or body.get("user_id")
-    )
+    raw_uid = request.query.get("user_id") or body.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_uid)
     book_id = str(body.get("id") or body.get("book_id") or body.get("i") or "").strip()
 
     if not book_id:
@@ -1934,19 +1954,8 @@ def create_web_app() -> web.Application:
     """aiohttp web application yaratish va routerlarni sozlash."""
     app = web.Application()
 
-    # CORS va xavfsizlik sarlavhalari middleware
-    @web.middleware
-    async def cors_middleware(request, handler):
-        if request.method == "OPTIONS":
-            response = web.Response(status=204)
-        else:
-            response = await handler(request)
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With"
-        return response
-
-    app.middlewares.append(cors_middleware)
+    # CORS, DoS / DDoS Rate Limiting, WAF va Clickjacking (CSP) xavfsizlik middleware
+    app.middlewares.append(security_middleware)
 
     # API va sahifa marshrutlari
     app.router.add_get("/health", handle_health)

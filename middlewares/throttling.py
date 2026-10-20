@@ -41,9 +41,10 @@ class ThrottlingMiddleware(BaseMiddleware):
             }
 
         if now - last_time < self.rate_limit:
-            # Juda tez xabar yuborilgan
+            # Juda tez xabar yuborilgan - cooldown yangilanadi va xabar e'tiborsiz qoldiriladi
             logger.debug(f"User {user.id} spam chekloviga tushdi")
-            return  # Xabarni e'tiborsiz qoldirish
+            self.user_timestamps[user.id] = now
+            return
 
         self.user_timestamps[user.id] = now
         return await handler(event, data)
