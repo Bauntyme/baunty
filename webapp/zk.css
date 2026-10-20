@@ -19,8 +19,8 @@ body.zk{background:transparent!important;color:var(--zk-cream);font-family:var(-
 body.zk::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
   background:radial-gradient(rgba(255,255,255,.045) 1px,transparent 1.2px) 0 0/3px 3px}
 img{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
-body.zk>.top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(7,11,31,.92)}
-body.zk>main{position:relative;z-index:1}
+body.zk>.top{position:sticky;top:0;z-index:999}
+body.zk>main{position:relative;z-index:2}
 .zk :focus-visible{outline:2px solid var(--zk-acc);outline-offset:2px}
 
 /* ---------- kirish animatsiyasi: 5 bo'lim (kino, musiqa, kitob, o'yin, story) aylanib logoga yig'iladi ---------- */
@@ -85,7 +85,7 @@ body.zk>main{position:relative;z-index:1}
 }
 
 /* ================================================================== 🎬 KINO (asosiy oyna) */
-.zk>.top{background:rgba(7,11,31,.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);position:sticky;top:0;z-index:999;
+.zk>.top{background:linear-gradient(rgba(7,11,31,.78),rgba(7,11,31,.5));-webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);
   box-shadow:0 1px 0 var(--zk-line);padding:12px 16px 10px}
 .zk .brand small{color:var(--zk-mute);font-weight:600;margin-top:8px}
 .zk .chan{background:var(--zk-glass);box-shadow:inset 0 0 0 1px var(--zk-line);color:var(--zk-cream)}

@@ -122,7 +122,7 @@ function addHist(it) {
   lsSet("zk_mhist", hist);
 }
 
-let home = null, bot = "", opened = false, mounted = false, isAdmin = false;
+let home = lsGet("zk_mhome_cache", null), bot = "", opened = false, mounted = false, isAdmin = false;
 const stack = [];               // ko'rinishlar: {v:"home"|"search"|"list", ...}
 const lists = new Map();        // ro'yxat id → treklar (qatorlarni bosish uchun)
 let listSeq = 0;
@@ -172,6 +172,11 @@ function unlock() {
 async function prepare(it, signal) {
   const k = keyOf(it), c = urlCache.get(k);
   if (c && Date.now() - c.at < URL_TTL) return c.url;
+  const directCandidate = it.u || it.preview;
+  if (directCandidate && typeof directCandidate === "string" && directCandidate.startsWith("http") && !directCandidate.includes("/music/") && !directCandidate.includes(".html") && !directCandidate.includes("search?")) {
+    urlCache.set(k, {url: directCandidate, at: Date.now()});
+    return directCandidate;
+  }
   const r = await api("api/music/play", {json: slim(it), signal});
   if (!r.ok) { const e = new Error(r.error || "err"); e.code = r.error; throw e; }
   urlCache.set(k, {url: r.url, at: Date.now()});
@@ -1239,14 +1244,31 @@ function wire() {
 
 async function loadHome() {
   try {
-    const r = await (await fetch("api/music/home", {cache: "no-cache"})).json();
-    home = {top: r.top || [], hero: r.hero || [], hits: r.hits || [], fresh: r.fresh || [], clips: r.clips || [], artists: r.artists || []};
-  } catch (e) { home = {top: []}; }
+    const res = await fetch("api/music/home");
+    const r = await res.json();
+    const newHome = {top: r.top || [], hero: r.hero || [], hits: r.hits || [], fresh: r.fresh || [], clips: r.clips || [], artists: r.artists || []};
+    home = newHome;
+    lsSet("zk_mhome_cache", newHome);
+    // Top treklarni oldindan tayyorlash (prefetching)
+    if (newHome.top && newHome.top.length) {
+      setTimeout(() => {
+        newHome.top.slice(0, 5).forEach((t) => {
+          if (!urlCache.has(keyOf(t))) prepare(t).catch(() => {});
+        });
+      }, 500);
+    }
+  } catch (e) {
+    if (!home) home = {top: []};
+  }
   const v = stack[0];
   if (opened && v && stack.length === 1) render(true);
 }
 
 window.ZMusic = {
+  prefetch() {
+    if (!home) home = lsGet("zk_mhome_cache", null);
+    loadHome();
+  },
   open() {
     if (!mounted) {
       mounted = true; wire(); stack.push({v: "home"}); loadHome(); setTimeout(purgeLocal, 1500);
@@ -1272,6 +1294,8 @@ window.ZMusic = {
   pause() { audio.pause(); },
   stop() { if (cur()) stopAll(); },
 };
+// Ilova yuklanganda musiqani fonda oldindan yuklash (prefetching)
+setTimeout(loadHome, 100);
 })();
 
 

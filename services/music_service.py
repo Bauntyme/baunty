@@ -5,8 +5,9 @@ import asyncio
 import json
 import logging
 import re
+import time
 import urllib.parse
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import aiohttp
 from config import config, BASE_DIR
@@ -20,15 +21,25 @@ class MusicService:
 
     def __init__(self):
         self.downloader = media_downloader
+        self._search_cache: Dict[str, Tuple[float, List[Dict[str, Any]]]] = {}
+        self._resolve_cache: Dict[str, Tuple[float, str]] = {}
 
     async def search_tracks(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """
         Tarona, Deezer, iTunes, Soundcloud va Invidious ochiq API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
         Phonk, EDM, ruscha, xorijiy va o'zbek musiqalari uchun eng mos manbalarni birlashtiradi.
+        In-memory kesh bilan maksimal tezlikda (<0.1s) javob beradi.
         """
         clean_q = str(query or "").strip()
         if not clean_q:
             return []
+
+        cache_key = f"{clean_q.lower()}_{limit}"
+        now = time.time()
+        if cache_key in self._search_cache:
+            ts, cached_tracks = self._search_cache[cache_key]
+            if now - ts < 900:  # 15 daqiqa TTL
+                return list(cached_tracks)
 
         # 1. Tarona, Deezer, iTunes, Soundcloud va Invidious ochiq API larini parallel (bir vaqtda) ishga tushirish
         tasks = [
@@ -75,13 +86,17 @@ class MusicService:
                 break
 
         if merged:
+            self._search_cache[cache_key] = (now, merged)
             return merged
 
         # 3. Agar barcha ochiq API lar bo'sh bo'lsa, YouTube fallback
-        return await self._fallback_youtube_search(clean_q, limit=limit)
+        yt_results = await self._fallback_youtube_search(clean_q, limit=limit)
+        if yt_results:
+            self._search_cache[cache_key] = (now, yt_results)
+        return yt_results
 
     async def _search_tarona(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
-        """Tarona / Muzfm / Mp3uz o'zbek musiqa bazalari orqali qo'shiqlarni qidirish."""
+        """Tarona / Muzfm / Mp3uz o'zbek musiqa bazalari orqali qo'shiqlarni parallel qidirish."""
         clean_q = query.strip()
         if not clean_q:
             return []
@@ -97,17 +112,17 @@ class MusicService:
             "Accept-Language": "uz,en;q=0.9",
         }
 
-        for url in search_urls:
+        async def _fetch_url(url: str) -> List[Dict[str, Any]]:
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                    async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=3.0)) as resp:
                         if resp.status == 200:
                             if not hasattr(resp, "text"):
-                                continue
+                                return []
                             text_raw = resp.text() if callable(resp.text) else resp.text
                             html = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
                             if not isinstance(html, str) or len(html) < 200 or "track-item" not in html:
-                                continue
+                                return []
 
                             track_blocks = re.findall(
                                 r'<div class="track-item(?:\s+[^"]*)?"[^>]*>.*?(?=<div class="track-item(?:\s+[^"]*)?"|$)',
@@ -174,15 +189,26 @@ class MusicService:
                                     })
                                     if len(tracks) >= limit:
                                         break
-                            if tracks:
-                                return tracks
+                            return tracks
             except Exception as e:
                 logger.debug(f"Tarona qidiruv xatosi ({url}): {e}")
+            return []
 
-        return []
+        results = await asyncio.gather(*[_fetch_url(u) for u in search_urls], return_exceptions=True)
+        seen_ids = set()
+        all_tracks: List[Dict[str, Any]] = []
+        for r in results:
+            if isinstance(r, list):
+                for t in r:
+                    if t["id"] not in seen_ids:
+                        seen_ids.add(t["id"])
+                        all_tracks.append(t)
+                        if len(all_tracks) >= limit:
+                            return all_tracks
+        return all_tracks
 
     async def _resolve_tarona_direct_mp3(self, link_or_track: Any) -> Optional[str]:
-        """Tarona sahifasi havolasidan to'g'ridan-to'g'ri .mp3 audio URL ni ajratib olish."""
+        """Tarona sahifasi havolasidan to'g'ridan-to'g'ri .mp3 audio URL ni tezkor ajratib olish va keshga saqlash."""
         target_url = link_or_track
         if isinstance(link_or_track, dict):
             u = link_or_track.get("link") or link_or_track.get("u") or link_or_track.get("preview")
@@ -203,13 +229,20 @@ class MusicService:
         if ".mp3" in str(target_url):
             return str(target_url)
 
+        cache_key = str(target_url)
+        now = time.time()
+        if cache_key in self._resolve_cache:
+            ts, cached_url = self._resolve_cache[cache_key]
+            if now - ts < 3600:
+                return cached_url
+
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
         }
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(str(target_url), headers=headers, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                async with session.get(str(target_url), headers=headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                     if resp.status == 200:
                         if hasattr(resp, "text"):
                             text_raw = resp.text() if callable(resp.text) else resp.text
@@ -225,6 +258,7 @@ class MusicService:
                                     from urllib.parse import urlparse
                                     p = urlparse(str(target_url))
                                     res_url = f"{p.scheme}://{p.netloc}{res_url}"
+                                self._resolve_cache[cache_key] = (now, res_url)
                                 return res_url
         except Exception as e:
             logger.debug(f"Tarona to'g'ridan-to'g'ri MP3 URL topishda xatolik: {e}")
@@ -470,12 +504,12 @@ class MusicService:
             "Accept": "application/json",
         }
 
-        for host in hosts:
+        async def _fetch_host(host: str) -> List[Dict[str, Any]]:
             try:
                 url = f"{host}/api/v1/search"
                 params = {"q": f"{clean_q} audio", "type": "video"}
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                    async with session.get(url, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=2.5)) as resp:
                         if resp.status == 200:
                             data = await resp.json()
                             if isinstance(data, list) and data:
@@ -517,6 +551,12 @@ class MusicService:
                                     return tracks
             except Exception as e:
                 logger.debug(f"Invidious music search xatosi ({host}): {e}")
+            return []
+
+        inv_results = await asyncio.gather(*[_fetch_host(h) for h in hosts], return_exceptions=True)
+        for r in inv_results:
+            if isinstance(r, list) and r:
+                return r
 
         return []
 

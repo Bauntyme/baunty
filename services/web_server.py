@@ -9,7 +9,7 @@ import time
 import random
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from aiohttp import web
 from config import config, BASE_DIR
 from database.session import get_session
@@ -728,14 +728,37 @@ async def handle_watch(request: web.Request) -> web.Response:
         })
 
 
-async def handle_music_home(request: web.Request) -> web.Response:
-    """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar)."""
+_MUSIC_HOME_CACHE: Optional[Dict[str, Any]] = None
+_MUSIC_HOME_TS: float = 0.0
+
+
+def get_cached_music_home() -> Dict[str, Any]:
+    global _MUSIC_HOME_CACHE, _MUSIC_HOME_TS
+    now = time.time()
+    if _MUSIC_HOME_CACHE is not None and (now - _MUSIC_HOME_TS < 300):
+        return _MUSIC_HOME_CACHE
+
     music_home_path = BASE_DIR / "data" / "music_home.json"
     if music_home_path.exists():
-        with open(music_home_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return web.json_response(data)
-    return web.json_response({"ok": True, "top": TOP_50_TRACKS})
+        try:
+            with open(music_home_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            _MUSIC_HOME_CACHE = data
+            _MUSIC_HOME_TS = now
+            return data
+        except Exception as e:
+            logger.warning(f"music_home.json o'qishda xatolik: {e}")
+
+    fallback = {"ok": True, "top": TOP_50_TRACKS}
+    _MUSIC_HOME_CACHE = fallback
+    _MUSIC_HOME_TS = now
+    return fallback
+
+
+async def handle_music_home(request: web.Request) -> web.Response:
+    """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar) - kesh orqali bir zumda."""
+    data = get_cached_music_home()
+    return web.json_response(data, headers={"Cache-Control": "public, max-age=180"})
 
 
 async def handle_music_recognize(request: web.Request) -> web.Response:
@@ -865,42 +888,55 @@ async def handle_music_search(request: web.Request) -> web.Response:
 
     try:
         tracks = await music_service.search_tracks(query=q, limit=n)
-        return web.json_response({"ok": True, "items": tracks})
+        return web.json_response({"ok": True, "items": tracks}, headers={"Cache-Control": "public, max-age=180"})
     except Exception as e:
         logger.error(f"Musiqa qidirishda xatolik: {e}")
         return web.json_response({"ok": False, "error": str(e), "items": []})
 
 
+_PLAY_STREAM_CACHE: Dict[str, Tuple[float, str]] = {}
+
+
 async def handle_music_play(request: web.Request) -> web.Response:
-    """Web App musiqa tinglash uchun MP3 oqim havolasini tayyorlash API."""
+    """Web App musiqa tinglash uchun MP3 oqim havolasini tayyorlash API - in-memory kesh bilan."""
     try:
         body = await request.json()
     except Exception:
         body = {}
 
     url = body.get("u") or body.get("preview") or body.get("url")
+    track_id = str(body.get("id") or "")
+    cache_key = f"{track_id}_{url}"
+    now = time.time()
+
+    if cache_key in _PLAY_STREAM_CACHE:
+        ts, cached_url = _PLAY_STREAM_CACHE[cache_key]
+        if now - ts < 3600:
+            return web.json_response({"ok": True, "url": cached_url}, headers={"Cache-Control": "public, max-age=1800"})
 
     # Tarona bazasi bo'lsa, to'g'ridan-to'g'ri .mp3 audio oqim havolasini aniqlash
     if body.get("s") == "tarona" or (url and any(d in str(url) for d in ["muzfm", "mp3uz", "/music/"])):
         direct_tarona = await music_service._resolve_tarona_direct_mp3(body)
         if direct_tarona:
-            return web.json_response({"ok": True, "url": direct_tarona})
+            _PLAY_STREAM_CACHE[cache_key] = (now, direct_tarona)
+            return web.json_response({"ok": True, "url": direct_tarona}, headers={"Cache-Control": "public, max-age=1800"})
 
     if url and str(url).startswith("http") and not any(p in str(url) for p in ["/music/", ".html", "search?"]):
-        return web.json_response({"ok": True, "url": url})
+        _PLAY_STREAM_CACHE[cache_key] = (now, url)
+        return web.json_response({"ok": True, "url": url}, headers={"Cache-Control": "public, max-age=1800"})
 
     # Deezer ID bo'yicha to'g'ridan-to'g'ri preview olish
-    track_id = body.get("id")
     if track_id and body.get("s") == "dz":
         try:
             import aiohttp
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://api.deezer.com/track/{track_id}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                async with session.get(f"https://api.deezer.com/track/{track_id}", timeout=aiohttp.ClientTimeout(total=4)) as resp:
                     if resp.status == 200:
                         dz_data = await resp.json()
                         preview_mp3 = dz_data.get("preview")
                         if preview_mp3:
-                            return web.json_response({"ok": True, "url": preview_mp3})
+                            _PLAY_STREAM_CACHE[cache_key] = (now, preview_mp3)
+                            return web.json_response({"ok": True, "url": preview_mp3}, headers={"Cache-Control": "public, max-age=1800"})
         except Exception as e:
             logger.info(f"Deezer preview olishda xatolik: {e}")
 
@@ -912,20 +948,25 @@ async def handle_music_play(request: web.Request) -> web.Response:
         try:
             results = await music_service.search_tracks(query=query, limit=1)
             if results and results[0].get("preview"):
-                return web.json_response({"ok": True, "url": results[0]["preview"]})
+                stream_res = results[0]["preview"]
+                _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
+                return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
         except Exception as e:
             logger.warning(f"Play search fallback xatosi: {e}")
 
     # YouTube yoki noma'lum manba bo'lsa, avval qidiruv orqali MP3 audio topish
-    query = f"{artist} {title}".strip()
     if query:
         try:
             results = await music_service.search_tracks(query=query, limit=3)
             for res in results:
                 if res.get("preview") and str(res["preview"]).startswith("http"):
-                    return web.json_response({"ok": True, "url": res["preview"]})
+                    stream_res = res["preview"]
+                    _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
+                    return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
                 if res.get("url") and str(res["url"]).endswith((".mp3", ".m4a", ".ogg")):
-                    return web.json_response({"ok": True, "url": res["url"]})
+                    stream_res = res["url"]
+                    _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
+                    return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
         except Exception as e:
             logger.warning(f"Play search fallback xatosi: {e}")
 
@@ -933,9 +974,11 @@ async def handle_music_play(request: web.Request) -> web.Response:
     if TOP_50_TRACKS:
         for track in TOP_50_TRACKS:
             if track.get("url") and str(track["url"]).startswith("http") and not "youtube.com" in str(track["url"]):
-                return web.json_response({"ok": True, "url": track["url"]})
+                _PLAY_STREAM_CACHE[cache_key] = (now, track["url"])
+                return web.json_response({"ok": True, "url": track["url"]}, headers={"Cache-Control": "public, max-age=1800"})
         if TOP_50_TRACKS[0].get("url"):
-            return web.json_response({"ok": True, "url": TOP_50_TRACKS[0]["url"]})
+            _PLAY_STREAM_CACHE[cache_key] = (now, TOP_50_TRACKS[0]["url"])
+            return web.json_response({"ok": True, "url": TOP_50_TRACKS[0]["url"]}, headers={"Cache-Control": "public, max-age=1800"})
 
     return web.json_response({"ok": False, "error": "not_found"}, status=404)
 

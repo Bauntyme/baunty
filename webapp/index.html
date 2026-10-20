@@ -45,7 +45,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 
 /* ---------- sarlavha ---------- */
-.top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:rgba(7,11,31,0.92);padding:12px 16px 8px;
+.top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:var(--bg);padding:12px 16px 8px;
   box-shadow:0 1px 0 var(--sep)}
 .brand{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
 .brand h1{font-size:21px;line-height:1.15;margin:0;font-weight:800;letter-spacing:-.3px}
@@ -316,7 +316,6 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
     <button class="zk-dice" id="dice" type="button" aria-label="Tasodifiy kino tanlash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5"/><circle cx="8.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1.4" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1.4" fill="currentColor"/></svg></button>
   <button class="zk-dice" id="zkDice" type="button" aria-label="Tasodifiy kino" style="display:none"></button>
   </label>
-  <nav class="chips" id="chips2" hidden></nav>
   <nav class="chips" id="chips">
     <button class="chip on" data-t="all">Hammasi</button>
     <button class="chip" data-t="pop">🔥 Ommabop</button>
@@ -344,6 +343,7 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
       <span style="opacity:.8;font-size:13px">Keyinroq urinib ko'ring yoki boshqa kanalni tanlang</span>
       <div style="display:flex;gap:8px"><button class="vbtn" id="vretry">🔄 Qayta</button><button class="vbtn" id="vnext">Keyingi ›</button></div></div>
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
+    <div class="tv-4k-badge" id="tv4kbadge">4K UHD</div>
     <div class="fs-bar" id="fsbar">
       <div class="fs-title">
         <span id="fsname">Telekanal</span>
@@ -814,7 +814,7 @@ function tvInitials(name) {
 const logoHTML = (c) => tvInitials(c.n).outerHTML +
   (c.l ? `<img class="tvl" src="${esc(c.l)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "");
 const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
-  <span class="live">LIVE</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
+  <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9.5px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">4K</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${esc(c.n)}</div></button>`;
 
 function tvChips() {
   const cc = [...new Set(tvItems.map((x) => x.c))];
@@ -1099,6 +1099,7 @@ function attempt(url) {
           hls = new Hls({
             enableWorker: true,
             startFragPrefetch: true,
+            capLevelToPlayerSize: false,
             lowLatencyMode: false,
             liveSyncDurationCount: 2,
             liveMaxLatencyDurationCount: 6,
@@ -1176,16 +1177,17 @@ function attempt(url) {
                 }
               }
               try {
-                if (_isSlow) {
-                  hls.startLevel = -1;
-                  hls.autoLevelCapping = -1;
-                } else {
-                  hls.startLevel = bestIdx;
-                  hls.loadLevel = bestIdx;
-                  hls.nextLoadLevel = bestIdx;
-                  hls.autoLevelCapping = -1;
-                }
+                hls.config.capLevelToPlayerSize = false;
+                hls.startLevel = bestIdx;
+                hls.loadLevel = bestIdx;
+                hls.nextLoadLevel = bestIdx;
+                hls.currentLevel = bestIdx;
+                hls.autoLevelCapping = -1;
               } catch (e) {}
+              const qBtn = $("tvq");
+              if (qBtn) qBtn.textContent = "4K UHD";
+              const b4k = $("tv4kbadge");
+              if (b4k) b4k.textContent = "4K UHD";
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -1200,27 +1202,29 @@ function attempt(url) {
                 }
               }
               try {
-                if (_isSlow) {
-                  hls.startLevel = -1;
-                  hls.autoLevelCapping = -1;
-                } else {
-                  hls.startLevel = bestIdx;
-                  hls.loadLevel = bestIdx;
-                  hls.nextLoadLevel = bestIdx;
-                  hls.autoLevelCapping = -1;
-                }
+                hls.config.capLevelToPlayerSize = false;
+                hls.startLevel = bestIdx;
+                hls.loadLevel = bestIdx;
+                hls.nextLoadLevel = bestIdx;
+                hls.currentLevel = bestIdx;
+                hls.autoLevelCapping = -1;
               } catch (e) {}
               const qBtn = $("tvq");
               if (qBtn) qBtn.textContent = "4K UHD";
+              const b4k = $("tv4kbadge");
+              if (b4k) b4k.textContent = "4K UHD";
             }
             tryAutoplay();
           });
           hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
             const qBtn = $("tvq");
             if (qBtn) qBtn.textContent = "4K UHD";
+            const b4k = $("tv4kbadge");
+            if (b4k) b4k.textContent = "4K UHD";
           });
           try {
-            vid.style.filter = "contrast(1.05) saturate(1.06)";
+            vid.style.filter = "contrast(1.05) saturate(1.05)";
+            vid.style.webkitFilter = "contrast(1.05) saturate(1.05)";
             vid.style.imageRendering = "-webkit-optimize-contrast";
           } catch (e) {}
           hls.loadSource(streamTarget);
@@ -1734,6 +1738,7 @@ async function load() {
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
   const code = +String(sp).replace(/\D/g, "");
   if (code && byCode.has(code)) openDetail(byCode.get(code), false);
+  try { if (window.ZMusic && window.ZMusic.prefetch) window.ZMusic.prefetch(); else fetch("api/music/home").catch(() => {}); } catch (e) {}
 }
 load();
 })();
