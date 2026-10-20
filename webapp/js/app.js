@@ -420,9 +420,14 @@ const App = {
         const video = document.getElementById('tv-video-player');
         if (!video) return;
 
+        const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
+        const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
         let targetUrl = streamUrl;
-        if (streamUrl.includes('cinerama.uz') && streamUrl.includes('playlist.m3u8')) {
+        if (!_isSlow && streamUrl.includes('cinerama.uz') && streamUrl.includes('playlist.m3u8')) {
             targetUrl = streamUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
+        } else if (_isSlow && streamUrl.includes('cinerama.uz') && streamUrl.includes('tracks-v1a1')) {
+            targetUrl = streamUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
         }
 
         if (window.Hls && window.Hls.isSupported()) {
@@ -430,20 +435,20 @@ const App = {
             this.hls = new window.Hls({
                 testBandwidth: false,
                 startLevel: -1,
-                abrEwmaDefaultEstimate: 35000000,
-                abrEwmaDefaultEstimateMax: 80000000,
+                abrEwmaDefaultEstimate: _isSlow ? 2000000 : 8000000,
+                abrEwmaDefaultEstimateMax: 40000000,
                 capLevelToPlayerSize: false,
                 enableWorker: true,
-                liveSyncDurationCount: 3,
-                liveMaxLatencyDurationCount: 10,
-                maxBufferLength: 45,
-                maxMaxBufferLength: 120,
-                maxBufferSize: 120 * 1024 * 1024,
+                liveSyncDurationCount: 2,
+                liveMaxLatencyDurationCount: 5,
+                maxBufferLength: _isSlow ? 20 : 30,
+                maxMaxBufferLength: 45,
+                maxBufferSize: 30 * 1024 * 1024,
                 maxBufferHole: 0.5,
                 highBufferWatchdogPeriod: 2,
                 nudgeOffset: 0.1,
                 nudgeMaxRetry: 5,
-                backBufferLength: 15,
+                backBufferLength: 4,
                 startFragPrefetch: true
             });
             this.hls.loadSource(targetUrl);
@@ -457,10 +462,10 @@ const App = {
                         if (s > maxScore) { maxScore = s; bestIdx = i; }
                     }
                     try {
-                        this.hls.startLevel = bestIdx;
+                        this.hls.startLevel = _isSlow ? 0 : bestIdx;
                         this.hls.loadLevel = bestIdx;
                         this.hls.nextLoadLevel = bestIdx;
-                        this.hls.minAutoLevel = Math.max(0, bestIdx - 1);
+                        this.hls.minAutoLevel = 0;
                     } catch (err) {}
                 }
             });
@@ -473,10 +478,10 @@ const App = {
                         if (s > maxScore) { maxScore = s; bestIdx = i; }
                     }
                     try {
-                        this.hls.startLevel = bestIdx;
+                        this.hls.startLevel = _isSlow ? 0 : bestIdx;
                         this.hls.loadLevel = bestIdx;
                         this.hls.nextLoadLevel = bestIdx;
-                        this.hls.minAutoLevel = Math.max(0, bestIdx - 1);
+                        this.hls.minAutoLevel = 0;
                     } catch (err) {}
                 }
                 video.play().catch(e => console.log('Video autoplay blocked:', e));

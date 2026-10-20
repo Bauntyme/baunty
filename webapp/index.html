@@ -351,14 +351,14 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
       <span style="opacity:.8;font-size:13px">Keyinroq urinib ko'ring yoki boshqa kanalni tanlang</span>
       <div style="display:flex;gap:8px"><button class="vbtn" id="vretry">🔄 Qayta</button><button class="vbtn" id="vnext">Keyingi ›</button></div></div>
     <button class="unmute" id="unmute" hidden>🔇 Ovozni yoqish</button>
-    <div class="tv-4k-badge" id="tv4kbadge">4K UHD</div>
+    <div class="tv-4k-badge" id="tv4kbadge">1440p QHD</div> <!-- 4K UHD -->
     <div class="fs-bar" id="fsbar">
       <div class="fs-title">
         <span id="fsname">Telekanal</span>
-        <span class="fs-badge">4K UHD</span>
+        <span class="fs-badge">1440p QHD</span>
       </div>
       <div class="fs-actions">
-        <button class="fs-btn" id="fsq" title="Sifat: 4K UHD">4K</button>
+        <button class="fs-btn" id="fsq" title="Sifat: 1440p QHD">1440p</button>
         <button class="fs-btn" id="fsmute" title="Ovoz">🔊</button>
         <button class="fs-btn" id="fsclose" title="To'liq ekrandan chiqish" aria-label="Chiqish">✕</button>
       </div>
@@ -366,7 +366,7 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
     <button class="vbox-fs-btn" id="vboxfs" aria-label="To'liq ekran" title="To'liq ekran">⛶</button>
   </div>
   <div class="tvbar"><div class="lg" id="tvlogo"></div><div class="grow"><b id="tvname"></b><small>● JONLI EFIR</small></div>
-    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">4K UHD</button>
+    <button class="ib" id="tvq" aria-label="Sifat" style="width:auto;padding:0 8px;font-size:11px;font-weight:800;border-radius:8px;background:linear-gradient(135deg,#FFD700,#FFA500);color:#000">1440p QHD</button>
     <button class="ib" id="tvpip" aria-label="Kichik oyna (PiP)" title="Picture-in-Picture">⧉</button>
     <button class="ib" id="tvfav" aria-label="Sevimli">☆</button><button class="ib" id="tvfs" aria-label="To'liq ekran">⛶</button>
     <button class="ib" id="tvdel" aria-label="Kanalni o'chirish" hidden>🗑</button>
@@ -1077,7 +1077,10 @@ function attempt(url) {
         f(v);
       }
     };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 12000);
+    const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
+    const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 9000 : 7500);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
@@ -1101,6 +1104,9 @@ function attempt(url) {
     };
 
     let streamTarget = url;
+    if (_isSlow && streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
+      streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+    }
 
     try {
       if (nativeHls()) {
@@ -1118,7 +1124,7 @@ function attempt(url) {
             capLevelToPlayerSize: false,
             lowLatencyMode: false,
             liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 6,
+            liveMaxLatencyDurationCount: 5,
             maxBufferLength: 45,
             maxMaxBufferLength: 120,
             maxBufferHole: 0.5,
@@ -1129,38 +1135,49 @@ function attempt(url) {
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
             nudgeMaxRetry: 5,
-            manifestLoadingTimeOut: 6000,
+            manifestLoadingTimeOut: 5000,
             manifestLoadingMaxRetry: 4,
-            levelLoadingTimeOut: 6000,
+            levelLoadingTimeOut: 5000,
             levelLoadingMaxRetry: 4,
-            fragLoadingTimeOut: 8000,
+            fragLoadingTimeOut: 7000,
           });
           try {
-            const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-            const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
-            const _isSlow = (_conn && (_conn.saveData || _downlink < 2.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
             if (_isSlow) {
-              hls.config.maxBufferLength = 90;
-              hls.config.maxMaxBufferLength = 120;
-              hls.config.maxBufferSize = 120 * 1024 * 1024;
+              hls.config.maxBufferLength = 20;
+              hls.config.maxMaxBufferLength = 45;
+              hls.config.maxBufferSize = 25 * 1024 * 1024;
+              hls.config.abrEwmaDefaultEstimate = 2000000;
             } else {
-              hls.config.maxBufferLength = 60;
-              hls.config.maxMaxBufferLength = 120;
+              hls.config.maxBufferLength = 25;
+              hls.config.maxMaxBufferLength = 50;
+              hls.config.abrEwmaDefaultEstimate = 6000000;
             }
             if (_conn && _conn.addEventListener) {
               _conn.addEventListener("change", () => {
                 const curDl = _conn.downlink || 10;
-                if (curDl < 2.5 || /2g|3g/.test(_conn.effectiveType || "")) {
-                  hls.config.maxBufferLength = 90;
+                if (curDl < 3.5 || /2g|3g/.test(_conn.effectiveType || "")) {
+                  hls.config.maxBufferLength = 20;
+                  hls.config.maxMaxBufferLength = 45;
+                  if (hls.currentLevel !== -1) hls.currentLevel = -1;
                 }
               });
             }
           } catch (e) {}
           let netFatalRetries = 0;
+          let fallbackTried = false;
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
+              if (!fallbackTried && streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
+                fallbackTried = true;
+                streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+                try {
+                  hls.loadSource(streamTarget);
+                  hls.startLoad();
+                  return;
+                } catch (err) {}
+              }
               if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
-                if (++netFatalRetries <= 3) {
+                if (++netFatalRetries <= 2) {
                   try { hls.startLoad(); } catch (err) {}
                 } else {
                   fin(bad, "network_fatal");
@@ -1174,6 +1191,10 @@ function attempt(url) {
               try {
                 if (vid.currentTime > 0) vid.currentTime += 0.1;
                 if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
+                if (hls) {
+                  hls.currentLevel = -1;
+                  if (hls.nextLoadLevel > 0) hls.nextLoadLevel = Math.max(0, hls.nextLoadLevel - 1);
+                }
               } catch (e) {}
             }
           });
@@ -1183,71 +1204,78 @@ function attempt(url) {
               return;
             }
             if (data && data.levels && data.levels.length) {
-              let bestIdx = 0, maxScore = -1;
-              for (let i = 0; i < data.levels.length; i++) {
+              let targetIdx = data.levels.length - 1;
+              for (let i = data.levels.length - 1; i >= 0; i--) {
                 const lvl = data.levels[i];
-                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestIdx = i;
+                const h = lvl.height || 0;
+                if (h <= 1440 && h >= 720) {
+                  targetIdx = i;
+                  break;
                 }
               }
               try {
                 hls.config.capLevelToPlayerSize = false;
-                hls.startLevel = bestIdx;
-                hls.loadLevel = bestIdx;
-                hls.nextLoadLevel = bestIdx;
-                hls.currentLevel = bestIdx;
+                hls.startLevel = _isSlow ? 0 : targetIdx;
+                hls.currentLevel = -1; // Adaptive, never lock!
                 hls.autoLevelCapping = -1;
               } catch (e) {}
               const qBtn = $("tvq");
-              if (qBtn) qBtn.textContent = "4K UHD";
+              if (qBtn) qBtn.textContent = "1440p QHD";
               const b4k = $("tv4kbadge");
-              if (b4k) b4k.textContent = "4K UHD";
+              if (b4k) b4k.textContent = "1440p QHD";
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
             if (data && data.levels && data.levels.length) {
-              let bestIdx = 0, maxScore = -1;
-              for (let i = 0; i < data.levels.length; i++) {
+              let targetIdx = data.levels.length - 1;
+              for (let i = data.levels.length - 1; i >= 0; i--) {
                 const lvl = data.levels[i];
-                const score = (lvl.height || 0) * 100000 + (lvl.bitrate || 0);
-                if (score > maxScore) {
-                  maxScore = score;
-                  bestIdx = i;
+                const h = lvl.height || 0;
+                if (h <= 1440 && h >= 720) {
+                  targetIdx = i;
+                  break;
                 }
               }
               try {
                 hls.config.capLevelToPlayerSize = false;
-                hls.startLevel = bestIdx;
-                hls.loadLevel = bestIdx;
-                hls.nextLoadLevel = bestIdx;
-                hls.currentLevel = bestIdx;
+                hls.startLevel = _isSlow ? 0 : targetIdx;
+                hls.currentLevel = -1; // Adaptive!
                 hls.autoLevelCapping = -1;
               } catch (e) {}
               const qBtn = $("tvq");
-              if (qBtn) qBtn.textContent = "4K UHD";
+              if (qBtn) qBtn.textContent = "1440p QHD";
               const b4k = $("tv4kbadge");
-              if (b4k) b4k.textContent = "4K UHD";
+              if (b4k) b4k.textContent = "1440p QHD";
             }
             tryAutoplay();
           });
           hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
             const qBtn = $("tvq");
-            if (qBtn) qBtn.textContent = "4K UHD";
+            if (qBtn) qBtn.textContent = "1440p QHD";
             const b4k = $("tv4kbadge");
-            if (b4k) b4k.textContent = "4K UHD";
+            if (b4k) b4k.textContent = "1440p QHD";
           });
           try {
-            vid.style.filter = "contrast(1.05) saturate(1.05)";
-            vid.style.webkitFilter = "contrast(1.05) saturate(1.05)";
+            vid.style.filter = "contrast(1.06) saturate(1.05)";
+            vid.style.webkitFilter = "contrast(1.06) saturate(1.05)";
             vid.style.imageRendering = "-webkit-optimize-contrast";
           } catch (e) {}
           hls.loadSource(streamTarget);
           hls.attachMedia(vid);
         }
       }
-    } catch (e) { fin(bad, "load"); }
+    } catch (e) {
+      if (url.includes("cinerama.uz") && url.includes("tracks-v1a1")) {
+        const altUrl = url.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+        if (altUrl !== url) {
+          try {
+            await attempt(altUrl);
+            return;
+          } catch (e2) {}
+        }
+      }
+      fin(bad, "load");
+    }
   });
 }
 let tvN = 0;
@@ -1305,13 +1333,13 @@ function openTV(c, push = true) {
     } catch (e) {}
   }
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
-  const qb = "4K UHD";
+  const qb = "1440p QHD";
   $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">${esc(qb)}</span>`;
   if ($("fsname")) $("fsname").textContent = c.n || "Telekanal";
   $("tvlogo").innerHTML = logoHTML(c);
   $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
   const qBtn = $("tvq");
-  if (qBtn) qBtn.textContent = "4K UHD";
+  if (qBtn) qBtn.textContent = "1440p QHD";
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);
   if (same.length < 6) same = same.concat(tvItems.filter((x) => x.c === c.c && x.i !== c.i && !same.includes(x)));
   same = same.slice(0, 60);
@@ -1395,13 +1423,12 @@ if (tvqBtn) {
           if (score > maxScore) { maxScore = score; best = i; }
         }
         hls.currentLevel = best;
-        hls.loadLevel = best;
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Majburiy)", 1400);
+        tvqBtn.textContent = "1440p QHD";
+        toast("Sifat: 1440p QHD (Yuqori)", 1400);
       } else {
         hls.currentLevel = -1;
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
+        tvqBtn.textContent = "1440p QHD";
+        toast("Sifat: 1440p QHD (Moslashuvchan)", 1400);
       }
       return;
     }
@@ -1410,17 +1437,17 @@ if (tvqBtn) {
       if (curSrc.includes("tracks-v1a1")) {
         const autoUrl = curSrc.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
         attempt(autoUrl).catch(() => {});
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Moslashuvchan)", 1400);
+        tvqBtn.textContent = "1440p QHD";
+        toast("Sifat: 1440p QHD (Moslashuvchan)", 1400);
       } else {
         const directUrl = curSrc.replace("playlist.m3u8", "tracks-v1a1/mono.ts.m3u8");
         attempt(directUrl).catch(() => {});
-        tvqBtn.textContent = "4K UHD";
-        toast("Sifat: 4K UHD (Majburiy)", 1400);
+        tvqBtn.textContent = "1440p QHD";
+        toast("Sifat: 1440p QHD (Yuqori)", 1400);
       }
     } else {
-      tvqBtn.textContent = "4K UHD";
-      toast("Sifat: 4K UHD (Ultra HD)", 1200);
+      tvqBtn.textContent = "1440p QHD";
+      toast("Sifat: 1440p QHD (Ultra HD)", 1200);
     }
   };
 }

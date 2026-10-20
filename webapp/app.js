@@ -450,15 +450,26 @@ function ytEmbed(url) {
 function attempt(url) {
   return new Promise(async (ok, bad) => {
     let done = false;
-    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = null; f(v); } };
-    tvTimer = setTimeout(() => fin(bad, "timeout"), 15000);
+    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = null; f(v); } };
+    const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
+    const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 9000 : 7500);
     vid.onplaying = () => fin(ok);
+    vid.oncanplay = () => fin(ok);
+    vid.onloadeddata = () => fin(ok);
     vid.onerror = () => fin(bad, "media");
+
+    let streamTarget = url;
+    if (_isSlow && streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
+      streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+    }
+
     try {
-      if (nativeHls()) { vid.src = url; }
+      if (nativeHls()) { vid.src = streamTarget; }
       else {
         const Hls = await loadHlsLib();
-        if (!Hls.isSupported()) { vid.src = url; }
+        if (!Hls.isSupported()) { vid.src = streamTarget; }
         else {
           hls = new Hls({
             enableWorker: true,
@@ -466,39 +477,76 @@ function attempt(url) {
             capLevelToPlayerSize: false,
             lowLatencyMode: false,
             liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 6,
-            maxBufferLength: 45,
-            maxMaxBufferLength: 120,
+            liveMaxLatencyDurationCount: 5,
+            maxBufferLength: _isSlow ? 20 : 25,
+            maxMaxBufferLength: 45,
             maxBufferHole: 0.5,
-            maxBufferSize: 60 * 1024 * 1024,
+            maxBufferSize: 30 * 1024 * 1024,
             backBufferLength: 4,
-            abrEwmaDefaultEstimate: 8000000,
+            abrEwmaDefaultEstimate: _isSlow ? 2000000 : 6000000,
             testBandwidth: true,
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
             nudgeMaxRetry: 5,
-            manifestLoadingTimeOut: 6000,
+            manifestLoadingTimeOut: 5000,
             manifestLoadingMaxRetry: 4,
-            levelLoadingTimeOut: 6000,
+            levelLoadingTimeOut: 5000,
             levelLoadingMaxRetry: 4,
-            fragLoadingTimeOut: 8000,
+            fragLoadingTimeOut: 7000,
           });
-          hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fin(bad, d.type); });
-          hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-            if (data && data.levels && data.levels.length > 0) {
-              const topLvl = data.levels.length - 1;
-              hls.startLevel = topLvl;
-              hls.currentLevel = topLvl;
+          hls.on(Hls.Events.ERROR, (_, d) => {
+            if (d.fatal) {
+              if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+                try { hls.recoverMediaError(); } catch (err) { fin(bad, d.type); }
+              } else {
+                fin(bad, d.type);
+              }
+            } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+              try {
+                if (vid.currentTime > 0) vid.currentTime += 0.1;
+                if (vid.paused) vid.play().catch(() => {});
+                if (hls) hls.currentLevel = -1;
+              } catch (e) {}
             }
           });
-          hls.loadSource(url); hls.attachMedia(vid);
+          hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+            if (data && data.levels && data.levels.length > 0) {
+              let targetIdx = data.levels.length - 1;
+              for (let i = data.levels.length - 1; i >= 0; i--) {
+                const h = data.levels[i].height || 0;
+                if (h <= 1440 && h >= 720) {
+                  targetIdx = i;
+                  break;
+                }
+              }
+              hls.startLevel = _isSlow ? 0 : targetIdx;
+              hls.currentLevel = -1; // Adaptive, never lock!
+            }
+          });
+          try {
+            vid.style.filter = "contrast(1.06) saturate(1.05)";
+            vid.style.webkitFilter = "contrast(1.06) saturate(1.05)";
+            vid.style.imageRendering = "-webkit-optimize-contrast";
+          } catch (e) {}
+          hls.loadSource(streamTarget); hls.attachMedia(vid);
         }
       }
       vid.muted = false;
       vid.play().catch((err) => {
         if (err && err.name === "NotAllowedError") { vid.muted = true; $("unmute").hidden = false; vid.play().catch(() => {}); }
       });
-    } catch (e) { fin(bad, "load"); }
+    } catch (e) {
+      if (url.includes("cinerama.uz") && url.includes("tracks-v1a1")) {
+        const altUrl = url.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+        if (altUrl !== url) {
+          try {
+            await attempt(altUrl);
+            return;
+          } catch (e2) {}
+        }
+      }
+      fin(bad, "load");
+    }
   });
 }
 let tvN = 0;
