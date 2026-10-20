@@ -168,8 +168,7 @@ main{padding:6px 16px calc(28px + env(safe-area-inset-bottom))}
 .seg{display:inline-flex;background:var(--bg2);border-radius:12px;padding:3px;gap:2px}
 .seg button{padding:7px 12px;border-radius:9px;font-weight:750;font-size:15px;color:var(--hint);transition:.15s;white-space:nowrap}
 @media (max-width:374px){.seg button{padding:7px 9px;font-size:14px}.chan{padding:7px 9px;font-size:12px}}
-.brand>div:first-child{min-width:0;max-width:100%;overflow-x:auto;scrollbar-width:none}
-.brand>div:first-child::-webkit-scrollbar{display:none}
+.brand>div:first-child{min-width:0;max-width:100%;width:100%;overflow:visible;display:flex;flex-direction:column;gap:4px}
 body.seg4 .chan{display:none}
 body.seg4 .seg button{padding:7px 10px;font-size:14px}
 .seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
@@ -1121,7 +1120,7 @@ function attempt(url) {
             maxBufferHole: 0.5,
             maxBufferSize: 60 * 1024 * 1024,
             backBufferLength: 4,
-            abrEwmaDefaultEstimate: 4000000,
+            abrEwmaDefaultEstimate: 8000000,
             testBandwidth: true,
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,

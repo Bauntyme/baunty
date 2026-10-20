@@ -202,12 +202,12 @@ async def test_deliver_movie_document_type(in_memory_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSession):
-    """Mock/placeholder file_id bo'lganda send_video chaqirilmasdan poster/matnga o'tishi testi."""
+    """Bazada placeholder file_id bo'lsa ham 100% holatda haqiqiy MP4 video yuborilishi testi."""
     movie = await crud.create_movie(
         session=in_memory_session,
         code="101",
         title="Forsaj 10",
-        file_id="BAACAgIAAxkBAAIB_forsaj10_vid"  # _vid mavjud -> placeholder
+        file_id="BAACAgIAAxkBAAIB_forsaj10_vid"  # _vid mavjud -> placeholder bo'lsa ham MP4 video yuboriladi
     )
     await in_memory_session.commit()
 
@@ -225,8 +225,42 @@ async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSessio
     )
 
     assert result is True
-    assert bot_mock.send_video.called is False
+    # Quruq rasm emas, har doim haqiqiy video yuborilishi shart
+    assert bot_mock.send_video.called is True
+    assert bot_mock.send_photo.called is False
+    call_args = bot_mock.send_video.call_args.kwargs
+    assert call_args["supports_streaming"] is True
+    assert ".mp4" in str(call_args["video"]) or "BAAC" in str(call_args["video"])
+
+
+@pytest.mark.asyncio
+async def test_deliver_movie_video_network_error_fallback(in_memory_session: AsyncSession):
+    """Video yuborishda tarmoq xatoligi bo'lgandagina poster yoki xabarga o'tishi testi."""
+    movie = await crud.create_movie(
+        session=in_memory_session,
+        code="101",
+        title="Forsaj 10",
+        file_id="BAACAgIAAxkBAAIB_forsaj10_vid"
+    )
+    await in_memory_session.commit()
+
+    bot_mock = AsyncMock()
+    bot_mock.send_video = AsyncMock(side_effect=Exception("Telegram connection timeout"))
+    bot_mock.send_photo = AsyncMock()
+    bot_mock.send_message = AsyncMock()
+
+    result = await movie_service.deliver_movie(
+        bot=bot_mock,
+        chat_id=12345,
+        code="101",
+        part=1,
+        session=in_memory_session
+    )
+
+    assert result is True
+    # Video yuborish xato berganda poster yoki xabar yuborilishi kerak
     assert bot_mock.send_photo.called or bot_mock.send_message.called
+
 
 
 @pytest.mark.asyncio

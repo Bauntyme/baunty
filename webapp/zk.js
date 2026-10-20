@@ -163,6 +163,7 @@ function decorate(seg) {
   const fresh = !ind;
   if (fresh) { ind = document.createElement("i"); ind.className = "zk-ind"; ind.setAttribute("aria-hidden", "true"); seg.prepend(ind); }
   const sr = seg.getBoundingClientRect(), br = on.getBoundingClientRect();
+  if (br.width <= 0 || sr.width <= 0) return false;
   const x = br.left - sr.left + seg.scrollLeft, w = br.width;
   const key = `${x.toFixed(1)}:${w.toFixed(1)}`;
   if (ind.dataset.k === key) return fresh;
@@ -193,7 +194,7 @@ function scanSegs() {
     flowScan();
   });
 }
-new MutationObserver(scanSegs).observe(body, {childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"]});
+new MutationObserver(scanSegs).observe(body, {childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "class", "data-zkm"]});
 addEventListener("resize", () => { document.querySelectorAll(".zk-ind").forEach((i) => { i.dataset.k = ""; }); scanSegs(); });
 document.addEventListener("click", (e) => { if (e.target.closest(SEG_SEL)) haptic("light"); }, true);
 

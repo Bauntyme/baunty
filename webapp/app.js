@@ -470,7 +470,7 @@ function attempt(url) {
             maxBufferHole: 0.5,
             maxBufferSize: 60 * 1024 * 1024,
             backBufferLength: 4,
-            abrEwmaDefaultEstimate: 4000000,
+            abrEwmaDefaultEstimate: 8000000,
             testBandwidth: true,
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
