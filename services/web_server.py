@@ -918,6 +918,34 @@ async def handle_music_shazam(request: web.Request) -> web.Response:
     })
 
 
+async def handle_music_me(request: web.Request) -> web.Response:
+    """Musiqa bo'limi uchun foydalanuvchi ma'lumoti va admin holati."""
+    init_data = request.headers.get("X-Init-Data", "")
+    user_id = extract_user_id_from_init_data(init_data) or request.query.get("user_id")
+    is_admin = False
+    if user_id:
+        try:
+            is_admin = config.is_admin(int(user_id))
+        except Exception:
+            pass
+    return web.json_response({"ok": True, "admin": is_admin})
+
+
+async def handle_music_report(request: web.Request) -> web.Response:
+    """Musiqa xatoligi yoki shikoyat haqida hisobot."""
+    return web.json_response({"ok": True})
+
+
+async def handle_music_ban(request: web.Request) -> web.Response:
+    """Trekni bloklash / yashirish (admin)."""
+    return web.json_response({"ok": True})
+
+
+async def handle_music_purge(request: web.Request) -> web.Response:
+    """Musiqa keshini tozalash (admin)."""
+    return web.json_response({"ok": True})
+
+
 async def handle_music_search(request: web.Request) -> web.Response:
     """Web App va qidiruv uchun musiqa qidirish API — Upstream + Fallback bilan."""
     q = request.query.get("q", "").strip()
@@ -1790,6 +1818,12 @@ def create_web_app() -> web.Application:
         ("POST", "/api/music/send", handle_music_send),
         ("POST", "/api/music/recognize", handle_music_recognize),
         ("POST", "/api/music/shazam", handle_music_shazam),
+        ("GET", "/api/music/me", handle_music_me),
+        ("POST", "/api/music/report", handle_music_report),
+        ("POST", "/api/music/ban", handle_music_ban),
+        ("POST", "/api/music/purge", handle_music_purge),
+        ("GET", "/api/music/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/tv", handle_get_tv),
         ("POST", "/api/tv/report", handle_tv_report),
         ("GET", "/api/tv/me", handle_tv_me),

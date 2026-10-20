@@ -451,3 +451,183 @@ async def test_upstream_music_home_proxy_and_sanitization(tmp_path, monkeypatch)
         assert "dilbar" not in data_str.lower()
 
 
+@pytest.mark.asyncio
+async def test_movie_service_default_fallback_video_source(tmp_path, monkeypatch):
+    """Aniqlanmagan kodlar uchun video_sources.json dagi default manba olinishi testi."""
+    from services.movie_service import MovieService
+
+    v_data = {
+        "items": {
+            "default": {
+                "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                "file_type": "video",
+                "duration": 596
+            },
+            "101": {
+                "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+                "file_type": "video"
+            }
+        }
+    }
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "video_sources.json").write_text(json.dumps(v_data), encoding="utf-8")
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
+
+    src_specific = MovieService.resolve_video_source("101", 1)
+    assert src_specific is not None
+    assert "TearsOfSteel" in src_specific["url"]
+
+    src_default = MovieService.resolve_video_source("999999", 1)
+    assert src_default is not None
+    assert "BigBuckBunny" in src_default["url"]
+
+
+@pytest.mark.asyncio
+async def test_deliver_movie_self_healing_from_failed_db_video(tmp_path, monkeypatch):
+    """Baza videosi yuborishda xato bersa, zaxira video manbasi orqali yuborish va yangi file_id ni saqlash testi."""
+    from services.movie_service import MovieService
+    from database.models import Movie
+
+    v_data = {
+        "items": {
+            "777": {
+                "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+                "file_type": "video",
+                "duration": 888
+            }
+        }
+    }
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "video_sources.json").write_text(json.dumps(v_data), encoding="utf-8")
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
+
+    bot_mock = AsyncMock()
+    # 1-chaqiriq (baza file_id) xato beradi, 2-chaqiriq (resolved url) muvaffaqiyatli
+    sent_video_mock = MagicMock()
+    sent_video_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_NEW_SAVED_TELEGRAM_FID_777", duration=888, file_size=500000)
+    bot_mock.send_video = AsyncMock(side_effect=[Exception("TelegramBadRequest: wrong file identifier"), sent_video_mock])
+    bot_mock.send_photo = AsyncMock()
+
+    db_movie = Movie(
+        code="777",
+        title="Test Kino 777",
+        file_id="BAACAgIAAxkBAAE_BROKEN_OLD_FILE_ID_777",
+        file_type="video",
+        duration=3600
+    )
+
+    fake_session = AsyncMock()
+    mock_exec_res = MagicMock()
+    mock_exec_res.scalars.return_value.all.return_value = []
+    fake_session.execute = AsyncMock(return_value=mock_exec_res)
+    fake_session.commit = AsyncMock()
+
+    with patch("services.movie_service.crud.get_movie_by_code", new_callable=AsyncMock) as mock_get_movie, \
+         patch("services.movie_service.crud.set_movie_video", new_callable=AsyncMock) as mock_set_video, \
+         patch("services.movie_service.crud.increment_movie_views", new_callable=AsyncMock):
+        mock_get_movie.return_value = db_movie
+
+        res = await MovieService.deliver_movie(
+            bot=bot_mock,
+            chat_id=12345,
+            code="777",
+            part=1,
+            session=fake_session
+        )
+
+        assert res is True
+        # bot.send_video ikki marta chaqirilgan (1-si xato, 2-si zaxira manba)
+        assert bot_mock.send_video.call_count == 2
+        # Poster yuborilmagan (chunki video muvaffaqiyatli yetkazildi!)
+        assert bot_mock.send_photo.called is False
+        # Yangi file_id bazada saqlangan
+        assert mock_set_video.called is True
+        assert mock_set_video.call_args[1]["file_id"] == "BAACAgIAAxkBAAE_NEW_SAVED_TELEGRAM_FID_777"
+
+
+@pytest.mark.asyncio
+async def test_web_server_music_admin_and_management_endpoints():
+    """Web serverdagi musiqa me, report, ban va purge endpointlari testi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # /api/music/me
+        resp_me = await client.get("/api/music/me")
+        assert resp_me.status == 200
+        data_me = await resp_me.json()
+        assert data_me.get("ok") is True
+        assert "admin" in data_me
+
+        # /api/music/report
+        resp_rep = await client.post("/api/music/report", json={"id": "123", "r": "broken"})
+        assert resp_rep.status == 200
+        data_rep = await resp_rep.json()
+        assert data_rep.get("ok") is True
+
+        # /api/music/ban
+        resp_ban = await client.post("/api/music/ban", json={"id": "123"})
+        assert resp_ban.status == 200
+        data_ban = await resp_ban.json()
+        assert data_ban.get("ok") is True
+
+        # /api/music/purge
+        resp_purge = await client.post("/api/music/purge", json={"items": ["123"]})
+        assert resp_purge.status == 200
+        data_purge = await resp_purge.json()
+        assert data_purge.get("ok") is True
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_cb_download_track_tarona_numeric_precedence():
+    """cb_download_track da tarona numeric id si Deezer bilan adashib ketmasligi testi."""
+    from handlers.music import cb_download_track, _SEARCH_CACHE
+
+    cb = AsyncMock()
+    cb.data = "dl_track:12345_tarona_998877"
+    cb.answer = AsyncMock()
+    cb.message = AsyncMock()
+    cb.message.reply = AsyncMock()
+
+    status_mock = AsyncMock()
+    status_mock.delete = AsyncMock()
+    status_mock.edit_text = AsyncMock()
+    cb.message.reply.return_value = status_mock
+
+    # Keshda yo'q holat
+    _SEARCH_CACHE.pop("12345_tarona_998877", None)
+
+    mock_track = {
+        "id": "tarona_998877",
+        "title": "Xit Qo'shiq",
+        "artist": "Konsta",
+        "preview": "https://example.com/audio.mp3",
+        "u": "https://example.com/audio.mp3",
+        "s": "tarona"
+    }
+
+    with patch("services.music_service.music_service._resolve_tarona_direct_mp3", new_callable=AsyncMock) as mock_resolve, \
+         patch("services.music_service.music_service.download_track_mp3", new_callable=AsyncMock) as mock_dl, \
+         patch("database.session.get_session"):
+
+        mock_resolve.return_value = "https://example.com/audio.mp3"
+        mock_dl_res = MagicMock(success=True, file_path="C:/nonexistent/temp.mp3", duration=180, error=None)
+        mock_dl.return_value = mock_dl_res
+
+        with patch("os.path.exists", return_value=True), \
+             patch("handlers.music.safe_remove_file"), \
+             patch("handlers.music.crud.log_download", new_callable=AsyncMock):
+
+            await cb_download_track(cb)
+            assert mock_resolve.called is True
+            # Tarona tekshirilgan va keshga to'g'ri o'rnatilgan
+            assert "12345_tarona_998877" in _SEARCH_CACHE
+            cached = _SEARCH_CACHE["12345_tarona_998877"]
+            assert cached["s"] == "tarona"
+
+
+

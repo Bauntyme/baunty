@@ -1,6 +1,7 @@
 """
 Ma'lumotlar bazasi bilan ishlash funksiyalari (CRUD)
 """
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, update, delete, func, desc, or_
@@ -290,28 +291,35 @@ async def set_movie_video(
     """Kinoga haqiqiy video file_id yoki video manbasini biriktirish."""
     clean_code = str(code).strip()
     movie = await get_movie_by_code(session, clean_code)
+    dur_val = int(duration) if isinstance(duration, (int, float)) else None
+    fsize_val = int(file_size) if isinstance(file_size, (int, float)) else None
+    fid_str = str(file_id).strip()
+    if not fid_str or fid_str.startswith("<"):
+        fid_str = ""
+
     if not movie:
         movie = Movie(
             code=clean_code,
             title=title.strip() if title else f"Kino #{clean_code}",
-            file_id=str(file_id).strip(),
+            file_id=fid_str,
             file_type=file_type,
-            duration=duration,
-            file_size=file_size,
+            duration=dur_val,
+            file_size=fsize_val,
             created_at=utc_now()
         )
         session.add(movie)
         await session.flush()
         return movie
 
-    movie.file_id = str(file_id).strip()
+    if fid_str:
+        movie.file_id = fid_str
     movie.file_type = file_type
     if title:
         movie.title = title.strip()
-    if duration is not None:
-        movie.duration = duration
-    if file_size is not None:
-        movie.file_size = file_size
+    if dur_val is not None:
+        movie.duration = dur_val
+    if fsize_val is not None:
+        movie.file_size = fsize_val
     await session.flush()
     return movie
 
@@ -478,7 +486,9 @@ async def sync_movies_from_catalog_data(
             synced_count += 1
 
     if to_add:
-        session.add_all(to_add)
+        res = session.add_all(to_add)
+        if asyncio.iscoroutine(res):
+            await res
     await session.commit()
     return synced_count
 

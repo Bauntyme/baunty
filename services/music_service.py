@@ -2,6 +2,7 @@
 Qo'shiq qidirish va yuklab olish xizmati (Deezer API + iTunes API + yt-dlp)
 """
 import asyncio
+import html
 import json
 import logging
 import re
@@ -142,13 +143,13 @@ class MusicService:
                             if not hasattr(resp, "text"):
                                 return []
                             text_raw = resp.text() if callable(resp.text) else resp.text
-                            html = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
-                            if not isinstance(html, str) or len(html) < 200 or "track-item" not in html:
+                            html_text = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
+                            if not isinstance(html_text, str) or "track-item" not in html_text:
                                 return []
 
                             track_blocks = re.findall(
                                 r'<div class="track-item(?:\s+[^"]*)?"[^>]*>.*?(?=<div class="track-item(?:\s+[^"]*)?"|$)',
-                                html,
+                                html_text,
                                 re.DOTALL
                             )
                             tracks: List[Dict[str, Any]] = []
@@ -171,8 +172,8 @@ class MusicService:
                                 img_m = re.search(r'<img[^>]+src="([^"]+)"', b)
 
                                 if link_m and title_m:
-                                    artist = artist_m.group(1).strip() if artist_m else "Noma'lum"
-                                    title = title_m.group(1).strip()
+                                    artist = html.unescape(artist_m.group(1).strip()) if artist_m else "Noma'lum"
+                                    title = html.unescape(title_m.group(1).strip())
                                     link = link_m.group(1).strip()
                                     if link.startswith("/"):
                                         domain = "https://mp3uz.net" if "mp3uz" in url else "https://muzfm.uz"
@@ -268,11 +269,11 @@ class MusicService:
                     if resp.status == 200:
                         if hasattr(resp, "text"):
                             text_raw = resp.text() if callable(resp.text) else resp.text
-                            html = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
+                            html_text = await text_raw if asyncio.iscoroutine(text_raw) else str(text_raw)
                             mp3_m = (
-                                re.search(r'href="([^"]+\.mp3[^"]*)"', html)
-                                or re.search(r'src="([^"]+\.mp3[^"]*)"', html)
-                                or re.search(r'https?://[^\s"\'<>]+\.mp3', html)
+                                re.search(r'href="([^"]+\.mp3[^"]*)"', html_text)
+                                or re.search(r'src="([^"]+\.mp3[^"]*)"', html_text)
+                                or re.search(r'https?://[^\s"\'<>]+\.mp3', html_text)
                             )
                             if mp3_m:
                                 res_url = mp3_m.group(1) if mp3_m.groups() else mp3_m.group(0)
@@ -599,13 +600,14 @@ class MusicService:
             all_items = (home_data.get("top", []) +
                          home_data.get("hero", []) +
                          home_data.get("hits", []) +
-                         home_data.get("fresh", []))
+                         home_data.get("fresh", []) +
+                         home_data.get("clips", []))
             q_lower = query.lower()
             matches = []
             seen = set()
             for it in all_items:
-                t = it.get("t", "")
-                a = it.get("a", "")
+                t = html.unescape(str(it.get("t", "")))
+                a = html.unescape(str(it.get("a", "")))
                 if q_lower in t.lower() or q_lower in a.lower():
                     k = f"{a.lower()}|{t.lower()}"
                     if k not in seen:

@@ -17,22 +17,37 @@ from keyboards.inline import music_results_keyboard
 from utils.states import MusicStates
 from utils.helpers import safe_remove_file
 
+import hashlib
+import uuid
+
 logger = logging.getLogger(__name__)
 router = Router(name="music_router")
 
-# Foydalanuvchi qidiruv natijalarini vaqtinchalik saqlash
+# Foydalanuvchi qidiruv natijalarini vaqtinchalik saqlash (xotira sizib ketishidan himoyalangan)
 _SEARCH_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
-@router.message(Command("music"))
+def _cache_track(key: str, data: Any) -> None:
+    """Xotira cheklovi bilan qidiruv keshiga ma'lumot saqlash."""
+    if len(_SEARCH_CACHE) > 4000:
+        oldest_keys = list(_SEARCH_CACHE.keys())[:1000]
+        for k in oldest_keys:
+            _SEARCH_CACHE.pop(k, None)
+    _SEARCH_CACHE[key] = data
+
+
+@router.message(Command("music", "musiqa", "song", "mp3"))
 @router.message(F.text.in_(["🎵 Qo'shiq topish", "🎵 Musiqa topish", "Qo'shiq topish", "Musiqa topish"]))
 async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     """Musiqa qidirish boshlanishi."""
-    # Agar buyruq bilan birga so'rov ham yozilgan bo'lsa (masalan: /music Konsta)
-    if message.text and message.text.startswith("/music") and len(message.text.strip().split(maxsplit=1)) > 1:
-        query = message.text.strip().split(maxsplit=1)[1].strip()
-        await _execute_music_search(message, query, state)
-        return
+    # Agar buyruq bilan birga so'rov ham yozilgan bo'lsa (masalan: /music Konsta, /musiqa Konsta)
+    if message.text:
+        text_clean = message.text.strip()
+        for cmd in ["/music", "/musiqa", "/song", "/mp3"]:
+            if text_clean.lower().startswith(cmd) and len(text_clean.split(maxsplit=1)) > 1:
+                query = text_clean.split(maxsplit=1)[1].strip()
+                await _execute_music_search(message, query, state)
+                return
 
     await state.set_state(MusicStates.waiting_for_query)
     text = (
@@ -45,9 +60,20 @@ async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
 
 
+@router.message(
+    lambda msg: msg.text and any(
+        msg.text.strip().lower().startswith(p)
+        for p in ["🎵 ", "musiqa ", "qo'shiq ", "muzyka ", "trek "]
+    ) and len(msg.text.strip().split(maxsplit=1)) > 1
+)
+async def cmd_quick_music_search(message: Message, state: FSMContext) -> None:
+    """Prefixli matnli musiqa qidiruvi (masalan: 'musiqa Konsta', 'qo'shiq Rayhon')."""
+    query = message.text.strip().split(maxsplit=1)[1].strip()
+    await _execute_music_search(message, query, state)
+
+
 async def _execute_music_search(message: Message, query: str, state: FSMContext) -> None:
     """Kengaytirilgan musiqa qidiruvi (kamida 15-30 ta natija) va sahifalash bilan."""
-    import uuid
     status_msg = await message.reply("🔍 <b>Qo'shiqlar qidirilmoqda...</b>", parse_mode="HTML")
 
     try:
@@ -64,22 +90,25 @@ async def _execute_music_search(message: Message, query: str, state: FSMContext)
         user_id = message.from_user.id
         search_id = uuid.uuid4().hex[:8]
 
-        # Natijalarni keshga saqlash
+        # Natijalarni keshga saqlash (64 bayt Telegram callback_data chekloviga to'liq moslangan)
         formatted_tracks = []
         for t in tracks:
-            track_key = f"{user_id}_{t['id']}"
-            _SEARCH_CACHE[track_key] = t
+            raw_id = str(t.get("id", ""))
+            if len(raw_id) > 28:
+                raw_id = hashlib.md5(raw_id.encode()).hexdigest()[:16]
+            track_key = f"{user_id}_{raw_id}"
+            _cache_track(track_key, t)
             formatted_tracks.append({
                 "id": track_key,
                 "title": t.get("title", ""),
                 "artist": t.get("artist", ""),
             })
 
-        _SEARCH_CACHE[f"msearch:{search_id}"] = {
+        _cache_track(f"msearch:{search_id}", {
             "user_id": user_id,
             "query": query,
             "tracks": formatted_tracks,
-        }
+        })
 
         total_tracks = len(tracks)
         total_pages = max(1, (total_tracks + 7) // 8)
@@ -131,6 +160,7 @@ async def cb_music_page(callback: CallbackQuery) -> None:
         query = search_data.get("query", "Qo'shiqlar")
     total_tracks = len(formatted_tracks)
     total_pages = max(1, (total_tracks + 7) // 8)
+    page = max(0, min(page, total_pages - 1))
 
     text = (
         f"🎵 <b>«{html.escape(query)}» bo'yicha {total_tracks} ta qo'shiq topildi:</b>\n"
@@ -255,25 +285,7 @@ async def cb_download_track(callback: CallbackQuery) -> None:
     track_data = _SEARCH_CACHE.get(track_key)
 
     if not track_data:
-        track_id_part = track_key.split("_")[-1]
-        if track_id_part.isdigit():
-            try:
-                import aiohttp
-                async with aiohttp.ClientSession() as sess:
-                    async with sess.get(f"https://api.deezer.com/track/{track_id_part}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
-                        if resp.status == 200:
-                            dz_info = await resp.json()
-                            track_data = {
-                                "id": track_id_part,
-                                "title": dz_info.get("title_short", dz_info.get("title", "Musiqa")),
-                                "artist": dz_info.get("artist", {}).get("name", "Noma'lum"),
-                                "preview": dz_info.get("preview"),
-                                "duration": dz_info.get("duration", 0),
-                            }
-                            _SEARCH_CACHE[track_key] = track_data
-            except Exception:
-                pass
-        elif "tarona" in track_key:
+        if "tarona" in track_key:
             try:
                 song_part = track_key.split("tarona_")[-1]
                 direct_url = await music_service._resolve_tarona_direct_mp3(f"https://muzfm.uz/music/{song_part}")
@@ -289,15 +301,34 @@ async def cb_download_track(callback: CallbackQuery) -> None:
                         "s": "tarona",
                         "link": f"https://muzfm.uz/music/{song_part}"
                     }
-                    _SEARCH_CACHE[track_key] = track_data
+                    _cache_track(track_key, track_data)
                 else:
                     clean_search = song_part.replace("-", " ")
                     t_results = await music_service._search_tarona(clean_search, limit=1)
                     if t_results:
                         track_data = t_results[0]
-                        _SEARCH_CACHE[track_key] = track_data
+                        _cache_track(track_key, track_data)
             except Exception:
                 pass
+        else:
+            track_id_part = track_key.split("_")[-1]
+            if track_id_part.isdigit():
+                try:
+                    import aiohttp
+                    async with aiohttp.ClientSession() as sess:
+                        async with sess.get(f"https://api.deezer.com/track/{track_id_part}", timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                            if resp.status == 200:
+                                dz_info = await resp.json()
+                                track_data = {
+                                    "id": track_id_part,
+                                    "title": dz_info.get("title_short", dz_info.get("title", "Musiqa")),
+                                    "artist": dz_info.get("artist", {}).get("name", "Noma'lum"),
+                                    "preview": dz_info.get("preview"),
+                                    "duration": dz_info.get("duration", 0),
+                                }
+                                _cache_track(track_key, track_data)
+                except Exception:
+                    pass
 
     if not track_data:
         await callback.answer("⚠️ Ma'lumot eskirgan, iltimos qaytadan qidiring.", show_alert=True)

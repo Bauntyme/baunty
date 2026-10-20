@@ -269,7 +269,7 @@ class MovieService:
         return await crud.get_top_movies(session, limit=limit)
 
     @staticmethod
-    def resolve_video_source(code: str, part: int = 1) -> Optional[dict]:
+    def resolve_video_source(code: str, part: int = 1, allow_default: bool = True) -> Optional[dict]:
         """
         Kino uchun haqiqiy video manbasini (file_id, mp4 URL, lokal fayl) aniqlash.
         1. data/video_sources.json
@@ -305,6 +305,16 @@ class MovieService:
                                 return {"file_id": entry, "file_type": "video"}
                             elif isinstance(entry, dict):
                                 return entry
+
+                    # Agar aniq kod topilmasa, va allow_default True bo'lsa, standart "default" manbani tekshirish
+                    if allow_default and "default" in items_dict:
+                        entry = items_dict["default"]
+                        if isinstance(entry, str):
+                            if entry.startswith("http://") or entry.startswith("https://"):
+                                return {"url": entry, "file_type": "video"}
+                            return {"file_id": entry, "file_type": "video"}
+                        elif isinstance(entry, dict):
+                            return entry
             except Exception as e:
                 logger.debug(f"video_sources.json o'qishda xatolik: {e}")
 
@@ -477,7 +487,7 @@ class MovieService:
 
         resolved_source = None
         if not cat_item and not db_movie:
-            resolved_source = MovieService.resolve_video_source(clean_code, part)
+            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
             if not resolved_source:
                 return False
 
@@ -498,7 +508,7 @@ class MovieService:
 
         # Video manbasini tekshirish (agar bazada haqiqiy video bo'lmasa)
         if not has_real_video and not resolved_source:
-            resolved_source = MovieService.resolve_video_source(clean_code, part)
+            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
 
         if resolved_source:
             res_fid = resolved_source.get("file_id")
@@ -567,6 +577,7 @@ class MovieService:
             reply_markup = movie_item_keyboard(clean_code)
 
         # 1. Haqiqiy video yuborish
+        video_sent = False
         if has_real_video and db_movie:
             try:
                 if db_movie.file_type == "document":
@@ -591,33 +602,61 @@ class MovieService:
                     )
                 await crud.increment_movie_views(session, db_movie.id)
                 await session.commit()
+                video_sent = True
                 return True
             except Exception as e:
-                logger.warning(f"Video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")
-        elif resolved_source:
-            try:
-                target_video = (
-                    FSInputFile(resolved_source["file_path"])
-                    if "file_path" in resolved_source
-                    else resolved_source.get("url") or resolved_source.get("file_id")
-                )
-                if target_video:
-                    await bot.send_video(
-                        chat_id=chat_id,
-                        video=target_video,
-                        caption=caption,
-                        parse_mode="HTML",
-                        duration=resolved_source.get("duration"),
-                        supports_streaming=True,
-                        reply_markup=reply_markup,
-                        reply_to_message_id=reply_to_message_id
+                logger.warning(f"Baza videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
+
+        if not video_sent:
+            if not resolved_source:
+                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+            if resolved_source:
+                try:
+                    target_video = (
+                        FSInputFile(resolved_source["file_path"])
+                        if "file_path" in resolved_source
+                        else resolved_source.get("url") or resolved_source.get("file_id")
                     )
-                    if db_movie:
-                        await crud.increment_movie_views(session, db_movie.id)
-                    await session.commit()
-                    return True
-            except Exception as e:
-                logger.warning(f"Resolved video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")
+                    if target_video:
+                        sent_msg = await bot.send_video(
+                            chat_id=chat_id,
+                            video=target_video,
+                            caption=caption,
+                            parse_mode="HTML",
+                            duration=resolved_source.get("duration"),
+                            supports_streaming=True,
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id
+                        )
+                        # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish
+                        if sent_msg and hasattr(sent_msg, "video") and sent_msg.video:
+                            new_fid = getattr(sent_msg.video, "file_id", None)
+                            if isinstance(new_fid, str) and not new_fid.startswith("<") and len(new_fid) > 10:
+                                dur = getattr(sent_msg.video, "duration", None)
+                                dur_val = int(dur) if isinstance(dur, (int, float)) else resolved_source.get("duration")
+                                fsize = getattr(sent_msg.video, "file_size", None)
+                                fsize_val = int(fsize) if isinstance(fsize, (int, float)) else resolved_source.get("file_size")
+                                p_code = f"{clean_code}_{part}" if part > 1 else clean_code
+                                try:
+                                    await crud.set_movie_video(
+                                        session=session,
+                                        code=p_code,
+                                        file_id=new_fid,
+                                        file_type="video",
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        title=title
+                                    )
+                                except Exception as se:
+                                    logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
+
+                        if db_movie:
+                            await crud.increment_movie_views(session, db_movie.id)
+                        await session.commit()
+                        video_sent = True
+                        return True
+                except Exception as e:
+                    logger.warning(f"Resolved video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")
 
         # 2. HD Poster rasmi orqali yuborish
         posters_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "posters"
