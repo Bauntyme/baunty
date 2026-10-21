@@ -166,9 +166,29 @@ MALICIOUS_PATTERNS = [
     re.compile(r"(?i)(?:onerror|onload|onclick|onmouseover|onfocus|onblur|onchange|eval)\s*="),
     re.compile(r"(?i)<(?:iframe|svg\b[^>]*onload|object|embed)"),
 
-    # 7. RFI & SSRF
-    re.compile(r"(?i)(?:=https?://|=ftp://|=php://|=data://)"),
+    # 7. RFI & SSRF (Zararli wrapperlar va ichki cloud metadata)
+    re.compile(r"(?i)(?:=(?:php|data|expect|gopher|dict|ldap)://|=(?:https?|ftp)://(?:127\.|0\.|169\.254|10\.|172\.(?:1[6-9]|2[0-9]|3[01])\.|192\.168\.|localhost|metadata\.google))"),
+    re.compile(r"(?i)(?:169\.254\.169\.254|metadata\.google\.internal)"),
+
+    # 8. Log4j (JNDI Injection)
+    re.compile(r"(?i)\$\{(?:jndi|base64|date|env|lower|upper|main|sys):[^\}]+\}"),
+
+    # 9. Server-Side Template Injection (SSTI)
+    re.compile(r"(?:\{\{\s*(?:config|self|request|session|lipsum|cycler|joiner|[0-9\+\*\-\/]{3,})\s*\}\}|\{\%.*?\%\}|\$\{[0-9\+\*\-\/]{3,}\})"),
+
+    # 10. Shellshock
+    re.compile(r"\(\)\s*\{\s*:\s*;\s*\}\s*;"),
+
+    # 11. Prototype Pollution
+    re.compile(r"(?i)(?:__proto__|constructor\s*\[\s*['\"]prototype['\"]|\.prototype\b)"),
 ]
+
+# Yagona 1-taktda (one-pass) kompilyatsiya qilingan master regex
+_clean_subpats = [p.pattern[4:] if p.pattern.startswith("(?i)") else p.pattern for p in MALICIOUS_PATTERNS]
+FAST_MASTER_THREAT_REGEX = re.compile(
+    r"(?:" + "|".join(f"(?:{pat})" for pat in _clean_subpats) + r")",
+    re.IGNORECASE
+)
 
 
 def check_reconnaissance_and_database_shield(path: str) -> Tuple[bool, Optional[str]]:
@@ -448,9 +468,11 @@ def is_malicious_request(
     for t in targets:
         if "\x00" in t:
             return True, "null_byte_injection"
-        for pattern in MALICIOUS_PATTERNS:
-            if pattern.search(t):
-                return True, f"malicious_pattern:{pattern.pattern[:30]}"
+        if FAST_MASTER_THREAT_REGEX.search(t):
+            for pattern in MALICIOUS_PATTERNS:
+                if pattern.search(t):
+                    return True, f"malicious_pattern:{pattern.pattern[:30]}"
+            return True, "malicious_threat_detected"
 
     # 5. POST / PUT / PATCH body qismini tekshirish (SQLi, XSS, Cmd Injection in JSON/Form)
     if body and isinstance(body, str):
@@ -461,11 +483,86 @@ def is_malicious_request(
         except Exception:
             body_dec_1 = body
         for b_target in (body, body_dec_1):
-            for pattern in MALICIOUS_PATTERNS:
-                if pattern.search(b_target):
-                    return True, f"malicious_body:{pattern.pattern[:30]}"
+            if FAST_MASTER_THREAT_REGEX.search(b_target):
+                for pattern in MALICIOUS_PATTERNS:
+                    if pattern.search(b_target):
+                        return True, f"malicious_body:{pattern.pattern[:30]}"
+                return True, "malicious_body_detected"
 
     return False, None
+
+
+def _is_valid_ip(val: str) -> bool:
+    """Manzil haqiqiy IPv4 yoki IPv6 formatida ekanligini tekshirish."""
+    if not val:
+        return False
+    try:
+        ipaddress.ip_address(val.strip())
+        return True
+    except ValueError:
+        return False
+
+
+# Ishonchli ichki proksilar, Render tarmog'i va Cloudflare diapazonlari
+TRUSTED_PROXY_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+    ipaddress.ip_network("fe80::/10"),
+]
+
+CLOUDFLARE_NETWORKS = [
+    ipaddress.ip_network("173.245.48.0/20"),
+    ipaddress.ip_network("103.21.244.0/22"),
+    ipaddress.ip_network("103.22.200.0/22"),
+    ipaddress.ip_network("103.31.4.0/22"),
+    ipaddress.ip_network("141.101.64.0/18"),
+    ipaddress.ip_network("108.162.192.0/18"),
+    ipaddress.ip_network("190.93.240.0/20"),
+    ipaddress.ip_network("188.114.96.0/20"),
+    ipaddress.ip_network("197.234.240.0/22"),
+    ipaddress.ip_network("198.41.128.0/17"),
+    ipaddress.ip_network("162.158.0.0/15"),
+    ipaddress.ip_network("104.16.0.0/13"),
+    ipaddress.ip_network("104.24.0.0/14"),
+    ipaddress.ip_network("172.64.0.0/13"),
+    ipaddress.ip_network("131.0.72.0/22"),
+    ipaddress.ip_network("2400:cb00::/32"),
+    ipaddress.ip_network("2606:4700::/32"),
+    ipaddress.ip_network("2803:f800::/32"),
+    ipaddress.ip_network("2405:b500::/32"),
+    ipaddress.ip_network("2405:8100::/32"),
+    ipaddress.ip_network("2a06:98c0::/29"),
+    ipaddress.ip_network("2c0f:f248::/32"),
+]
+
+
+def is_trusted_proxy(ip_str: str) -> bool:
+    """
+    IP manzil serverning o'zi, lokal tarmoq, Render/Cloudflare proksisi
+    yoki ichki infratuzilmaga tegishli ekanligini aniqlash.
+    Bunday IP manzillar hech qachon qamoqqa (Auto-Ban Jail) olinmasligi shart.
+    """
+    if not ip_str:
+        return False
+    ip_clean = ip_str.strip().lower()
+    if ip_clean in ("127.0.0.1", "::1", "localhost", "testclient"):
+        return True
+    try:
+        ip_obj = ipaddress.ip_address(ip_clean)
+        for net in TRUSTED_PROXY_NETWORKS:
+            if ip_obj in net:
+                return True
+        for net in CLOUDFLARE_NETWORKS:
+            if ip_obj in net:
+                return True
+    except ValueError:
+        return False
+    return False
 
 
 class AutoBanJail:
@@ -492,6 +589,13 @@ class AutoBanJail:
         # Test muhitida localhost tasodifiy bloklanishining oldini olish
         if ip in ("127.0.0.1", "::1", "localhost", "testclient"):
             if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("STRICT_JAIL_TEST"):
+                return
+        # Ichki proksi, Render infratuzilmasi, Cloudflare va server o'zi hech qachon jail ga tushmaydi!
+        if is_trusted_proxy(ip):
+            if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("STRICT_JAIL_TEST"):
+                return
+            if not os.getenv("STRICT_JAIL_TEST"):
+                logger.debug(f"Trusted proxy IP {ip} jail ga olinmadi.")
                 return
         now = time.monotonic()
         if len(self._jailed) > 1000:
@@ -564,9 +668,9 @@ class SlidingWindowRateLimiter:
         if clean_path in ("/health", "health"):
             return True, None
 
-        # 2. Localhost / TestClient uchun testlarda yengillik
-        is_loopback = client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
-        if is_loopback and not os.getenv("STRICT_RATE_LIMIT_TEST"):
+        # 2. Localhost / Trusted proxy / TestClient uchun testlarda yengillik
+        is_loopback_or_proxy = is_trusted_proxy(client_ip) or client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
+        if is_loopback_or_proxy and not os.getenv("STRICT_RATE_LIMIT_TEST"):
             return True, None
 
         # 3. Vaqtincha bloklangan IP tekshiruvi
@@ -580,7 +684,8 @@ class SlidingWindowRateLimiter:
 
         # 4. Statik assetlar va media oqimlari (kengaytirilgan chegara)
         is_static_or_stream = any(clean_path.startswith(prefix) for prefix in (
-            "/webapp", "/css", "/js", "/f", "/bk", "/rc", "/p", "/prava", "/pv", "/favicon.ico", "/logo."
+            "/webapp", "/css", "/js", "/f", "/bk", "/rc", "/p", "/prava", "/pv",
+            "/api/tv", "/webapp/api/tv", "/api/tv/icon", "/favicon.ico", "/logo."
         )) or clean_path.endswith((
             ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".css", ".js",
             ".woff", ".woff2", ".ttf", ".mp3", ".mp4", ".pdf", ".m3u8", ".ts"
@@ -665,38 +770,44 @@ class SlidingWindowRateLimiter:
         self._banned_ips.clear()
 
 
-def _is_valid_ip(val: str) -> bool:
-    """Manzil haqiqiy IPv4 yoki IPv6 formatida ekanligini tekshirish."""
-    if not val:
-        return False
-    try:
-        ipaddress.ip_address(val.strip())
-        return True
-    except ValueError:
-        return False
+def get_real_client_ip(request: web.Request) -> str:
+    """
+    So'rovdan haqiqiy mijoz IP manzilini xavfsiz va proksi soxtalashtirishlaridan
+    (IP spoofing) himoyalangan holda ajratib olish.
+    """
+    # 1. Cloudflare CF-Connecting-IP (agar mavjud va ishonchli bo'lsa)
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip and _is_valid_ip(cf_ip) and not is_trusted_proxy(cf_ip.strip()):
+        return cf_ip.strip()
 
-
-def extract_client_ip(request: web.Request) -> str:
-    """So'rovdan haqiqiy mijoz IP manzilini xavfsiz ajratib olish."""
+    # 2. X-Forwarded-For: client, proxy1, proxy2
     xff = request.headers.get("X-Forwarded-For")
     if xff:
         parts = [p.strip() for p in xff.split(",") if p.strip()]
+        # Proksilarni teskarisidan aylanib, birinchi begona (tashqi) IP ni olamiz
         for p in reversed(parts):
+            if _is_valid_ip(p) and not is_trusted_proxy(p):
+                return p
+        # Agar barcha XFF proksi bo'lsa, birinchi haqiqiy IP ni olamiz
+        for p in parts:
             if _is_valid_ip(p):
                 return p
 
-    cf_ip = request.headers.get("CF-Connecting-IP")
-    if cf_ip and _is_valid_ip(cf_ip):
-        return cf_ip.strip()
-
+    # 3. X-Real-IP
     x_real = request.headers.get("X-Real-IP")
-    if x_real and _is_valid_ip(x_real):
+    if x_real and _is_valid_ip(x_real) and not is_trusted_proxy(x_real.strip()):
         return x_real.strip()
 
+    # 4. To'g'ridan-to'g'ri bog'langan remote IP
     if request.remote and _is_valid_ip(str(request.remote)):
         return str(request.remote).strip()
 
     return "127.0.0.1"
+
+
+def extract_client_ip(request: web.Request) -> str:
+    """Orqaga moslik uchun extract_client_ip get_real_client_ip ga yo'naltiriladi."""
+    return get_real_client_ip(request)
 
 
 def get_security_headers() -> Dict[str, str]:

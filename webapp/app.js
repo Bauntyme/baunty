@@ -461,6 +461,10 @@ function attempt(url) {
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
     const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
+    if (_conn && (_downlink < 2.0 || /2g/.test(_conn.effectiveType || "")) && !window._tvSpeedWarned) {
+      window._tvSpeedWarned = true;
+      try { setTimeout(() => { toast("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi.", 3200); }, 600); } catch (e) {}
+    }
     tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 15000 : 12000);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);

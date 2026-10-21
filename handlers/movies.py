@@ -359,8 +359,8 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     cleaned = clean.lstrip("#№").strip()
     cleaned = re.sub(r'^(?:kino|film|код|kod|code)\s*:?\s*', '', cleaned, flags=re.IGNORECASE).strip()
 
-    # Pattern: code + part (e.g. "289 2", "289-2", "289_2", "289p2", "289 2-qism", "289 2 qism")
-    m = re.match(r'^(\d{1,8})[\s_\-pP]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep))?$', cleaned, re.IGNORECASE)
+    # Pattern: code + part (e.g. "289 2", "289-2", "289_2", "289p2", "289 2-qism", "289 2 qism", "289 1-qism ko'rish")
+    m = re.match(r'^(\d{1,8})[\s_\-pP]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep))?(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$', cleaned, re.IGNORECASE)
     if m:
         return m.group(1), int(m.group(2))
 
@@ -409,6 +409,28 @@ async def process_numeric_movie_code(message: Message) -> None:
     if not delivered:
         code_disp = f"{code} ({part}-qism)" if part > 1 else code
         await message.reply(format_movie_not_found(code_disp), parse_mode="HTML")
+
+
+@router.message(StateFilter(None), lambda msg: msg.reply_to_message and msg.text and re.match(r'^(?:kino\s*)?(\d{1,4})[\s\-—–]*(?:qism|part|seriya)(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$', msg.text.strip(), re.IGNORECASE))
+async def process_reply_part_request(message: Message) -> None:
+    """Foydalanuvchi kino xabariga javob (reply) tarzda '1-qism' yoki '1-qism ko'rish' yozganida qismni yuborish."""
+    m = re.match(r'^(?:kino\s*)?(\d{1,4})[\s\-—–]*(?:qism|part|seriya)(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$', message.text.strip(), re.IGNORECASE)
+    if not m:
+        return
+    part = int(m.group(1))
+    reply_msg = message.reply_to_message
+    code = extract_code_from_caption(reply_msg.caption or reply_msg.text or "")
+    if not code:
+        return
+    delivered = await movie_service.deliver_movie(
+        bot=message.bot,
+        chat_id=message.chat.id,
+        code=code,
+        part=part,
+        reply_to_message_id=message.message_id
+    )
+    if not delivered:
+        await message.reply(format_movie_not_found(f"{code} ({part}-qism)"), parse_mode="HTML")
 
 
 def extract_code_from_caption(text: Optional[str]) -> Optional[str]:

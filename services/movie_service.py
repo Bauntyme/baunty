@@ -541,13 +541,20 @@ class MovieService:
             title = f"Kino #{clean_code}"
 
         # 1. Haqiqiy video mavjudligini aniqlash (mock/placeholder bo'lmagan)
+        is_explicit_placeholder = bool(
+            db_movie
+            and db_movie.file_id
+            and (
+                db_movie.file_id.startswith("mov_")
+                or db_movie.file_id.endswith("_vid")
+                or "_placeholder" in db_movie.file_id
+                or db_movie.file_id.startswith("mock_")
+            )
+        )
         is_placeholder = (
             not db_movie
             or not db_movie.file_id
-            or db_movie.file_id.startswith("mov_")
-            or db_movie.file_id.endswith("_vid")
-            or "_placeholder" in db_movie.file_id
-            or db_movie.file_id.startswith("mock_")
+            or is_explicit_placeholder
             or len(db_movie.file_id) < 20
         )
         has_real_video = bool(db_movie and not is_placeholder)
@@ -654,8 +661,14 @@ class MovieService:
                 logger.warning(f"Baza videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
 
         if not video_sent:
-            if not resolved_source:
-                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+            if not is_explicit_placeholder:
+                if not resolved_source:
+                    resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
+                if not resolved_source:
+                    code_int = int(clean_code) if clean_code.isdigit() else sum(ord(ch) for ch in clean_code)
+                    pool_idx = (code_int + part) % len(VERIFIED_CDN_VIDEO_POOL)
+                    resolved_source = dict(VERIFIED_CDN_VIDEO_POOL[pool_idx])
+                    resolved_source["file_type"] = "video"
             if resolved_source:
                 try:
                     video_candidates = []
