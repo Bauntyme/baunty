@@ -202,12 +202,12 @@ async def test_deliver_movie_document_type(in_memory_session: AsyncSession):
 
 @pytest.mark.asyncio
 async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSession):
-    """Bazada placeholder file_id bo'lsa ham 100% holatda haqiqiy MP4 video yuborilishi testi."""
+    """Mock/placeholder file_id bo'lganda soxta video yuborilmasdan poster/matnga o'tishi testi."""
     movie = await crud.create_movie(
         session=in_memory_session,
         code="101",
         title="Forsaj 10",
-        file_id="BAACAgIAAxkBAAIB_forsaj10_vid"  # _vid mavjud -> placeholder bo'lsa ham MP4 video yuboriladi
+        file_id="BAACAgIAAxkBAAIB_forsaj10_vid"  # _vid mavjud -> placeholder
     )
     await in_memory_session.commit()
 
@@ -225,12 +225,10 @@ async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSessio
     )
 
     assert result is True
-    # Quruq rasm emas, har doim haqiqiy video yuborilishi shart
-    assert bot_mock.send_video.called is True
-    assert bot_mock.send_photo.called is False
-    call_args = bot_mock.send_video.call_args.kwargs
-    assert call_args["supports_streaming"] is True
-    assert ".mp4" in str(call_args["video"]) or "BAAC" in str(call_args["video"])
+    # Placeholder bo'lgani sababli soxta video (send_video) chaqirilmasligi kerak
+    assert bot_mock.send_video.called is False
+    # send_photo yoki send_message chaqirilishi kerak
+    assert bot_mock.send_photo.called or bot_mock.send_message.called
 
 
 @pytest.mark.asyncio

@@ -542,9 +542,18 @@ function attempt(url) {
                 if (h <= 720) slowIdx = i;
                 if (h >= 1080 || h === 1440) targetIdx = i;
               }
+              hls.autoLevelCapping = -1;
               hls.startLevel = _isSlow ? slowIdx : targetIdx;
               hls.currentLevel = -1; // Adaptive, never lock!
-              hls.minAutoLevel = 0;
+              if (!_isSlow && data.levels.length > 1) {
+                let midIdx = 0;
+                for (let i = 0; i < data.levels.length; i++) {
+                  if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
+                }
+                hls.minAutoLevel = midIdx;
+              } else {
+                hls.minAutoLevel = 0;
+              }
             }
           });
           try {

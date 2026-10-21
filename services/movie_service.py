@@ -381,22 +381,6 @@ class MovieService:
                                 "file_size": candidate.stat().st_size
                             }
 
-        # 3. Katalogda mavjud bo'lgan kinolar uchun CDN oqimlaridan dinamik manba shakllantirish
-        cat_item = MovieService.get_catalog_item(clean_code)
-        if cat_item:
-            total_parts = max(1, int(cat_item.get("p", 1)))
-            if 1 <= part <= total_parts or allow_default:
-                cdn_pool = VERIFIED_CDN_VIDEO_POOL
-                code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
-                idx = (code_num * 17 + part * 31) % len(cdn_pool)
-                chosen = cdn_pool[idx]
-                return {
-                    "url": chosen["url"],
-                    "file_type": "video",
-                    "duration": chosen["duration"],
-                    "file_size": chosen["file_size"]
-                }
-
         return None
 
 
@@ -568,9 +552,9 @@ class MovieService:
         )
         has_real_video = bool(db_movie and not is_placeholder)
 
-        # Video manbasini tekshirish (agar bazada haqiqiy video bo'lmasa)
+        # Video manbasini tekshirish (faqat haqiqiy/aniq manba bo'lsa)
         if not has_real_video and not resolved_source:
-            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
+            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
 
         if resolved_source:
             res_fid = resolved_source.get("file_id")
@@ -671,7 +655,7 @@ class MovieService:
 
         if not video_sent:
             if not resolved_source:
-                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
+                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
             if resolved_source:
                 try:
                     video_candidates = []

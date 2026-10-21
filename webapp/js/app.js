@@ -484,7 +484,15 @@ const App = {
                     try {
                         this.hls.startLevel = _isSlow ? Math.min(1, bestIdx) : bestIdx;
                         this.hls.currentLevel = -1;
-                        this.hls.minAutoLevel = 0;
+                        if (!_isSlow && data.levels.length > 1) {
+                            let midIdx = 0;
+                            for (let i = 0; i < data.levels.length; i++) {
+                                if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
+                            }
+                            this.hls.minAutoLevel = midIdx;
+                        } else {
+                            this.hls.minAutoLevel = 0;
+                        }
                     } catch (err) {}
                 }
             });
@@ -498,7 +506,15 @@ const App = {
                     try {
                         this.hls.startLevel = _isSlow ? Math.min(1, bestIdx) : bestIdx;
                         this.hls.currentLevel = -1;
-                        this.hls.minAutoLevel = 0;
+                        if (!_isSlow && data.levels.length > 1) {
+                            let midIdx = 0;
+                            for (let i = 0; i < data.levels.length; i++) {
+                                if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
+                            }
+                            this.hls.minAutoLevel = midIdx;
+                        } else {
+                            this.hls.minAutoLevel = 0;
+                        }
                     } catch (err) {}
                 }
                 video.play().catch(e => console.log('Video autoplay blocked:', e));

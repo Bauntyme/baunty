@@ -133,6 +133,53 @@ async def test_movie_delivery_branding_and_sources():
     assert "Zakirov" not in caption
 
 
+@pytest.mark.asyncio
+async def test_bot_donate_command_and_card_copy_callback():
+    """Botda /donate buyrug'i va karta nusxalash callback tugmasi to'g'ri ishlashi."""
+    from handlers.start import cmd_donate, cb_copy_donate_card
+
+    # 1. /donate xabari
+    msg_mock = AsyncMock()
+    await cmd_donate(msg_mock)
+    assert msg_mock.answer.called
+    kwargs = msg_mock.answer.call_args.kwargs
+    text = kwargs.get("text", "") or msg_mock.answer.call_args.args[0]
+    assert "9860 1766 1922 0088" in text
+    assert "Xaydarov Biloliddin" in text
+    assert "Humo" in text
+    assert "Bauntys" in text
+    reply_markup = kwargs.get("reply_markup")
+    assert reply_markup is not None
+    # Inline keyboardda nusxalash tugmasi borligi
+    found_btn = False
+    for row in reply_markup.inline_keyboard:
+        for btn in row:
+            if btn.callback_data == "copy_donate_card":
+                found_btn = True
+                assert "9860 1766 1922 0088" in btn.text
+    assert found_btn is True
+
+    # 2. copy_donate_card callbacki
+    cb_mock = AsyncMock()
+    cb_mock.data = "copy_donate_card"
+    await cb_copy_donate_card(cb_mock)
+    assert cb_mock.answer.called
+    cb_kwargs = cb_mock.answer.call_args.kwargs
+    cb_text = cb_kwargs.get("text", "") or cb_mock.answer.call_args.args[0]
+    assert "9860 1766 1922 0088" in cb_text
+
+
+def test_all_prava_images_disk_presence():
+    """Lokal diskda barcha 718 ta rasmiy prava rasmlari (.webp) mavjudligi va hajmi to'g'riligi."""
+    prava_dir = BASE_DIR / "data" / "prava"
+    assert prava_dir.exists() and prava_dir.is_dir()
+    files = list(prava_dir.glob("*.webp"))
+    assert len(files) >= 718
+    # Barcha rasmlarning hajmi > 0 bo'lishi shart
+    for f in files:
+        assert f.stat().st_size > 500
+
+
 def test_tv_hls_high_res_and_smooth():
     """TV playerda 1440p / 1080p yuqori sifat va silliq (smooth) buferlash sozlamalari tekshiruvi."""
     index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
@@ -149,3 +196,13 @@ def test_tv_hls_high_res_and_smooth():
     # 3. autoLevelCapping -1
     assert "hls.autoLevelCapping = -1;" in index_html
     assert "hls.currentLevel = -1;" in index_html
+
+    # 4. Fast & smooth buffering sozlamalari
+    assert "liveSyncDurationCount: 2" in index_html
+    assert "liveMaxLatencyDurationCount: 5" in index_html
+    assert "maxBufferLength: 20" in index_html
+    assert "maxMaxBufferLength: 45" in index_html
+    assert "liveSyncDurationCount: 2" in app_js
+    assert "maxBufferLength: 20" in app_js
+    assert "maxMaxBufferLength: 45" in app_js
+

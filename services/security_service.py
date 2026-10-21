@@ -356,7 +356,7 @@ class SlidingWindowRateLimiter:
 
         # 4. Statik assetlar va media oqimlari (kengaytirilgan chegara)
         is_static_or_stream = any(clean_path.startswith(prefix) for prefix in (
-            "/webapp", "/css", "/js", "/f", "/bk", "/rc", "/p", "/favicon.ico", "/logo."
+            "/webapp", "/css", "/js", "/f", "/bk", "/rc", "/p", "/prava", "/pv", "/favicon.ico", "/logo."
         )) or clean_path.endswith((
             ".png", ".jpg", ".jpeg", ".webp", ".svg", ".ico", ".css", ".js",
             ".woff", ".woff2", ".ttf", ".mp3", ".mp4", ".pdf", ".m3u8", ".ts"

@@ -126,6 +126,10 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await message.answer(text, parse_mode="HTML", reply_markup=kb)
             return
 
+        elif param in ("donate", "donat", "xayriya"):
+            await send_donate_info(message)
+            return
+
         elif param.startswith("q_"):
             target_id_str = param.replace("q_", "").strip()
             if target_id_str.isdigit():
@@ -395,3 +399,41 @@ async def cmd_cancel(message: Message, state: FSMContext) -> None:
         parse_mode="HTML",
         reply_markup=main_menu_keyboard(is_admin=is_admin)
     )
+
+
+async def send_donate_info(message: Message) -> None:
+    """Donat va homiylik xabarini chiqarish."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    card_number = "9860 1766 1922 0088"
+    card_holder = "Xaydarov Biloliddin"
+    payment_system = "Humo"
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="📋 Nusxalash: 9860 1766 1922 0088", callback_data="copy_donate_card")
+        ]
+    ])
+    text = (
+        "💛 <b>Bauntys loyihasini qo'llab-quvvatlash (Donat)</b>\n\n"
+        "Har bir yordam loyiha rivoji, yangi kinolar va server xarajatlari uchun sarflanadi. "
+        "E'tiboringiz va qo'llab-quvvatlaganingiz uchun katta rahmat! 💛\n\n"
+        f"💳 <b>Karta raqami:</b> <code>{card_number}</code>\n"
+        f"👤 <b>Karta egasi:</b> {card_holder}\n"
+        f"🏦 <b>To'lov tizimi:</b> {payment_system}\n\n"
+        "<i>(Karta raqami ustiga bosib bir zumda nusxa olishingiz mumkin)</i>"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("donate", "donat", "xayriya"))
+@router.message(F.text.in_(["💛 Donat", "Donat", "Xayriya", "Qo'llab-quvvatlash"]))
+async def cmd_donate(message: Message) -> None:
+    """Donat buyrug'i."""
+    await send_donate_info(message)
+
+
+@router.callback_query(F.data == "copy_donate_card")
+async def cb_copy_donate_card(callback: CallbackQuery) -> None:
+    """Karta raqamidan nusxa olinganligini xabardor qilish."""
+    await callback.answer("✅ Karta raqami nusxalandi: 9860 1766 1922 0088", show_alert=True)
+

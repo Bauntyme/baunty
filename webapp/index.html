@@ -1178,6 +1178,7 @@ function attempt(url) {
             } else {
               hls.config.maxBufferLength = 20;
               hls.config.maxMaxBufferLength = 45;
+              hls.config.maxBufferSize = 30 * 1024 * 1024;
               hls.config.abrEwmaDefaultEstimate = 2500000;
             }
             if (_conn && _conn.addEventListener) {
@@ -1271,6 +1272,15 @@ function attempt(url) {
                 hls.startLevel = _isSlow ? slowIdx : targetIdx;
                 hls.currentLevel = -1; // Adaptive!
                 hls.autoLevelCapping = -1;
+                if (!_isSlow && data.levels.length > 1) {
+                  let midIdx = 0;
+                  for (let i = 0; i < data.levels.length; i++) {
+                    if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
+                  }
+                  hls.minAutoLevel = midIdx;
+                } else {
+                  hls.minAutoLevel = 0;
+                }
               } catch (e) {}
               const qBtn = $("tvq");
               if (qBtn) qBtn.textContent = "1440p QHD";
