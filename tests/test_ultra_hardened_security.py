@@ -52,7 +52,7 @@ def reset_security_state():
 # =====================================================================
 @pytest.mark.asyncio
 async def test_database_files_shield_blocks_all_db_and_sqlite_requests():
-    """SQLite bazalar (*.db, *.sqlite, *.sqlite3, *.sql) so'ralganda darhol 403 Forbidden qaytarishi shart."""
+    """SQLite bazalar (*.db, *.sqlite, *.sqlite3, *.sql, wal, shm) so'ralganda darhol 403 Forbidden qaytarishi shart."""
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
@@ -61,6 +61,13 @@ async def test_database_files_shield_blocks_all_db_and_sqlite_requests():
     database_probe_urls = [
         "/bauntyfilms.db",
         "/bot.db",
+        "/bot.db-wal",
+        "/bot.db-shm",
+        "/bauntyfilms.db-wal",
+        "/bauntyfilms.db-journal",
+        "/test.sqlite-wal",
+        "/test.sqlite-shm",
+        "/production.sqlite3-wal",
         "/data/bot.db",
         "/database/bauntyfilms.db",
         "/test.sqlite",
@@ -71,6 +78,18 @@ async def test_database_files_shield_blocks_all_db_and_sqlite_requests():
         "/webapp/bauntyfilms.db",
         "/webapp/../bauntyfilms.db",
         "/webapp/..%2fbauntyfilms.db",
+        # Windows nuqta, bo'shliq va ADS aylanib o'tishlari
+        "/bot.db.",
+        "/bot.db ",
+        "/bot.db%20",
+        "/bot.db::$DATA",
+        "/bauntyfilms.db::$DATA",
+        # Zaxira arxivlari va maxfiy sertifikatlar
+        "/backup.zip",
+        "/backup.tar.gz",
+        "/bot.rdb",
+        "/db.dump",
+        "/server.key",
     ]
 
     try:
@@ -135,15 +154,22 @@ async def test_source_code_and_env_files_shield():
         "/.env.example",
         "/.env.local",
         "/.env.production",
+        "/.env.",
+        "/.env ",
         "/.git",
         "/.git/config",
         "/.git/HEAD",
         "/main.py",
+        "/main.py.",
+        "/main.py ",
+        "/main.py::$DATA",
         "/config.py",
         "/database/crud.py",
         "/database/models.py",
         "/services/web_server.py",
         "/services/security_service.py",
+        "/scripts/test.sh",
+        "/scratch/test.py",
         "/Dockerfile",
         "/docker-compose.yml",
         "/docker-compose.yaml",
@@ -172,7 +198,7 @@ async def test_source_code_and_env_files_shield():
 # =====================================================================
 @pytest.mark.asyncio
 async def test_path_traversal_and_obfuscation_blocked_with_403():
-    """Har qanday path traversal urinishlari (../, ..\\, %2e%2e, %252e%252e) darhol 403 Forbidden olishi kerak."""
+    """Har qanday path traversal urinishlari (../, ..\\, %2e%2e, %252e%252e, null byte) darhol 403 Forbidden olishi kerak."""
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
@@ -182,6 +208,7 @@ async def test_path_traversal_and_obfuscation_blocked_with_403():
         "/webapp/../data/movies.json",
         "/webapp/..%2fdata/movies.json",
         "/webapp/..%5cdata/movies.json",
+        "/webapp/..;/data/bot.db",
         "/webapp/%2e%2e/%2e%2e/bauntyfilms.db",
         "/webapp/%252e%252e/%252e%252e/main.py",
         "/api/movies?q=../../etc/passwd",
@@ -189,6 +216,9 @@ async def test_path_traversal_and_obfuscation_blocked_with_403():
         "/api/movies?q=%252e%252e%252fconfig.py",
         "/api/movies?q=..\\..\\win.ini",
         "/api/movies?q=../config.py",
+        "/main.py%00.png",
+        "/bot.db%00.jpg",
+        "/api/movies?q=1%00' UNION SELECT",
     ]
 
     try:
@@ -207,7 +237,7 @@ async def test_path_traversal_and_obfuscation_blocked_with_403():
 # =====================================================================
 @pytest.mark.asyncio
 async def test_all_hacker_scanners_blocked_with_403():
-    """Foydalanuvchi talab qilgan barcha skanerlar (sqlmap, nikto, wpscan, ffuf, burp, metasploit va h.k.) 403 olishi kerak."""
+    """Foydalanuvchi talab qilgan barcha skanerlar (sqlmap, nikto, wpscan, ffuf, burp, curl, wget va h.k.) 403 olishi kerak."""
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
@@ -231,6 +261,16 @@ async def test_all_hacker_scanners_blocked_with_403():
         "CensysInspect/1.1",
         "nuclei - projectdiscovery",
         "Netsparker",
+        # CLI va skraperlar (trailing slash siz ham)
+        "curl",
+        "curl/8.4.0",
+        "wget",
+        "wget/1.21",
+        "requests",
+        "python-requests/2.31.0",
+        # UA ichiga yashirilgan SQLi va XSS
+        "Mozilla/5.0 <script>alert(1)</script>",
+        "Mozilla/5.0 ' UNION SELECT 1,2,3--",
     ]
 
     try:
@@ -250,27 +290,38 @@ async def test_all_hacker_scanners_blocked_with_403():
 # =====================================================================
 @pytest.mark.asyncio
 async def test_web_application_firewall_sqli_xss_rce_blocked():
-    """SQL Injection, XSS, Command Injection va Admin/Backdoor yo'llari 403 Forbidden bilan to'xtatiladi."""
+    """SQL Injection, XSS, Command Injection, POST body hamda Admin/Backdoor yo'llari 403 Forbidden bilan to'xtatiladi."""
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
     await client.start_server()
 
     attack_payloads = [
-        # SQL Injection
+        # SQL Injection (standart va inline comment /**/ aylanib o'tishlari)
         "/api/movies?q=' UNION SELECT 1,2,3--",
+        "/api/movies?q=UNION/**/SELECT 1,2,3",
+        "/api/movies?q=UNION/*all*/SELECT 1,2,3",
         "/api/movies?q=' OR '1'='1",
+        "/api/movies?q=' OR 2=2",
+        "/api/movies?q=' OR 'x'='x'",
+        "/api/movies?q=' OR ''=''",
         "/api/movies?q=; DROP TABLE users;",
+        "/api/movies?q=; DROP/**/TABLE users;",
         "/api/movies?q=1; SLEEP(5)",
+        "/api/movies?q=1; SLEEP/*comment*/(5)",
         "/api/movies?q=1; BENCHMARK(1000000,MD5(1))",
+        "/api/movies?q=1; BENCHMARK/*comment*/(1000000,MD5(1))",
         "/api/movies?q=1; pg_sleep(5)",
+        "/api/movies?q=1; pg_sleep/*comment*/(5)",
         "/api/movies?q=SELECT @@VERSION",
         "/api/movies?q=SELECT * FROM INFORMATION_SCHEMA.TABLES",
         # XSS
         "/api/movies?q=<script>alert('xss')</script>",
         "/api/movies?q=javascript:alert(1)",
         "/api/movies?q=<img src=x onerror=alert(1)>",
+        "/api/movies?q=<img src=x onfocus=alert(1)>",
         "/api/movies?q=<svg onload=alert(1)>",
+        "/api/movies?q=<svg onblur=alert(1)>",
         "/api/movies?q=<iframe src='evil.com'></iframe>",
         # Command Injection
         "/api/movies?cmd=whoami",
@@ -299,12 +350,40 @@ async def test_web_application_firewall_sqli_xss_rce_blocked():
     ]
 
     try:
+        # 1. GET so'rovlari orqali hujumlar
         for target in attack_payloads:
             resp = await client.get(target)
             assert resp.status == 403, f"Hujum so'rovi {target} bloklanmadi! Status: {resp.status}"
             data = await resp.json()
             assert data["ok"] is False
             assert data["error"] == "forbidden"
+
+        # 2. POST so'rovlari orqali JSON body exploitlari
+        post_attacks = [
+            ("/api/watch", {"movie_code": "' UNION SELECT 1,2,3--"}),
+            ("/api/watch", {"movie_code": "UNION/**/SELECT 1,2,3"}),
+            ("/api/send_to_chat", {"cmd": "whoami"}),
+            ("/api/send_to_chat", {"message": "<script>alert('xss')</script>"}),
+            ("/api/send_to_chat", {"path": "../../etc/passwd"}),
+        ]
+        for ep, payload in post_attacks:
+            resp_post = await client.post(ep, json=payload)
+            assert resp_post.status == 403, f"POST hujumi {ep} {payload} bloklanmadi! Status: {resp_post.status}"
+            data_post = await resp_post.json()
+            assert data_post["ok"] is False
+            assert data_post["error"] == "forbidden"
+
+        # 3. HTTP Header (Cookie, Referer) orqali exploitlar
+        header_attacks = [
+            ("/api/movies", {"Cookie": "session=1' OR 1=1"}),
+            ("/api/movies", {"Referer": "<script>alert(1)</script>"}),
+        ]
+        for ep, hdrs in header_attacks:
+            resp_hdr = await client.get(ep, headers=hdrs)
+            assert resp_hdr.status == 403, f"Header hujumi {hdrs} bloklanmadi! Status: {resp_hdr.status}"
+            data_hdr = await resp_hdr.json()
+            assert data_hdr["ok"] is False
+            assert data_hdr["error"] == "forbidden"
     finally:
         await client.close()
 
@@ -461,11 +540,18 @@ async def test_legitimate_webapp_modules_and_uzbek_queries_unaffected():
         "/api/sub",
         "/api/donate",
         "/api/reklama",
-        # O'zbekcha tutuq belgili qidiruvlar (False-Positive yo'qligini tekshirish)
+        # O'zbekcha tutuq belgili qidiruvlar va parametrlar (False-Positive yo'qligini tekshirish)
         "/api/movies?q=O'ylama",
         "/api/movies?q=Mo'jiza",
         "/api/movies?q=Ko'ngil",
         "/api/movies?q=Forsaj",
+        # &id= va &cat= kabi oddiy query parametrlar soxta Command Injection deb olinmasligini tekshirish
+        "/api/movies?sort=popular&id=10",
+        "/api/books?filter=all&cat=action",
+        "/api/music?type=track&id=5",
+        "/api/movies?genre=action&cat=movies",
+        "/api/movies?format=standard&sh=compact",
+        "/api/movies?mode=safe&rm=none",
         # Asosiy Mini App sahifasi va statik assetlar
         "/",
         "/index.html",
@@ -493,6 +579,14 @@ async def test_legitimate_webapp_modules_and_uzbek_queries_unaffected():
             resp = await client.get(ep, headers={"User-Agent": legit_ua})
             assert resp.status in (200, 204), f"Qonuniy resurs {ep} xato bloklandi! Status: {resp.status}"
             assert resp.status != 403, f"Qonuniy resurs {ep} 403 bilan noto'g'ri bloklandi!"
+
+        # Qonuniy POST so'rovi (kinoni ko'rish) to'siqsiz ishlashi
+        resp_post = await client.post(
+            "/api/watch",
+            json={"movie_code": "101", "user_id": 12345},
+            headers={"User-Agent": legit_ua}
+        )
+        assert resp_post.status != 403, f"Qonuniy POST so'rovi 403 bilan noto'g'ri bloklandi! Status: {resp_post.status}"
     finally:
         if test_bk_file.exists():
             test_bk_file.unlink()

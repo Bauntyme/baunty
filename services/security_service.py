@@ -99,10 +99,16 @@ KNOWN_SCANNER_AGENTS = (
 
 # Himoyalangan fayl kengaytmalari (Zero Reconnaissance & Database Shield)
 PROTECTED_EXTENSIONS = (
-    # SQLite va boshqa ma'lumotlar bazalari
+    # SQLite va boshqa ma'lumotlar bazalari, WAL, SHM va jurnallar
     ".db", ".sqlite", ".sqlite3", ".db3", ".sql", ".mdb", ".accdb",
+    ".db-wal", ".db-shm", ".db-journal",
+    ".sqlite-wal", ".sqlite-shm", ".sqlite-journal",
+    ".sqlite3-wal", ".sqlite3-shm", ".sqlite3-journal",
+    # Zaxira arxivlari va ma'lumotlar damplari
+    ".rdb", ".dump", ".tar", ".gz", ".tgz", ".zip", ".rar", ".7z", ".bz2",
     # Konfiguratsiya, maxfiy kalitlar va zaxira nusxalari
     ".env", ".bak", ".backup", ".old", ".swp", ".conf", ".cfg", ".ini", ".log",
+    ".pem", ".key", ".crt", ".pfx", ".p12",
     # Dastur kodlari va shell skriptlari
     ".py", ".pyc", ".pyo", ".pyd", ".sh", ".bash", ".zsh",
     # Konteyner va orkestratsiya fayllari
@@ -113,6 +119,7 @@ PROTECTED_EXTENSIONS = (
 PROTECTED_DIRS = (
     "/data", "/database", "/logs", "/handlers", "/keyboards",
     "/middlewares", "/services", "/utils", "/tests", "/temp_downloads",
+    "/scripts", "/scratch", "/.github", "/.vscode", "/.idea",
     "/.git", "/.pytest_cache", "/.venv", "/venv", "/__pycache__"
 )
 
@@ -127,16 +134,16 @@ PROTECTED_FILENAMES = (
 )
 
 # Zararli so'rovlar (SQLi, LFI, RCE, XSS, Backdoor) patternlari
-# Izoh: O'zbek lotin yozuvidagi tutuq belgilarini (masalan: O'ylama, Mo'jiza) soxta SQL injection deb bilmaslik uchun
-# patternlar qat'iy va kontekstual tuzilgan.
+# Izoh: O'zbek lotin yozuvidagi tutuq belgilarini (masalan: O'ylama, Mo'jiza) soxta SQL injection deb bilmaslik
+# hamda &id=, &cat= kabi oddiy query parametrlarni xato bloklamaslik uchun patternlar qat'iy va kontekstual tuzilgan.
 MALICIOUS_PATTERNS = [
-    # 1. SQL Injection
-    re.compile(r"(?i)\bunion\s+(?:all\s+)?select\b"),
-    re.compile(r"(?i)(?:'|\"|\%27|\%22)\s*(?:or|and)\s*(?:'1'='1|1=1|'a'='a'|true\b)"),
-    re.compile(r"(?i);\s*(?:drop|alter|truncate|delete)\s+(?:table|database)\b"),
-    re.compile(r"(?i)\b(?:waitfor\s+delay|benchmark\s*\(|sleep\s*\(\s*\d+|pg_sleep\s*\(\s*\d+|extractvalue\s*\(|updatexml\s*\()"),
-    re.compile(r"(?i)\b(?:select\s+@@version|information_schema|load_file\s*\(|into\s+(?:out|dump)file\b)"),
-    re.compile(r"(?i)\bexec(?:ute)?\s*\("),
+    # 1. SQL Injection (inline comment /**/ va tautology aylanib o'tishlariga qarshi mustahkam)
+    re.compile(r"(?i)\bunion(?:\s+|/\*.*?\*/)+(?:all(?:\s+|/\*.*?\*/)+)?select\b"),
+    re.compile(r"(?i)(?:'|\"|%27|%22)\s*(?:or|and)\s*(?:'?[a-z0-9_]+'?\s*=\s*'?[a-z0-9_]+'?|true\b|''=''|''=')"),
+    re.compile(r"(?i)(?:;|'|\"|%27|%22)(?:\s+|/\*.*?\*/)*(?:drop|alter|truncate|delete)(?:\s+|/\*.*?\*/)+(?:table|database)\b"),
+    re.compile(r"(?i)\b(?:waitfor(?:\s+|/\*.*?\*/)+delay|benchmark(?:\s+|/\*.*?\*/)*\(|sleep(?:\s+|/\*.*?\*/)*\(|pg_sleep(?:\s+|/\*.*?\*/)*\(|extractvalue(?:\s+|/\*.*?\*/)*\(|updatexml(?:\s+|/\*.*?\*/)*\()"),
+    re.compile(r"(?i)\b(?:select(?:\s+|/\*.*?\*/)+@@version|information_schema|load_file(?:\s+|/\*.*?\*/)*\(|into(?:\s+|/\*.*?\*/)+(?:out|dump)file\b)"),
+    re.compile(r"(?i)\bexec(?:ute)?(?:\s+|/\*.*?\*/)*\("),
 
     # 2. Path Traversal & LFI
     re.compile(r"(?:\.\.[/\\]|%2e%2e[%2f%5c]|%252e%252e)"),
@@ -148,15 +155,15 @@ MALICIOUS_PATTERNS = [
     # 4. Admin panellar, eskirgan CMS va backdoor yo'llari
     re.compile(r"(?i)(?:/wp-login(?:\.php)?|/wp-admin(?:/|$)|/wp-content(?:/|$)|/phpmyadmin(?:/|$)|/pma(?:/|$)|/adminer(?:/|$)|/cgi-bin(?:/|$)|/actuator(?:/|$)|/xmlrpc(?:\.php)?|/spring(?:/|$)|/shell(?:\.(?:php|sh|asp|jsp))?|/config\.json|/server-status|/telescope(?:/|$)|/solr(?:/|$)|/boaform(?:/|$))"),
 
-    # 5. Command Injection
-    re.compile(r"(?i)(?:cmd=|exec=|[;&|`]\s*(?:cat|rm|ls|id|whoami|uname|nc|curl|wget|bash|sh|powershell|cmd\.exe)\b)"),
-    re.compile(r"(?i)(?:[|&;`]\s*(?:cat\s+/etc|whoami|id|uname))"),
+    # 5. Command Injection (aniq separatorlar: ;, |, &&, ` yoki cmd=/exec=, &id= va &cat= ni xato bloklamaydi)
+    re.compile(r"(?i)(?:cmd\b|exec\b)[\"'\s:=]+(?:\s*[\"']?\s*(?:cat|rm|ls|id|whoami|uname|nc|curl|wget|bash|sh|powershell|cmd\.exe)\b)|(?:cmd=|exec=|(?:;|\||&&|`)\s*(?:cat|rm|ls|id|whoami|uname|nc|curl|wget|bash|sh|powershell|cmd\.exe)\b)"),
+    re.compile(r"(?i)(?:(?:;|\||&&|`)\s*(?:cat\s+/etc|whoami|id|uname))"),
     re.compile(r"(?i)(?:\$\([^\)]+\)|`[^`]+`)"),
 
     # 6. XSS Script Injection
     re.compile(r"(?i)<script\b"),
     re.compile(r"(?i)javascript:"),
-    re.compile(r"(?i)(?:onerror|onload|onclick|onmouseover|eval)\s*="),
+    re.compile(r"(?i)(?:onerror|onload|onclick|onmouseover|onfocus|onblur|onchange|eval)\s*="),
     re.compile(r"(?i)<(?:iframe|svg\b[^>]*onload|object|embed)"),
 
     # 7. RFI & SSRF
@@ -173,7 +180,11 @@ def check_reconnaissance_and_database_shield(path: str) -> Tuple[bool, Optional[
     if not path:
         return False, None
 
-    # URL decode (2-3 marta tozalash)
+    # 0. Null byte injection tekshiruvi (%00, \x00)
+    if "%00" in path or "\x00" in path or "\\0" in path:
+        return True, "null_byte_injection"
+
+    # URL decode (3 marta tozalash)
     clean = path
     for _ in range(3):
         try:
@@ -184,15 +195,25 @@ def check_reconnaissance_and_database_shield(path: str) -> Tuple[bool, Optional[
         except Exception:
             break
 
+    if "\x00" in clean:
+        return True, "null_byte_injection"
+
     # Normalizatsiya: \ -> /, ketma-ket // larni bittaga keltirish, kichik harflar
     norm = clean.replace("\\", "/")
     while "//" in norm:
         norm = norm.replace("//", "/")
-    norm_lower = norm.lower().split("?")[0].rstrip("/")
+    norm_lower = norm.lower().split("?")[0]
+
+    # Windows Alternate Data Streams (::$DATA) tozalash
+    if "::$data" in norm_lower:
+        norm_lower = norm_lower.replace("::$data", "")
+
+    # Windows va web serverlarda bo'shliq va nuqtalar bilan aylanib o'tishga qarshi rstrip
+    norm_lower = norm_lower.rstrip("/. \t\r\n")
     if not norm_lower:
         norm_lower = "/"
 
-    # 1. Path traversal tekshiruvi: ../, ..\\, %2e%2e, ..;/
+    # 1. Path traversal tekshiruvi: .., ..;, %2e%2e
     if ".." in norm_lower:
         return True, "path_traversal"
 
@@ -212,13 +233,13 @@ def check_reconnaissance_and_database_shield(path: str) -> Tuple[bool, Optional[
 
     # 4. Nozik fayl kengaytmalarini to'sish (.db, .sqlite, .py, .env, .sh, .yml, .conf, .bak, ...)
     for ext in PROTECTED_EXTENSIONS:
-        if norm_lower.endswith(ext) or f"{ext}/" in norm_lower:
+        if norm_lower.endswith(ext) or f"{ext}/" in norm_lower or f"{ext}." in norm_lower:
             return True, f"protected_extension:{ext}"
 
     # 5. Maxsus nozik fayllar va JSON ma'lumotlar bazalari
     # (data/*.json, maintenance.json, video_sources.json, config.json, Dockerfile, ...)
     filename = norm_lower.split("/")[-1]
-    if filename in PROTECTED_FILENAMES:
+    if filename in PROTECTED_FILENAMES or filename.startswith(".env"):
         return True, f"protected_filename:{filename}"
 
     # Agar so'rov to'g'ridan-to'g'ri .json faylga yo'naltirilgan bo'lsa (API yo'llaridan tashqari)
@@ -354,10 +375,16 @@ def generate_telegram_init_data(
     return urllib.parse.urlencode(params)
 
 
-def is_malicious_request(path: str, query_string: str = "", user_agent: str = "") -> Tuple[bool, Optional[str]]:
+def is_malicious_request(
+    path: str,
+    query_string: str = "",
+    user_agent: str = "",
+    body: str = "",
+    headers: Optional[Dict[str, str]] = None
+) -> Tuple[bool, Optional[str]]:
     """
-    So'rovda tajovuzkor skaner, bot, SQLi, LFI, RCE, exploit yoki nozik fayllarni
-    titkilash belgilari mavjudligini aniqlaydi.
+    So'rovda tajovuzkor skaner, bot, SQLi, LFI, RCE, exploit, nozik fayllarni
+    titkilash yoki zararli body/header belgilari mavjudligini aniqlaydi.
     """
     clean_path = path.lower().split("?")[0].rstrip("/")
     is_test = bool(os.getenv("PYTEST_CURRENT_TEST"))
@@ -367,7 +394,7 @@ def is_malicious_request(path: str, query_string: str = "", user_agent: str = ""
     if is_recon:
         return True, recon_threat
 
-    # 2. Bo'sh yoki mavjud bo'lmagan User-Agent
+    # 2. User-Agent tekshiruvi
     ua_raw = user_agent or ""
     ua_clean = ua_raw.strip().lower()
 
@@ -375,18 +402,39 @@ def is_malicious_request(path: str, query_string: str = "", user_agent: str = ""
         if clean_path not in ("/health", "health") and not is_test:
             return True, "empty_user_agent"
     else:
-        # 3. Taniqli tajovuzkor skanerlar va avtomatlashtirilgan exploit agentlarini tekshirish
+        # Taniqli tajovuzkor skanerlar va avtomatlashtirilgan exploit agentlarini tekshirish
         for scanner in KNOWN_SCANNER_AGENTS:
             if scanner in ua_clean:
                 return True, f"scanner_ua:{scanner}"
 
-        # 4. To'g'ridan-to'g'ri internetdan kelgan xom python/aiohttp so'rovlarini cheklash
+        # Standalone CLI skanerlar va kutubxonalar (curl, wget, requests)
+        if re.search(r"\b(?:curl|wget|requests|python-requests|python-urllib)\b", ua_clean):
+            return True, "scanner_ua:cli_tool"
+
+        # User-Agent orqali SQLi/XSS kiritish urinishlari
+        for pattern in MALICIOUS_PATTERNS:
+            if pattern.search(ua_raw):
+                return True, f"malicious_ua:{pattern.pattern[:30]}"
+
+        # To'g'ridan-to'g'ri internetdan kelgan xom python/aiohttp so'rovlarini cheklash
         if not is_test:
             if any(bot in ua_clean for bot in ("aiohttp/", "python/")):
                 return True, "blocked_bot_client"
 
-    # 5. Path va query stringni tekshirish (Double/Triple URL-decoding bilan aylanib o'tishlarga qarshi)
+    # 3. HTTP Headers (Referer, Cookie, X-Forwarded-Host) orqali exploit kiritish urinishlari
+    if headers:
+        for h_key in ("referer", "cookie", "x-forwarded-host"):
+            h_val = headers.get(h_key) or headers.get(h_key.title())
+            if h_val and isinstance(h_val, str):
+                for pattern in MALICIOUS_PATTERNS:
+                    if pattern.search(h_val):
+                        return True, f"malicious_header:{h_key}"
+
+    # 4. Path va query stringni tekshirish (Double/Triple URL-decoding va null byte bilan aylanib o'tishlarga qarshi)
     raw_target = f"{path}?{query_string}" if query_string else path
+    if "%00" in raw_target or "\x00" in raw_target or "\\0" in raw_target:
+        return True, "null_byte_injection"
+
     try:
         decoded_1 = urllib.parse.unquote_plus(raw_target)
         decoded_2 = urllib.parse.unquote_plus(decoded_1)
@@ -396,11 +444,26 @@ def is_malicious_request(path: str, query_string: str = "", user_agent: str = ""
         decoded_2 = raw_target
         decoded_3 = raw_target
 
-    targets = (raw_target, decoded_1, decoded_2, decoded_3)
+    targets = [raw_target, decoded_1, decoded_2, decoded_3]
     for t in targets:
+        if "\x00" in t:
+            return True, "null_byte_injection"
         for pattern in MALICIOUS_PATTERNS:
             if pattern.search(t):
                 return True, f"malicious_pattern:{pattern.pattern[:30]}"
+
+    # 5. POST / PUT / PATCH body qismini tekshirish (SQLi, XSS, Cmd Injection in JSON/Form)
+    if body and isinstance(body, str):
+        if "\x00" in body or "%00" in body:
+            return True, "null_byte_injection"
+        try:
+            body_dec_1 = urllib.parse.unquote_plus(body)
+        except Exception:
+            body_dec_1 = body
+        for b_target in (body, body_dec_1):
+            for pattern in MALICIOUS_PATTERNS:
+                if pattern.search(b_target):
+                    return True, f"malicious_body:{pattern.pattern[:30]}"
 
     return False, None
 
@@ -415,15 +478,26 @@ class AutoBanJail:
         self.default_ban_seconds = default_ban_seconds
         self._jailed: Dict[str, Tuple[float, str]] = {}
 
+    def cleanup(self, now: Optional[float] = None) -> None:
+        """Muddati tugagan IP larni xotiradan tozalash."""
+        if now is None:
+            now = time.monotonic()
+        expired = [ip for ip, (exp, _) in self._jailed.items() if now >= exp]
+        for ip in expired:
+            del self._jailed[ip]
+
     def jail_ip(self, ip: str, duration: Optional[float] = None, reason: str = "malicious_activity") -> None:
         if not ip:
             return
-        # Localhost va testclient odatda testlarni buzmaslik uchun himoyalangan
+        # Test muhitida localhost tasodifiy bloklanishining oldini olish
         if ip in ("127.0.0.1", "::1", "localhost", "testclient"):
-            if not os.getenv("STRICT_JAIL_TEST"):
+            if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("STRICT_JAIL_TEST"):
                 return
+        now = time.monotonic()
+        if len(self._jailed) > 1000:
+            self.cleanup(now)
         dur = duration if duration is not None else self.default_ban_seconds
-        self._jailed[ip] = (time.monotonic() + dur, reason)
+        self._jailed[ip] = (now + dur, reason)
         logger.warning(f"IP Auto-Ban Jail ga olindi: {ip} | {dur}s | Sabab: {reason}")
 
     def is_jailed(self, ip: str) -> Tuple[bool, Optional[float], Optional[str]]:
@@ -654,7 +728,11 @@ def _clean_sensitive_headers(resp: web.StreamResponse) -> None:
         except Exception:
             pass
     resp.headers["Server"] = "Bauntys-Shield"
-    for h in ("X-Powered-By", "x-powered-by", "X-Runtime"):
+    for h in (
+        "X-Powered-By", "x-powered-by", "X-Runtime", "x-runtime",
+        "X-AspNet-Version", "x-aspnet-version", "X-Version", "x-version",
+        "X-Backend-Server", "x-backend-server"
+    ):
         if h in resp.headers:
             try:
                 del resp.headers[h]
@@ -813,10 +891,25 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
         _clean_sensitive_headers(resp)
         return resp
 
-    # 5. Zararli botlar, skanerlar, exploitlar va WAF filtr
+    # 5. Zararli botlar, skanerlar, exploitlar va WAF filtr (query, headers, body)
     user_agent = request.headers.get("User-Agent", "")
     query_str = request.query_string
-    is_malicious, threat_name = is_malicious_request(path, query_str, user_agent)
+
+    body_str = ""
+    if request.method in ("POST", "PUT", "PATCH", "DELETE") and request.can_read_body:
+        content_type = request.content_type.lower() if request.content_type else ""
+        if not content_type.startswith("multipart/"):
+            try:
+                body_bytes = await request.read()
+                if body_bytes:
+                    body_str = body_bytes[:65536].decode("utf-8", errors="replace")
+            except Exception:
+                body_str = ""
+
+    req_headers_dict = dict(request.headers)
+    is_malicious, threat_name = is_malicious_request(
+        path, query_str, user_agent, body=body_str, headers=req_headers_dict
+    )
     if is_malicious:
         security_service.ban_ip(client_ip, reason=threat_name)
         logger.warning(
