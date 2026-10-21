@@ -213,6 +213,12 @@ class MovieService:
                 .replace("’", "'")
                 .replace("ʻ", "'")
                 .replace("`", "'")
+                .replace("ç", "ch")
+                .replace("ş", "sh")
+                .replace("ğ", "g'")
+                .replace("ö", "o'")
+                .replace("ü", "u")
+                .replace("ı", "i")
             )
             t_norm = re.sub(r"[^\w\s']|_", " ", t_norm)
             return " ".join(t_norm.split())
@@ -236,6 +242,10 @@ class MovieService:
             sq = strip_apostrophe(norm_q)
             if sq and sq not in all_queries:
                 all_queries.append(sq)
+            if "cukur" in norm_q and "chuqur" not in all_queries:
+                all_queries.append(norm_q.replace("cukur", "chuqur"))
+            if "chuqur" in norm_q and "cukur" not in all_queries:
+                all_queries.append(norm_q.replace("chuqur", "cukur"))
 
         items = _CATALOG_CACHE.get("items", [])
 
@@ -253,6 +263,18 @@ class MovieService:
                     if t_norm in q or t_s in q:
                         return it
                 elif q and (q == t_norm or q == t_s):
+                    return it
+
+        # 1.5. Tavsif (description / d) birinchi qatori ichidagi sarlavha mosligi
+        for it in items:
+            d_raw = it.get("d", "")
+            if not d_raw:
+                continue
+            first_line = d_raw.strip().split("\n")[0]
+            d_norm = normalize_title(first_line)
+            d_s = strip_apostrophe(d_norm)
+            for q in all_queries:
+                if len(q) >= 3 and (q in d_norm or q in d_s):
                     return it
 
         # 2. Kalit so'zlar bo'yicha (Stop-words filtri bilan xavfsiz moslik)
@@ -661,7 +683,8 @@ class MovieService:
                 logger.warning(f"Baza videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
 
         if not video_sent:
-            if not is_explicit_placeholder:
+            is_serial_part = (part > 1) or (clean_code in ("287", "717", "716", "715", "714") and total_parts > 1)
+            if not is_explicit_placeholder or is_serial_part:
                 if not resolved_source:
                     resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
                 if not resolved_source:

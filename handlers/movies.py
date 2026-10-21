@@ -368,6 +368,21 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     if cleaned.isdigit() and len(cleaned) <= 10:
         return cleaned, 1
 
+    # Pattern: Title + part (e.g. "chuqur 1-qism", "chuqur 1qism korish", "chuqur 1 qism", "cukur 1-qism")
+    m_title = re.match(
+        r'^([a-zA-Z\u0400-\u04FF\s\-\'\`‘]{2,30}?)\s*[\-_]?\s*(\d{1,4})[\s\-—–]*(?:qism|part|seriya|ep)?(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$',
+        cleaned,
+        re.IGNORECASE
+    )
+    if m_title:
+        title_cand = m_title.group(1).strip()
+        part_cand = int(m_title.group(2))
+        NON_TITLE_WORDS = {"admin", "salom", "qalesan", "start", "stop", "help", "yordam", "kino", "film"}
+        if title_cand.lower() not in NON_TITLE_WORDS and not title_cand.isdigit():
+            cat_match = MovieService.search_catalog_by_title(title_cand)
+            if cat_match and cat_match.get("c"):
+                return str(cat_match["c"]), part_cand
+
     return None
 
 
@@ -729,6 +744,68 @@ async def cmd_set_movie_video(message: Message) -> None:
         await message.reply(text, parse_mode="HTML")
     else:
         await message.reply(f"❌ Kino #{code} ni saqlab bo'lmadi.", parse_mode="HTML")
+
+
+@router.message(Command("browser", "kino", "kinolar", "catalog", "web"))
+async def cmd_browser(message: Message) -> None:
+    """
+    /browser komandasi: Bauntys Web App brauzerini ochish va upstream katalog kinolari,
+    telekanallari (1440p QHD) va o'yinlariga tezkor ulanish.
+    Foydalanuvchi /browser @Zakirovsfilms_bot yoki /browser <kino> yozganda ham to'g'ri bog'lanadi.
+    """
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    raw_args = message.text.split(maxsplit=1)
+    arg = raw_args[1].strip() if len(raw_args) > 1 else ""
+
+    if arg and not arg.startswith("@"):
+        extracted = extract_movie_code_and_part(arg)
+        if extracted:
+            code, part = extracted
+            delivered = await movie_service.deliver_movie(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=code,
+                part=part,
+                reply_to_message_id=message.message_id
+            )
+            if delivered:
+                return
+
+    bot_name = config.BOT_USERNAME.lstrip("@")
+    channel_name = config.CHANNEL_USERNAME.lstrip("@")
+    webapp_url = config.WEBAPP_URL
+
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🍿 Web App Brauzerni Ochish",
+                    web_app=WebAppInfo(url=webapp_url)
+                )
+            ],
+            [
+                InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
+                InlineKeyboardButton(text="🎭 Janrlar", callback_data="movie:genres"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📢 Rasmiy Kanal",
+                    url=f"https://t.me/{channel_name}"
+                )
+            ]
+        ]
+    )
+
+    text = (
+        "🌐 <b>Bauntys Web App Brauzeriga xush kelibsiz!</b>\n\n"
+        "Barcha yangi premyeralar, 1500+ kinolar va ko'p qismli seriallar "
+        "(Chuqur, Attack on Titan va b.), 150+ telekanallar (1440p QHD / 1080p) "
+        "hamda 50+ o'yinlar yagona portalda jamlangan!\n\n"
+        f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
+        f"🍿 <b>Kino kanalimiz:</b> @{channel_name}\n\n"
+        "Quyidagi tugma orqali Web App brauzerni oching:"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
 
 
 @router.message(Command("synckino", "syncmovies"))

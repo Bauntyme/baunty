@@ -424,7 +424,7 @@ const App = {
 
         const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
         const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
-        const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
+        const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 2.0 || (_conn.effectiveType && /2g/.test(_conn.effectiveType))));
         if (_conn && (_downlink < 2.0 || /2g/.test(_conn.effectiveType || "")) && !window._tvSpeedWarned) {
             window._tvSpeedWarned = true;
             try { this.showToast?.("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi."); } catch(e){}
@@ -481,19 +481,19 @@ const App = {
             this.hls.on(window.Hls.Events.MANIFEST_LOADED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
                     let bestIdx = data.levels.length - 1;
+                    let minFhdIdx = 0;
                     for (let i = 0; i < data.levels.length; i++) {
                         const h = data.levels[i].height || 0;
-                        if (h >= 1080 || h === 1440) { bestIdx = i; break; }
+                        if (h >= 1080 || h === 1440) {
+                            if (minFhdIdx === 0) minFhdIdx = i;
+                            bestIdx = i;
+                        }
                     }
                     try {
                         this.hls.startLevel = _isSlow ? Math.min(1, bestIdx) : bestIdx;
                         this.hls.currentLevel = -1;
                         if (!_isSlow && data.levels.length > 1) {
-                            let midIdx = 0;
-                            for (let i = 0; i < data.levels.length; i++) {
-                                if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
-                            }
-                            this.hls.minAutoLevel = midIdx;
+                            this.hls.minAutoLevel = minFhdIdx || 0;
                         } else {
                             this.hls.minAutoLevel = 0;
                         }
@@ -503,19 +503,19 @@ const App = {
             this.hls.on(window.Hls.Events.MANIFEST_PARSED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
                     let bestIdx = data.levels.length - 1;
+                    let minFhdIdx = 0;
                     for (let i = 0; i < data.levels.length; i++) {
                         const h = data.levels[i].height || 0;
-                        if (h >= 1080 || h === 1440) { bestIdx = i; break; }
+                        if (h >= 1080 || h === 1440) {
+                            if (minFhdIdx === 0) minFhdIdx = i;
+                            bestIdx = i;
+                        }
                     }
                     try {
                         this.hls.startLevel = _isSlow ? Math.min(1, bestIdx) : bestIdx;
                         this.hls.currentLevel = -1;
                         if (!_isSlow && data.levels.length > 1) {
-                            let midIdx = 0;
-                            for (let i = 0; i < data.levels.length; i++) {
-                                if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
-                            }
-                            this.hls.minAutoLevel = midIdx;
+                            this.hls.minAutoLevel = minFhdIdx || 0;
                         } else {
                             this.hls.minAutoLevel = 0;
                         }

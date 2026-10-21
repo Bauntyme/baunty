@@ -466,8 +466,8 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 except Exception:
                     pass
 
-                if resp.status >= 500 and "quiz" in path:
-                    raise aiohttp.ClientError(f"Upstream quiz returned {resp.status}")
+                if resp.status >= 500:
+                    raise aiohttp.ClientError(f"Upstream returned {resp.status}")
 
                 if request.method == "GET" and resp.status == 200:
                     _UPSTREAM_API_CACHE[cache_key] = {

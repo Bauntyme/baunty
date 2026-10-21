@@ -46,13 +46,6 @@
       "lib": 1
     },
     {
-      "id": "tdCjVMAAdxw",
-      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
-    },
-    {
       "id": "2449",
       "t": "BUGUN BIZNING TO'YIMIZ 💍| Munisa Rizayeva Vibes | Yangi O'zbek Qo'shiqlari 2026 | Uzbek Wedding Song",
       "a": "Alice Official ",
@@ -62,6 +55,13 @@
       "m": 1,
       "y": "_skBnvuaWso",
       "lib": 1
+    },
+    {
+      "id": "tdCjVMAAdxw",
+      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
       "id": "GBo8GADWvU8",
@@ -241,13 +241,6 @@
       "u": "https://www.youtube.com/watch?v=CRM13i0dEQo"
     },
     {
-      "id": "vSA7yMrTETg",
-      "t": "Xamdam Sobirov - Peshta / Хамдам Собиров - Пешта / Video Klip",
-      "a": "Xamdam Sobirov and Muzalar",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=vSA7yMrTETg"
-    },
-    {
       "id": "2416",
       "t": "MASSA Feat. DITTO - Welcome To Dubai (Official Music Video)",
       "a": "Massa and dittouz",
@@ -257,6 +250,13 @@
       "m": 1,
       "y": "iwcqAfHLWI8",
       "lib": 1
+    },
+    {
+      "id": "vSA7yMrTETg",
+      "t": "Xamdam Sobirov - Peshta / Хамдам Собиров - Пешта / Video Klip",
+      "a": "Xamdam Sobirov and Muzalar",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=vSA7yMrTETg"
     },
     {
       "id": "2471",
@@ -313,17 +313,6 @@
       "u": "https://www.youtube.com/watch?v=ahGCYX_atmY"
     },
     {
-      "id": "576",
-      "t": "Dil yig‘lar",
-      "a": "Izzat Shukurov ft. Rayhon",
-      "d": 214,
-      "s": "tg",
-      "u": "tg:576",
-      "m": 1,
-      "y": "rv7H2wgZbVI",
-      "lib": 1
-    },
-    {
       "id": "2354",
       "t": "#🤵👰. TO'YLAR MUBORAK 🤵👩‍🏭# ( REMIX ) 2021",
       "a": "TAYLONOV RUSTAM",
@@ -332,6 +321,17 @@
       "u": "tg:2354",
       "m": 1,
       "y": "IRPWIhh0ht4",
+      "lib": 1
+    },
+    {
+      "id": "576",
+      "t": "Dil yig‘lar",
+      "a": "Izzat Shukurov ft. Rayhon",
+      "d": 214,
+      "s": "tg",
+      "u": "tg:576",
+      "m": 1,
+      "y": "rv7H2wgZbVI",
       "lib": 1
     },
     {
@@ -514,15 +514,6 @@
       "lib": 1
     },
     {
-      "id": "tdCjVMAAdxw",
-      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
-    }
-  ],
-  "hits": [
-    {
       "id": "2449",
       "t": "BUGUN BIZNING TO'YIMIZ 💍| Munisa Rizayeva Vibes | Yangi O'zbek Qo'shiqlari 2026 | Uzbek Wedding Song",
       "a": "Alice Official ",
@@ -532,6 +523,15 @@
       "m": 1,
       "y": "_skBnvuaWso",
       "lib": 1
+    }
+  ],
+  "hits": [
+    {
+      "id": "tdCjVMAAdxw",
+      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
       "id": "GBo8GADWvU8",

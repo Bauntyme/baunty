@@ -1107,7 +1107,7 @@ function attempt(url) {
     };
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
-    const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 3.5 || (_conn.effectiveType && /2g|3g/.test(_conn.effectiveType))));
+    const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 2.0 || (_conn.effectiveType && /2g/.test(_conn.effectiveType))));
     if (_conn && (_downlink < 2.0 || /2g/.test(_conn.effectiveType || "")) && !window._tvSpeedWarned) {
       window._tvSpeedWarned = true;
       try { setTimeout(() => { toast("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi.", 3200); }, 600); } catch (e) {}
@@ -1265,11 +1265,15 @@ function attempt(url) {
             if (data && data.levels && data.levels.length) {
               let targetIdx = data.levels.length - 1;
               let slowIdx = 0;
+              let minFhdIdx = 0;
               for (let i = 0; i < data.levels.length; i++) {
                 const lvl = data.levels[i];
                 const h = lvl.height || 0;
                 if (h <= 720) slowIdx = i;
-                if (h >= 1080 || h === 1440) targetIdx = i;
+                if (h >= 1080 || h === 1440) {
+                  if (minFhdIdx === 0) minFhdIdx = i;
+                  targetIdx = i;
+                }
               }
               try {
                 hls.config.capLevelToPlayerSize = false;
@@ -1277,11 +1281,7 @@ function attempt(url) {
                 hls.currentLevel = -1; // Adaptive!
                 hls.autoLevelCapping = -1;
                 if (!_isSlow && data.levels.length > 1) {
-                  let midIdx = 0;
-                  for (let i = 0; i < data.levels.length; i++) {
-                    if ((data.levels[i].height || 0) >= 720) { midIdx = i; break; }
-                  }
-                  hls.minAutoLevel = midIdx;
+                  hls.minAutoLevel = minFhdIdx || 0;
                 } else {
                   hls.minAutoLevel = 0;
                 }

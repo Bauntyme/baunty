@@ -431,24 +431,28 @@ def is_malicious_request(
         if re.search(r"\b(?:curl|wget|requests|python-requests|python-urllib)\b", ua_clean):
             return True, "scanner_ua:cli_tool"
 
-        # User-Agent orqali SQLi/XSS kiritish urinishlari
-        for pattern in MALICIOUS_PATTERNS:
-            if pattern.search(ua_raw):
-                return True, f"malicious_ua:{pattern.pattern[:30]}"
+        # User-Agent orqali SQLi/XSS/Log4j/SSTI kiritish urinishlari (1-taktda master regex)
+        if FAST_MASTER_THREAT_REGEX.search(ua_raw):
+            for pattern in MALICIOUS_PATTERNS:
+                if pattern.search(ua_raw):
+                    return True, f"malicious_ua:{pattern.pattern[:30]}"
+            return True, "malicious_ua_threat"
 
         # To'g'ridan-to'g'ri internetdan kelgan xom python/aiohttp so'rovlarini cheklash
         if not is_test:
             if any(bot in ua_clean for bot in ("aiohttp/", "python/")):
                 return True, "blocked_bot_client"
 
-    # 3. HTTP Headers (Referer, Cookie, X-Forwarded-Host) orqali exploit kiritish urinishlari
+    # 3. HTTP Headers (Referer, Cookie, X-Forwarded-Host, X-Forwarded-For, X-Real-IP) orqali exploit kiritish urinishlari
     if headers:
-        for h_key in ("referer", "cookie", "x-forwarded-host"):
+        for h_key in ("referer", "cookie", "x-forwarded-host", "x-forwarded-for", "x-real-ip"):
             h_val = headers.get(h_key) or headers.get(h_key.title())
             if h_val and isinstance(h_val, str):
-                for pattern in MALICIOUS_PATTERNS:
-                    if pattern.search(h_val):
-                        return True, f"malicious_header:{h_key}"
+                if FAST_MASTER_THREAT_REGEX.search(h_val):
+                    for pattern in MALICIOUS_PATTERNS:
+                        if pattern.search(h_val):
+                            return True, f"malicious_header:{h_key}"
+                    return True, f"malicious_header_threat:{h_key}"
 
     # 4. Path va query stringni tekshirish (Double/Triple URL-decoding va null byte bilan aylanib o'tishlarga qarshi)
     raw_target = f"{path}?{query_string}" if query_string else path
@@ -492,12 +496,29 @@ def is_malicious_request(
     return False, None
 
 
+def _normalize_ip_str(val: str) -> str:
+    """IP satridan port raqami va qavslarni tozalab sof IP manzilni qaytarish."""
+    if not val:
+        return ""
+    s = val.strip()
+    # [2001:db8::1]:8080 yoki [2001:db8::1]
+    if s.startswith("[") and "]" in s:
+        return s[1:s.index("]")].strip()
+    # IPv4:port (masalan 198.51.100.88:8080). IPv6 da 2 yoki undan ortiq ikki nuqta bo'ladi
+    if ":" in s and s.count(":") == 1:
+        return s.split(":", 1)[0].strip()
+    return s
+
+
 def _is_valid_ip(val: str) -> bool:
     """Manzil haqiqiy IPv4 yoki IPv6 formatida ekanligini tekshirish."""
     if not val:
         return False
+    clean = _normalize_ip_str(val)
+    if not clean:
+        return False
     try:
-        ipaddress.ip_address(val.strip())
+        ipaddress.ip_address(clean)
         return True
     except ValueError:
         return False
@@ -510,10 +531,24 @@ TRUSTED_PROXY_NETWORKS = [
     ipaddress.ip_network("172.16.0.0/12"),
     ipaddress.ip_network("192.168.0.0/16"),
     ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("0.0.0.0/8"),
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
     ipaddress.ip_network("fe80::/10"),
+    # Upstream server (@Bauntyfilmsbot backend / catalog / streaming)
+    ipaddress.ip_network("161.97.96.58/32"),
 ]
+
+for _extra_env in ("SERVER_IP", "HOST_IP", "IMMUNE_IPS", "RENDER_EXTERNAL_IP"):
+    _val = os.getenv(_extra_env)
+    if _val:
+        for _ip in _val.split(","):
+            _clean_extra = _normalize_ip_str(_ip)
+            if _is_valid_ip(_clean_extra):
+                try:
+                    TRUSTED_PROXY_NETWORKS.append(ipaddress.ip_network(f"{_clean_extra}/32"))
+                except ValueError:
+                    pass
 
 CLOUDFLARE_NETWORKS = [
     ipaddress.ip_network("173.245.48.0/20"),
@@ -549,7 +584,7 @@ def is_trusted_proxy(ip_str: str) -> bool:
     """
     if not ip_str:
         return False
-    ip_clean = ip_str.strip().lower()
+    ip_clean = _normalize_ip_str(ip_str).lower()
     if ip_clean in ("127.0.0.1", "::1", "localhost", "testclient"):
         return True
     try:
@@ -773,17 +808,34 @@ class SlidingWindowRateLimiter:
 def get_real_client_ip(request: web.Request) -> str:
     """
     So'rovdan haqiqiy mijoz IP manzilini xavfsiz va proksi soxtalashtirishlaridan
-    (IP spoofing) himoyalangan holda ajratib olish.
+    (IP spoofing va soxta DDoS blokirovkalaridan) himoyalangan holda ajratib olish.
     """
-    # 1. Cloudflare CF-Connecting-IP (agar mavjud va ishonchli bo'lsa)
-    cf_ip = request.headers.get("CF-Connecting-IP")
-    if cf_ip and _is_valid_ip(cf_ip) and not is_trusted_proxy(cf_ip.strip()):
-        return cf_ip.strip()
+    # 1. To'g'ridan-to'g'ri bog'langan remote manzil
+    raw_remote = str(request.remote).strip() if request.remote else "127.0.0.1"
+    clean_remote = _normalize_ip_str(raw_remote)
 
-    # 2. X-Forwarded-For: client, proxy1, proxy2
+    # Agar to'g'ridan-to'g'ri bog'langan remote manzil ishonchli proksi (Cloudflare, Render, loopback)
+    # bo'lmasa, demak mijoz serverga to'g'ridan-to'g'ri bog'langan va uning yuborgan CF/XFF
+    # sarlavhalari soxta (spoofed) deb hisoblanadi!
+    is_peer_trusted = is_trusted_proxy(clean_remote)
+
+    if not is_peer_trusted:
+        # Tashqi foydalanuvchi proksisiz kelgan — uning haqiqiy IP manzili remote ning o'zi
+        if _is_valid_ip(clean_remote):
+            return clean_remote
+        return "127.0.0.1"
+
+    # 2. Ishonchli proksi orqali kelganda: Cloudflare CF-Connecting-IP
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        clean_cf = _normalize_ip_str(cf_ip)
+        if _is_valid_ip(clean_cf) and not is_trusted_proxy(clean_cf):
+            return clean_cf
+
+    # 3. X-Forwarded-For: client, proxy1, proxy2
     xff = request.headers.get("X-Forwarded-For")
     if xff:
-        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        parts = [_normalize_ip_str(p) for p in xff.split(",") if p.strip()]
         # Proksilarni teskarisidan aylanib, birinchi begona (tashqi) IP ni olamiz
         for p in reversed(parts):
             if _is_valid_ip(p) and not is_trusted_proxy(p):
@@ -793,14 +845,15 @@ def get_real_client_ip(request: web.Request) -> str:
             if _is_valid_ip(p):
                 return p
 
-    # 3. X-Real-IP
+    # 4. X-Real-IP
     x_real = request.headers.get("X-Real-IP")
-    if x_real and _is_valid_ip(x_real) and not is_trusted_proxy(x_real.strip()):
-        return x_real.strip()
+    if x_real:
+        clean_real = _normalize_ip_str(x_real)
+        if _is_valid_ip(clean_real) and not is_trusted_proxy(clean_real):
+            return clean_real
 
-    # 4. To'g'ridan-to'g'ri bog'langan remote IP
-    if request.remote and _is_valid_ip(str(request.remote)):
-        return str(request.remote).strip()
+    if _is_valid_ip(clean_remote):
+        return clean_remote
 
     return "127.0.0.1"
 
