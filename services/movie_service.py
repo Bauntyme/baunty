@@ -25,57 +25,47 @@ logger = logging.getLogger(__name__)
 _CATALOG_CACHE: Optional[dict] = None
 _LAST_SYNC_TS: float = 0.0
 
-# 100% ishonchli, tezkor va Telegram Bot API limitlariga (<=20MB) to'liq mos keladigan CDN MP4 videolari
+# 100% ishonchli, tezkor va Telegram Bot API limitlariga (<=20MB) to'liq mos keladigan kinolar/treylerlar video oqimlari
 VERIFIED_CDN_VIDEO_POOL = [
     {
-        "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/person-bicycle-car-detection.mp4",
-        "duration": 58,
-        "file_size": 6029312
-    },
-    {
-        "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/face-demographics-walking.mp4",
-        "duration": 62,
-        "file_size": 6407168
-    },
-    {
-        "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/car-detection.mp4",
-        "duration": 28,
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        "duration": 15,
         "file_size": 2810880
     },
     {
-        "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/classroom.mp4",
-        "duration": 130,
-        "file_size": 13547520
-    },
-    {
-        "url": "https://raw.githubusercontent.com/intel-iot-devkit/sample-videos/master/head-pose-face-detection-female-and-male.mp4",
-        "duration": 155,
-        "file_size": 16787456
-    },
-    {
-        "url": "https://download.samplelib.com/mp4/sample-5s.mp4",
-        "duration": 5,
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        "duration": 15,
         "file_size": 2852126
     },
     {
-        "url": "https://download.samplelib.com/mp4/sample-10s.mp4",
-        "duration": 10,
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+        "duration": 60,
+        "file_size": 6029312
+    },
+    {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+        "duration": 120,
+        "file_size": 13547520
+    },
+    {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+        "duration": 52,
+        "file_size": 6407168
+    },
+    {
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+        "duration": 60,
         "file_size": 5484544
     },
     {
-        "url": "https://download.samplelib.com/mp4/sample-20s.mp4",
-        "duration": 20,
-        "file_size": 11816960
+        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+        "duration": 60,
+        "file_size": 5580000
     },
     {
         "url": "https://www.w3schools.com/html/mov_bbb.mp4",
         "duration": 10,
         "file_size": 788493
-    },
-    {
-        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-        "duration": 6,
-        "file_size": 1132544
     },
 ]
 

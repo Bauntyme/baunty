@@ -527,21 +527,22 @@ function attempt(url) {
               try {
                 if (vid.currentTime > 0) vid.currentTime += 0.1;
                 if (vid.paused) vid.play().catch(() => {});
-                if (hls) {
+                if (hls && hls.currentLevel !== -1) {
                   hls.currentLevel = -1;
-                  if (hls.nextLoadLevel > 0) hls.nextLoadLevel = Math.max(0, hls.nextLoadLevel - 1);
                 }
               } catch (e) {}
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
             if (data && data.levels && data.levels.length > 0) {
-              let targetIdx = 0;
+              let targetIdx = data.levels.length - 1;
+              let slowIdx = 0;
               for (let i = 0; i < data.levels.length; i++) {
                 const h = data.levels[i].height || 0;
-                if (h <= 720) targetIdx = i;
+                if (h <= 720) slowIdx = i;
+                if (h >= 1080 || h === 1440) targetIdx = i;
               }
-              hls.startLevel = _isSlow ? 0 : targetIdx;
+              hls.startLevel = _isSlow ? slowIdx : targetIdx;
               hls.currentLevel = -1; // Adaptive, never lock!
               hls.minAutoLevel = 0;
             }

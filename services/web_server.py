@@ -215,6 +215,65 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
     return web.Response(status=404, text="Poster topilmadi")
 
 
+async def handle_prava_image_proxy(request: web.Request) -> web.Response:
+    """Prava savollari rasmlarini (prava/... va pv/...) keshlab uzatish."""
+    filename = request.match_info.get("filename", "")
+    if not filename:
+        tail = request.match_info.get("tail", "").lstrip("/")
+        filename = tail
+
+    clean_name = os.path.basename(filename)
+    if not clean_name:
+        return web.Response(status=404, text="Topilmadi")
+
+    if not clean_name.endswith(".webp") and not clean_name.endswith(".png") and not clean_name.endswith(".jpg"):
+        clean_name = f"{clean_name}.webp"
+
+    prava_dir = BASE_DIR / "data" / "prava"
+    prava_dir.mkdir(parents=True, exist_ok=True)
+    local_path = prava_dir / clean_name
+
+    # 1. Lokal keshdan bir zumda uzatish (0ms kechikish)
+    if local_path.exists() and local_path.stat().st_size > 100:
+        with open(local_path, "rb") as f:
+            content = f.read()
+        return web.Response(
+            body=content,
+            content_type="image/webp",
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
+
+    # 2. Upstream serverdan yuklab olish va lokal saqlash
+    upstream_url = f"https://161-97-96-58.sslip.io/prava/{clean_name}"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status == 200:
+                    content = await resp.read()
+                    if content and len(content) > 100:
+                        try:
+                            with open(local_path, "wb") as pf:
+                                pf.write(content)
+                        except Exception as we:
+                            logger.debug(f"Prava rasmini saqlashda xatolik: {we}")
+                        return web.Response(
+                            body=content,
+                            content_type="image/webp",
+                            headers={
+                                "Cache-Control": "public, max-age=604800, immutable",
+                                "Access-Control-Allow-Origin": "*",
+                            }
+                        )
+    except Exception as e:
+        logger.debug(f"Prava rasmini yuklab bo'lmadi ({clean_name}): {e}")
+
+    return web.Response(status=404, text="Prava rasmi topilmadi")
+
+
 async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     """Kitob muqovalari, rasmlari va sahifalarini (bk/...) keshlab uzatish."""
     tail = request.match_info.get("tail", "").lstrip("/")
@@ -1973,14 +2032,14 @@ async def handle_api_donate(request: web.Request) -> web.Response:
         "ok": True,
         "on": True,
         "text": "Har bir yordam Bauntys loyihasi rivoji va server xarajatlari uchun sarflanadi. Qo'llab-quvvatlaganingiz uchun rahmat! 💛",
-        "num": "8600 0000 0000 0000",
-        "name": "Bauntys Support",
-        "net": "Humo / Uzcard",
+        "num": "9860 1766 1922 0088",
+        "name": "Xaydarov Biloliddin",
+        "net": "Humo",
         "cards": [
             {
-                "num": "8600 0000 0000 0000",
-                "name": "Bauntys Support",
-                "net": "Humo / Uzcard"
+                "num": "9860 1766 1922 0088",
+                "name": "Xaydarov Biloliddin",
+                "net": "Humo"
             }
         ]
     })
@@ -2105,6 +2164,12 @@ def create_web_app() -> web.Application:
 
     app.router.add_get("/p/{filename}", handle_poster_proxy)
     app.router.add_get("/webapp/p/{filename}", handle_poster_proxy)
+    app.router.add_get("/prava/{filename}", handle_prava_image_proxy)
+    app.router.add_get("/webapp/prava/{filename}", handle_prava_image_proxy)
+    app.router.add_get("/pv/{filename}", handle_prava_image_proxy)
+    app.router.add_get("/webapp/pv/{filename}", handle_prava_image_proxy)
+    app.router.add_get("/api/prava/img/{filename}", handle_prava_image_proxy)
+    app.router.add_get("/webapp/api/prava/img/{filename}", handle_prava_image_proxy)
     app.router.add_get("/p/tv/{id}", handle_tv_icon)
     app.router.add_get("/webapp/p/tv/{id}", handle_tv_icon)
     app.router.add_get("/bk/{tail:.*}", handle_book_asset_proxy)

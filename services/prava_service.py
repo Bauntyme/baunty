@@ -3,10 +3,13 @@ Prava Service — Haydovchilik guvohnomasi nazariy imtihoni (1235 savol, 125 bil
 Rasmiy O'zbekiston YHQ (Yo'l Harakati Qoidalari) qoidalari va imtihon tizimi.
 To'liq oq brendlangan: Bauntys (@Bauntyfilmsbot va @BauntyFilms).
 """
+import os
+import json
 import time
 import random
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from pathlib import Path
+from typing import Dict, List, Any, Optional, Tuple, Set
 
 logger = logging.getLogger(__name__)
 
@@ -307,11 +310,23 @@ class PravaService:
     def _init_question_bank(self):
         """Barcha mavzular va biletlar bo'ylab to'liq savollar bazasini shakllantirish."""
         seed_len = len(SEED_QUESTIONS)
+        img_set: Set[int] = set()
+        img_file = Path(__file__).resolve().parent.parent / "data" / "prava_images.json"
+        if img_file.exists():
+            try:
+                with open(img_file, "r", encoding="utf-8") as f:
+                    img_set = set(json.load(f))
+            except Exception as e:
+                logger.debug(f"prava_images.json yuklashda xatolik: {e}")
+        if not img_set:
+            img_set = {i for i in range(1, self.total_questions + 1) if (i % 3 == 0 or i % 5 == 1)}
+
         for i in range(1, self.total_questions + 1):
             base = SEED_QUESTIONS[(i - 1) % seed_len]
             topic_idx = (i - 1) % len(TOPICS_LIST)
             bilet_num = ((i - 1) // 10) + 1
 
+            has_img = i in img_set
             q_obj = {
                 "id": i,
                 "t": topic_idx,
@@ -319,7 +334,7 @@ class PravaService:
                 "q": base["q"] if i <= seed_len else f"{base['q']} (#{i})",
                 "o": list(base["o"]),
                 "a": base["a"],
-                "img": f"pv/{i}.webp" if (i % 3 == 0) else None
+                "img": f"prava/{i}.webp" if has_img else None
             }
             self._all_questions.append(q_obj)
 

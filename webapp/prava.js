@@ -107,7 +107,7 @@ function progressDashes(v) {
   }).join("")}</div>`;
 }
 function qImage(q) {
-  return q.img ? `<button class="pv-img" data-zoom="${esc(q.img)}"><img src="${esc(q.img)}" alt="Savol rasmi" loading="eager" decoding="async"><span>${ICO.zoom}</span></button>` : "";
+  return q.img ? `<button class="pv-img" data-zoom="${esc(q.img)}"><img src="${esc(q.img)}" alt="Savol rasmi" loading="eager" decoding="async" onerror="this.parentElement.style.display='none'"><span>${ICO.zoom}</span></button>` : "";
 }
 function optionsHtml(q, a, attr) {
   return `<div class="pv-opts">${q.o.map((t, k) => {

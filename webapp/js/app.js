@@ -476,13 +476,13 @@ const App = {
             });
             this.hls.on(window.Hls.Events.MANIFEST_LOADED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
-                    let bestIdx = 0;
+                    let bestIdx = data.levels.length - 1;
                     for (let i = 0; i < data.levels.length; i++) {
                         const h = data.levels[i].height || 0;
-                        if (h <= 720) bestIdx = i;
+                        if (h >= 1080 || h === 1440) { bestIdx = i; break; }
                     }
                     try {
-                        this.hls.startLevel = _isSlow ? 0 : bestIdx;
+                        this.hls.startLevel = _isSlow ? Math.min(1, bestIdx) : bestIdx;
                         this.hls.currentLevel = -1;
                         this.hls.minAutoLevel = 0;
                     } catch (err) {}
@@ -490,13 +490,13 @@ const App = {
             });
             this.hls.on(window.Hls.Events.MANIFEST_PARSED, (e, data) => {
                 if (data && data.levels && data.levels.length) {
-                    let bestIdx = 0;
+                    let bestIdx = data.levels.length - 1;
                     for (let i = 0; i < data.levels.length; i++) {
                         const h = data.levels[i].height || 0;
-                        if (h <= 720) bestIdx = i;
+                        if (h >= 1080 || h === 1440) { bestIdx = i; break; }
                     }
                     try {
-                        this.hls.startLevel = _isSlow ? 0 : bestIdx;
+                        this.hls.startLevel = _isSlow ? Math.min(1, bestIdx) : bestIdx;
                         this.hls.currentLevel = -1;
                         this.hls.minAutoLevel = 0;
                     } catch (err) {}
