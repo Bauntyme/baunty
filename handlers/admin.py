@@ -221,7 +221,8 @@ async def state_add_movie_title(message: Message, state: FSMContext) -> None:
     await state.set_state(MovieAddStates.waiting_for_media)
     await message.reply(
         f"✅ Nomi: <b>{title}</b>\n\n"
-        "3-qadam: Endi kinoning <b>video faylini</b> (yoki hujjat ko'rinishida) botga yuboring:",
+        "3-qadam: Endi kinoning <b>video faylini</b> (yoki hujjat ko'rinishida) botga yuboring:\n"
+        "<i>💡 Yoki Asilmedia.org dan avtomatik yuklash va bog'lash uchun <code>asilmedia</code> deb yozing:</i>",
         parse_mode="HTML",
         reply_markup=cancel_keyboard()
     )
@@ -251,6 +252,62 @@ async def state_add_movie_media(message: Message, state: FSMContext) -> None:
     await state.set_state(MovieAddStates.waiting_for_genres)
     await message.reply(
         "✅ Video qabul qilindi!\n\n"
+        "4-qadam: Kinoning <b>janrini</b> tanlang (yoki matn ko'rinishida yozing, masalan: <i>Jangari, Drama</i>):",
+        parse_mode="HTML",
+        reply_markup=genre_picker_keyboard()
+    )
+
+
+@router.message(MovieAddStates.waiting_for_media, F.text)
+async def state_add_movie_media_text(message: Message, state: FSMContext) -> None:
+    """Admin video fayli o'rniga Asilmedia havolasi yoki 'asilmedia' deb yozganda."""
+    raw = message.text.strip()
+    data = await state.get_data()
+    code = data.get("code")
+    title = data.get("title")
+
+    status_msg = await message.reply(
+        f"⏳ <b>{title}</b> uchun Asilmedia.org dan video qidirilmoqda va tayyorlanmoqda...",
+        parse_mode="HTML"
+    )
+
+    query_title = raw if (not raw.startswith("http") and raw.lower() not in ["asilmedia", "avto", "auto", "skip", "yoq", "yo'q"]) else title
+    async with get_session() as session:
+        sync_res = await movie_service.sync_movie_from_asilmedia(
+            code=code,
+            title=query_title,
+            session=session,
+            download_files=True
+        )
+
+    file_id = f"asilmedia_stream_{code}"
+    file_type = "video"
+    duration = None
+    file_size = None
+
+    if sync_res.get("success"):
+        parts_cnt = len(sync_res.get("synced_parts", []))
+        await status_msg.edit_text(
+            f"✅ Asilmedia.org dan <b>{parts_cnt} ta qism</b> muvaffaqiyatli bog'landi va tayyorlandi!\n"
+            f"🎬 Sarlavha: <b>{sync_res.get('title')}</b>",
+            parse_mode="HTML"
+        )
+    else:
+        await status_msg.edit_text(
+            f"ℹ️ Asilmedia.org dan to'g'ridan-to'g'ri topilmadi: {sync_res.get('error')}.\n"
+            f"Video so'ralganda avtomatik uzatish uchun saqlandi.",
+            parse_mode="HTML"
+        )
+
+    await state.update_data(
+        file_id=file_id,
+        file_type=file_type,
+        duration=duration,
+        file_size=file_size,
+        genres=[]
+    )
+    await state.set_state(MovieAddStates.waiting_for_genres)
+    await message.reply(
         "4-qadam: Kinoning <b>janrini</b> tanlang (yoki matn ko'rinishida yozing, masalan: <i>Jangari, Drama</i>):",
         parse_mode="HTML",
         reply_markup=genre_picker_keyboard()
@@ -543,6 +600,26 @@ async def cmd_sync_catalog_asilmedia(message: Message) -> None:
         count = await movie_service.sync_catalog_from_asilmedia(limit=limit, session=session)
     await status_msg.edit_text(
         f"✅ Asilmedia.org dan <b>{count} ta</b> kino/serial qismlari bilan bog'landi!",
+        parse_mode="HTML"
+    )
+
+
+@router.message(Command("download_catalog_asilmedia"))
+async def cmd_download_catalog_asilmedia(message: Message) -> None:
+    """Admin buyrug'i: katalogdagi mashhur kinolarni (Taksi, Titans, Chuqur, Forsaj) Asilmedia orqali yuklab tayyorlash."""
+    if not is_admin_check(message.from_user.id):
+        return
+    args = message.text.split()[1:]
+    limit = int(args[0]) if args and args[0].isdigit() else 15
+    status_msg = await message.reply(
+        f"⏳ Asilmedia.org orqali {limit} ta katalog kinosini orqa fonda yuklab tayyorlash boshlandi...",
+        parse_mode="HTML"
+    )
+    from services.movie_service import start_background_movie_preloader
+    start_background_movie_preloader(limit=limit)
+    await status_msg.edit_text(
+        f"✅ <b>{limit} ta</b> katalog kinosini (Taksi 1..5, Titans, Chuqur, Forsaj...) orqa fonda yuklab tayyorlash muvaffaqiyatli ishga tushirildi!\n"
+        "Barcha qismlar to'liq yuklanib, ko'rish tugmasi bosilganda darhol tezkor uzatiladi.",
         parse_mode="HTML"
     )
 

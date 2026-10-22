@@ -614,6 +614,46 @@ class AsilmediaService:
 
         return await self.get_movie_details(candidates[0]["url"])
 
+    @staticmethod
+    def is_valid_video_header(data: bytes) -> bool:
+        """Video oqimi boshidagi baytlarni (magic bytes) tekshirish."""
+        if not data or len(data) < 16:
+            return False
+        # HTML yoki matnni darhol rad etish
+        lower_prefix = data[:256].lower()
+        if (
+            b"<!doctype" in lower_prefix
+            or b"<html" in lower_prefix
+            or b"<head" in lower_prefix
+            or b"<body" in lower_prefix
+            or b"var " in lower_prefix
+            or b"/*" in lower_prefix
+        ):
+            return False
+
+        # MP4/MOV: 'ftyp' dastlabki 32 bayt ichida
+        if b"ftyp" in data[:32]:
+            return True
+        # MKV / WebM
+        if data.startswith(b"\x1a\x45\xdf\xa3"):
+            return True
+        # AVI (RIFF ... AVI)
+        if data.startswith(b"RIFF") and b"AVI" in data[:16]:
+            return True
+        # FLV
+        if data.startswith(b"FLV"):
+            return True
+        # MPEG-TS (0x47 sinxronizatsiya bayti)
+        if data[0] == 0x47:
+            return True
+        # MP4 header / moov / mdat
+        if b"moov" in data[:64] or b"mdat" in data[:64]:
+            return True
+        # Umumiy binar oqim (agar HTML belgilaridan xoli bo'lsa)
+        if not any(c in data[:64] for c in b"<>{}()"):
+            return True
+        return False
+
     async def download_video_stream(
         self,
         url: str,
@@ -624,6 +664,7 @@ class AsilmediaService:
         """
         Asilmedia video faylini xavfsiz holda serverga yuklab olish (chunk streaming).
         Agar fayl hajmi max_bytes dan oshsa yoki xatolik yuz bersa, to'xtatiladi.
+        HTML sahifalar yoki xato javoblar yuklanmaydi va rad etiladi.
         """
         try:
             destination_path.parent.mkdir(parents=True, exist_ok=True)
@@ -636,22 +677,36 @@ class AsilmediaService:
                         logger.warning(f"Video yuklashda HTTP {resp.status}: {encoded_url}")
                         return None
 
+                    content_type = (resp.headers.get("Content-Type") or "").lower()
+                    if any(t in content_type for t in ["text/html", "text/plain", "application/json", "application/xml"]):
+                        logger.warning(f"Yuklash manzili video emas ({content_type}): {encoded_url}")
+                        return None
+
                     content_length = resp.headers.get("Content-Length")
                     if content_length and int(content_length) > max_bytes:
                         logger.info(f"Video hajmi {content_length} bayt limitdan ({max_bytes}) katta, to'liq yuklanmaydi.")
 
                     downloaded = 0
                     temp_file = destination_path.with_suffix(".tmp")
+                    first_chunk = True
+
                     with open(temp_file, "wb") as f:
                         async for chunk in resp.content.iter_chunked(64 * 1024):
                             if not chunk:
                                 break
+                            if first_chunk:
+                                first_chunk = False
+                                if not self.is_valid_video_header(chunk):
+                                    logger.warning(f"Video boshlang'ich baytlari yaroqsiz (HTML yoki matn): {encoded_url}")
+                                    break
                             f.write(chunk)
                             downloaded += len(chunk)
                             if downloaded >= max_bytes:
                                 break
 
-                    if downloaded > 1024:
+                    # Haqiqiy video kamida 1KB bo'lishi kerak
+                    min_valid_size = 1024
+                    if downloaded >= min_valid_size:
                         if temp_file.exists():
                             if destination_path.exists():
                                 destination_path.unlink()
@@ -661,6 +716,8 @@ class AsilmediaService:
                     else:
                         if temp_file.exists():
                             temp_file.unlink()
+                        if downloaded > 0:
+                            logger.warning(f"Fayl hajmi video uchun juda kichik ({downloaded} bayt): {destination_path.name}")
         except Exception as e:
             logger.warning(f"download_video_stream error for '{url}': {e}")
 

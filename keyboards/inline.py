@@ -81,7 +81,7 @@ def genres_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
+def movie_item_keyboard(movie_code: str, watch_url: Optional[str] = None) -> InlineKeyboardMarkup:
     """Kino xabari ostidagi tugmalar."""
     builder = InlineKeyboardBuilder()
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
@@ -93,6 +93,10 @@ def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
             callback_data=f"watch_part:{movie_code}:1"
         )
     )
+    if watch_url and watch_url.startswith("http"):
+        builder.row(
+            InlineKeyboardButton(text="🌐 Onlayn ko'rish (Full HD)", url=watch_url)
+        )
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),
@@ -111,7 +115,8 @@ def movie_parts_keyboard(
     total_parts: int,
     current_part: int = 1,
     page: Optional[int] = None,
-    per_page: int = 20
+    per_page: int = 20,
+    watch_url: Optional[str] = None
 ) -> InlineKeyboardMarkup:
     """Ko'p qismli seriallar uchun qismlar tugmalari ([1] [2] ... [N]) va ulashish.
     Telegram 100-tugma cheklovidan oshib ketmasligi uchun 20 tadan sahifalarga ajratiladi.
@@ -159,6 +164,10 @@ def movie_parts_keyboard(
             url=f"https://t.me/{bot_clean}?start=m_{target_start}"
         )
     )
+    if watch_url and watch_url.startswith("http"):
+        builder.row(
+            InlineKeyboardButton(text=f"🌐 {current_part}-qism onlayn (Full HD)", url=watch_url)
+        )
 
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"

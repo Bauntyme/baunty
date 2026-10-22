@@ -312,7 +312,15 @@ async def set_movie_video(
         return movie
 
     if fid_str:
-        movie.file_id = fid_str
+        is_new_url = fid_str.startswith("http://") or fid_str.startswith("https://")
+        curr_is_real_fid = bool(
+            movie.file_id
+            and not (movie.file_id.startswith("http://") or movie.file_id.startswith("https://"))
+            and not any(s in movie.file_id.lower() for s in ["sample", "test", "mock", "placeholder", "fake"])
+            and len(movie.file_id) >= 20
+        )
+        if not (is_new_url and curr_is_real_fid):
+            movie.file_id = fid_str
     movie.file_type = file_type
     if title:
         movie.title = title.strip()
@@ -332,6 +340,7 @@ async def sync_movie_asilmedia_parts(
 ) -> int:
     """
     Asilmedia dan olingan barcha qismlarni (1..N) bazaga 'code_part' ko'rinishida saqlash.
+    Mavjud haqiqiy Telegram file_id lar xavfsiz saqlab qolinadi.
     """
     clean_code = str(code).strip()
     synced = 0

@@ -13,4 +13,6 @@ logs/
 scratch/
 data/posters/*.webp
 data/bk/
+data/videos/*.mp4
+*.mp4
 

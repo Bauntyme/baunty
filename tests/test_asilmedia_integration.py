@@ -3,6 +3,7 @@ Asilmedia.org integratsiyasi, video manbalari, qismlar va deliver_movie testlari
 100% Bauntys oq brendi: @Bauntyfilmsbot va @BauntyFilms.
 """
 import json
+import asyncio
 import pytest
 import pytest_asyncio
 from pathlib import Path
@@ -403,3 +404,128 @@ async def test_white_label_branding_asilmedia():
     assert "@Bauntyfilmsbot" in cleaned
     assert "@BauntyFilms" in cleaned
     assert "Zakirov" not in cleaned
+
+
+@pytest.mark.asyncio
+async def test_asilmedia_download_video_stream_rejects_html(tmp_path):
+    """HTML yoki xato javoblarni video sifatida saqlamaslik testi."""
+    dest = tmp_path / "corrupted.mp4"
+
+    # 1. Content-Type: text/html bo'lganda
+    mock_resp1 = AsyncMock()
+    mock_resp1.status = 200
+    mock_resp1.headers = {"Content-Type": "text/html; charset=utf-8"}
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_get.return_value.__aenter__.return_value = mock_resp1
+        res1 = await asilmedia_service.download_video_stream("https://server.asilmedia.org/download/1/2", dest)
+        assert res1 is None
+        assert not dest.exists()
+
+    # 2. Content-Type berilmagan, lekin birinchi chunk HTML teglari bo'lganda
+    async def mock_html_chunks(chunk_size):
+        yield b"<!DOCTYPE html><html><head><title>Error</title></head><body>Server error</body></html>"
+
+    mock_resp2 = AsyncMock()
+    mock_resp2.status = 200
+    mock_resp2.headers = {"Content-Type": "application/octet-stream"}
+    mock_resp2.content.iter_chunked = mock_html_chunks
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_get.return_value.__aenter__.return_value = mock_resp2
+        res2 = await asilmedia_service.download_video_stream("https://server.asilmedia.org/download/3/4", dest)
+        assert res2 is None
+        assert not dest.exists()
+
+
+def test_asilmedia_is_valid_video_header():
+    """Video sarlavhalari (magic bytes) tekshiruvi testi."""
+    # To'g'ri MP4 (ftyp)
+    mp4_bytes = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00isommp42"
+    assert asilmedia_service.is_valid_video_header(mp4_bytes) is True
+
+    # To'g'ri MKV
+    mkv_bytes = b"\x1a\x45\xdf\xa3\x93\x42\x86\x81\x01\x42\xf7\x81\x01\x42\xf2\x81"
+    assert asilmedia_service.is_valid_video_header(mkv_bytes) is True
+
+    # Noto'g'ri HTML / matn
+    html_bytes = b"<!DOCTYPE html>\n<html>\n<head>\n"
+    assert asilmedia_service.is_valid_video_header(html_bytes) is False
+
+    js_bytes = b"var player = new Player();\n/* script */"
+    assert asilmedia_service.is_valid_video_header(js_bytes) is False
+
+    # Bo'sh yoki juda qisqa
+    assert asilmedia_service.is_valid_video_header(b"abc") is False
+
+
+@pytest.mark.asyncio
+async def test_background_movie_preloader_lifecycle():
+    """Kinolarni orqa fonda yuklash va tayyorlash vazifasi ishga tushishi va to'xtashi testi."""
+    from services.movie_service import (
+        start_background_movie_preloader,
+        stop_background_movie_preloader,
+        _background_movie_preloader_loop
+    )
+
+    with patch("services.movie_service._background_movie_preloader_loop", new_callable=AsyncMock) as mock_loop:
+        task = start_background_movie_preloader(limit=2)
+        assert task is not None
+        # Qayta chaqirilganda bir xil task qaytishi kerak
+        task2 = start_background_movie_preloader(limit=2)
+        assert task == task2
+
+        stop_background_movie_preloader()
+        await asyncio.sleep(0)
+        assert getattr(task, "cancelling", lambda: 0)() > 0 or task.cancelled() or task.done()
+
+
+@pytest.mark.asyncio
+async def test_admin_download_catalog_asilmedia_command():
+    """Admin /download_catalog_asilmedia buyrug'i testi."""
+    from handlers.admin import cmd_download_catalog_asilmedia
+
+    msg = AsyncMock(spec=Message)
+    msg.text = "/download_catalog_asilmedia 5"
+    admin_id = config.admin_ids[0] if config.admin_ids else 7271080503
+    msg.from_user = TgUser(id=admin_id, is_bot=False, first_name="Admin")
+    status_mock = AsyncMock()
+    msg.reply = AsyncMock(return_value=status_mock)
+
+    with patch("services.movie_service.start_background_movie_preloader") as mock_preload:
+        mock_task = AsyncMock()
+        mock_preload.return_value = mock_task
+        await cmd_download_catalog_asilmedia(msg)
+        mock_preload.assert_called_once_with(limit=5)
+        status_mock.edit_text.assert_called_once()
+        sent_text = status_mock.edit_text.call_args[0][0]
+        assert "5 ta" in sent_text
+        assert "orqa fonda" in sent_text
+
+
+@pytest.mark.asyncio
+async def test_admin_add_movie_media_text_flow():
+    """Admin kino qo'shishda fayl o'rniga Asilmedia matni yuborishi testi."""
+    from handlers.admin import state_add_movie_media_text
+    from utils.states import MovieAddStates
+
+    msg = AsyncMock(spec=Message)
+    msg.text = "asilmedia"
+    msg.from_user = TgUser(id=12345, is_bot=False, first_name="Admin")
+    status_mock = AsyncMock()
+    msg.reply = AsyncMock(return_value=status_mock)
+
+    state = AsyncMock()
+    state.get_data.return_value = {"code": "999", "title": "Avatar 2"}
+
+    with patch("services.movie_service.movie_service.sync_movie_from_asilmedia", new_callable=AsyncMock) as mock_sync:
+        mock_sync.return_value = {
+            "success": True,
+            "title": "Avatar 2",
+            "synced_parts": [1]
+        }
+        await state_add_movie_media_text(msg, state)
+        mock_sync.assert_called_once()
+        state.update_data.assert_called_once()
+        update_kwargs = state.update_data.call_args[1]
+        assert "asilmedia_stream_999" in update_kwargs.get("file_id")
+        state.set_state.assert_called_once_with(MovieAddStates.waiting_for_genres)
+

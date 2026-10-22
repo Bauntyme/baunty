@@ -116,16 +116,18 @@ async def main() -> None:
         await set_default_commands(bot)
         await set_webapp_menu_button(bot)
         await notify_admins_on_startup(bot)
-        from services.movie_service import start_periodic_catalog_sync
+        from services.movie_service import start_periodic_catalog_sync, start_background_movie_preloader
         start_periodic_catalog_sync()
+        start_background_movie_preloader()
         from services.downloader import media_downloader
         asyncio.create_task(media_downloader.update_from_git())
         logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{config.BOT_USERNAME}")
 
     async def on_shutdown():
         logger.info("Bot va web server to'xtatilmoqda...")
-        from services.movie_service import stop_periodic_catalog_sync
+        from services.movie_service import stop_periodic_catalog_sync, stop_background_movie_preloader
         stop_periodic_catalog_sync()
+        stop_background_movie_preloader()
         await notify_admins_on_shutdown(bot)
         await runner.cleanup()
         await close_db()

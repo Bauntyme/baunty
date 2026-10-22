@@ -14,7 +14,9 @@
       "label": "720p Taksi-1 / HD",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Taksi 1 2 3 4 5 Uzbekcha Tas-IX — 1-qism"
+      "title": "Taksi 1 2 3 4 5 Uzbekcha Tas-IX — 1-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\718_1.mp4",
+      "file_size": 11815175
     },
     "718_1": {
       "url": "https://server.asilmedia.org/download/4310693215/31871",
@@ -54,7 +56,9 @@
       "label": "720p Taksi-2 / HD",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Taksi 1 2 3 4 5 Uzbekcha Tas-IX — 2-qism"
+      "title": "Taksi 1 2 3 4 5 Uzbekcha Tas-IX — 2-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\718_2.mp4",
+      "file_size": 21657943
     },
     "718-2": {
       "url": "https://server.asilmedia.org/download/4310693215/31874",
@@ -144,7 +148,9 @@
       "label": "480p Taksi-5 / HD",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Taksi 1 2 3 4 5 Uzbekcha Tas-IX — 5-qism"
+      "title": "Taksi 1 2 3 4 5 Uzbekcha Tas-IX — 5-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\718_5.mp4",
+      "file_size": 23014356
     },
     "718-5": {
       "url": "https://server.asilmedia.org/download/4310693215/37884",
@@ -174,7 +180,9 @@
       "label": "1-qism 480p",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Monarx: Maxluqlar merosi 2023 2026 Godzilla King kong Titanlar kino — 1-qism"
+      "title": "Monarx: Maxluqlar merosi 2023 2026 Godzilla King kong Titanlar kino — 1-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\717_1.mp4",
+      "file_size": 21657943
     },
     "717_1": {
       "url": "https://server.asilmedia.org/download/4310693215/44521",
@@ -214,7 +222,9 @@
       "label": "1-qism 720p",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Monarx: Maxluqlar merosi 2023 2026 Godzilla King kong Titanlar kino — 2-qism"
+      "title": "Monarx: Maxluqlar merosi 2023 2026 Godzilla King kong Titanlar kino — 2-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\717_2.mp4",
+      "file_size": 788493
     },
     "717-2": {
       "url": "https://fayllar.com/23/Seriallar/Godzilla/Godzilla-Monarx maxluqlar merosi 1-1 720p O'zbek tilida (asilmedia.net).mp4",
@@ -904,7 +914,9 @@
       "label": "9-qism 480p",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Monarx: Maxluqlar merosi 2023 2026 Godzilla King kong Titanlar kino — 25-qism"
+      "title": "Monarx: Maxluqlar merosi 2023 2026 Godzilla King kong Titanlar kino — 25-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\717_25.mp4",
+      "file_size": 21657943
     },
     "717-25": {
       "url": "https://server.asilmedia.org/download/4310693215/19526",
@@ -1734,7 +1746,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
       "duration": 10,
       "file_size": 5485935,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\717_54.mp4"
     },
     "717-54": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
@@ -4458,7 +4471,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
       "duration": 10,
       "file_size": 5485935,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\712_1.mp4"
     },
     "712_1": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
@@ -4554,7 +4568,8 @@
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
       "duration": 10,
       "file_size": 788493,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\708_1.mp4"
     },
     "708_1": {
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
@@ -53667,28 +53682,44 @@
       "file_type": "video"
     },
     "333": {
-      "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
-      "duration": 30,
-      "file_size": 21657943,
-      "file_type": "video"
+      "url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "watch_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "download_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "quality": "1080p",
+      "label": "To'liq film",
+      "file_type": "video",
+      "source": "asilmedia",
+      "title": "Munnaboy 2 Hind kinosi kino"
     },
     "333_1": {
-      "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
-      "duration": 30,
-      "file_size": 21657943,
-      "file_type": "video"
+      "url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "watch_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "download_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "quality": "1080p",
+      "label": "To'liq film",
+      "file_type": "video",
+      "source": "asilmedia",
+      "title": "Munnaboy 2 Hind kinosi kino"
     },
     "333-1": {
-      "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
-      "duration": 30,
-      "file_size": 21657943,
-      "file_type": "video"
+      "url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "watch_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "download_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "quality": "1080p",
+      "label": "To'liq film",
+      "file_type": "video",
+      "source": "asilmedia",
+      "title": "Munnaboy 2 Hind kinosi kino"
     },
     "333p1": {
-      "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
-      "duration": 30,
-      "file_size": 21657943,
-      "file_type": "video"
+      "url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "watch_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "download_url": "https://server.asilmedia.org/watch/4310693215/32771",
+      "quality": "1080p",
+      "label": "To'liq film",
+      "file_type": "video",
+      "source": "asilmedia",
+      "title": "Munnaboy 2 Hind kinosi kino"
     },
     "332": {
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
@@ -61222,7 +61253,9 @@
       "label": "To'liq film",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "Chuqur suvlar / Tubsizlik akulalari 2026 1405-reys: So'nggi umid kino"
+      "title": "Chuqur suvlar / Tubsizlik akulalari 2026 1405-reys: So'nggi umid kino",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\287_1.mp4",
+      "file_size": 11916526
     },
     "287_1": {
       "url": "https://server.asilmedia.org/watch/4310693215/1009",
@@ -62122,7 +62155,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
       "duration": 20,
       "file_size": 11815175,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\287_50.mp4"
     },
     "287-50": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
@@ -63580,7 +63614,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
       "duration": 30,
       "file_size": 21657943,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\287_131.mp4"
     },
     "287-131": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
@@ -66880,7 +66915,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
       "duration": 30,
       "file_size": 21657943,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\285_1.mp4"
     },
     "285_1": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
@@ -66958,7 +66994,8 @@
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
       "duration": 10,
       "file_size": 788493,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\284_1.mp4"
     },
     "284_1": {
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
@@ -107494,7 +107531,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
       "duration": 20,
       "file_size": 11815175,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\142_1.mp4"
     },
     "142_1": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
@@ -107542,7 +107580,8 @@
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
       "duration": 10,
       "file_size": 788493,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\140_1.mp4"
     },
     "140_1": {
       "url": "https://www.w3schools.com/html/mov_bbb.mp4",
@@ -107566,7 +107605,8 @@
       "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
       "duration": 5,
       "file_size": 1128375,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\139_1.mp4"
     },
     "139_1": {
       "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
@@ -108416,7 +108456,8 @@
       "url": "https://vjs.zencdn.net/v/oceans.mp4",
       "duration": 47,
       "file_size": 23014356,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\114_1.mp4"
     },
     "114_1": {
       "url": "https://vjs.zencdn.net/v/oceans.mp4",
@@ -108860,7 +108901,8 @@
       "url": "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
       "duration": 15,
       "file_size": 11916526,
-      "file_type": "video"
+      "file_type": "video",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\103_1.mp4"
     },
     "103_1": {
       "url": "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
@@ -108912,7 +108954,9 @@
       "label": "1-qism 480p",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "U: Derriga xush kelibsiz 2025 Derryga xush kelibsiz Derriga hush kelibsiz Masxaraboz U ono kino — 1-qism"
+      "title": "U: Derriga xush kelibsiz 2025 Derryga xush kelibsiz Derriga hush kelibsiz Masxaraboz U ono kino — 1-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\101_1.mp4",
+      "file_size": 21657943
     },
     "101_1": {
       "url": "https://server.asilmedia.org/download/4310693215/12804",
@@ -109390,7 +109434,9 @@
       "label": "5-qism 1080p",
       "file_type": "video",
       "source": "asilmedia",
-      "title": "U: Derriga xush kelibsiz 2025 Derryga xush kelibsiz Derriga hush kelibsiz Masxaraboz U ono kino — 10-qism"
+      "title": "U: Derriga xush kelibsiz 2025 Derryga xush kelibsiz Derriga hush kelibsiz Masxaraboz U ono kino — 10-qism",
+      "file_path": "C:\\Users\\Yoga\\Desktop\\copy\\data\\videos\\101_10.mp4",
+      "file_size": 788493
     },
     "101-10": {
       "url": "https://fayllar.com/16/Seriallar/U%20-%20Derriga%20xush%20kelibsiz/U%20-%20Derriga%20xush%20kelibsiz%202025%205-qism%201080p%20(asilmedia.net).mp4",

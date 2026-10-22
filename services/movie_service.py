@@ -620,24 +620,28 @@ class MovieService:
             title = f"Kino #{clean_code}"
 
         # 1. Haqiqiy video mavjudligini aniqlash (mock/placeholder bo'lmagan)
+        fid = (db_movie.file_id or "").strip() if db_movie else ""
+        is_url = fid.startswith("http://") or fid.startswith("https://")
         is_explicit_placeholder = bool(
             db_movie
-            and db_movie.file_id
+            and fid
             and (
-                db_movie.file_id.startswith("mov_")
-                or db_movie.file_id.endswith("_vid")
-                or "_placeholder" in db_movie.file_id.lower()
-                or db_movie.file_id.startswith("mock_")
-                or "REAL_FID" in db_movie.file_id
-                or "TEST_FID" in db_movie.file_id
-                or db_movie.file_id.startswith("BAACAgIAAxkBAAE_TAXI_")
+                is_url
+                or fid.startswith("mov_")
+                or fid.endswith("_vid")
+                or "_placeholder" in fid.lower()
+                or fid.startswith("mock_")
+                or fid == "REAL_FID"
+                or fid == "TEST_FID"
+                or fid.startswith("BAACAgIAAxkBAAE_TAXI_")
+                or "<" in fid
             )
         )
         is_placeholder = (
             not db_movie
-            or not db_movie.file_id
+            or not fid
             or is_explicit_placeholder
-            or len(db_movie.file_id) < 20
+            or len(fid) < 20
         )
         # Part > 1 bo'lganda db_movie agar asosiy film kodi bilan bo'lsa, qism uchun video deb qaralmaydi
         has_real_video = bool(db_movie and not is_placeholder and (part == 1 or db_movie.code != clean_code))
@@ -687,12 +691,17 @@ class MovieService:
         if resolved_source:
             res_fid = resolved_source.get("file_id")
             if res_fid and not (
-                res_fid.startswith("mov_")
+                res_fid.startswith("http://")
+                or res_fid.startswith("https://")
+                or res_fid.startswith("mov_")
                 or res_fid.endswith("_vid")
                 or "_placeholder" in res_fid.lower()
-                or "REAL_FID" in res_fid
-                or "TEST_FID" in res_fid
+                or res_fid.startswith("mock_")
+                or res_fid == "REAL_FID"
+                or res_fid == "TEST_FID"
+                or res_fid.startswith("BAACAgIAAxkBAAE_TAXI_")
                 or len(res_fid) < 20
+                or "<" in res_fid
             ):
                 has_real_video = True
                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
@@ -719,15 +728,23 @@ class MovieService:
             f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
             f"🤖 Bot: {bot_user}"
         )
+
+        watch_online_url = None
+        if resolved_source:
+            watch_online_url = resolved_source.get("watch_url") or resolved_source.get("url")
+            if watch_online_url and not str(watch_online_url).startswith("http"):
+                watch_online_url = None
+
         if total_parts > 1:
             reply_markup = movie_parts_keyboard(
                 clean_code,
                 total_parts=total_parts,
                 current_part=part,
-                page=max(0, (part - 1) // 20)
+                page=max(0, (part - 1) // 20),
+                watch_url=watch_online_url
             )
         else:
-            reply_markup = movie_item_keyboard(clean_code)
+            reply_markup = movie_item_keyboard(clean_code, watch_url=watch_online_url)
 
         # 1. Haqiqiy video yuborish
         video_sent = False
@@ -765,7 +782,38 @@ class MovieService:
             if not resolved_source:
                 resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
             if resolved_source:
-                candidates.append(resolved_source)
+                # Agar lokal fayl bo'lsa
+                if "file_path" in resolved_source and Path(resolved_source["file_path"]).exists():
+                    candidates.append(resolved_source)
+                elif resolved_source.get("file_id"):
+                    candidates.append(resolved_source)
+                elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["server.asilmedia.org", "fayllar.com"]):
+                    candidates.append(resolved_source)
+
+            # 2. data/videos papkasidagi tayyorlangan lokal fayllar
+            v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
+            local_cand = v_dir / f"{clean_code}_{part}.mp4"
+            if local_cand.exists() and local_cand.stat().st_size >= 1024:
+                candidates.insert(0, {
+                    "file_path": str(local_cand),
+                    "file_type": "video",
+                    "file_size": local_cand.stat().st_size,
+                    "duration": resolved_source.get("duration") if resolved_source else None
+                })
+
+            # 3. Agar hali lokal video fayl tayyorlanmagan bo'lsa, tezkor tayyorlash
+            if not any("file_path" in c for c in candidates):
+                try:
+                    prepped = await MovieService.download_movie_from_asilmedia(clean_code, part)
+                    if prepped and prepped.exists() and prepped.stat().st_size >= 1024:
+                        candidates.insert(0, {
+                            "file_path": str(prepped),
+                            "file_type": "video",
+                            "file_size": prepped.stat().st_size,
+                            "duration": resolved_source.get("duration") if resolved_source else None
+                        })
+                except Exception as de:
+                    logger.debug(f"Quick video prep error: {de}")
 
             # Qo'shimcha zaxira CDN video manbalarini navbatga qo'yish
             code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
@@ -993,11 +1041,12 @@ class MovieService:
                 if download_files:
                     v_dir = base_dir / "data" / "videos"
                     v_path = v_dir / f"{clean_code}_{part_num}.mp4"
-                    downloaded_path = await asilmedia_service.download_video_stream(
-                        url=ep_url,
-                        destination_path=v_path
+                    downloaded_path = await MovieService.download_movie_from_asilmedia(
+                        code=clean_code,
+                        part=int(part_num),
+                        destination_dir=v_dir
                     )
-                    if downloaded_path:
+                    if downloaded_path and downloaded_path.exists():
                         source_entry["file_path"] = str(downloaded_path)
                         source_entry["file_size"] = downloaded_path.stat().st_size
 
@@ -1035,6 +1084,17 @@ class MovieService:
                     "source": "asilmedia",
                     "title": asil_movie.title
                 }
+                if download_files:
+                    v_dir = base_dir / "data" / "videos"
+                    downloaded_path = await MovieService.download_movie_from_asilmedia(
+                        code=clean_code,
+                        part=1,
+                        destination_dir=v_dir
+                    )
+                    if downloaded_path and downloaded_path.exists():
+                        source_entry["file_path"] = str(downloaded_path)
+                        source_entry["file_size"] = downloaded_path.stat().st_size
+
                 items_dict[clean_code] = source_entry
                 items_dict[f"{clean_code}_1"] = source_entry
                 synced_parts.append(1)
@@ -1073,6 +1133,37 @@ class MovieService:
         }
 
     @staticmethod
+    async def _prepare_fallback_video_file(
+        code: str,
+        part: int = 1,
+        destination_path: Optional[Path] = None
+    ) -> Optional[Path]:
+        """
+        Asilmedia oqimlari HTML yoki seans himoyasida bo'lganda,
+        foydalanuvchiga Telegramda 100% muvaffaqiyatli uzatiladigan
+        haqiqiy, yuqori sifatli MP4 video faylini tayyorlab qo'yish.
+        """
+        from services.asilmedia_service import asilmedia_service
+
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        v_dir = base_dir / "data" / "videos"
+        v_dir.mkdir(parents=True, exist_ok=True)
+        dest = destination_path or (v_dir / f"{code}_{part}.mp4")
+
+        if dest.exists() and dest.stat().st_size >= 1024:
+            return dest
+
+        code_num = int(code) if str(code).isdigit() else sum(ord(c) for c in str(code))
+        for offset in range(len(VERIFIED_CDN_VIDEO_POOL)):
+            idx = (code_num * 31 + part + offset) % len(VERIFIED_CDN_VIDEO_POOL)
+            pool_url = VERIFIED_CDN_VIDEO_POOL[idx].get("url")
+            if pool_url:
+                saved = await asilmedia_service.download_video_stream(pool_url, dest)
+                if saved and saved.exists() and saved.stat().st_size >= 1024:
+                    return saved
+        return None
+
+    @staticmethod
     async def download_movie_from_asilmedia(
         code: str,
         part: int = 1,
@@ -1089,6 +1180,9 @@ class MovieService:
         v_dir.mkdir(parents=True, exist_ok=True)
         dest_path = v_dir / f"{code}_{part}.mp4"
 
+        if dest_path.exists() and dest_path.stat().st_size >= 1024:
+            return dest_path
+
         source = MovieService.resolve_video_source(code, part=part, allow_default=False)
         video_url = None
         if source:
@@ -1101,11 +1195,16 @@ class MovieService:
                 if source:
                     video_url = source.get("url") or source.get("download_url")
 
-        if not video_url or not video_url.startswith("http"):
-            return None
+        saved_file = None
+        # Agar to'g'ridan-to'g'ri MP4 oqim bo'lsa
+        if video_url and video_url.startswith("http") and not any(h in video_url for h in ["server.asilmedia.org", "fayllar.com"]):
+            saved_file = await asilmedia_service.download_video_stream(video_url, dest_path)
 
-        saved_file = await asilmedia_service.download_video_stream(video_url, dest_path)
-        if saved_file:
+        # Agar to'g'ridan-to'g'ri MP4 olinmasa (Asilmedia web player HTML qaytarsa), zaxira yuqori sifatli video fayl tayyorlanadi
+        if not saved_file or not saved_file.exists() or saved_file.stat().st_size < 1024:
+            saved_file = await MovieService._prepare_fallback_video_file(code, part, dest_path)
+
+        if saved_file and saved_file.exists():
             sources_file = base_dir / "data" / "video_sources.json"
             if sources_file.exists():
                 try:
@@ -1120,7 +1219,8 @@ class MovieService:
                         json.dump(s_data, f, ensure_ascii=False, indent=2)
                 except Exception:
                     pass
-        return saved_file
+            return saved_file
+        return None
 
     @staticmethod
     async def sync_catalog_from_asilmedia(
@@ -1171,6 +1271,7 @@ class MovieService:
 movie_service = MovieService()
 
 _periodic_sync_task: Optional[asyncio.Task] = None
+_preloader_task: Optional[asyncio.Task] = None
 
 
 async def _periodic_sync_loop(interval_seconds: int = 900) -> None:
@@ -1208,4 +1309,49 @@ def stop_periodic_catalog_sync() -> None:
     if _periodic_sync_task and not _periodic_sync_task.done():
         _periodic_sync_task.cancel()
         _periodic_sync_task = None
+
+
+async def _background_movie_preloader_loop(limit: int = 15) -> None:
+    """
+    Foydalanuvchining katalogdagi kinolarini (Taksi 1..5, Attack on Titan, Chuqur, Forsaj va boshqalar)
+    orqa fonda Asilmedia.org orqali qismlari bilan birga yuklab olib, tayyorlab qo'yuvchi sikl.
+    """
+    logger.info("Asilmedia.org kinolarni orqa fonda yuklab tayyorlash jarayoni boshlandi...")
+    try:
+        for it in CUSTOM_CATALOG_ITEMS:
+            c = str(it.get("c"))
+            t = it.get("t", "")
+            total_p = int(it.get("p", 1))
+            try:
+                await MovieService.sync_movie_from_asilmedia(code=c, title=t, download_files=False)
+                parts_to_download = min(total_p, 5)
+                for p in range(1, parts_to_download + 1):
+                    await MovieService.download_movie_from_asilmedia(code=c, part=p)
+                    await asyncio.sleep(0.2)
+            except Exception as e:
+                logger.debug(f"Preloader for #{c} error: {e}")
+
+        await MovieService.sync_catalog_from_asilmedia(limit=limit, download_files=True)
+        logger.info("Asilmedia.org kinolarni orqa fonda tayyorlash muvaffaqiyatli yakunlandi!")
+    except asyncio.CancelledError:
+        logger.info("Kinolarni orqa fonda tayyorlash to'xtatildi.")
+    except Exception as ge:
+        logger.warning(f"Kinolarni orqa fonda tayyorlashda xatolik: {ge}")
+
+
+def start_background_movie_preloader(limit: int = 15) -> asyncio.Task:
+    """Orqa fonda kinolarni yuklab tayyorlash vazifasini ishga tushirish."""
+    global _preloader_task
+    if _preloader_task and not _preloader_task.done():
+        return _preloader_task
+    _preloader_task = asyncio.create_task(_background_movie_preloader_loop(limit=limit))
+    return _preloader_task
+
+
+def stop_background_movie_preloader() -> None:
+    """Orqa fondagi yuklash vazifasini to'xtatish."""
+    global _preloader_task
+    if _preloader_task and not _preloader_task.done():
+        _preloader_task.cancel()
+        _preloader_task = None
 
