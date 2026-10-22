@@ -41,6 +41,7 @@ from utils.states import (
     MovieDeleteStates,
     MovieViewStates,
     MovieEditStates,
+    MovieAsilmediaSyncStates,
     BroadcastStates,
     SponsorAddStates,
 )
@@ -421,6 +422,129 @@ async def state_delete_movie_confirm(message: Message, state: FSMContext) -> Non
             parse_mode="HTML",
             reply_markup=main_menu_keyboard(is_admin=True)
         )
+
+
+@router.callback_query(F.data == "admin:movie:asilmedia_sync")
+async def cb_admin_movie_asilmedia_sync(callback: CallbackQuery, state: FSMContext) -> None:
+    """Asilmedia.org dan kino/serial qismlarini bog'lash."""
+    if not is_admin_check(callback.from_user.id):
+        return
+
+    await state.set_state(MovieAsilmediaSyncStates.waiting_for_input)
+    text = (
+        "🌐 <b>Asilmedia.org orqali kinoni bog'lash</b>\n\n"
+        "Kino kodini va (ixtiyoriy) nomini kiriting:\n"
+        "Masalan:\n"
+        "• <code>718</code> (Taksi 1..5)\n"
+        "• <code>717</code> (Attack on Titan)\n"
+        "• <code>287</code> (Chuqur)\n"
+        "• <code>101 Forsaj</code>\n\n"
+        "Asilmedia.org dan barcha qismlar va yuqori sifatli video oqimlari avtomatik topilib ulanadi!"
+    )
+    await callback.message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
+    await callback.answer()
+
+
+@router.message(MovieAsilmediaSyncStates.waiting_for_input, F.text)
+async def state_movie_asilmedia_sync(message: Message, state: FSMContext) -> None:
+    """Kino kodi va sarlavhasini Asilmediadan qidirib bog'lash."""
+    raw = message.text.strip()
+    await state.clear()
+
+    parts = raw.split(maxsplit=1)
+    code = parts[0]
+    title = parts[1] if len(parts) > 1 else None
+
+    status_msg = await message.reply(
+        f"⏳ <b>#{code}</b> uchun Asilmedia.org dan qidirilmoqda va video qismlari tayyorlanmoqda...",
+        parse_mode="HTML"
+    )
+
+    async with get_session() as session:
+        res = await movie_service.sync_movie_from_asilmedia(
+            code=code,
+            title=title,
+            session=session
+        )
+
+    if res.get("success"):
+        parts_cnt = len(res.get("synced_parts", []))
+        builder = InlineKeyboardBuilder()
+        builder.row(
+            InlineKeyboardButton(text="▶️ Ko'rish (Test)", callback_data=f"get_movie:{code}")
+        )
+        text = (
+            "🎉 <b>Asilmedia.org dan muvaffaqiyatli bog'landi!</b>\n\n"
+            f"🔢 Kod: <code>{code}</code>\n"
+            f"🎬 Nomi: <b>{res.get('title')}</b>\n"
+            f"📺 Bog'langan qismlar: <b>{parts_cnt} ta</b>\n"
+            f"🌐 Manba: Asilmedia.org\n\n"
+            "Endi foydalanuvchilar 'Ko'rish' tugmasini bossa, video darhol uzatiladi!"
+        )
+        await status_msg.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
+    else:
+        await status_msg.edit_text(
+            f"❌ <b>#{code}</b> uchun Asilmedia.org dan video topilmadi.\n"
+            f"Sabab: {res.get('error', 'Noma\'lum')}",
+            parse_mode="HTML"
+        )
+
+
+@router.message(Command("sync_asilmedia"))
+async def cmd_sync_asilmedia(message: Message) -> None:
+    """Admin buyrug'i: /sync_asilmedia 718 yoki /sync_asilmedia 718 Taksi"""
+    if not is_admin_check(message.from_user.id):
+        return
+
+    args = message.text.split()[1:]
+    if not args:
+        await message.reply(
+            "ℹ️ <b>Foydalanish:</b>\n<code>/sync_asilmedia 718</code> yoki <code>/sync_asilmedia 718 Taksi</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    code = args[0]
+    title = " ".join(args[1:]) if len(args) > 1 else None
+
+    status_msg = await message.reply(
+        f"⏳ <b>#{code}</b> Asilmedia.org dan qidirilmoqda...",
+        parse_mode="HTML"
+    )
+    async with get_session() as session:
+        res = await movie_service.sync_movie_from_asilmedia(code=code, title=title, session=session)
+
+    if res.get("success"):
+        parts_cnt = len(res.get("synced_parts", []))
+        await status_msg.edit_text(
+            f"✅ <b>#{code}</b> Asilmedia.org dan {parts_cnt} ta qism bilan muvaffaqiyatli bog'landi!\n"
+            f"🎬 Nomi: <b>{res.get('title')}</b>",
+            parse_mode="HTML"
+        )
+    else:
+        await status_msg.edit_text(
+            f"❌ #{code} topilmadi: {res.get('error')}",
+            parse_mode="HTML"
+        )
+
+
+@router.message(Command("sync_catalog_asilmedia"))
+async def cmd_sync_catalog_asilmedia(message: Message) -> None:
+    """Admin buyrug'i: katalogdagi mashhur kinolarni Asilmedia orqali sinxronlash."""
+    if not is_admin_check(message.from_user.id):
+        return
+    args = message.text.split()[1:]
+    limit = int(args[0]) if args and args[0].isdigit() else 20
+    status_msg = await message.reply(
+        f"⏳ Asilmedia.org orqali {limit} ta katalog kinosi sinxronlanmoqda...",
+        parse_mode="HTML"
+    )
+    async with get_session() as session:
+        count = await movie_service.sync_catalog_from_asilmedia(limit=limit, session=session)
+    await status_msg.edit_text(
+        f"✅ Asilmedia.org dan <b>{count} ta</b> kino/serial qismlari bilan bog'landi!",
+        parse_mode="HTML"
+    )
 
 
 @router.callback_query(F.data.startswith("admin:movie:list:"))

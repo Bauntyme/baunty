@@ -7,7 +7,7 @@ import time
 import json
 import asyncio
 import logging
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 from pathlib import Path
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, FSInputFile
@@ -644,7 +644,23 @@ class MovieService:
 
         # Video manbasini tekshirish (haqiqiy video manbasini topish)
         if not has_real_video and not resolved_source:
-            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
+            # 1. Aniq kod bo'yicha qidirish
+            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+            # 2. Agar mavjud bo'lmasa, Asilmedia dan tezkor sinxronlashga urinish
+            if not resolved_source:
+                try:
+                    sync_res = await MovieService.sync_movie_from_asilmedia(
+                        code=clean_code,
+                        title=title,
+                        session=session
+                    )
+                    if sync_res.get("success"):
+                        resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+                except Exception as se:
+                    logger.debug(f"On-demand Asilmedia sync error: {se}")
+            # 3. Zaxira hovuz
+            if not resolved_source:
+                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
 
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
@@ -894,6 +910,262 @@ class MovieService:
             session=session,
             reply_to_message_id=reply_to_message_id
         )
+
+    @staticmethod
+    async def sync_movie_from_asilmedia(
+        code: str,
+        title: Optional[str] = None,
+        session: Optional[AsyncSession] = None,
+        download_files: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Kino yoki serialni Asilmedia.org orqali qidirish, uning qismlari
+        va video oqimlarini data/video_sources.json hamda DB ga ulash.
+        """
+        from services.asilmedia_service import asilmedia_service
+
+        clean_code = str(code).strip().lstrip("#№")
+        cat_item = MovieService.get_catalog_item(clean_code)
+
+        target_title = title or (cat_item.get("t") if cat_item else "")
+        if not target_title and session:
+            try:
+                db_m = await crud.get_movie_by_code(session, clean_code)
+                if db_m and db_m.title:
+                    target_title = db_m.title
+            except Exception:
+                pass
+
+        if not target_title:
+            target_title = f"Kino {clean_code}"
+
+        target_parts = int(cat_item.get("p", 1)) if cat_item else 1
+
+        # Asilmedia.org dan eng mos keluvchi filmni qidirish
+        asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
+        if not asil_movie:
+            words = target_title.split()
+            if len(words) > 1:
+                asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
+
+        if not asil_movie:
+            return {
+                "success": False,
+                "code": clean_code,
+                "title": target_title,
+                "error": "Asilmedia.org dan kino topilmadi"
+            }
+
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        sources_file = base_dir / "data" / "video_sources.json"
+        sources_data = {"items": {}}
+        if sources_file.exists():
+            try:
+                with open(sources_file, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    if isinstance(loaded, dict) and "items" in loaded and isinstance(loaded["items"], dict):
+                        sources_data = loaded
+                    elif isinstance(loaded, dict):
+                        sources_data = {"items": loaded}
+            except Exception as e:
+                logger.warning(f"video_sources.json o'qishda xatolik: {e}")
+
+        items_dict = sources_data.setdefault("items", {})
+        synced_parts = []
+        total_parts = asil_movie.total_parts or len(asil_movie.episodes) or 1
+
+        if asil_movie.episodes:
+            for part_num, ep in asil_movie.episodes.items():
+                p_code = f"{clean_code}_{part_num}" if int(part_num) > 1 else clean_code
+                ep_url = ep.url or ep.download_url or ep.watch_url
+                display_t = f"{asil_movie.title} — {part_num}-qism" if total_parts > 1 else asil_movie.title
+                source_entry = {
+                    "url": ep_url,
+                    "watch_url": ep.watch_url,
+                    "download_url": ep.download_url,
+                    "quality": ep.quality,
+                    "label": ep.label,
+                    "file_type": "video",
+                    "source": "asilmedia",
+                    "title": display_t
+                }
+
+                if download_files:
+                    v_dir = base_dir / "data" / "videos"
+                    v_path = v_dir / f"{clean_code}_{part_num}.mp4"
+                    downloaded_path = await asilmedia_service.download_video_stream(
+                        url=ep_url,
+                        destination_path=v_path
+                    )
+                    if downloaded_path:
+                        source_entry["file_path"] = str(downloaded_path)
+                        source_entry["file_size"] = downloaded_path.stat().st_size
+
+                items_dict[p_code] = source_entry
+                items_dict[f"{clean_code}_{part_num}"] = source_entry
+                items_dict[f"{clean_code}-{part_num}"] = source_entry
+                items_dict[f"{clean_code}p{part_num}"] = source_entry
+                if int(part_num) == 1:
+                    items_dict[clean_code] = source_entry
+
+                synced_parts.append(int(part_num))
+
+                if session:
+                    try:
+                        await crud.set_movie_video(
+                            session=session,
+                            code=p_code,
+                            file_id=ep_url,
+                            file_type="video",
+                            title=display_t
+                        )
+                    except Exception as de:
+                        logger.debug(f"DB set_movie_video error: {de}")
+        else:
+            primary_url = (
+                asil_movie.video_sources.get("1080p")
+                or asil_movie.video_sources.get("720p")
+                or asil_movie.video_sources.get("primary")
+                or (list(asil_movie.video_sources.values())[0] if asil_movie.video_sources else None)
+            )
+            if primary_url:
+                source_entry = {
+                    "url": primary_url,
+                    "file_type": "video",
+                    "source": "asilmedia",
+                    "title": asil_movie.title
+                }
+                items_dict[clean_code] = source_entry
+                items_dict[f"{clean_code}_1"] = source_entry
+                synced_parts.append(1)
+                if session:
+                    try:
+                        await crud.set_movie_video(
+                            session=session,
+                            code=clean_code,
+                            file_id=primary_url,
+                            file_type="video",
+                            title=asil_movie.title
+                        )
+                    except Exception as de:
+                        logger.debug(f"DB set_movie_video error: {de}")
+
+        try:
+            with open(sources_file, "w", encoding="utf-8") as f:
+                json.dump(sources_data, f, ensure_ascii=False, indent=2)
+        except Exception as fe:
+            logger.warning(f"video_sources.json saqlashda xatolik: {fe}")
+
+        if session:
+            try:
+                await session.commit()
+            except Exception:
+                pass
+
+        return {
+            "success": True,
+            "code": clean_code,
+            "title": asil_movie.title,
+            "total_parts": total_parts,
+            "synced_parts": synced_parts,
+            "asilmedia_url": asil_movie.url,
+            "poster": asil_movie.poster
+        }
+
+    @staticmethod
+    async def download_movie_from_asilmedia(
+        code: str,
+        part: int = 1,
+        destination_dir: Optional[Path] = None
+    ) -> Optional[Path]:
+        """
+        Kino yoki serial qismini orqa fonda Asilmedia.org dan yuklab olib
+        serverning lokal 'data/videos/{code}_{part}.mp4' papkasiga joylash.
+        """
+        from services.asilmedia_service import asilmedia_service
+
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        v_dir = destination_dir or (base_dir / "data" / "videos")
+        v_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = v_dir / f"{code}_{part}.mp4"
+
+        source = MovieService.resolve_video_source(code, part=part, allow_default=False)
+        video_url = None
+        if source:
+            video_url = source.get("url") or source.get("download_url")
+
+        if not video_url:
+            sync_res = await MovieService.sync_movie_from_asilmedia(code)
+            if sync_res.get("success"):
+                source = MovieService.resolve_video_source(code, part=part, allow_default=False)
+                if source:
+                    video_url = source.get("url") or source.get("download_url")
+
+        if not video_url or not video_url.startswith("http"):
+            return None
+
+        saved_file = await asilmedia_service.download_video_stream(video_url, dest_path)
+        if saved_file:
+            sources_file = base_dir / "data" / "video_sources.json"
+            if sources_file.exists():
+                try:
+                    with open(sources_file, "r", encoding="utf-8") as f:
+                        s_data = json.load(f)
+                    items_dict = s_data.get("items", s_data)
+                    k = f"{code}_{part}" if part > 1 else code
+                    if k in items_dict and isinstance(items_dict[k], dict):
+                        items_dict[k]["file_path"] = str(saved_file)
+                        items_dict[k]["file_size"] = saved_file.stat().st_size
+                    with open(sources_file, "w", encoding="utf-8") as f:
+                        json.dump(s_data, f, ensure_ascii=False, indent=2)
+                except Exception:
+                    pass
+        return saved_file
+
+    @staticmethod
+    async def sync_catalog_from_asilmedia(
+        limit: int = 50,
+        session: Optional[AsyncSession] = None,
+        download_files: bool = False
+    ) -> int:
+        """
+        Katalogdagi barcha ommabop kinolar va seriallarni (Taksi, Attack on Titan, Chuqur, Forsaj va boshqalar)
+        Asilmedia.org orqali sinxronlash va video manbalarini boyitish.
+        """
+        catalog_path = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "catalog.json"
+        items_to_sync = list(CUSTOM_CATALOG_ITEMS)
+        seen_codes = {str(it.get("c")) for it in items_to_sync}
+
+        if catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    cat = json.load(f)
+                for it in cat.get("items", []):
+                    c_str = str(it.get("c"))
+                    if c_str not in seen_codes:
+                        items_to_sync.append(it)
+                        seen_codes.add(c_str)
+            except Exception as e:
+                logger.warning(f"catalog.json o'qishda xatolik: {e}")
+
+        count = 0
+        for it in items_to_sync[:limit]:
+            c = str(it.get("c"))
+            t = it.get("t", "")
+            try:
+                res = await MovieService.sync_movie_from_asilmedia(
+                    code=c,
+                    title=t,
+                    session=session,
+                    download_files=download_files
+                )
+                if res.get("success"):
+                    count += 1
+            except Exception as e:
+                logger.debug(f"Catalog sync for #{c} error: {e}")
+
+        logger.info(f"Asilmedia katalog sinxronizatsiyasi: {count} ta kino/serial bog'landi.")
+        return count
 
 
 movie_service = MovieService()

@@ -324,6 +324,34 @@ async def set_movie_video(
     return movie
 
 
+async def sync_movie_asilmedia_parts(
+    session: AsyncSession,
+    code: str,
+    episodes: Dict[int, Any],
+    base_title: Optional[str] = None
+) -> int:
+    """
+    Asilmedia dan olingan barcha qismlarni (1..N) bazaga 'code_part' ko'rinishida saqlash.
+    """
+    clean_code = str(code).strip()
+    synced = 0
+    for part_num, ep in episodes.items():
+        p_code = f"{clean_code}_{part_num}" if int(part_num) > 1 else clean_code
+        url = ep.get("url") if isinstance(ep, dict) else getattr(ep, "url", None)
+        label = ep.get("label") if isinstance(ep, dict) else getattr(ep, "label", f"{part_num}-qism")
+        title = f"{base_title} — {part_num}-qism" if base_title and len(episodes) > 1 else (base_title or label)
+        if url:
+            await set_movie_video(
+                session=session,
+                code=p_code,
+                file_id=url,
+                file_type="video",
+                title=title
+            )
+            synced += 1
+    return synced
+
+
 async def delete_movie(session: AsyncSession, code: str) -> bool:
     """Kinoni kod bo'yicha o'chirish."""
     stmt = delete(Movie).where(Movie.code == str(code).strip())

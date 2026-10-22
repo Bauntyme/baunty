@@ -649,7 +649,7 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
             async with session.get("https://161-97-96-58.sslip.io/api/catalog", timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
                 if resp.status == 200:
                     raw_data = await resp.json()
-                    if isinstance(raw_data, dict) and "items" in raw_data:
+                    if isinstance(raw_data, dict) and isinstance(raw_data.get("items"), list) and len(raw_data["items"]) >= 20:
                         for it in raw_data.get("items", []):
                             if "d" in it:
                                 it["d"] = sanitize_catalog_text(it["d"])

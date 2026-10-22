@@ -322,6 +322,9 @@ def admin_movies_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🔍 Kod bo'yicha ko'rish", callback_data="admin:movie:view"),
     )
     builder.row(
+        InlineKeyboardButton(text="🌐 Asilmedia.org dan bog'lash", callback_data="admin:movie:asilmedia_sync"),
+    )
+    builder.row(
         InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu")
     )
     return builder.as_markup()

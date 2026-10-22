@@ -32,6 +32,10 @@ class MovieEditStates(StatesGroup):
     waiting_for_new_value = State()
 
 
+class MovieAsilmediaSyncStates(StatesGroup):
+    waiting_for_input = State()
+
+
 class MusicStates(StatesGroup):
     waiting_for_query = State()
 
