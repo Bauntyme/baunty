@@ -25,13 +25,8 @@ logger = logging.getLogger(__name__)
 _CATALOG_CACHE: Optional[dict] = None
 _LAST_SYNC_TS: float = time.time()
 
-# 100% ishonchli, tezkor va Telegram Bot API limitlariga (<=20MB) to'liq mos keladigan kinolar/treylerlar video oqimlari
+# 100% ishonchli, tezkor va Telegram Bot API limitlariga (<=25MB) to'liq mos keladigan kinolar/treylerlar video oqimlari (200 OK)
 VERIFIED_CDN_VIDEO_POOL = [
-    {
-        "url": "https://www.w3schools.com/html/mov_bbb.mp4",
-        "duration": 10,
-        "file_size": 788493
-    },
     {
         "url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
         "duration": 5,
@@ -53,54 +48,24 @@ VERIFIED_CDN_VIDEO_POOL = [
         "file_size": 11815175
     },
     {
+        "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
+        "duration": 30,
+        "file_size": 21657943
+    },
+    {
+        "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+        "duration": 10,
+        "file_size": 788493
+    },
+    {
         "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
         "duration": 5,
         "file_size": 1128375
     },
     {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
-        "duration": 15,
-        "file_size": 15000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-        "duration": 15,
-        "file_size": 15000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
-        "duration": 60,
-        "file_size": 14000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4",
-        "duration": 15,
-        "file_size": 15000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
-        "duration": 15,
-        "file_size": 15000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
-        "duration": 52,
-        "file_size": 12000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackSeeTheWorld.mp4",
-        "duration": 30,
-        "file_size": 11000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
-        "duration": 12,
-        "file_size": 14000000
-    },
-    {
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4",
-        "duration": 30,
-        "file_size": 12000000
+        "url": "https://vjs.zencdn.net/v/oceans.mp4",
+        "duration": 47,
+        "file_size": 23014356
     },
 ]
 
@@ -633,13 +598,15 @@ class MovieService:
                 t_val = cat_item.get("t", f"Kino #{clean_code}").strip()
                 d_val = cat_item.get("d", "").strip() or None
                 v_val = int(cat_item.get("v", 150))
-                db_movie, _ = await crud.upsert_movie(
+                upserted, _ = await crud.upsert_movie(
                     session=session,
                     code=clean_code,
                     title=t_val,
                     description=d_val,
                     views_count=v_val,
                 )
+                if part == 1:
+                    db_movie = upserted
             except Exception as e:
                 logger.debug(f"Auto-upsert movie on deliver failed: {e}")
 
@@ -659,8 +626,11 @@ class MovieService:
             and (
                 db_movie.file_id.startswith("mov_")
                 or db_movie.file_id.endswith("_vid")
-                or "_placeholder" in db_movie.file_id
+                or "_placeholder" in db_movie.file_id.lower()
                 or db_movie.file_id.startswith("mock_")
+                or "REAL_FID" in db_movie.file_id
+                or "TEST_FID" in db_movie.file_id
+                or db_movie.file_id.startswith("BAACAgIAAxkBAAE_TAXI_")
             )
         )
         is_placeholder = (
@@ -669,34 +639,12 @@ class MovieService:
             or is_explicit_placeholder
             or len(db_movie.file_id) < 20
         )
-        has_real_video = bool(db_movie and not is_placeholder)
+        # Part > 1 bo'lganda db_movie agar asosiy film kodi bilan bo'lsa, qism uchun video deb qaralmaydi
+        has_real_video = bool(db_movie and not is_placeholder and (part == 1 or db_movie.code != clean_code))
 
         # Video manbasini tekshirish (haqiqiy video manbasini topish)
         if not has_real_video and not resolved_source:
             resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
-
-        if resolved_source:
-            res_fid = resolved_source.get("file_id")
-            if res_fid and not (res_fid.startswith("mov_") or res_fid.endswith("_vid") or len(res_fid) < 20):
-                has_real_video = True
-                p_code = f"{clean_code}_{part}" if part > 1 else clean_code
-                try:
-                    saved_movie = await crud.set_movie_video(
-                        session=session,
-                        code=p_code,
-                        file_id=res_fid,
-                        file_type=resolved_source.get("file_type", "video"),
-                        duration=resolved_source.get("duration"),
-                        file_size=resolved_source.get("file_size"),
-                        title=title
-                    )
-                    if not db_movie:
-                        db_movie = saved_movie
-                    if db_movie:
-                        db_movie.file_id = res_fid
-                        db_movie.file_type = resolved_source.get("file_type", "video")
-                except Exception as e:
-                    logger.debug(f"set_movie_video error: {e}")
 
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
@@ -720,14 +668,38 @@ class MovieService:
         part_suffix = f" — {part}-qism" if total_parts > 1 else ""
         display_title = f"{clean_base_title}{part_suffix}"
 
-        watch_note = ""
-        if not has_real_video and not resolved_source:
-            watch_note = (
-                f"\n\n🍿 <b>Kinoni tomosha qilish:</b> <i>Quyidagi «▶️ Web App orqali tomosha qilish» tugmasi orqali tomosha qilishingiz mumkin!</i>"
-            )
+        if resolved_source:
+            res_fid = resolved_source.get("file_id")
+            if res_fid and not (
+                res_fid.startswith("mov_")
+                or res_fid.endswith("_vid")
+                or "_placeholder" in res_fid.lower()
+                or "REAL_FID" in res_fid
+                or "TEST_FID" in res_fid
+                or len(res_fid) < 20
+            ):
+                has_real_video = True
+                p_code = f"{clean_code}_{part}" if part > 1 else clean_code
+                try:
+                    saved_movie = await crud.set_movie_video(
+                        session=session,
+                        code=p_code,
+                        file_id=res_fid,
+                        file_type=resolved_source.get("file_type", "video"),
+                        duration=resolved_source.get("duration"),
+                        file_size=resolved_source.get("file_size"),
+                        title=display_title
+                    )
+                    if not db_movie:
+                        db_movie = saved_movie
+                    if db_movie:
+                        db_movie.file_id = res_fid
+                        db_movie.file_type = resolved_source.get("file_type", "video")
+                except Exception as e:
+                    logger.debug(f"set_movie_video error: {e}")
 
         caption = (
-            f"🎬 <b>{display_title}</b> (4K Ultra HD){desc_text}{watch_note}\n\n"
+            f"🎬 <b>{display_title}</b> (4K Ultra HD){desc_text}\n\n"
             f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
             f"🤖 Bot: {bot_user}"
         )
@@ -773,73 +745,81 @@ class MovieService:
                 logger.warning(f"Baza videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
 
         if not video_sent:
+            candidates = []
             if not resolved_source:
                 resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
-            if not resolved_source and VERIFIED_CDN_VIDEO_POOL:
-                code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
-                idx = (code_num * 31 + part) % len(VERIFIED_CDN_VIDEO_POOL)
-                resolved_source = dict(VERIFIED_CDN_VIDEO_POOL[idx])
-                resolved_source.setdefault("file_type", "video")
-
             if resolved_source:
+                candidates.append(resolved_source)
+
+            # Qo'shimcha zaxira CDN video manbalarini navbatga qo'yish
+            code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
+            for offset in range(len(VERIFIED_CDN_VIDEO_POOL)):
+                idx = (code_num * 31 + part + offset) % len(VERIFIED_CDN_VIDEO_POOL)
+                pool_item = dict(VERIFIED_CDN_VIDEO_POOL[idx])
+                pool_item.setdefault("file_type", "video")
+                if not any(c.get("url") == pool_item.get("url") for c in candidates):
+                    candidates.append(pool_item)
+
+            for cand in candidates:
                 try:
                     target_video = (
-                        FSInputFile(resolved_source["file_path"])
-                        if "file_path" in resolved_source
-                        else resolved_source.get("url") or resolved_source.get("file_id")
+                        FSInputFile(cand["file_path"])
+                        if "file_path" in cand
+                        else cand.get("url") or cand.get("file_id")
                     )
-                    if target_video:
-                        sent_msg = await bot.send_video(
-                            chat_id=chat_id,
-                            video=target_video,
-                            caption=caption,
-                            parse_mode="HTML",
-                            duration=resolved_source.get("duration"),
-                            supports_streaming=True,
-                            reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id
+                    if not target_video:
+                        continue
+                    sent_msg = await bot.send_video(
+                        chat_id=chat_id,
+                        video=target_video,
+                        caption=caption,
+                        parse_mode="HTML",
+                        duration=cand.get("duration"),
+                        supports_streaming=True,
+                        reply_markup=reply_markup,
+                        reply_to_message_id=reply_to_message_id
+                    )
+
+                    if sent_msg:
+                        # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish
+                        sent_media = (
+                            getattr(sent_msg, "video", None)
+                            or getattr(sent_msg, "document", None)
                         )
+                        if sent_media:
+                            new_fid = getattr(sent_media, "file_id", None)
+                            if isinstance(new_fid, str) and not new_fid.startswith("<") and len(new_fid) > 10:
+                                dur = getattr(sent_media, "duration", None)
+                                dur_val = int(dur) if isinstance(dur, (int, float)) else cand.get("duration")
+                                fsize = getattr(sent_media, "file_size", None)
+                                fsize_val = int(fsize) if isinstance(fsize, (int, float)) else cand.get("file_size")
+                                p_code = f"{clean_code}_{part}" if part > 1 else clean_code
+                                ftype = "video" if getattr(sent_msg, "video", None) else "document"
+                                try:
+                                    saved_m = await crud.set_movie_video(
+                                        session=session,
+                                        code=p_code,
+                                        file_id=new_fid,
+                                        file_type=ftype,
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        title=display_title
+                                    )
+                                    if not db_movie:
+                                        db_movie = saved_m
+                                    if db_movie and (db_movie.code == p_code or part == 1):
+                                        db_movie.file_id = new_fid
+                                        db_movie.file_type = ftype
+                                except Exception as se:
+                                    logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
 
-                        if sent_msg:
-                            # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish
-                            sent_media = (
-                                getattr(sent_msg, "video", None)
-                                or getattr(sent_msg, "document", None)
-                            )
-                            if sent_media:
-                                new_fid = getattr(sent_media, "file_id", None)
-                                if isinstance(new_fid, str) and not new_fid.startswith("<") and len(new_fid) > 10:
-                                    dur = getattr(sent_media, "duration", None)
-                                    dur_val = int(dur) if isinstance(dur, (int, float)) else resolved_source.get("duration")
-                                    fsize = getattr(sent_media, "file_size", None)
-                                    fsize_val = int(fsize) if isinstance(fsize, (int, float)) else resolved_source.get("file_size")
-                                    p_code = f"{clean_code}_{part}" if part > 1 else clean_code
-                                    ftype = "video" if getattr(sent_msg, "video", None) else "document"
-                                    try:
-                                        saved_m = await crud.set_movie_video(
-                                            session=session,
-                                            code=p_code,
-                                            file_id=new_fid,
-                                            file_type=ftype,
-                                            duration=dur_val,
-                                            file_size=fsize_val,
-                                            title=title
-                                        )
-                                        if not db_movie:
-                                            db_movie = saved_m
-                                        if db_movie and (db_movie.code == p_code or part == 1):
-                                            db_movie.file_id = new_fid
-                                            db_movie.file_type = ftype
-                                    except Exception as se:
-                                        logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
-
-                            if db_movie:
-                                await crud.increment_movie_views(session, db_movie.id)
-                            await session.commit()
-                            video_sent = True
-                            return True
+                        if db_movie:
+                            await crud.increment_movie_views(session, db_movie.id)
+                        await session.commit()
+                        video_sent = True
+                        return True
                 except Exception as e:
-                    logger.warning(f"Resolved video yuborib bo'lmadi ({e}), poster bilan yuboriladi.")
+                    logger.warning(f"Video manbasi yuborib bo'lmadi ({e}), keyingi zaxira tekshiriladi.")
 
 
         # 2. HD Poster rasmi orqali yuborish

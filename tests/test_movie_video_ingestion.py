@@ -351,6 +351,78 @@ async def test_deliver_movie_multipart(in_memory_session: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_deliver_multipart_independent_caching_and_no_overwrite(in_memory_session: AsyncSession):
+    """Part 1 bazada haqiqiy file_id ga ega bo'lganda, Part 2 so'ralganda Part 1 file_id si berilmasligi va yangi file_id keshlanishi testi."""
+    real_fid_part1 = "BAACAgIAAxkBAAE_REAL_PART_1_FILE_ID_11223344"
+    await crud.create_movie(
+        session=in_memory_session,
+        code="717",
+        title="Attack on Titan",
+        file_id=real_fid_part1,
+        duration=1500
+    )
+    await in_memory_session.commit()
+
+    sent_msg_part2 = MagicMock()
+    sent_msg_part2.video = MagicMock(file_id="BAACAgIAAxkBAAE_NEW_TELEGRAM_PART_2_FID_556677", duration=1480, file_size=12000000)
+    bot_mock = AsyncMock()
+    bot_mock.send_video = AsyncMock(return_value=sent_msg_part2)
+
+    # Part 2 ni yetkazish
+    res2 = await movie_service.deliver_movie(
+        bot=bot_mock,
+        chat_id=12345,
+        code="717",
+        part=2,
+        session=in_memory_session
+    )
+    assert res2 is True
+    assert bot_mock.send_video.called is True
+    # Part 2 yuborilganda video Part 1 ning file_id si bo'lmasligi shart:
+    assert bot_mock.send_video.call_args.kwargs["video"] != real_fid_part1
+
+    # Bazada har ikkala qism mustaqil saqlanishini tekshirish
+    m1 = await crud.get_movie_by_code(in_memory_session, "717")
+    m2 = await crud.get_movie_by_code(in_memory_session, "717_2")
+    assert m1 is not None and m1.file_id == real_fid_part1
+    assert m2 is not None and m2.file_id == "BAACAgIAAxkBAAE_NEW_TELEGRAM_PART_2_FID_556677"
+
+    # Part 2 qayta so'ralganda aynan yangi keshdagi file_id orqali yuborilishi kerak
+    bot_mock.send_video.reset_mock()
+    res2_cached = await movie_service.deliver_movie(
+        bot=bot_mock,
+        chat_id=12345,
+        code="717",
+        part=2,
+        session=in_memory_session
+    )
+    assert res2_cached is True
+    assert bot_mock.send_video.call_args.kwargs["video"] == "BAACAgIAAxkBAAE_NEW_TELEGRAM_PART_2_FID_556677"
+
+
+@pytest.mark.asyncio
+async def test_deliver_video_multi_source_fallback_no_poster(in_memory_session: AsyncSession):
+    """Birlamchi video manbasi (URL) xatolik berganda avtomatik zaxira streaming URL ga o'tib, video yetkazilishi testi."""
+    sent_msg = MagicMock()
+    sent_msg.video = MagicMock(file_id="BAACAgIAAxkBAAE_SUCCESSFUL_FALLBACK_FID_8888", duration=10, file_size=5000000)
+    bot_mock = AsyncMock()
+    # 1-urinish xatolik beradi, 2-zaxira manba muvaffaqiyatli o'tadi
+    bot_mock.send_video = AsyncMock(side_effect=[Exception("Primary CDN temporary network error"), sent_msg])
+    bot_mock.send_photo = AsyncMock()
+
+    res = await movie_service.deliver_movie(
+        bot=bot_mock,
+        chat_id=888999,
+        code="718",
+        part=1,
+        session=in_memory_session
+    )
+    assert res is True
+    assert bot_mock.send_video.call_count == 2
+    assert bot_mock.send_photo.called is False
+
+
+@pytest.mark.asyncio
 async def test_save_or_update_movie_video(in_memory_session: AsyncSession):
     """save_or_update_movie_video funksiyasi kodi orqali va catalog.json dan yaratishi testi."""
     real_fid = "BAACAgIAAxkBAAE_ZORAKI_FOLBIN_FULL_MP4_418MB_ID_99999"
