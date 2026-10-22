@@ -46,13 +46,6 @@
       "lib": 1
     },
     {
-      "id": "tdCjVMAAdxw",
-      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
-    },
-    {
       "id": "2449",
       "t": "BUGUN BIZNING TO'YIMIZ 💍| Munisa Rizayeva Vibes | Yangi O'zbek Qo'shiqlari 2026 | Uzbek Wedding Song",
       "a": "Alice Official ",
@@ -62,6 +55,13 @@
       "m": 1,
       "y": "_skBnvuaWso",
       "lib": 1
+    },
+    {
+      "id": "tdCjVMAAdxw",
+      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
       "id": "GBo8GADWvU8",
@@ -429,18 +429,18 @@
       "lib": 1
     },
     {
-      "id": "XX-73BtAd5E",
-      "t": "Bojalar - Anhor bo'yida | Божалар - Анхор буйида",
-      "a": "RizaNovaUZ",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=XX-73BtAd5E"
-    },
-    {
       "id": "nRhKjGca7vE",
       "t": "RELENTLESS 🔥 | Gym Motivation | Motivational Songs 🔥",
       "a": "Alpha Division",
       "s": "yt",
       "u": "https://www.youtube.com/watch?v=nRhKjGca7vE"
+    },
+    {
+      "id": "XX-73BtAd5E",
+      "t": "Bojalar - Anhor bo'yida | Божалар - Анхор буйида",
+      "a": "RizaNovaUZ",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=XX-73BtAd5E"
     },
     {
       "id": "3028",
@@ -514,15 +514,6 @@
       "lib": 1
     },
     {
-      "id": "tdCjVMAAdxw",
-      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
-    }
-  ],
-  "hits": [
-    {
       "id": "2449",
       "t": "BUGUN BIZNING TO'YIMIZ 💍| Munisa Rizayeva Vibes | Yangi O'zbek Qo'shiqlari 2026 | Uzbek Wedding Song",
       "a": "Alice Official ",
@@ -532,6 +523,15 @@
       "m": 1,
       "y": "_skBnvuaWso",
       "lib": 1
+    }
+  ],
+  "hits": [
+    {
+      "id": "tdCjVMAAdxw",
+      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
       "id": "GBo8GADWvU8",

@@ -60,6 +60,36 @@ VERIFIED_CDN_VIDEO_POOL = [
 ]
 
 
+CUSTOM_CATALOG_ITEMS = [
+    {
+        "c": 718,
+        "t": "Taksi (Taxi)",
+        "p": 5,
+        "v": 85000,
+        "d": "🎬 Taksi (Taxi) ❤️\n\n📖 Film haqida: Marsellik tezkor taksichi Daniel va unga yordamga muhtoj omadsiz politsiyachi Emilien sarguzashtlari.\n\n🎭 Janr: Komediya, jangari, kriminal\n🌍 Davlat: Fransiya\n📅 Yil: 1998–2018\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
+        "a": 1792657000,
+        "i": 1792657000,
+    },
+    {
+        "c": 717,
+        "t": "Attack on Titan",
+        "p": 54,
+        "v": 92000,
+        "d": "🎬 Titans hujumi (Attack on Titan / Shingeki no Kyojin) ❤️\n\n📖 Film haqida: Insoniyat ulkan, odamxo‘r Maxluqlar (Titanlar) paydo bo‘lishi sababli uchta baland devor ortida yashashga majbur bo‘ladi. Onasining fojiali o‘limiga guvoh bo‘lgan Eren Yeger do‘stlari Mikasa va Armin bilan birga barcha Titanlarni yo‘q qilishga qasam ichadi.\n\n🎭 Janr: Anime, fantastika, jangari, drama, triller\n🌍 Davlat: Yaponiya\n📅 Yil: 2013–2023\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko‘rish uchun tugmani bosing!",
+        "a": 1792512339,
+        "i": 1792512517,
+    },
+    {
+        "c": 287,
+        "t": "Chuqur (Çukur)",
+        "p": 131,
+        "v": 120000,
+        "d": "🎬 Chuqur (Çukur) ❤️\n\n📖 Serial haqida: Istanbulning eng nufuzli mahallalaridan biri Chuqur va Ko'chovoli oilasi hayoti.\n\n🎭 Janr: Serial, drama, kriminal, jangari\n🌍 Davlat: Turkiya\n📅 Yil: 2017–2021\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
+        "a": 1792512000,
+        "i": 1792512000,
+    },
+]
+
 
 class MovieService:
     """Kinolar bilan ishlash logikasi."""
@@ -123,6 +153,13 @@ class MovieService:
                             cat_json["channel"] = config.CHANNEL_USERNAME
                             cat_json["bot"] = config.BOT_USERNAME.lstrip("@")
                             raw_items = cat_json.get("items", [])
+                            # Custom muhim kinolar (718 - Taksi, 717 - Attack on Titan, 287 - Chuqur)
+                            # hech qachon o'chib ketmasligi uchun ularni kiritamiz
+                            existing_codes = {str(it.get("c")) for it in raw_items}
+                            for c_item in reversed(CUSTOM_CATALOG_ITEMS):
+                                if str(c_item.get("c")) not in existing_codes:
+                                    raw_items.insert(0, c_item)
+                            cat_json["items"] = raw_items
                             if len(raw_items) >= 20:
                                 _CATALOG_CACHE = cat_json
                                 try:
@@ -163,6 +200,11 @@ class MovieService:
         clean_code = str(code).strip().lstrip("#№")
         code_num = int(clean_code) if clean_code.isdigit() else None
 
+        # 1. Custom muhim kinolardan tekshirish (718 - Taksi, 717 - Attack on Titan, 287 - Chuqur)
+        for it in CUSTOM_CATALOG_ITEMS:
+            if str(it.get("c")) == clean_code or it.get("c") == code_num:
+                return it
+
         catalog_path = BASE_DIR / "data" / "catalog.json"
         if _CATALOG_CACHE is None and catalog_path.exists():
             try:
@@ -190,9 +232,6 @@ class MovieService:
                     _CATALOG_CACHE = json.load(f)
             except Exception:
                 pass
-
-        if not _CATALOG_CACHE:
-            return None
 
         from utils.translit import get_both_scripts
 
@@ -237,7 +276,13 @@ class MovieService:
             if "chuqur" in norm_q and "cukur" not in all_queries:
                 all_queries.append(norm_q.replace("chuqur", "cukur"))
 
-        items = _CATALOG_CACHE.get("items", [])
+        # Barcha qidiruv ro'yxatiga avval CUSTOM_CATALOG_ITEMS va keyin keshdagi kinolarni qo'shamiz
+        items = list(CUSTOM_CATALOG_ITEMS)
+        seen_codes = {str(it.get("c")) for it in items}
+        if _CATALOG_CACHE and "items" in _CATALOG_CACHE:
+            for it in _CATALOG_CACHE["items"]:
+                if str(it.get("c")) not in seen_codes:
+                    items.append(it)
 
         # 1. To'liq yoki substring mosligi (ikkala tomonga)
         for it in items:

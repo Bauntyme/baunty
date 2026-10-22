@@ -86,7 +86,6 @@ KNOWN_SCANNER_AGENTS = (
     "requests/",
     "scrapy",
     "httpclient",
-    "go-http-client",
     "libwww-perl",
     "postmanruntime",
     "insomnia",
@@ -896,7 +895,8 @@ def get_real_client_ip(request: web.Request) -> str:
         if is_public_ip(clean_cf):
             return clean_cf
 
-    # 3. X-Forwarded-For: ishonchli proksi biriktirgan oxirgi haqiqiy ochiq (PUBLIC) IP ni olamiz
+    # 3. X-Forwarded-For: ishonchli proksi biriktirgan haqiqiy ochiq (PUBLIC) IP ni olamiz
+    # IP spoofingdan himoyalanish uchun teskaridan aylanib, proksi qo'shgan haqiqiy public IP ni olamiz
     xff = request.headers.get("X-Forwarded-For")
     if xff:
         parts = [_normalize_ip_str(p) for p in xff.split(",") if p.strip()]
@@ -1073,26 +1073,27 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
 
     client_ip = extract_client_ip(request)
 
-    # 3. Auto-Ban Jail tekshiruvi (ilgari zararli harakat qilgan IP manzillar darhol 403)
-    is_jailed, rem_time, jail_reason = security_service.is_ip_banned(client_ip)
-    if is_jailed:
-        logger.warning(
-            f"Bloklangan IP so'rovi to'xtatildi: {client_ip} | Qolgan vaqt: {int(rem_time or 0)}s | Sabab: {jail_reason}"
-        )
-        resp = web.json_response(
-            {
-                "ok": False,
-                "error": "forbidden",
-                "message": "Zararli faoliyat sababli ushbu IP vaqtincha bloklangan.",
-                "threat": "ip_auto_banned",
-                "reason": jail_reason
-            },
-            status=403
-        )
-        for k, v in sec_headers.items():
-            resp.headers[k] = v
-        _clean_sensitive_headers(resp)
-        return resp
+    # 3. Auto-Ban Jail tekshiruvi (faqat haqiqiy ochiq tashqi tajovuzkor IP lar uchun)
+    if is_public_ip(client_ip):
+        is_jailed, rem_time, jail_reason = security_service.is_ip_banned(client_ip)
+        if is_jailed:
+            logger.warning(
+                f"Bloklangan IP so'rovi to'xtatildi: {client_ip} | Qolgan vaqt: {int(rem_time or 0)}s | Sabab: {jail_reason}"
+            )
+            resp = web.json_response(
+                {
+                    "ok": False,
+                    "error": "forbidden",
+                    "message": "Zararli faoliyat sababli ushbu IP vaqtincha bloklangan.",
+                    "threat": "ip_auto_banned",
+                    "reason": jail_reason
+                },
+                status=403
+            )
+            for k, v in sec_headers.items():
+                resp.headers[k] = v
+            _clean_sensitive_headers(resp)
+            return resp
 
     # 4. Zero Reconnaissance & Database Shield: Nozik fayllar va bazalarni to'sish
     is_recon, recon_threat = check_reconnaissance_and_database_shield(path)

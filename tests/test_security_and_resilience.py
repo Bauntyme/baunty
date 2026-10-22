@@ -105,7 +105,7 @@ async def test_scanner_user_agents_blocked_with_403():
         "python-requests/2.31.0",
         "Wget/1.21.4",
         "Scrapy/2.11.0 (+https://scrapy.org)",
-        "Go-http-client/1.1",
+        "nmap/7.94",
         "PostmanRuntime/7.32.3",
     ]
 

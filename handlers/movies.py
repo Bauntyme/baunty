@@ -379,32 +379,44 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     if cleaned.isdigit() and len(cleaned) <= 10:
         return cleaned, 1
 
-    # Harakat so'zlarini oxiridan olib tashlash
-    t_work = re.sub(r'\s*(?:ko[\'‘`]?rish|korish|tomosha(?:\s*qilish)?|yuklash)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
+    # Harakat/maqsad so'zlarini oxiridan olib tashlash (ko'rmoqchiman, ko'rishni, tomosha, tashlab ber...)
+    t_work = re.sub(
+        r'\s*(?:ko[\'‘`]?r(?:moqchiman|mochiman|moqchi|ishni|ish)?|tomosha(?:\s*(?:qilish|qilmoqchiman|qil))?|tashlab\s*ber(?:ing)?|tashla|yuklash|ochish)\s*$',
+        '',
+        cleaned,
+        flags=re.IGNORECASE
+    ).strip()
 
-    part = 1
-    title_cand = t_work
-
-    # Qism raqamini aniqlash (masalan "taksi 2", "taksi 2ci", "taksi 2-chi", "Attack on Titan — 2-qism", "taksi 2 kinosi")
-    part_match = re.search(
-        r'[\s\-—–_]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep|ci|chi))?(?:\s+(?:kinosi|filmi|seriali|multfilmi|kino|film))?\s*$',
+    # Qism raqamini aniqlash (masalan "taksi 2", "taksi 2ci", "taksi 1ci qismini", "taksi 2-chi qismi", "Attack on Titan — 2-qism")
+    m_part = re.search(
+        r'[\s\-—–_]+(\d{1,4})\s*(?:-?\s*(?:ci|chi))?(?:\s*-?\s*(?:qism(?:i|ni|ini)?|part|seriya(?:si)?|ep|episode))\b',
         t_work,
         re.IGNORECASE
     )
-    if not part_match:
-        part_match = re.search(
-            r'[\s\-—–_]?(\d{1,4})(?:[\-_]?(?:ci|chi))\b(?:\s+(?:kinosi|filmi|seriali|multfilmi|kino|film))?\s*$',
-            t_work,
-            re.IGNORECASE
-        )
+    if not m_part:
+        m_part = re.search(r'[\s\-—–_]+(\d{1,4})\s*(?:-?\s*(?:ci|chi))\b', t_work, re.IGNORECASE)
+    if not m_part:
+        m_part = re.search(r'[\s\-—–_]+(\d{1,4})\s*$', t_work)
 
-    if part_match:
-        part = int(part_match.group(1))
-        title_cand = t_work[:part_match.start()].strip()
+    if m_part:
+        part = int(m_part.group(1))
+        title_work = t_work[:m_part.start()] + ' ' + t_work[m_part.end():]
     else:
-        title_cand = re.sub(r'[\s\-—–_]+(?:kinosi|filmi|seriali|multfilmi|kino|film)\s*$', '', t_work, flags=re.IGNORECASE).strip()
+        part = 1
+        title_work = t_work
 
-    title_cand = title_cand.strip(" -—–_:")
+    # Kino, film, serial, multfilm qo'shimchalarini tozalash
+    title_cand = re.sub(
+        r'\b(?:kinosi(?:ni|ning)?|filmi(?:ni|ning)?|seriali(?:ni)?|multfilmi(?:ni)?|kino|film|serial|multfilm)\b',
+        '',
+        title_work,
+        flags=re.IGNORECASE
+    )
+    title_cand = ' '.join(title_cand.split()).strip(' -—–_:')
+
+    # Agar qism ajratilgandan keyin faqat raqam qolgan bo'lsa (masalan "101 1-qism ko'rish")
+    if title_cand.isdigit() and len(title_cand) <= 10:
+        return title_cand, part
 
     NON_TITLE_WORDS = {"admin", "salom", "qalesan", "start", "stop", "help", "yordam", "kino", "film", "menyu", "menu", "sozlamalar", "balans", "profile"}
     if title_cand and title_cand.lower() not in NON_TITLE_WORDS and not title_cand.isdigit() and len(title_cand) >= 2:
@@ -467,10 +479,10 @@ async def process_numeric_movie_code(message: Message) -> None:
         await message.reply(format_movie_not_found(code_disp), parse_mode="HTML")
 
 
-@router.message(StateFilter(None), lambda msg: msg.reply_to_message and msg.text and re.match(r'^(?:kino\s*)?(\d{1,4})[\s\-—–]*(?:qism|part|seriya)(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$', msg.text.strip(), re.IGNORECASE))
+@router.message(StateFilter(None), lambda msg: msg.reply_to_message and msg.text and re.match(r'^(?:kino\s*)?(\d{1,4})\s*(?:-?\s*(?:ci|chi))?\s*(?:-?\s*(?:qism(?:i|ni|ini)?|part|seriya(?:si)?|ep|episode))?(?:\s*(?:ko[\'‘`]?r(?:moqchiman|mochiman|moqchi|ishni|ish)?|tomosha|yuklash))?$', msg.text.strip(), re.IGNORECASE))
 async def process_reply_part_request(message: Message) -> None:
-    """Foydalanuvchi kino xabariga javob (reply) tarzda '1-qism' yoki '1-qism ko'rish' yozganida qismni yuborish."""
-    m = re.match(r'^(?:kino\s*)?(\d{1,4})[\s\-—–]*(?:qism|part|seriya)(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$', message.text.strip(), re.IGNORECASE)
+    """Foydalanuvchi kino xabariga javob (reply) tarzda '1-qism' yoki '2-qismini ko'rish' yozganida qismni yuborish."""
+    m = re.match(r'^(?:kino\s*)?(\d{1,4})\s*(?:-?\s*(?:ci|chi))?\s*(?:-?\s*(?:qism(?:i|ni|ini)?|part|seriya(?:si)?|ep|episode))?(?:\s*(?:ko[\'‘`]?r(?:moqchiman|mochiman|moqchi|ishni|ish)?|tomosha|yuklash))?$', message.text.strip(), re.IGNORECASE)
     if not m:
         return
     part = int(m.group(1))

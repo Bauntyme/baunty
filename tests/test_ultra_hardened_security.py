@@ -679,20 +679,34 @@ async def test_trusted_proxy_protection_and_real_client_ip():
     assert is_trusted_proxy("203.0.113.19") is False    # Begona tashqi IP
     assert is_trusted_proxy("198.51.100.88:8080") is False  # Port normalization
 
-    # 2. jail_ip ishonchli proksini hech qachon jail ga tiqmasligi
+    # 2. jail_ip ishonchli proksini va xususiy (private) IP larni hech qachon jail ga tiqmasligi
     security_service.reset_jail()
     security_service.ban_ip("10.0.0.1")
+    security_service.ban_ip("10.29.121.249")            # Render shared reverse-proxy / gateway IP
     security_service.ban_ip("172.64.0.1")
     security_service.ban_ip("161.97.96.58")
+    security_service.ban_ip("192.168.1.1")
+    security_service.ban_ip("127.0.0.1")
     assert security_service.is_ip_banned("10.0.0.1")[0] is False
+    assert security_service.is_ip_banned("10.29.121.249")[0] is False
     assert security_service.is_ip_banned("172.64.0.1")[0] is False
     assert security_service.is_ip_banned("161.97.96.58")[0] is False
+    assert security_service.is_ip_banned("192.168.1.1")[0] is False
+    assert security_service.is_ip_banned("127.0.0.1")[0] is False
 
     # Begona tajovuzkor IP esa to'g'ri jail ga tushishi
     security_service.ban_ip("203.0.113.55")
     assert security_service.is_ip_banned("203.0.113.55")[0] is True
 
-    # 3. get_real_client_ip sinovi: to'g'ridan-to'g'ri bog'langan tajovuzkor soxta sarlavhalari inkor qilinishi
+    # 3. Go-http-client hech qachon bloklanmasligi (Render va cloud monitoring so'rovlari uchun)
+    is_mal_go1, reason_go1 = is_malicious_request("/api/tv", user_agent="Go-http-client/1.1")
+    assert is_mal_go1 is False
+    assert reason_go1 is None
+    is_mal_go2, reason_go2 = is_malicious_request("/api/movies", user_agent="Go-http-client/2.0")
+    assert is_mal_go2 is False
+    assert reason_go2 is None
+
+    # 4. get_real_client_ip sinovi: to'g'ridan-to'g'ri bog'langan tajovuzkor soxta sarlavhalari inkor qilinishi
     mock_direct_req = MagicMock(remote="203.0.113.88", headers={"CF-Connecting-IP": "1.2.3.4"})
     assert get_real_client_ip(mock_direct_req) == "203.0.113.88"
 
@@ -714,6 +728,13 @@ async def test_trusted_proxy_protection_and_real_client_ip():
             headers={"X-Forwarded-For": "203.0.113.99, 10.0.0.5, 172.64.1.1"}
         )
         assert resp.status == 200
+
+        # Go-http-client User-Agent bilan API so'rovlari 200 OK qaytarishi
+        resp_go = await client.get(
+            "/api/tv",
+            headers={"User-Agent": "Go-http-client/1.1"}
+        )
+        assert resp_go.status == 200
 
         # CF-Connecting-IP
         resp_cf = await client.get(
@@ -789,14 +810,30 @@ async def test_tv_endpoints_and_movie_part1_streaming_delivery():
         assert "1-qism" in caption2
         assert config.CHANNEL_USERNAME in caption2
 
-        # 3. extract_movie_code_and_part orqali '101 1-qism ko'rish' va 'chuqur 1qism korish' testi
+        # 3. extract_movie_code_and_part orqali 'taksi', 'taksi 2', 'taksi 1ci qismini kormochiman' va boshqa so'rovlar
         from handlers.movies import extract_movie_code_and_part
+        assert extract_movie_code_and_part("taksi") == ("718", 1)
+        assert extract_movie_code_and_part("taksi 1") == ("718", 1)
+        assert extract_movie_code_and_part("taksi 2") == ("718", 2)
+        assert extract_movie_code_and_part("taksi 1ci") == ("718", 1)
+        assert extract_movie_code_and_part("taksi 2ci") == ("718", 2)
+        assert extract_movie_code_and_part("taksi kinosini 1ci qismini kormochiman") == ("718", 1)
+        assert extract_movie_code_and_part("taksi 2ci qismini korish") == ("718", 2)
+        assert extract_movie_code_and_part("taksi kinosi 1-qism") == ("718", 1)
         assert extract_movie_code_and_part("101 1-qism ko'rish") == ("101", 1)
         assert extract_movie_code_and_part("101 1 qism korish") == ("101", 1)
         assert extract_movie_code_and_part("717 2-qism tomosha") == ("717", 2)
+        assert extract_movie_code_and_part("Attack on Titan — 2-qism") == ("717", 2)
+        assert extract_movie_code_and_part("Attack on Titan 2 qism ko'rishni") == ("717", 2)
         assert extract_movie_code_and_part("chuqur 1qism korish") == ("287", 1)
         assert extract_movie_code_and_part("chuqur 1-qism") == ("287", 1)
         assert extract_movie_code_and_part("cukur 1-qism") == ("287", 1)
+
+        # 4. Taksi (718) 1-qism va 2-qismni yetkazish testi
+        res_t1 = await movie_service.deliver_movie(bot=bot_mock, chat_id=12345678, code="718", part=1)
+        assert res_t1 is True
+        res_t2 = await movie_service.deliver_movie(bot=bot_mock, chat_id=12345678, code="718", part=2)
+        assert res_t2 is True
     finally:
         await client.close()
 
