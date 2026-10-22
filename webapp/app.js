@@ -740,7 +740,8 @@ async function load() {
   $("count").textContent = `${items.length} ta kino · posterini bosing`;
   $("chan").hidden = !channel;
   render();
-  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || new URLSearchParams(location.search).get("c") || "";
+  const _urlParams = new URLSearchParams(location.search);
+  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || _urlParams.get("c") || _urlParams.get("movie") || _urlParams.get("m") || "";
   if (document.querySelector('#seg [data-m="games"]') && (/^games/i.test(sp) || new URLSearchParams(location.search).has("games"))) {
     const gid = sp.split("_")[1]; setMode("games"); if (gid && window.ZGames && ZGames.ids.includes(gid)) ZGames.open(gid); return; }
   const stq = new URLSearchParams(location.search).get("story");

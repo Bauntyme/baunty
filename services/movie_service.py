@@ -98,6 +98,15 @@ CUSTOM_CATALOG_ITEMS = [
         "a": 1792512000,
         "i": 1792512000,
     },
+    {
+        "c": 1500,
+        "t": "Forsaj (Fast & Furious)",
+        "p": 11,
+        "v": 110000,
+        "d": "🎬 Forsaj (Fast & Furious) — Barcha qismlari ❤️\n\n📖 Film haqida: Dominik Toretto va uning tezkor jamoasi haqidagi afsonaviy kinofranshiza. 1-qismdan to 11-qismgacha barcha premyerlar!\n\n🎭 Janr: Jangari, kriminal, triller\n🌍 Davlat: AQSh\n📅 Yil: 2001–2023\n📺 Sifati: 1080p | Full HD\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+        "a": 1792658000,
+        "i": 1792658000,
+    },
 ]
 
 
@@ -612,9 +621,26 @@ class MovieService:
 
         resolved_source = None
         if not cat_item and not db_movie:
-            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
-            if not resolved_source:
-                return False
+            try:
+                sync_res = await MovieService.sync_movie_from_asilmedia(
+                    code=clean_code,
+                    title=title,
+                    session=session
+                )
+                if sync_res.get("success"):
+                    cat_item = MovieService.get_catalog_item(clean_code)
+                    db_movie = await crud.get_movie_by_code(session, clean_code)
+                    if not title and sync_res.get("title"):
+                        title = sync_res["title"]
+                    if not total_parts or total_parts <= 1:
+                        total_parts = len(sync_res.get("synced_parts", [])) or 1
+            except Exception as se:
+                logger.debug(f"Dynamic Asilmedia sync error: {se}")
+
+            if not cat_item and not db_movie:
+                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+                if not resolved_source:
+                    return False
 
         if not title:
             title = f"Kino #{clean_code}"
@@ -984,23 +1010,50 @@ class MovieService:
             except Exception:
                 pass
 
-        if not target_title:
-            target_title = f"Kino {clean_code}"
-
         target_parts = int(cat_item.get("p", 1)) if cat_item else 1
 
-        # Asilmedia.org dan eng mos keluvchi filmni qidirish
-        asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
+        asil_movie = None
+        # 1. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa
+        if clean_code.isdigit() and len(clean_code) >= 2:
+            try:
+                asil_movie = await asilmedia_service.get_movie_details(clean_code)
+            except Exception as ge:
+                logger.debug(f"Asilmedia direct id lookup failed for {clean_code}: {ge}")
+
+        # 2. Agar hali topilmasa, target_title bo'yicha qidirish
+        if not asil_movie and target_title and not target_title.startswith("Kino "):
+            asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
+            if not asil_movie:
+                words = target_title.split()
+                if len(words) > 1:
+                    asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
+
+        # 3. Mashhur franchise kodlari bo'yicha kanonik xaritalash
         if not asil_movie:
-            words = target_title.split()
-            if len(words) > 1:
-                asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
+            franchise_map = {
+                "718": ("9165", "Taksi"),
+                "717": ("16913", "Titanlar hujumi"),
+                "287": ("18281", "Chuqur"),
+                "1500": ("14902", "Forsaj"),
+            }
+            if clean_code in franchise_map:
+                f_id, f_query = franchise_map[clean_code]
+                try:
+                    asil_movie = await asilmedia_service.get_movie_details(f_id)
+                except Exception:
+                    pass
+                if not asil_movie:
+                    asil_movie = await asilmedia_service.find_best_match(f_query, target_parts=target_parts)
+
+        # 4. Agar umumiy target_title bilan qidirish kerak bo'lsa
+        if not asil_movie and target_title:
+            asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
 
         if not asil_movie:
             return {
                 "success": False,
                 "code": clean_code,
-                "title": target_title,
+                "title": target_title or f"Kino #{clean_code}",
                 "error": "Asilmedia.org dan kino topilmadi"
             }
 

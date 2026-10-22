@@ -598,18 +598,31 @@ class AsilmediaService:
             c_title = cand["title"].lower()
             q_lower = clean_q.lower()
             raw_t = cand.get("raw_title", "").lower()
+            c_id = str(cand.get("id"))
+
+            # Kanonik franshizalar uchun to'g'ridan-to'g'ri prioritet
+            if ("taksi" in q_lower or "taxi" in q_lower) and c_id == "9165":
+                score += 300
+            elif "titan" in q_lower and c_id in ("16913", "14075"):
+                score += 300
+            elif ("forsaj" in q_lower or "fast" in q_lower) and c_id in ("14902", "13087", "8563"):
+                score += 250
+            elif "chuqur" in q_lower and ("cukur" in raw_t or "serial" in raw_t or cand.get("is_series")):
+                score += 200
 
             if c_title == q_lower:
-                score += 100
+                score += 150
+            elif c_title.startswith(q_lower) or raw_t.startswith(q_lower):
+                score += 80
             elif q_lower in c_title or c_title in q_lower:
                 score += 50
 
             # Ko'p qismli serial yoki kolleksiya talab qilinganda
             if (is_series or target_parts > 1):
                 if cand.get("is_series") or "barcha qismlar" in raw_t or "serial" in raw_t:
-                    score += 100
+                    score += 120
                 if "barcha-qismlar" in cand["url"].lower():
-                    score += 50
+                    score += 60
                 if any(str(p) in cand["title"] for p in range(1, target_parts + 1)):
                     score += 30
             elif is_series is False:

@@ -219,7 +219,10 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
         await callback.message.answer(format_movie_not_found(code), parse_mode="HTML")
 
 
-@router.callback_query(F.data.startswith("watch_part:"))
+@router.callback_query(
+    F.data.startswith("watch_part:")
+    | (F.data.startswith("movie:") & F.data.func(lambda d: bool(d and len(d.split(":")) >= 3 and any(ch.isdigit() for ch in d.split(":")[1]))))
+)
 async def cb_watch_part(callback: CallbackQuery) -> None:
     """Ko'p qismli serialda qismni tanlash."""
     parts = callback.data.split(":")
@@ -859,7 +862,7 @@ async def cmd_browser(message: Message) -> None:
                             part_buttons.append(
                                 InlineKeyboardButton(
                                     text=f"{p_num}-qism",
-                                    callback_data=f"movie:{asil_movie.id}:{p_num}"
+                                    callback_data=f"watch_part:{asil_movie.id}:{p_num}"
                                 )
                             )
                         for i in range(0, len(part_buttons), 4):
@@ -868,7 +871,7 @@ async def cmd_browser(message: Message) -> None:
                         kb_rows.append([
                             InlineKeyboardButton(
                                 text="🎬 1-qismni tomosha qilish",
-                                callback_data=f"movie:{asil_movie.id}:1"
+                                callback_data=f"watch_part:{asil_movie.id}:1"
                             )
                         ])
 
@@ -878,7 +881,7 @@ async def cmd_browser(message: Message) -> None:
                     elif asil_movie.video_sources:
                         watch_u = asil_movie.video_sources.get("primary") or list(asil_movie.video_sources.values())[0]
 
-                    player_url = watch_u if watch_u and watch_u.startswith("http") else f"{webapp_url}?movie={asil_movie.id}"
+                    player_url = watch_u if watch_u and watch_u.startswith("http") else f"{webapp_url}?c={asil_movie.id}&movie={asil_movie.id}"
                     kb_rows.append([
                         InlineKeyboardButton(
                             text="▶️ Asilmedia Playerda ochish",
@@ -916,27 +919,27 @@ async def cmd_browser(message: Message) -> None:
                 [
                     InlineKeyboardButton(
                         text="🚕 Taksi (1-5 qismlari)",
-                        callback_data="movie:718:1"
+                        callback_data="watch_part:718:1"
                     ),
                     InlineKeyboardButton(
                         text="⚔️ Titanlar hujumi",
-                        callback_data="movie:717:1"
+                        callback_data="watch_part:717:1"
                     ),
                 ],
                 [
                     InlineKeyboardButton(
                         text="🔫 Chuqur (131 qism)",
-                        callback_data="movie:287:1"
+                        callback_data="watch_part:287:1"
                     ),
                     InlineKeyboardButton(
                         text="🏎️ Forsaj (Barcha)",
-                        callback_data="movie:1500:1"
+                        callback_data="watch_part:1500:1"
                     ),
                 ],
                 [
                     InlineKeyboardButton(
                         text="🍿 Asilmedia Web Player",
-                        web_app=WebAppInfo(url=f"{webapp_url}?src=asilmedia")
+                        web_app=WebAppInfo(url=f"{webapp_url}?c=718&src=asilmedia")
                     )
                 ],
                 [

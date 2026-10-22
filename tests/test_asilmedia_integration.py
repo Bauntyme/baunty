@@ -566,3 +566,96 @@ async def test_cmd_browser_asilmedia_portal_and_search():
         assert kwargs.get("part") == 2
 
 
+@pytest.mark.asyncio
+async def test_cb_watch_part_handles_movie_and_watch_part():
+    """cb_watch_part 'watch_part:code:part' va 'movie:code:part' ni birdek muvaffaqiyatli qabul qilishi testi."""
+    from handlers.movies import cb_watch_part
+    bot_mock = AsyncMock()
+    msg_mock = AsyncMock()
+    msg_mock.chat = MagicMock(id=987654)
+    msg_mock.answer = AsyncMock()
+
+    cb_mock = AsyncMock()
+    cb_mock.bot = bot_mock
+    cb_mock.message = msg_mock
+    cb_mock.answer = AsyncMock()
+
+    with patch("services.movie_service.movie_service.deliver_movie", new_callable=AsyncMock) as mock_deliv:
+        mock_deliv.return_value = True
+
+        # 1. movie:718:1 formatidagi callback
+        cb_mock.data = "movie:718:1"
+        await cb_watch_part(cb_mock)
+        mock_deliv.assert_called_with(
+            bot=bot_mock,
+            chat_id=987654,
+            code="718",
+            part=1
+        )
+        cb_mock.answer.assert_called()
+
+        # 2. watch_part:1500:3 formatidagi callback
+        mock_deliv.reset_mock()
+        cb_mock.data = "watch_part:1500:3"
+        await cb_watch_part(cb_mock)
+        mock_deliv.assert_called_with(
+            bot=bot_mock,
+            chat_id=987654,
+            code="1500",
+            part=3
+        )
+
+
+@pytest.mark.asyncio
+async def test_forsaj_1500_catalog_and_delivery(in_memory_session):
+    """Forsaj (kod 1500) katalogda 11 ta qism bilan mavjudligi va deliver_movie muvaffaqiyatli uzatishi testi."""
+    cat = MovieService.get_catalog_item("1500")
+    assert cat is not None
+    assert cat.get("c") == 1500
+    assert cat.get("p") == 11
+    assert "Forsaj" in cat.get("t")
+
+    bot_mock = AsyncMock()
+    mock_sent = MagicMock()
+    mock_sent.video = MagicMock(file_id="BAACAgIAAxkBAAE_FORSAJ_1234567890", duration=120, file_size=788493)
+    mock_sent.document = None
+    bot_mock.send_video = AsyncMock(return_value=mock_sent)
+
+    res = await MovieService.deliver_movie(
+        bot=bot_mock,
+        chat_id=555555,
+        code="1500",
+        part=1,
+        session=in_memory_session
+    )
+    assert res is True
+    assert bot_mock.send_video.called
+
+
+@pytest.mark.asyncio
+async def test_dynamic_asilmedia_sync_on_uncataloged_code(in_memory_session):
+    """Katalogda bo'lmagan Asilmedia kodi so'ralganda darhol rad etmasdan sinxronlash va yetkazish testi."""
+    bot_mock = AsyncMock()
+    mock_sent = MagicMock()
+    mock_sent.video = MagicMock(file_id="BAACAgIAAxkBAAE_UNCATALOGED_12345", duration=90, file_size=5000000)
+    mock_sent.document = None
+    bot_mock.send_video = AsyncMock(return_value=mock_sent)
+
+    with patch.object(MovieService, "sync_movie_from_asilmedia", new_callable=AsyncMock) as mock_sync:
+        mock_sync.return_value = {
+            "success": True,
+            "title": "Yangi Asilmedia Kino",
+            "synced_parts": [1]
+        }
+        res = await MovieService.deliver_movie(
+            bot=bot_mock,
+            chat_id=444444,
+            code="99999",
+            part=1,
+            session=in_memory_session
+        )
+        assert res is True
+        assert mock_sync.call_count >= 1
+
+
+
