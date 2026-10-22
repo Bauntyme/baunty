@@ -529,3 +529,40 @@ async def test_admin_add_movie_media_text_flow():
         assert "asilmedia_stream_999" in update_kwargs.get("file_id")
         state.set_state.assert_called_once_with(MovieAddStates.waiting_for_genres)
 
+
+@pytest.mark.asyncio
+async def test_cmd_browser_asilmedia_portal_and_search():
+    """/browser asilmedia.org va /browser asilmedia Taksi 2 to'g'ri ishlashi testi."""
+    from handlers.movies import cmd_browser
+    bot_mock = AsyncMock()
+    msg_mock = AsyncMock()
+    msg_mock.bot = bot_mock
+    msg_mock.chat = MagicMock(id=123456)
+    msg_mock.from_user = MagicMock(id=123456)
+    msg_mock.message_id = 999
+    msg_mock.reply = AsyncMock()
+
+    # 1. /browser asilmedia.org -> Asilmedia Portali klaviaturasi
+    msg_mock.text = "/browser asilmedia.org"
+    await cmd_browser(msg_mock)
+    assert msg_mock.reply.called
+    reply_args = msg_mock.reply.call_args
+    portal_text = reply_args.args[0] if reply_args.args else reply_args.kwargs.get("text", "")
+    assert "Bauntys — Asilmedia Kinolar Portali" in portal_text
+    assert "@Bauntyfilmsbot" in portal_text
+    assert "@BauntyFilms" in portal_text
+    kb = reply_args.kwargs.get("reply_markup")
+    assert kb is not None
+
+    # 2. /browser asilmedia.org Taksi 2 -> deliver_movie chaqirilishi
+    msg_mock.reply.reset_mock()
+    msg_mock.text = "/browser asilmedia.org Taksi 2"
+    with patch("services.movie_service.movie_service.deliver_movie", new_callable=AsyncMock) as mock_deliv:
+        mock_deliv.return_value = True
+        await cmd_browser(msg_mock)
+        mock_deliv.assert_called_once()
+        _, kwargs = mock_deliv.call_args
+        assert kwargs.get("code") == "718"
+        assert kwargs.get("part") == 2
+
+

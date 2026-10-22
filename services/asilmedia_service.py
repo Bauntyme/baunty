@@ -72,6 +72,7 @@ class AsilmediaService:
     """Asilmedia.org bilan to'liq avtomatlashtirilgan ishlash xizmati."""
 
     BASE_URL = "https://asilmedia.org"
+    MIRRORS = ["https://asilmedia.org", "https://asilmedia.net"]
     STREAM_SERVER_URL = "https://server.asilmedia.org"
     USER_AGENT = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -201,32 +202,40 @@ class AsilmediaService:
 
         async with aiohttp.ClientSession(headers=self._get_headers()) as session:
             for q in queries_to_try:
-                try:
-                    # DLE qidiruv parametri: do=search&subaction=search&story=...
-                    search_url = f"{self.BASE_URL}/"
-                    params = {"do": "search", "subaction": "search", "story": q}
-                    async with session.get(search_url, params=params, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
-                        if resp.status == 200:
-                            html = await resp.text()
-                            parsed = self._parse_search_results(html)
-                            for item in parsed:
-                                if not any(x["url"] == item["url"] for x in results):
-                                    results.append(item)
-                except Exception as e:
-                    logger.debug(f"Asilmedia search error for '{q}': {e}")
-
-                # Agar GET da topilmasa, POST orqali ham urinib ko'rish
-                if not results:
+                for base_url in self.MIRRORS:
                     try:
-                        async with session.post(search_url, data=params, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
+                        # DLE qidiruv parametri: do=search&subaction=search&story=...
+                        search_url = f"{base_url}/"
+                        params = {"do": "search", "subaction": "search", "story": q}
+                        async with session.get(search_url, params=params, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
                             if resp.status == 200:
                                 html = await resp.text()
                                 parsed = self._parse_search_results(html)
                                 for item in parsed:
                                     if not any(x["url"] == item["url"] for x in results):
                                         results.append(item)
+                                if results:
+                                    break
                     except Exception as e:
-                        logger.debug(f"Asilmedia POST search error for '{q}': {e}")
+                        logger.debug(f"Asilmedia search error on {base_url} for '{q}': {e}")
+
+                # Agar GET da topilmasa, POST orqali ham urinib ko'rish
+                if not results:
+                    for base_url in self.MIRRORS:
+                        try:
+                            search_url = f"{base_url}/"
+                            params = {"do": "search", "subaction": "search", "story": q}
+                            async with session.post(search_url, data=params, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
+                                if resp.status == 200:
+                                    html = await resp.text()
+                                    parsed = self._parse_search_results(html)
+                                    for item in parsed:
+                                        if not any(x["url"] == item["url"] for x in results):
+                                            results.append(item)
+                                    if results:
+                                        break
+                        except Exception as e:
+                            logger.debug(f"Asilmedia POST search error on {base_url} for '{q}': {e}")
 
         # Keshga saqlash
         self._search_cache[cache_key] = (now, results)
@@ -240,8 +249,8 @@ class AsilmediaService:
 
         for a in soup.find_all("a", href=True):
             href = a["href"]
-            # Asilmedia kino sahifalari formati: https://asilmedia.org/{id}-{slug}.html
-            m = re.match(r"^(?:https://asilmedia\.org)?/(\d+)-([a-z0-9\-_]+)\.html$", href, re.I)
+            # Asilmedia kino sahifalari formati: /{id}-{slug}.html
+            m = re.search(r"/(\d+)-([^/]+)\.html", href, re.I)
             if not m:
                 continue
 
@@ -319,17 +328,24 @@ class AsilmediaService:
                 # Keshdan tiklash
                 return self._dict_to_movie(cached_dict)
 
-        try:
-            async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
-                async with session.get(target_url, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
-                    if resp.status == 200:
-                        html = await resp.text()
-                        movie = self.extract_sources_from_html(html, page_url=target_url)
-                        if movie:
-                            self._details_cache[cache_key] = (now, movie.to_dict())
-                            return movie
-        except Exception as e:
-            logger.warning(f"Asilmedia get_movie_details error for '{target_url}': {e}")
+        urls_to_try = [target_url]
+        for m in self.MIRRORS:
+            alt = re.sub(r"^https?://[^/]+", m, target_url)
+            if alt not in urls_to_try:
+                urls_to_try.append(alt)
+
+        for u in urls_to_try:
+            try:
+                async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
+                    async with session.get(u, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
+                        if resp.status == 200:
+                            html = await resp.text()
+                            movie = self.extract_sources_from_html(html, page_url=u)
+                            if movie:
+                                self._details_cache[cache_key] = (now, movie.to_dict())
+                                return movie
+            except Exception as e:
+                logger.warning(f"Asilmedia get_movie_details error for '{u}': {e}")
 
         return None
 
@@ -499,6 +515,21 @@ class AsilmediaService:
                     video_sources["primary"] = src
                     if "1080p" not in video_sources:
                         video_sources["1080p"] = src
+
+        # Tier 4: Script teglari ichidan server.asilmedia.org yoki direct mp4 oqimlarni qidirish
+        if not episodes and not video_sources:
+            for sc in soup.find_all("script"):
+                sc_text = sc.string or sc.get_text() or ""
+                if not sc_text:
+                    continue
+                found_urls = re.findall(r'https?://server\.asilmedia\.org/(?:watch|download)/\d+/\d+', sc_text)
+                if not found_urls:
+                    found_urls = re.findall(r'https?://[^\s"\'<>]+\.mp4', sc_text)
+                for f_url in found_urls:
+                    if "primary" not in video_sources:
+                        video_sources["primary"] = f_url
+                    if "1080p" not in video_sources:
+                        video_sources["1080p"] = f_url
 
         # Agar serial bo'lmasa va bitta video manbasi bo'lsa, 1-qism sifatida shakllantiramiz
         if not episodes and video_sources:

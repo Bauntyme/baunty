@@ -804,12 +804,171 @@ async def cmd_browser(message: Message) -> None:
     """
     /browser komandasi: Bauntys Web App brauzerini ochish va upstream katalog kinolari,
     telekanallari (1440p QHD) va o'yinlariga tezkor ulanish.
-    Foydalanuvchi /browser @Zakirovsfilms_bot yoki /browser <kino> yozganda ham to'g'ri bog'lanadi.
+    Foydalanuvchi /browser @Bauntyfilmsbot, /browser asilmedia.org yoki /browser <kino> yozganda ham to'g'ri bog'lanadi.
     """
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     raw_args = message.text.split(maxsplit=1)
     arg = raw_args[1].strip() if len(raw_args) > 1 else ""
+    bot_name = config.BOT_USERNAME.lstrip("@")
+    channel_name = config.CHANNEL_USERNAME.lstrip("@")
+    webapp_url = config.WEBAPP_URL
 
+    # 1. Asilmedia portali yoki Asilmedia qidiruvi (/browser asilmedia.org ...)
+    if "asilmedia" in arg.lower():
+        clean_query = re.sub(
+            r"^(?:https?://)?(?:www\.)?asilmedia\.(?:org|net|uz|tv)\s*",
+            "",
+            arg,
+            flags=re.IGNORECASE
+        ).strip()
+        clean_query = re.sub(r"^asilmedia\s*", "", clean_query, flags=re.IGNORECASE).strip()
+
+        # Agar qidiruv so'rovi yoki kino kodi/nomi berilgan bo'lsa
+        if clean_query:
+            extracted = extract_movie_code_and_part(clean_query)
+            if extracted:
+                code, part = extracted
+                delivered = await movie_service.deliver_movie(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    code=code,
+                    part=part,
+                    reply_to_message_id=message.message_id
+                )
+                if delivered:
+                    return
+
+            try:
+                from services.asilmedia_service import asilmedia_service
+                asil_movie = None
+                if clean_query.startswith("http") or clean_query.isdigit():
+                    asil_movie = await asilmedia_service.get_movie_details(clean_query)
+                if not asil_movie:
+                    asil_movie = await asilmedia_service.find_best_match(clean_query)
+
+                if asil_movie:
+                    m_title = asil_movie.title or f"Kino #{asil_movie.id}"
+                    m_year = f" ({asil_movie.year})" if asil_movie.year else ""
+                    m_genres = ", ".join(asil_movie.genres[:3]) if asil_movie.genres else "Kino"
+                    m_parts = asil_movie.total_parts or len(asil_movie.episodes) or 1
+
+                    kb_rows = []
+                    if m_parts > 1:
+                        part_buttons = []
+                        for p_num in range(1, min(m_parts + 1, 9)):
+                            part_buttons.append(
+                                InlineKeyboardButton(
+                                    text=f"{p_num}-qism",
+                                    callback_data=f"movie:{asil_movie.id}:{p_num}"
+                                )
+                            )
+                        for i in range(0, len(part_buttons), 4):
+                            kb_rows.append(part_buttons[i:i+4])
+                    else:
+                        kb_rows.append([
+                            InlineKeyboardButton(
+                                text="🎬 1-qismni tomosha qilish",
+                                callback_data=f"movie:{asil_movie.id}:1"
+                            )
+                        ])
+
+                    watch_u = None
+                    if asil_movie.episodes and 1 in asil_movie.episodes:
+                        watch_u = asil_movie.episodes[1].watch_url or asil_movie.episodes[1].url
+                    elif asil_movie.video_sources:
+                        watch_u = asil_movie.video_sources.get("primary") or list(asil_movie.video_sources.values())[0]
+
+                    player_url = watch_u if watch_u and watch_u.startswith("http") else f"{webapp_url}?movie={asil_movie.id}"
+                    kb_rows.append([
+                        InlineKeyboardButton(
+                            text="▶️ Asilmedia Playerda ochish",
+                            web_app=WebAppInfo(url=player_url)
+                        )
+                    ])
+                    kb_rows.append([
+                        InlineKeyboardButton(
+                            text="📢 Rasmiy Kanal",
+                            url=f"https://t.me/{channel_name}"
+                        )
+                    ])
+
+                    asil_card_text = (
+                        f"🍿 <b>{m_title}{m_year}</b>\n\n"
+                        f"🎭 <b>Janr:</b> {m_genres}\n"
+                        f"🔢 <b>Jami qismlar:</b> {m_parts} ta\n"
+                        f"🌐 <b>Manba:</b> Asilmedia tarmog'i\n\n"
+                        f"<i>Quyidagi tugmalar orqali qismlarni tomosha qiling yoki brauzerda oching:</i>\n\n"
+                        f"🤖 <b>Bot:</b> @{bot_name}\n"
+                        f"🍿 <b>Kanal:</b> @{channel_name}"
+                    )
+                    await message.reply(
+                        asil_card_text,
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows)
+                    )
+                    return
+            except Exception as ae:
+                logger.debug(f"Asilmedia browser live lookup error: {ae}")
+
+        # Shunchaki /browser asilmedia.org
+        asil_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🚕 Taksi (1-5 qismlari)",
+                        callback_data="movie:718:1"
+                    ),
+                    InlineKeyboardButton(
+                        text="⚔️ Titanlar hujumi",
+                        callback_data="movie:717:1"
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🔫 Chuqur (131 qism)",
+                        callback_data="movie:287:1"
+                    ),
+                    InlineKeyboardButton(
+                        text="🏎️ Forsaj (Barcha)",
+                        callback_data="movie:1500:1"
+                    ),
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🍿 Asilmedia Web Player",
+                        web_app=WebAppInfo(url=f"{webapp_url}?src=asilmedia")
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🔍 Asilmedia Qidiruv",
+                        switch_inline_query_current_chat=""
+                    ),
+                    InlineKeyboardButton(
+                        text="📢 Rasmiy Kanal",
+                        url=f"https://t.me/{channel_name}"
+                    )
+                ]
+            ]
+        )
+        asil_text = (
+            "🍿 <b>Bauntys — Asilmedia Kinolar Portali</b>\n\n"
+            "Asilmedia tarmog'idagi barcha ommabop kinolar, ko'p qismli seriallar "
+            "va multfilmlarni to'g'ridan-to'g'ri Telegramda hamda Web App brauzerida "
+            "yuqori sifatda (Full HD / 4K) tomosha qiling va yuklab oling!\n\n"
+            "🎬 <b>Ommabop kinolar va to'plamlar:</b>\n"
+            "🚕 <b>Taksi 1-5</b> — barcha qismlari (kod: <code>718</code>)\n"
+            "⚔️ <b>Titanlar hujumi</b> — 54 qism (kod: <code>717</code>)\n"
+            "🔫 <b>Chuqur</b> — 131 qism (kod: <code>287</code>)\n"
+            "🏎️ <b>Forsaj</b> — barcha qismlari (kod: <code>1500</code>)\n\n"
+            f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
+            f"🍿 <b>Kino kanalimiz:</b> @{channel_name}\n\n"
+            "<i>Kinoni tanlash yoki qidirish uchun quyidagi tugmalardan foydalaning:</i>"
+        )
+        await message.reply(asil_text, parse_mode="HTML", reply_markup=asil_kb)
+        return
+
+    # 2. Umumiy kino kodi / nomi
     if arg and not arg.startswith("@"):
         extracted = extract_movie_code_and_part(arg)
         if extracted:
@@ -823,10 +982,6 @@ async def cmd_browser(message: Message) -> None:
             )
             if delivered:
                 return
-
-    bot_name = config.BOT_USERNAME.lstrip("@")
-    channel_name = config.CHANNEL_USERNAME.lstrip("@")
-    webapp_url = config.WEBAPP_URL
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
