@@ -86,8 +86,8 @@ KNOWN_SCANNER_AGENTS = (
     "requests/",
     "scrapy",
     "httpclient",
-    "libwww-perl",
     "go-http-client",
+    "libwww-perl",
     "postmanruntime",
     "insomnia",
     # Headless brauzerlar va avtomatizatsiya
@@ -576,6 +576,44 @@ CLOUDFLARE_NETWORKS = [
 ]
 
 
+RFC_DOCUMENTATION_NETWORKS = (
+    ipaddress.ip_network("192.0.2.0/24"),    # TEST-NET-1 (RFC 5737)
+    ipaddress.ip_network("198.51.100.0/24"),  # TEST-NET-2 (RFC 5737)
+    ipaddress.ip_network("203.0.113.0/24"),   # TEST-NET-3 (RFC 5737)
+)
+
+
+def is_private_or_loopback_ip(ip_str: str) -> bool:
+    """
+    IP manzil ichki xususiy tarmoq (RFC1918), loopback, link-local,
+    yoki maxsus zaxiralangan tarmoqqa tegishli ekanligini aniqlash.
+    Bunday IP manzillar (masalan 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+    127.0.0.1, ::1, 169.254.0.0/16) HECH QACHON ban qilinmasligi shart!
+    Izoh: RFC 5737 test tarmoqlari (198.51.100.0/24, 203.0.113.0/24) testlarda begona
+    tashqi hujumchi IP lari sifatida ishlatilgani uchun tashqi IP deb hisoblanadi.
+    """
+    if not ip_str:
+        return False
+    clean = _normalize_ip_str(ip_str).lower()
+    if clean in ("127.0.0.1", "::1", "localhost", "testclient", "testserver"):
+        return True
+    try:
+        ip_obj = ipaddress.ip_address(clean)
+        for doc_net in RFC_DOCUMENTATION_NETWORKS:
+            if ip_obj in doc_net:
+                return False
+        return (
+            ip_obj.is_private
+            or ip_obj.is_loopback
+            or ip_obj.is_link_local
+            or ip_obj.is_unspecified
+            or ip_obj.is_reserved
+            or ip_obj.is_multicast
+        )
+    except ValueError:
+        return False
+
+
 def is_trusted_proxy(ip_str: str) -> bool:
     """
     IP manzil serverning o'zi, lokal tarmoq, Render/Cloudflare proksisi
@@ -584,9 +622,9 @@ def is_trusted_proxy(ip_str: str) -> bool:
     """
     if not ip_str:
         return False
-    ip_clean = _normalize_ip_str(ip_str).lower()
-    if ip_clean in ("127.0.0.1", "::1", "localhost", "testclient"):
+    if is_private_or_loopback_ip(ip_str):
         return True
+    ip_clean = _normalize_ip_str(ip_str).lower()
     try:
         ip_obj = ipaddress.ip_address(ip_clean)
         for net in TRUSTED_PROXY_NETWORKS:
@@ -598,6 +636,28 @@ def is_trusted_proxy(ip_str: str) -> bool:
     except ValueError:
         return False
     return False
+
+
+def is_public_ip(ip_str: str) -> bool:
+    """Tekshirilayotgan IP haqiqiy ochiq (public internet) IP ekanligini aniqlash."""
+    if not ip_str:
+        return False
+    clean = _normalize_ip_str(ip_str)
+    if not clean:
+        return False
+    if is_private_or_loopback_ip(clean):
+        return False
+    try:
+        ip_obj = ipaddress.ip_address(clean)
+        for net in TRUSTED_PROXY_NETWORKS:
+            if ip_obj in net:
+                return False
+        for net in CLOUDFLARE_NETWORKS:
+            if ip_obj in net:
+                return False
+        return True
+    except ValueError:
+        return False
 
 
 class AutoBanJail:
@@ -621,17 +681,14 @@ class AutoBanJail:
     def jail_ip(self, ip: str, duration: Optional[float] = None, reason: str = "malicious_activity") -> None:
         if not ip:
             return
-        # Test muhitida localhost tasodifiy bloklanishining oldini olish
-        if ip in ("127.0.0.1", "::1", "localhost", "testclient"):
-            if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("STRICT_JAIL_TEST"):
-                return
-        # Ichki proksi, Render infratuzilmasi, Cloudflare va server o'zi hech qachon jail ga tushmaydi!
-        if is_trusted_proxy(ip):
-            if os.getenv("PYTEST_CURRENT_TEST") and not os.getenv("STRICT_JAIL_TEST"):
-                return
-            if not os.getenv("STRICT_JAIL_TEST"):
-                logger.debug(f"Trusted proxy IP {ip} jail ga olinmadi.")
-                return
+        # Private, loopback yoki ishonchli proksi IP manzillar HECH QACHON va HECH QANDAY SHARTDA jail ga olinmaydi!
+        if is_private_or_loopback_ip(ip) or is_trusted_proxy(ip):
+            logger.debug(f"Private/trusted IP {ip} jail ga olinmadi (Sabab: {reason})")
+            return
+        # Faqat haqiqiy public tashqi hujumchi IP lari jail ga olinadi
+        if not is_public_ip(ip):
+            logger.debug(f"Non-public IP {ip} jail ga olinmadi (Sabab: {reason})")
+            return
         now = time.monotonic()
         if len(self._jailed) > 1000:
             self.cleanup(now)
@@ -641,6 +698,10 @@ class AutoBanJail:
 
     def is_jailed(self, ip: str) -> Tuple[bool, Optional[float], Optional[str]]:
         if not ip or ip not in self._jailed:
+            return False, None, None
+        # Himoya: private yoki loopback yoki trusted IP hech qachon jailed deb hisoblanmaydi
+        if is_private_or_loopback_ip(ip) or is_trusted_proxy(ip):
+            self._jailed.pop(ip, None)
             return False, None, None
         exp, reason = self._jailed[ip]
         now = time.monotonic()
@@ -809,6 +870,8 @@ def get_real_client_ip(request: web.Request) -> str:
     """
     So'rovdan haqiqiy mijoz IP manzilini xavfsiz va proksi soxtalashtirishlaridan
     (IP spoofing va soxta DDoS blokirovkalaridan) himoyalangan holda ajratib olish.
+    CF-Connecting-IP va X-Forwarded-For sarlavhalaridagi birinchi HAQIQIY OCHIQ (PUBLIC) IP ni oladi.
+    Agar faqat ichki private IP bo'lsa, uni hech qachon ban qilmaslik uchun remote ni qaytaradi.
     """
     # 1. To'g'ridan-to'g'ri bog'langan remote manzil
     raw_remote = str(request.remote).strip() if request.remote else "127.0.0.1"
@@ -825,33 +888,30 @@ def get_real_client_ip(request: web.Request) -> str:
             return clean_remote
         return "127.0.0.1"
 
-    # 2. Ishonchli proksi orqali kelganda: Cloudflare CF-Connecting-IP
+    # 2. Ishonchli proksi (Render 10.x.x.x, Cloudflare, loopback) orqali kelganda:
+    # Cloudflare CF-Connecting-IP
     cf_ip = request.headers.get("CF-Connecting-IP")
     if cf_ip:
         clean_cf = _normalize_ip_str(cf_ip)
-        if _is_valid_ip(clean_cf) and not is_trusted_proxy(clean_cf):
+        if is_public_ip(clean_cf):
             return clean_cf
 
-    # 3. X-Forwarded-For: client, proxy1, proxy2
+    # 3. X-Forwarded-For: ishonchli proksi biriktirgan oxirgi haqiqiy ochiq (PUBLIC) IP ni olamiz
     xff = request.headers.get("X-Forwarded-For")
     if xff:
         parts = [_normalize_ip_str(p) for p in xff.split(",") if p.strip()]
-        # Proksilarni teskarisidan aylanib, birinchi begona (tashqi) IP ni olamiz
         for p in reversed(parts):
-            if _is_valid_ip(p) and not is_trusted_proxy(p):
-                return p
-        # Agar barcha XFF proksi bo'lsa, birinchi haqiqiy IP ni olamiz
-        for p in parts:
-            if _is_valid_ip(p):
+            if is_public_ip(p):
                 return p
 
     # 4. X-Real-IP
     x_real = request.headers.get("X-Real-IP")
     if x_real:
         clean_real = _normalize_ip_str(x_real)
-        if _is_valid_ip(clean_real) and not is_trusted_proxy(clean_real):
+        if is_public_ip(clean_real):
             return clean_real
 
+    # 5. Agar faqat ichki private IP bo'lsa (masalan Render 10.29.121.249)
     if _is_valid_ip(clean_remote):
         return clean_remote
 
@@ -1037,7 +1097,8 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
     # 4. Zero Reconnaissance & Database Shield: Nozik fayllar va bazalarni to'sish
     is_recon, recon_threat = check_reconnaissance_and_database_shield(path)
     if is_recon:
-        security_service.ban_ip(client_ip, reason=recon_threat)
+        if is_public_ip(client_ip):
+            security_service.ban_ip(client_ip, reason=recon_threat)
         logger.warning(
             f"Nozik fayl/baza qidiruvi to'sildi: {recon_threat} | Path: {path} | IP: {client_ip}"
         )
@@ -1075,7 +1136,8 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
         path, query_str, user_agent, body=body_str, headers=req_headers_dict
     )
     if is_malicious:
-        security_service.ban_ip(client_ip, reason=threat_name)
+        if is_public_ip(client_ip):
+            security_service.ban_ip(client_ip, reason=threat_name)
         logger.warning(
             f"Zararli so'rov bloklandi: {threat_name} | Path: {path} | IP: {client_ip} | UA: {user_agent}"
         )

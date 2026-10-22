@@ -349,18 +349,29 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     '289_2' -> ('289', 2)
     '289 2-qism' -> ('289', 2)
     'kod 289 2' -> ('289', 2)
+    'taksi' -> ('718', 1)
+    'taksi 2' -> ('718', 2)
+    'taksi 2ci' -> ('718', 2)
+    'Attack on Titan' -> ('717', 1)
+    'Attack on Titan — 2-qism' -> ('717', 2)
     """
     if not text:
         return None
     clean = text.strip()
-    if "kino — kod orqali qidirish" in clean.lower() or clean.startswith("http") or len(clean) > 35:
+    if "kino — kod orqali qidirish" in clean.lower() or clean.startswith("http") or clean.startswith("/"):
+        return None
+    if len(clean) > 60:
         return None
 
     cleaned = clean.lstrip("#№").strip()
     cleaned = re.sub(r'^(?:kino|film|код|kod|code)\s*:?\s*', '', cleaned, flags=re.IGNORECASE).strip()
 
     # Pattern: code + part (e.g. "289 2", "289-2", "289_2", "289p2", "289 2-qism", "289 2 qism", "289 1-qism ko'rish")
-    m = re.match(r'^(\d{1,8})[\s_\-pP]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep))?(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$', cleaned, re.IGNORECASE)
+    m = re.match(
+        r'^(\d{1,8})[\s_\-pP]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep|ci|chi))?(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$',
+        cleaned,
+        re.IGNORECASE
+    )
     if m:
         return m.group(1), int(m.group(2))
 
@@ -368,20 +379,38 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     if cleaned.isdigit() and len(cleaned) <= 10:
         return cleaned, 1
 
-    # Pattern: Title + part (e.g. "chuqur 1-qism", "chuqur 1qism korish", "chuqur 1 qism", "cukur 1-qism")
-    m_title = re.match(
-        r'^([a-zA-Z\u0400-\u04FF\s\-\'\`‘]{2,30}?)\s*[\-_]?\s*(\d{1,4})[\s\-—–]*(?:qism|part|seriya|ep)?(?:\s*(?:ko[\'‘`]?rish|korish|tomosha|yuklash))?$',
-        cleaned,
+    # Harakat so'zlarini oxiridan olib tashlash
+    t_work = re.sub(r'\s*(?:ko[\'‘`]?rish|korish|tomosha(?:\s*qilish)?|yuklash)\s*$', '', cleaned, flags=re.IGNORECASE).strip()
+
+    part = 1
+    title_cand = t_work
+
+    # Qism raqamini aniqlash (masalan "taksi 2", "taksi 2ci", "taksi 2-chi", "Attack on Titan — 2-qism", "taksi 2 kinosi")
+    part_match = re.search(
+        r'[\s\-—–_]+(?:qism|part|seriya|ep)?\s*(\d{1,4})(?:[\s\-—–]*(?:qism|part|seriya|ep|ci|chi))?(?:\s+(?:kinosi|filmi|seriali|multfilmi|kino|film))?\s*$',
+        t_work,
         re.IGNORECASE
     )
-    if m_title:
-        title_cand = m_title.group(1).strip()
-        part_cand = int(m_title.group(2))
-        NON_TITLE_WORDS = {"admin", "salom", "qalesan", "start", "stop", "help", "yordam", "kino", "film"}
-        if title_cand.lower() not in NON_TITLE_WORDS and not title_cand.isdigit():
-            cat_match = MovieService.search_catalog_by_title(title_cand)
-            if cat_match and cat_match.get("c"):
-                return str(cat_match["c"]), part_cand
+    if not part_match:
+        part_match = re.search(
+            r'[\s\-—–_]?(\d{1,4})(?:[\-_]?(?:ci|chi))\b(?:\s+(?:kinosi|filmi|seriali|multfilmi|kino|film))?\s*$',
+            t_work,
+            re.IGNORECASE
+        )
+
+    if part_match:
+        part = int(part_match.group(1))
+        title_cand = t_work[:part_match.start()].strip()
+    else:
+        title_cand = re.sub(r'[\s\-—–_]+(?:kinosi|filmi|seriali|multfilmi|kino|film)\s*$', '', t_work, flags=re.IGNORECASE).strip()
+
+    title_cand = title_cand.strip(" -—–_:")
+
+    NON_TITLE_WORDS = {"admin", "salom", "qalesan", "start", "stop", "help", "yordam", "kino", "film", "menyu", "menu", "sozlamalar", "balans", "profile"}
+    if title_cand and title_cand.lower() not in NON_TITLE_WORDS and not title_cand.isdigit() and len(title_cand) >= 2:
+        cat_match = MovieService.search_catalog_by_title(title_cand)
+        if cat_match and cat_match.get("c"):
+            return str(cat_match["c"]), part
 
     return None
 
@@ -389,11 +418,23 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
 def extract_movie_code(text: str) -> Optional[str]:
     """
     Kino kodini matndan ajratib oladi.
-    Qo'llab-quvvatlanadi: 101, #101, №101, 'kod 101', 'kod: 101', 'код 101'
+    Qo'llab-quvvatlanadi: 101, #101, №101, 'kod 101', 'kod: 101', 'код 101', '289 2'
     """
-    res = extract_movie_code_and_part(text)
-    if res:
-        return res[0]
+    if not text:
+        return None
+    clean = text.strip()
+    if re.search(r'^\d{1,8}[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', clean, re.IGNORECASE):
+        return None
+    cleaned = clean.lstrip("#№").strip()
+    cleaned = re.sub(r'^(?:kino|film|код|kod|code)\s*:?\s*', '', cleaned, flags=re.IGNORECASE).strip()
+    m = re.match(r'^(\d{1,8})[\s_\-pP]+(?:qism|part|seriya|ep)?\s*(\d{1,4})', cleaned, re.IGNORECASE)
+    if m:
+        return m.group(1)
+    if cleaned.isdigit() and len(cleaned) <= 10:
+        return cleaned
+    m_single = re.match(r'^(\d{1,8})', cleaned)
+    if m_single:
+        return m_single.group(1)
     return None
 
 

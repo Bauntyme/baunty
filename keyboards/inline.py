@@ -101,7 +101,7 @@ def movie_item_keyboard(movie_code: str) -> InlineKeyboardMarkup:
     if app_url and app_url.startswith("https://"):
         from aiogram.types import WebAppInfo
         builder.row(
-            InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=app_url))
+            InlineKeyboardButton(text="▶️ Web App orqali tomosha qilish", web_app=WebAppInfo(url=app_url))
         )
     return builder.as_markup()
 
@@ -170,7 +170,7 @@ def movie_parts_keyboard(
     if app_url and app_url.startswith("https://"):
         from aiogram.types import WebAppInfo
         builder.row(
-            InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=app_url))
+            InlineKeyboardButton(text="▶️ Web App orqali tomosha qilish", web_app=WebAppInfo(url=app_url))
         )
     return builder.as_markup()
 

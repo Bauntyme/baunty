@@ -1,10 +1,94 @@
 {
   "items": {
-    "default": {
-      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+    "718": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+      "file_type": "video",
+      "duration": 5,
+      "file_size": 2848208
+    },
+    "718_1": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+      "file_type": "video",
+      "duration": 5,
+      "file_size": 2848208
+    },
+    "718_2": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 5485935
+    },
+    "718_3": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
       "file_type": "video",
       "duration": 15,
-      "file_size": 2810880
+      "file_size": 11916526
+    },
+    "718_4": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
+      "file_type": "video",
+      "duration": 20,
+      "file_size": 11815175
+    },
+    "718_5": {
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 788493
+    },
+    "717": {
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 788493
+    },
+    "717_1": {
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 788493
+    },
+    "717_2": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+      "file_type": "video",
+      "duration": 5,
+      "file_size": 2848208
+    },
+    "287": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 5485935
+    },
+    "287_1": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 5485935
+    },
+    "287_2": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
+      "file_type": "video",
+      "duration": 15,
+      "file_size": 11916526
+    },
+    "716": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+      "file_type": "video",
+      "duration": 5,
+      "file_size": 2848208
+    },
+    "715": {
+      "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 5485935
+    },
+    "714": {
+      "url": "https://www.w3schools.com/html/mov_bbb.mp4",
+      "file_type": "video",
+      "duration": 10,
+      "file_size": 788493
     }
   }
 }

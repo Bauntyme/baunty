@@ -46,6 +46,13 @@
       "lib": 1
     },
     {
+      "id": "tdCjVMAAdxw",
+      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
+    },
+    {
       "id": "2449",
       "t": "BUGUN BIZNING TO'YIMIZ 💍| Munisa Rizayeva Vibes | Yangi O'zbek Qo'shiqlari 2026 | Uzbek Wedding Song",
       "a": "Alice Official ",
@@ -55,13 +62,6 @@
       "m": 1,
       "y": "_skBnvuaWso",
       "lib": 1
-    },
-    {
-      "id": "tdCjVMAAdxw",
-      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
       "id": "GBo8GADWvU8",
@@ -107,13 +107,6 @@
       "u": "https://www.youtube.com/watch?v=sZZW0o9iP8M"
     },
     {
-      "id": "lzOMmTzrkko",
-      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
-    },
-    {
       "id": "2363",
       "t": "Hayot yo‘llari 🔥 Oddiy yigit hayoti | Yurakka tegadigan qo‘shiq",
       "a": "Shodik  Uz(official)",
@@ -123,6 +116,13 @@
       "m": 1,
       "y": "VAczCXMJxXg",
       "lib": 1
+    },
+    {
+      "id": "lzOMmTzrkko",
+      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
     },
     {
       "id": "36",
@@ -176,13 +176,6 @@
       "lib": 1
     },
     {
-      "id": "OhQF3e8mq1c",
-      "t": "ALISHER UZOQOV - NAHOTKI SHU BO'LSA SEVGI?",
-      "a": "Sarvar Karimov",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=OhQF3e8mq1c"
-    },
-    {
       "id": "2355",
       "t": "Oydin Kechalar - Begzodbek Qodirov ijrosi | #alimjonov_23 #alimjonov_one",
       "a": "ALIMJONOV ONE",
@@ -192,6 +185,13 @@
       "m": 1,
       "y": "eZ2lOS9cs_A",
       "lib": 1
+    },
+    {
+      "id": "OhQF3e8mq1c",
+      "t": "ALISHER UZOQOV - NAHOTKI SHU BO'LSA SEVGI?",
+      "a": "Sarvar Karimov",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=OhQF3e8mq1c"
     },
     {
       "id": "581",
@@ -234,13 +234,6 @@
       "lib": 1
     },
     {
-      "id": "CRM13i0dEQo",
-      "t": "G'aybulla Tursunov - Quralay (Konsert Version 2025)",
-      "a": "G'aybulla Tursunov",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=CRM13i0dEQo"
-    },
-    {
       "id": "2416",
       "t": "MASSA Feat. DITTO - Welcome To Dubai (Official Music Video)",
       "a": "Massa and dittouz",
@@ -252,22 +245,18 @@
       "lib": 1
     },
     {
+      "id": "CRM13i0dEQo",
+      "t": "G'aybulla Tursunov - Quralay (Konsert Version 2025)",
+      "a": "G'aybulla Tursunov",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=CRM13i0dEQo"
+    },
+    {
       "id": "vSA7yMrTETg",
       "t": "Xamdam Sobirov - Peshta / Хамдам Собиров - Пешта / Video Klip",
       "a": "Xamdam Sobirov and Muzalar",
       "s": "yt",
       "u": "https://www.youtube.com/watch?v=vSA7yMrTETg"
-    },
-    {
-      "id": "2471",
-      "t": "Ali Otajonov - Armonimsan (Official Music Video)",
-      "a": "Ali Otajonov",
-      "d": 201,
-      "s": "tg",
-      "u": "tg:2471",
-      "m": 1,
-      "y": "Oz06_FcPAIA",
-      "lib": 1
     },
     {
       "id": "578",
@@ -278,6 +267,17 @@
       "u": "tg:578",
       "m": 1,
       "y": "HUJpeEZuhbc",
+      "lib": 1
+    },
+    {
+      "id": "2471",
+      "t": "Ali Otajonov - Armonimsan (Official Music Video)",
+      "a": "Ali Otajonov",
+      "d": 201,
+      "s": "tg",
+      "u": "tg:2471",
+      "m": 1,
+      "y": "Oz06_FcPAIA",
       "lib": 1
     },
     {
@@ -306,6 +306,17 @@
       "u": "https://www.youtube.com/watch?v=-USRi1AROrc"
     },
     {
+      "id": "576",
+      "t": "Dil yig‘lar",
+      "a": "Izzat Shukurov ft. Rayhon",
+      "d": 214,
+      "s": "tg",
+      "u": "tg:576",
+      "m": 1,
+      "y": "rv7H2wgZbVI",
+      "lib": 1
+    },
+    {
       "id": "ahGCYX_atmY",
       "t": "Jasmin - Izlama (Mood Video)",
       "a": "Jasmin",
@@ -321,17 +332,6 @@
       "u": "tg:2354",
       "m": 1,
       "y": "IRPWIhh0ht4",
-      "lib": 1
-    },
-    {
-      "id": "576",
-      "t": "Dil yig‘lar",
-      "a": "Izzat Shukurov ft. Rayhon",
-      "d": 214,
-      "s": "tg",
-      "u": "tg:576",
-      "m": 1,
-      "y": "rv7H2wgZbVI",
       "lib": 1
     },
     {
@@ -364,13 +364,6 @@
       "lib": 1
     },
     {
-      "id": "Bw5ohaQgBHM",
-      "t": "Gulinur & Ulug'bek Yulchiyev - Qaymog'im (Official Music Video 2024)",
-      "a": "Gulinur",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=Bw5ohaQgBHM"
-    },
-    {
       "id": "2356",
       "t": "Bunyodbek Saidov Eng ko’p so’ralgan xit qo’shiqlari davrani yondirdi",
       "a": "Bunyodbek Saidov",
@@ -382,11 +375,11 @@
       "lib": 1
     },
     {
-      "id": "MmU1yh0nXUk",
-      "t": "O‘zimni sog‘inaman | o‘zbek lirik qo‘shiq 💔",
-      "a": "UzbekMelora",
+      "id": "Bw5ohaQgBHM",
+      "t": "Gulinur & Ulug'bek Yulchiyev - Qaymog'im (Official Music Video 2024)",
+      "a": "Gulinur",
       "s": "yt",
-      "u": "https://www.youtube.com/watch?v=MmU1yh0nXUk"
+      "u": "https://www.youtube.com/watch?v=Bw5ohaQgBHM"
     },
     {
       "id": "2310",
@@ -400,11 +393,29 @@
       "lib": 1
     },
     {
+      "id": "MmU1yh0nXUk",
+      "t": "O‘zimni sog‘inaman | o‘zbek lirik qo‘shiq 💔",
+      "a": "UzbekMelora",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=MmU1yh0nXUk"
+    },
+    {
       "id": "udh6z2CJwvU",
       "t": "Ortiq Otajonov - Umr o'tar (consert version)",
       "a": "NevoMusic",
       "s": "yt",
       "u": "https://www.youtube.com/watch?v=udh6z2CJwvU"
+    },
+    {
+      "id": "3213",
+      "t": "Xurshid Rasulov - Uzoqlashib ketyapmiz | Хуршид Расулов - Узоклашиб кетяпмиз (AUDIO)",
+      "a": "RizaNovaUZ",
+      "d": 272,
+      "s": "tg",
+      "u": "tg:3213",
+      "m": 1,
+      "y": "vg__93uwXBo",
+      "lib": 1
     },
     {
       "id": "2337",
@@ -418,13 +429,6 @@
       "lib": 1
     },
     {
-      "id": "nRhKjGca7vE",
-      "t": "RELENTLESS 🔥 | Gym Motivation | Motivational Songs 🔥",
-      "a": "Alpha Division",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=nRhKjGca7vE"
-    },
-    {
       "id": "XX-73BtAd5E",
       "t": "Bojalar - Anhor bo'yida | Божалар - Анхор буйида",
       "a": "RizaNovaUZ",
@@ -432,14 +436,21 @@
       "u": "https://www.youtube.com/watch?v=XX-73BtAd5E"
     },
     {
-      "id": "3213",
-      "t": "Xurshid Rasulov - Uzoqlashib ketyapmiz | Хуршид Расулов - Узоклашиб кетяпмиз (AUDIO)",
-      "a": "RizaNovaUZ",
-      "d": 272,
+      "id": "nRhKjGca7vE",
+      "t": "RELENTLESS 🔥 | Gym Motivation | Motivational Songs 🔥",
+      "a": "Alpha Division",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=nRhKjGca7vE"
+    },
+    {
+      "id": "3028",
+      "t": "Men borman-ku Izzat Shukurov dan yangi qo’shiq 😍😍🥲🥲🥲",
+      "a": "IZZAT SHUKUROV",
+      "d": 79,
       "s": "tg",
-      "u": "tg:3213",
+      "u": "tg:3028",
       "m": 1,
-      "y": "vg__93uwXBo",
+      "y": "ke5TmyFwcb8",
       "lib": 1
     },
     {
@@ -455,17 +466,6 @@
       "a": "Sevinch Ismoilova",
       "s": "yt",
       "u": "https://www.youtube.com/watch?v=Unqc6rSiTys"
-    },
-    {
-      "id": "3028",
-      "t": "Men borman-ku Izzat Shukurov dan yangi qo’shiq 😍😍🥲🥲🥲",
-      "a": "IZZAT SHUKUROV",
-      "d": 79,
-      "s": "tg",
-      "u": "tg:3028",
-      "m": 1,
-      "y": "ke5TmyFwcb8",
-      "lib": 1
     }
   ],
   "hero": [
@@ -514,6 +514,15 @@
       "lib": 1
     },
     {
+      "id": "tdCjVMAAdxw",
+      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
+    }
+  ],
+  "hits": [
+    {
       "id": "2449",
       "t": "BUGUN BIZNING TO'YIMIZ 💍| Munisa Rizayeva Vibes | Yangi O'zbek Qo'shiqlari 2026 | Uzbek Wedding Song",
       "a": "Alice Official ",
@@ -523,15 +532,6 @@
       "m": 1,
       "y": "_skBnvuaWso",
       "lib": 1
-    }
-  ],
-  "hits": [
-    {
-      "id": "tdCjVMAAdxw",
-      "t": "Izzat Shukurov - Oshiqman (Official Music Video)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
       "id": "GBo8GADWvU8",
@@ -577,13 +577,6 @@
       "u": "https://www.youtube.com/watch?v=sZZW0o9iP8M"
     },
     {
-      "id": "lzOMmTzrkko",
-      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
-    },
-    {
       "id": "2363",
       "t": "Hayot yo‘llari 🔥 Oddiy yigit hayoti | Yurakka tegadigan qo‘shiq",
       "a": "Shodik  Uz(official)",
@@ -593,6 +586,13 @@
       "m": 1,
       "y": "VAczCXMJxXg",
       "lib": 1
+    },
+    {
+      "id": "lzOMmTzrkko",
+      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
     },
     {
       "id": "36",
@@ -646,13 +646,6 @@
       "lib": 1
     },
     {
-      "id": "OhQF3e8mq1c",
-      "t": "ALISHER UZOQOV - NAHOTKI SHU BO'LSA SEVGI?",
-      "a": "Sarvar Karimov",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=OhQF3e8mq1c"
-    },
-    {
       "id": "2355",
       "t": "Oydin Kechalar - Begzodbek Qodirov ijrosi | #alimjonov_23 #alimjonov_one",
       "a": "ALIMJONOV ONE",
@@ -662,6 +655,13 @@
       "m": 1,
       "y": "eZ2lOS9cs_A",
       "lib": 1
+    },
+    {
+      "id": "OhQF3e8mq1c",
+      "t": "ALISHER UZOQOV - NAHOTKI SHU BO'LSA SEVGI?",
+      "a": "Sarvar Karimov",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=OhQF3e8mq1c"
     }
   ],
   "fresh": [],
