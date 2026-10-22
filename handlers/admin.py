@@ -540,9 +540,10 @@ async def state_movie_asilmedia_sync(message: Message, state: FSMContext) -> Non
         )
         await status_msg.edit_text(text, parse_mode="HTML", reply_markup=builder.as_markup())
     else:
+        err_msg = res.get('error') or "Noma'lum"
         await status_msg.edit_text(
             f"❌ <b>#{code}</b> uchun Asilmedia.org dan video topilmadi.\n"
-            f"Sabab: {res.get('error', 'Noma\'lum')}",
+            f"Sabab: {err_msg}",
             parse_mode="HTML"
         )
 
