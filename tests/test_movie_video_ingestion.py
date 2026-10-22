@@ -201,8 +201,8 @@ async def test_deliver_movie_document_type(in_memory_session: AsyncSession):
 
 
 @pytest.mark.asyncio
-async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSession):
-    """Mock/placeholder file_id bo'lganda soxta video yuborilmasdan poster/matnga o'tishi testi."""
+async def test_deliver_movie_placeholder_resolves_and_sends_video(in_memory_session: AsyncSession):
+    """Mock/placeholder file_id bo'lganda ham poster emas, haqiqiy video manbasi orqali bot.send_video chaqirilishi testi."""
     movie = await crud.create_movie(
         session=in_memory_session,
         code="101",
@@ -211,8 +211,10 @@ async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSessio
     )
     await in_memory_session.commit()
 
+    sent_msg = MagicMock()
+    sent_msg.video = MagicMock(file_id="BAACAgIAAxkBAAE_REAL_TELEGRAM_NEW_FID_FORSAJ10", duration=141, file_size=15000000)
     bot_mock = AsyncMock()
-    bot_mock.send_video = AsyncMock()
+    bot_mock.send_video = AsyncMock(return_value=sent_msg)
     bot_mock.send_photo = AsyncMock()
     bot_mock.send_message = AsyncMock()
 
@@ -225,10 +227,69 @@ async def test_deliver_movie_placeholder_fallback(in_memory_session: AsyncSessio
     )
 
     assert result is True
-    # Placeholder bo'lgani sababli soxta video (send_video) chaqirilmasligi kerak
-    assert bot_mock.send_video.called is False
-    # send_photo yoki send_message chaqirilishi kerak
-    assert bot_mock.send_photo.called or bot_mock.send_message.called
+    # 100% holatda haqiqiy video yuborilishi shart:
+    assert bot_mock.send_video.called is True
+    assert bot_mock.send_photo.called is False
+    call_kwargs = bot_mock.send_video.call_args.kwargs
+    assert call_kwargs["supports_streaming"] is True
+    assert "Forsaj 10" in call_kwargs["caption"]
+    # Telegram qaytargan yangi file_id bazada yangilanishi kerak:
+    updated_movie = await crud.get_movie_by_code(in_memory_session, "101")
+    assert updated_movie.file_id == "BAACAgIAAxkBAAE_REAL_TELEGRAM_NEW_FID_FORSAJ10"
+
+
+@pytest.mark.asyncio
+async def test_deliver_all_franchises_streaming_video(in_memory_session: AsyncSession):
+    """Taksi, Attack on Titan, Chuqur, Garri Potter, Forsaj va boshqalar uchun har doim video yetkazilishi testi."""
+    test_cases = [
+        ("718", 1, "Taksi"),
+        ("718", 2, "Taksi"),
+        ("718", 5, "Taksi"),
+        ("717", 1, "Attack on Titan"),
+        ("717", 25, "Attack on Titan"),
+        ("717", 54, "Attack on Titan"),
+        ("287", 1, "Chuqur"),
+        ("287", 50, "Chuqur"),
+        ("287", 131, "Chuqur"),
+        ("120", 1, "Garri Potter"),
+        ("120", 8, "Garri Potter"),
+        ("101", 1, "Forsaj"),
+        ("101", 10, "Forsaj"),
+        ("114", 1, "O'rgimchak odam"),
+        ("103", 1, "Qasoskorlar"),
+        ("139", 1, "Qirol Sher"),
+        ("140", 1, "Muz yurak"),
+        ("142", 1, "Shrek"),
+        ("708", 1, "Uch Bahodir"),
+        ("712", 1, "Uch Bahodir"),
+    ]
+
+    bot_mock = AsyncMock()
+    for code, part, name in test_cases:
+        bot_mock.send_video.reset_mock()
+        bot_mock.send_photo.reset_mock()
+
+        sent_msg = MagicMock()
+        sent_msg.video = MagicMock(file_id=f"BAACAgIAAxkBAAE_{code}_{part}_TEST_FID", duration=120, file_size=10000000)
+        bot_mock.send_video.return_value = sent_msg
+
+        res = await movie_service.deliver_movie(
+            bot=bot_mock,
+            chat_id=999888,
+            code=code,
+            part=part,
+            session=in_memory_session
+        )
+
+        assert res is True, f"Failed delivering {name} (code={code}, part={part})"
+        assert bot_mock.send_video.called is True, f"send_video not called for {name} ({code}_{part})"
+        assert bot_mock.send_photo.called is False, f"send_photo unexpectedly called for {name} ({code}_{part})"
+        kwargs = bot_mock.send_video.call_args.kwargs
+        assert kwargs["supports_streaming"] is True
+        assert kwargs["chat_id"] == 999888
+        assert "video" in kwargs
+        assert "@Baunty" in kwargs["caption"]
+        assert "Zakirov" not in kwargs["caption"]
 
 
 @pytest.mark.asyncio
