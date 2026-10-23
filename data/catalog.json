@@ -1,13 +1,6 @@
 {
   "items": [
     {
-      "c": "7771",
-      "t": "Baunty Yangi Kino",
-      "d": "Kino tavsifi @Bauntyfilmsbot va @BauntyFilms",
-      "v": 1000,
-      "y": 2025
-    },
-    {
       "c": 11637,
       "t": "Ruhshunos",
       "p": 10,
@@ -655,6 +648,13 @@
       "i": 18613,
       "p_url": "https://asilmedia.org/rasmlar/images/2026/10/06/poster8bd44f1563d9076c.webp",
       "type": "serial"
+    },
+    {
+      "c": "7771",
+      "t": "Baunty Yangi Kino",
+      "d": "Kino tavsifi @Bauntyfilmsbot va @BauntyFilms",
+      "v": 1000,
+      "y": 2025
     },
     {
       "c": 18631,
