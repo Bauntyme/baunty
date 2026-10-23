@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, update, delete, func, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import User, Movie, SponsorChannel, DownloadLog, BotSetting, AnonymousMessage, Feedback, utc_now
+from database.models import User, Movie, MovieFile, SponsorChannel, DownloadLog, BotSetting, AnonymousMessage, Feedback, utc_now
 from utils.translit import get_both_scripts
 
 
@@ -321,6 +321,28 @@ async def set_movie_video(
         )
         if not (is_new_url and curr_is_real_fid):
             movie.file_id = fid_str
+
+        # Telegram Cloud pool: movie_files jadvaliga ham saqlab qo'yish
+        try:
+            m_part = 1
+            b_code = clean_code
+            if "_" in clean_code:
+                parts_split = clean_code.split("_")
+                if len(parts_split) == 2 and parts_split[1].isdigit():
+                    b_code = parts_split[0]
+                    m_part = int(parts_split[1])
+            await save_movie_file(
+                session=session,
+                movie_code=b_code,
+                part=m_part,
+                file_id=fid_str,
+                file_type=file_type,
+                duration=dur_val,
+                file_size=fsize_val
+            )
+        except Exception:
+            pass
+
     movie.file_type = file_type
     if title:
         movie.title = title.strip()
@@ -330,6 +352,65 @@ async def set_movie_video(
         movie.file_size = fsize_val
     await session.flush()
     return movie
+
+
+async def save_movie_file(
+    session: AsyncSession,
+    movie_code: str,
+    part: int,
+    file_id: str,
+    file_type: str = "video",
+    file_size: Optional[int] = None,
+    duration: Optional[int] = None,
+    quality: str = "1080p",
+) -> MovieFile:
+    """Har bir qism uchun Telegram Cloud file_id sini movie_files jadvalida keshlab saqlash."""
+    clean_code = str(movie_code).strip().lstrip("#№")
+    stmt = select(MovieFile).where(MovieFile.movie_code == clean_code, MovieFile.part == int(part))
+    res = await session.execute(stmt)
+    mf = res.scalar_one_or_none()
+    dur_val = int(duration) if isinstance(duration, (int, float)) else None
+    fsize_val = int(file_size) if isinstance(file_size, (int, float)) else None
+    fid_str = str(file_id).strip()
+
+    if mf:
+        if fid_str and not fid_str.startswith("<"):
+            mf.file_id = fid_str
+        mf.file_type = file_type
+        if dur_val is not None:
+            mf.duration = dur_val
+        if fsize_val is not None:
+            mf.file_size = fsize_val
+        if quality:
+            mf.quality = quality
+        await session.flush()
+        return mf
+    else:
+        new_mf = MovieFile(
+            movie_code=clean_code,
+            part=int(part),
+            file_id=fid_str,
+            file_type=file_type,
+            file_size=fsize_val,
+            duration=dur_val,
+            quality=quality,
+            created_at=utc_now(),
+        )
+        session.add(new_mf)
+        await session.flush()
+        return new_mf
+
+
+async def get_movie_file(
+    session: AsyncSession,
+    movie_code: str,
+    part: int = 1,
+) -> Optional[MovieFile]:
+    """Kinoning ma'lum qismi uchun saqlangan Telegram file_id sini olish."""
+    clean_code = str(movie_code).strip().lstrip("#№")
+    stmt = select(MovieFile).where(MovieFile.movie_code == clean_code, MovieFile.part == int(part))
+    res = await session.execute(stmt)
+    return res.scalar_one_or_none()
 
 
 async def sync_movie_asilmedia_parts(

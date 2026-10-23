@@ -88,6 +88,22 @@ def _run_sqlite_migrations(sync_conn) -> None:
         if "poster_file_id" not in existing_cols:
             sync_conn.execute(text("ALTER TABLE movies ADD COLUMN poster_file_id VARCHAR(255)"))
 
+    if "movie_files" not in existing_tables:
+        sync_conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS movie_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                movie_code VARCHAR(64) NOT NULL,
+                part INTEGER DEFAULT 1 NOT NULL,
+                file_id VARCHAR(255) NOT NULL,
+                file_type VARCHAR(32) DEFAULT 'video' NOT NULL,
+                file_size BIGINT,
+                duration INTEGER,
+                quality VARCHAR(32) DEFAULT '1080p',
+                created_at DATETIME NOT NULL
+            )
+        """))
+        sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_movie_files_movie_code ON movie_files (movie_code)"))
+
 
 async def init_db() -> None:
     """Barcha jadvallarni ma'lumotlar bazasida yaratish."""

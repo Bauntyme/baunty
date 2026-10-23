@@ -311,6 +311,123 @@ class AsilmediaService:
 
         return items
 
+    async def fetch_catalog_batch(self, pages: int = 5) -> List[Dict[str, Any]]:
+        """
+        Asilmedia ochiq API va katalog sahifalaridan (sayt.php, /page/{p}/, /api/asil/*)
+        o'nlab/yuzlab mashhur va yangi kinolarni avtomatik ravishda yig'ib qaytaruvchi
+        samarali batch-sinxronizator.
+        """
+        items: List[Dict[str, Any]] = []
+        seen_ids = set()
+
+        def add_item(iid, title, raw_t="", url="", year=None, poster="", is_series=False, genres=None, desc=""):
+            s_id = str(iid).strip()
+            if not s_id or s_id in seen_ids:
+                return
+            seen_ids.add(s_id)
+            clean_t = self.clean_title(title)
+            if not clean_t:
+                return
+            genres_list = genres or []
+            if isinstance(genres_list, str):
+                genres_list = [g.strip() for g in genres_list.split(",") if g.strip()]
+            y_val = year
+            if not y_val and raw_t:
+                y_m = re.search(r"\b(19\d{2}|20\d{2})\b", raw_t)
+                if y_m:
+                    y_val = int(y_m.group(1))
+
+            items.append({
+                "id": s_id,
+                "title": clean_t,
+                "raw_title": raw_t or clean_t,
+                "url": url or f"{self.BASE_URL}/{s_id}-kino.html",
+                "year": y_val,
+                "poster": poster,
+                "is_series": is_series,
+                "genres": genres_list,
+                "description": desc,
+                "total_parts": 10 if is_series else 1,
+                "views": 2500,
+            })
+
+        async with aiohttp.ClientSession(headers=self._get_headers()) as session:
+            # 1. Upstream /api/asil/home (pop, film, serial)
+            try:
+                async with session.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                    if resp.status == 200:
+                        h_data = await resp.json()
+                        if isinstance(h_data, dict):
+                            for sec in ["pop", "film", "serial"]:
+                                for it in h_data.get(sec, []):
+                                    iid = it.get("id")
+                                    if iid:
+                                        add_item(
+                                            iid=iid,
+                                            title=it.get("t", ""),
+                                            poster=it.get("p", ""),
+                                            year=it.get("y"),
+                                            genres=it.get("g", []),
+                                            is_series=(it.get("type") == "serial") or (sec == "serial"),
+                                            desc=it.get("desc", ""),
+                                        )
+            except Exception as e:
+                logger.debug(f"fetch_catalog_batch upstream home error: {e}")
+
+            # 2. Upstream /api/asil/list?page=1..pages
+            for p in range(1, max(2, pages + 1)):
+                try:
+                    async with session.get(f"https://161-97-96-58.sslip.io/api/asil/list?page={p}", timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+                        if resp.status == 200:
+                            l_data = await resp.json()
+                            if isinstance(l_data, dict) and isinstance(l_data.get("items"), list):
+                                for it in l_data.get("items", []):
+                                    iid = it.get("id")
+                                    if iid:
+                                        add_item(
+                                            iid=iid,
+                                            title=it.get("t", ""),
+                                            poster=it.get("p", ""),
+                                            year=it.get("y"),
+                                            genres=it.get("g", []),
+                                            is_series=(it.get("type") == "serial"),
+                                            desc=it.get("desc", ""),
+                                        )
+                except Exception as e:
+                    logger.debug(f"fetch_catalog_batch upstream list page {p} error: {e}")
+
+            # 3. Asilmedia ochiq sahifalari (sayt.php, /page/{p}/, /tarjima-kinolar/page/{p}/, /seriallar/page/{p}/)
+            direct_urls = []
+            for p in range(1, pages + 1):
+                p_suffix = f"/page/{p}/" if p > 1 else "/"
+                for m in self.MIRRORS:
+                    direct_urls.append(f"{m}{p_suffix}")
+                    direct_urls.append(f"{m}/tarjima-kinolar{p_suffix}")
+                    direct_urls.append(f"{m}/seriallar{p_suffix}")
+            for m in self.MIRRORS:
+                direct_urls.append(f"{m}/sayt.php")
+
+            for u in direct_urls[:min(len(direct_urls), pages * 3 + 2)]:
+                try:
+                    async with session.get(u, timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+                        if resp.status == 200:
+                            html = await resp.text()
+                            parsed = self._parse_search_results(html)
+                            for pit in parsed:
+                                add_item(
+                                    iid=pit["id"],
+                                    title=pit["title"],
+                                    raw_t=pit.get("raw_title", ""),
+                                    url=pit.get("url", ""),
+                                    year=pit.get("year"),
+                                    poster=pit.get("poster", ""),
+                                    is_series=pit.get("is_series", False),
+                                )
+                except Exception as e:
+                    logger.debug(f"fetch_catalog_batch scraping {u} error: {e}")
+
+        return items
+
     async def get_movie_details(self, url_or_id: str) -> Optional[AsilmediaMovie]:
         """
         Kino/serial sahifasini to'liq yuklash va barcha qismlari, video oqimlarini ajratish.

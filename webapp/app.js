@@ -36,15 +36,16 @@ const norm = (s) => String(s || "").toLowerCase().replace(/[а-яёғқўҳ]/g, 
 
 let items = [], byCode = new Map(), tab = "all", query = "", channel = "", botName = "", ASIL = false;
 
-const posterHTML = (it, size, extra = "") => {
-  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${size === "s" ? 'loading="lazy"' : ""} onload="this.classList.add('ok')" onerror="this.style.display='none'">` : "";
+const posterHTML = (it, size, extra = "", isHero = false) => {
+  const priority = isHero ? 'fetchpriority="high"' : (size === "s" ? 'loading="lazy"' : "");
+  const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${priority} onload="this.classList.add('ok')" onerror="this.style.display='none'">` : "";
   const hue = (it.c * 47) % 360;
   return `<div class="pst"${it.i ? "" : ` style="background:linear-gradient(160deg,hsl(${hue} 45% 32%),hsl(${(hue+40)%360} 50% 14%))"`}>
     ${img || `<div class="ph">${esc(it.t)}</div>`}${extra}</div>`;
 };
-const cardHTML = (it, rank) => `<button class="card" data-c="${it.c}">${posterHTML(it, "s",
+const cardHTML = (it, rank, isHero = false) => `<button class="card" data-c="${it.c}">${posterHTML(it, "s",
   `<span class="badge">#${it.c}</span>${it.p > 1 ? `<span class="parts">${it.p} qism</span>` : ""}` +
-  (seen[it.c] ? `<span class="seen">✓</span>` : "") + (rank ? `<span class="rank">${rank}</span>` : ""))}
+  (seen[it.c] ? `<span class="seen">✓</span>` : "") + (rank ? `<span class="rank">${rank}</span>` : ""), isHero || rank === 1)}
   <div class="ttl">${esc(it.t)}</div></button>`;
 
 function skeleton() {
@@ -89,11 +90,11 @@ function render() {
   if (tab === "all") {
     const top = [...items].filter((x) => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 10);
     if (top.length >= 3) html += `<div class="sec-h"><h2>🔥 Top ${top.length}</h2><span>eng ko'p ko'rilgan</span></div>
-      <div class="row">${top.map((x, i) => cardHTML(x, i + 1)).join("")}</div>`;
+      <div class="row">${top.map((x, i) => cardHTML(x, i + 1, i === 0)).join("")}</div>`;
   }
   const title = {all: "🆕 Yangi qo'shilganlar", pop: "🔥 Ommabop", film: "🎬 Filmlar", ser: "📺 Seriallar", mult: "🧸 Multfilmlar", anime: "🎌 Anime", seen: "✓ Ko'rganlarim"}[tab] || "🎬 Kinolar";
   html += `<div class="sec-h"><h2>${title}</h2><span>${list.length} ta</span></div>
-    <div class="grid">${list.map((x) => cardHTML(x)).join("")}</div>`;
+    <div class="grid">${list.map((x, i) => cardHTML(x, null, i === 0 && tab !== "all")).join("")}</div>`;
   m.innerHTML = html;
 }
 
@@ -113,7 +114,7 @@ function openDetail(it, push = true) {
   cur = it; haptic();
   const big = it.i ? `p/${it.c}_l.webp?v=${it.i}` : "";
   $("hero").innerHTML = (big ? `<div class="blur" style="background-image:url('${big}')"></div>` : "") +
-    posterHTML(it, "l");
+    posterHTML(it, "l", "", true);
   // Izohning birinchi qatori kino nomini takrorlasa — olib tashlanadi (sarlavhada bor)
   let desc = (it.d || "").trim();
   const first = desc.split("\n")[0];

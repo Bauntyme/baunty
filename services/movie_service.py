@@ -912,32 +912,43 @@ class MovieService:
         if not title:
             title = f"Kino #{clean_code}"
 
-        # 1. Haqiqiy video mavjudligini aniqlash (mock/placeholder bo'lmagan)
-        fid = (db_movie.file_id or "").strip() if db_movie else ""
-        is_url = fid.startswith("http://") or fid.startswith("https://")
-        is_explicit_placeholder = bool(
-            db_movie
-            and fid
-            and (
-                is_url
-                or fid.startswith("mov_")
-                or fid.endswith("_vid")
-                or "_placeholder" in fid.lower()
-                or fid.startswith("mock_")
-                or fid == "REAL_FID"
-                or fid == "TEST_FID"
-                or fid.startswith("BAACAgIAAxkBAAE_TAXI_")
-                or "<" in fid
-            )
+        # 1. Telegram Cloud Pool: movie_files va movies jadvallaridan file_id ni tekshirish
+        cached_mf = None
+        if session:
+            try:
+                cached_mf = await crud.get_movie_file(session, clean_code, part)
+            except Exception:
+                pass
+
+        cached_fid = (cached_mf.file_id or "").strip() if cached_mf else ""
+        cached_ftype = cached_mf.file_type if cached_mf else "video"
+
+        def is_real_telegram_fid(test_fid: str) -> bool:
+            if not test_fid:
+                return False
+            tf = test_fid.strip()
+            if (
+                tf.startswith("http://")
+                or tf.startswith("https://")
+                or tf.startswith("mov_")
+                or tf.endswith("_vid")
+                or "_placeholder" in tf.lower()
+                or tf.startswith("mock_")
+                or tf == "REAL_FID"
+                or tf == "TEST_FID"
+                or tf.startswith("BAACAgIAAxkBAAE_TAXI_")
+                or tf.startswith("BAACAgIAAxkBAAIB_")
+                or "<" in tf
+                or len(tf) < 20
+            ):
+                return False
+            return True
+
+        has_cached_mf = is_real_telegram_fid(cached_fid)
+        db_fid = (db_movie.file_id or "").strip() if db_movie else ""
+        has_real_video = has_cached_mf or bool(
+            db_movie and is_real_telegram_fid(db_fid) and (part == 1 or db_movie.code != clean_code)
         )
-        is_placeholder = (
-            not db_movie
-            or not fid
-            or is_explicit_placeholder
-            or len(fid) < 20
-        )
-        # Part > 1 bo'lganda db_movie agar asosiy film kodi bilan bo'lsa, qism uchun video deb qaralmaydi
-        has_real_video = bool(db_movie and not is_placeholder and (part == 1 or db_movie.code != clean_code))
 
         # Video manbasini tekshirish (haqiqiy video manbasini topish)
         if not has_real_video and not resolved_source:
@@ -1039,36 +1050,41 @@ class MovieService:
         else:
             reply_markup = movie_item_keyboard(clean_code, watch_url=watch_online_url)
 
-        # 1. Haqiqiy video yuborish
+        # 1. Haqiqiy video yuborish (Telegram Cloud file_id orqali chaqmoqdek tezkor yetkazish)
         video_sent = False
-        if has_real_video and db_movie:
-            try:
-                if db_movie.file_type == "document":
-                    await bot.send_document(
-                        chat_id=chat_id,
-                        document=db_movie.file_id,
-                        caption=caption,
-                        parse_mode="HTML",
-                        reply_markup=reply_markup,
-                        reply_to_message_id=reply_to_message_id
-                    )
-                else:
-                    await bot.send_video(
-                        chat_id=chat_id,
-                        video=db_movie.file_id,
-                        caption=caption,
-                        parse_mode="HTML",
-                        duration=db_movie.duration,
-                        supports_streaming=True,
-                        reply_markup=reply_markup,
-                        reply_to_message_id=reply_to_message_id
-                    )
-                await crud.increment_movie_views(session, db_movie.id)
-                await session.commit()
-                video_sent = True
-                return True
-            except Exception as e:
-                logger.warning(f"Baza videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
+        if has_real_video:
+            target_file_id = cached_fid if has_cached_mf else (db_movie.file_id if db_movie else None)
+            target_file_type = cached_ftype if has_cached_mf else (getattr(db_movie, "file_type", "video") if db_movie else "video")
+            target_duration = getattr(cached_mf, "duration", None) or (db_movie.duration if db_movie else None)
+            if target_file_id:
+                try:
+                    if target_file_type == "document":
+                        await bot.send_document(
+                            chat_id=chat_id,
+                            document=target_file_id,
+                            caption=caption,
+                            parse_mode="HTML",
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id
+                        )
+                    else:
+                        await bot.send_video(
+                            chat_id=chat_id,
+                            video=target_file_id,
+                            caption=caption,
+                            parse_mode="HTML",
+                            duration=target_duration,
+                            supports_streaming=True,
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id
+                        )
+                    if db_movie:
+                        await crud.increment_movie_views(session, db_movie.id)
+                    await session.commit()
+                    video_sent = True
+                    return True
+                except Exception as e:
+                    logger.warning(f"Baza/Cloud videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
 
         if not video_sent:
             candidates = []
@@ -1194,6 +1210,16 @@ class MovieService:
                                         duration=dur_val,
                                         file_size=fsize_val,
                                         title=display_title
+                                    )
+                                    await crud.save_movie_file(
+                                        session=session,
+                                        movie_code=clean_code,
+                                        part=part,
+                                        file_id=new_fid,
+                                        file_type=ftype,
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        quality="1080p"
                                     )
                                     if not db_movie:
                                         db_movie = saved_m
@@ -1697,17 +1723,69 @@ class MovieService:
     @staticmethod
     async def sync_catalog_from_asilmedia(
         limit: int = 50,
+        pages: int = 5,
         session: Optional[AsyncSession] = None,
         download_files: bool = False
     ) -> int:
         """
         Katalogdagi barcha ommabop kinolar va seriallarni (Taksi, Attack on Titan, Chuqur, Forsaj va boshqalar)
-        Asilmedia.org orqali sinxronlash va video manbalarini boyitish.
+        Asilmedia.org ochiq API va sahifalari orqali batch sinxronlash, data/catalog.json va
+        SQLite 'movies' jadvalini to'liq yangilash hamda video manbalarini boyitish.
         """
+        global _CATALOG_CACHE
+        from services.asilmedia_service import asilmedia_service
+        from database.session import get_session
+
         catalog_path = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "catalog.json"
         items_to_sync = list(CUSTOM_CATALOG_ITEMS)
         seen_codes = {str(it.get("c")) for it in items_to_sync}
 
+        # 1. Asilmedia ochiq API va katalog sahifalaridan yangi metadatalarni olish
+        batch_items = []
+        if pages > 0:
+            try:
+                batch_items = await asilmedia_service.fetch_catalog_batch(pages=pages)
+            except Exception as be:
+                logger.debug(f"fetch_catalog_batch error in sync_catalog_from_asilmedia: {be}")
+
+        for bit in batch_items:
+            iid = bit.get("id")
+            if not iid:
+                continue
+            s_id = str(iid)
+            if s_id in seen_codes:
+                continue
+            seen_codes.add(s_id)
+            t_clean = MovieService.sanitize_branding(bit.get("title", ""))
+            y_val = bit.get("year")
+            genres = bit.get("genres", [])
+            g_val = ", ".join(genres) if isinstance(genres, list) else str(genres or "Barcha")
+            desc = bit.get("description") or (
+                f"🎬 <b>{t_clean}</b>"
+                + (f" ({y_val})" if y_val else "")
+                + "\n\n"
+                + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
+                + "📺 <b>Sifati:</b> 1080p | Full HD\n"
+                + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+                + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
+                + "👇 Ko'rish uchun quyidagi tugmani bosing!"
+            )
+            desc = MovieService.sanitize_branding(desc)
+            items_to_sync.append({
+                "c": int(iid) if s_id.isdigit() else iid,
+                "t": t_clean,
+                "p": bit.get("total_parts", 1),
+                "v": bit.get("views", 2500),
+                "d": desc,
+                "a": iid,
+                "i": iid,
+                "p_url": bit.get("poster", ""),
+                "type": "serial" if bit.get("is_series") else "film",
+                "g": g_val,
+                "y": y_val,
+            })
+
+        # 2. Mavjud catalog.json dagi kinolarni saqlab qolish
         if catalog_path.exists():
             try:
                 with open(catalog_path, "r", encoding="utf-8") as f:
@@ -1720,6 +1798,33 @@ class MovieService:
             except Exception as e:
                 logger.warning(f"catalog.json o'qishda xatolik: {e}")
 
+        # 3. catalog.json fayliga yozish va _CATALOG_CACHE ni yangilash
+        cat_json = {
+            "items": items_to_sync,
+            "channel": config.CHANNEL_USERNAME,
+            "bot": config.BOT_USERNAME.lstrip("@"),
+        }
+        if len(items_to_sync) >= 20:
+            _CATALOG_CACHE = cat_json
+            try:
+                with open(catalog_path, "w", encoding="utf-8") as f:
+                    json.dump(cat_json, f, ensure_ascii=False, indent=2)
+            except Exception as fe:
+                logger.warning(f"catalog.json saqlashda xatolik: {fe}")
+
+        # 4. SQLite 'movies' jadvaliga yozish
+        synced_db = 0
+        try:
+            if session:
+                synced_db = await crud.sync_movies_from_catalog_data(session, items_to_sync)
+            else:
+                async with get_session() as s:
+                    synced_db = await crud.sync_movies_from_catalog_data(s, items_to_sync)
+                    await s.commit()
+        except Exception as dbe:
+            logger.debug(f"DB sync in sync_catalog_from_asilmedia error: {dbe}")
+
+        # 5. limit bo'yicha video havolalarni boyitish
         count = 0
         for it in items_to_sync[:limit]:
             c = str(it.get("c"))
@@ -1736,8 +1841,9 @@ class MovieService:
             except Exception as e:
                 logger.debug(f"Catalog sync for #{c} error: {e}")
 
-        logger.info(f"Asilmedia katalog sinxronizatsiyasi: {count} ta kino/serial bog'landi.")
-        return count
+        result_count = count if count > 0 else (synced_db or len(batch_items) or len(items_to_sync))
+        logger.info(f"Asilmedia katalog sinxronizatsiyasi: {result_count} ta kino/serial bog'landi/sinxronlandi.")
+        return result_count
 
 
 movie_service = MovieService()

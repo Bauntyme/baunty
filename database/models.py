@@ -88,6 +88,23 @@ class Movie(Base):
         return f"<Movie code={self.code} title={self.title}>"
 
 
+class MovieFile(Base):
+    __tablename__ = "movie_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    movie_code = Column(String(64), index=True, nullable=False)
+    part = Column(Integer, default=1, nullable=False)
+    file_id = Column(String(255), nullable=False)
+    file_type = Column(String(32), default="video", nullable=False)  # video yoki document
+    file_size = Column(BigInteger, nullable=True)
+    duration = Column(Integer, nullable=True)  # soniyalarda
+    quality = Column(String(32), default="1080p", nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<MovieFile movie_code={self.movie_code} part={self.part}>"
+
+
 class SponsorChannel(Base):
     __tablename__ = "sponsor_channels"
 

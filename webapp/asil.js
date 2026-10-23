@@ -168,7 +168,7 @@ function heroHTML(arr) {
   if (!arr.length) return "";
   return `<div class="as-hero" id="ashero">${arr.map((x, i) => `<div class="as-slide" data-aid="${x.id}" role="button">
     ${x.p ? `<div class="as-hbg" style="background-image:url('${esc(x.p)}')"></div>` : ""}<div class="as-hsh"></div>
-    ${x.p ? `<img class="as-hp" src="${esc(x.p)}" alt=""${i ? ' loading="lazy"' : ""} decoding="async" referrerpolicy="no-referrer">` : ""}
+    ${x.p ? `<img class="as-hp" src="${esc(x.p)}" alt=""${i === 0 ? ' fetchpriority="high"' : ' loading="lazy"'} decoding="async" referrerpolicy="no-referrer">` : ""}
     <div class="as-htx"><small>🏆 ${i ? T(`Hafta topi №${i + 1}`, `Топ недели №${i + 1}`, `Week's top #${i + 1}`) : T("Hafta kinosi", "Фильм недели", "Movie of the week")}</small>
       <h3>${esc(x.t)}</h3><p>${[x.y, (x.g || [])[0], x.imdb ? "★ " + x.imdb : "", x.type === "serial" ? T("Serial", "Сериал", "Series") : ""].filter(Boolean).map(esc).join(" · ")}</p></div>
     <span class="as-hbt">📥 ${T("Botga yuborish", "Отправить в бота", "Send to bot")}</span></div>`).join("")}</div>

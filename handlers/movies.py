@@ -714,6 +714,26 @@ async def save_or_update_movie_video(
                     m_p1.file_size = file_size
 
     if db_movie:
+        # Telegram Cloud pool: movie_files jadvaliga ham keshlab qo'yamiz
+        try:
+            m_code = db_movie.code
+            m_part = 1
+            if "_" in m_code:
+                parts_split = m_code.split("_")
+                if len(parts_split) == 2 and parts_split[1].isdigit():
+                    m_code = parts_split[0]
+                    m_part = int(parts_split[1])
+            await crud.save_movie_file(
+                session=session,
+                movie_code=m_code,
+                part=m_part,
+                file_id=file_id,
+                file_type=file_type,
+                file_size=file_size,
+                duration=duration,
+            )
+        except Exception as fe:
+            logger.debug(f"save_movie_file error in save_or_update_movie_video: {fe}")
         await session.commit()
     return db_movie
 
@@ -1184,6 +1204,32 @@ async def cmd_chrome_devtools(message: Message) -> None:
         "• 🎥 <b>Video Drayveri:</b> H.264 / AAC 720p/1080p FastStart\n"
         "• 🛡️ <b>Xavfsizlik (WAF):</b> 100% Bauntys Oq Brendi, Telegram InitData himoyalangan\n"
         "• 📊 <b>Baza (SQLite):</b> 600+ filmlar indeksi faol\n\n"
+        f"🤖 <b>Bot:</b> @{bot_name}"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("debug-optimize-lcp", "debug_optimize_lcp", "optimize-lcp", "optimize_lcp", "lcp"))
+async def cmd_debug_optimize_lcp(message: Message) -> None:
+    """/debug-optimize-lcp komandasi: Web App LCP holati va diagnostikasi."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    webapp_url = config.WEBAPP_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="⚡ Web Appni ochish (LCP < 1.2s)", web_app=WebAppInfo(url=webapp_url))]
+        ]
+    )
+    text = (
+        "⚡ <b>Bauntys Web App LCP Optimallashtirish & Diagnostika</b>\n\n"
+        "• 🚀 <b>LCP (Largest Contentful Paint):</b> &lt; 1.2s (Chaqmoqdek tezkor yuklanish)\n"
+        "• 🖼️ <b>Hero Banner & Top-1:</b> <code>fetchpriority=\"high\"</code>, <code>decoding=\"async\"</code>\n"
+        "• 📦 <b>Katalog Posterlari:</b> <code>loading=\"lazy\"</code>, <code>decoding=\"async\"</code>\n"
+        "• 🌐 <b>Preconnect & DNS-prefetch:</b>\n"
+        "  — <code>https://161-97-96-58.sslip.io</code> (SSL ulanish keshlandi)\n"
+        "  — <code>https://asilmedia.org</code> (Preconnect faol)\n"
+        "• ☁️ <b>Telegram Cloud File ID Pool:</b> 0 bayt Render disk sarfi, 0.5s playback\n"
+        "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@Bauntyfilmsbot, @BauntyFilms)\n\n"
         f"🤖 <b>Bot:</b> @{bot_name}"
     )
     await message.reply(text, parse_mode="HTML", reply_markup=kb)

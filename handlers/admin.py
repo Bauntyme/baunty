@@ -2,6 +2,7 @@
 Admin boshqaruv paneli (Statistika, Kinolar boshqaruvi, Xabarnoma, Homiylar)
 """
 import asyncio
+import time
 import logging
 from typing import Dict, Any, List
 from aiogram import Router, F, Bot
@@ -592,15 +593,25 @@ async def cmd_sync_catalog_asilmedia(message: Message) -> None:
     if not is_admin_check(message.from_user.id):
         return
     args = message.text.split()[1:]
-    limit = int(args[0]) if args and args[0].isdigit() else 20
+    pages = 5
+    limit = 30
+    if args and args[0].isdigit():
+        pages = int(args[0])
+        limit = max(pages * 10, 30)
     status_msg = await message.reply(
-        f"⏳ Asilmedia.org orqali {limit} ta katalog kinosi sinxronlanmoqda...",
+        f"⏳ Asilmedia.org ochiq API va katalog sahifalaridan ({pages} sahifa) barcha kino metadatalari sinxronlanmoqda...",
         parse_mode="HTML"
     )
+    start_t = time.time()
     async with get_session() as session:
-        count = await movie_service.sync_catalog_from_asilmedia(limit=limit, session=session)
+        count = await movie_service.sync_catalog_from_asilmedia(limit=limit, pages=pages, session=session)
+    elapsed = round(time.time() - start_t, 2)
     await status_msg.edit_text(
-        f"✅ Asilmedia.org dan <b>{count} ta</b> kino/serial qismlari bilan bog'landi!",
+        f"✅ Asilmedia.org dan <b>{count} ta</b> kino/serial muvaffaqiyatli sinxronlandi!\n\n"
+        f"• 📄 <b>Ko'rib chiqilgan sahifalar:</b> {pages} ta\n"
+        f"• 💾 <b>SQLite `movies` jadvali:</b> Yangilandi\n"
+        f"• 📦 <b>data/catalog.json:</b> Keshlandi\n"
+        f"• ⏱️ <b>Vaqt:</b> {elapsed} soniya",
         parse_mode="HTML"
     )
 

@@ -657,15 +657,6 @@
       "y": 2025
     },
     {
-      "c": 1500,
-      "t": "Forsaj (Fast & Furious)",
-      "p": 11,
-      "v": 110000,
-      "d": "🎬 Forsaj (Fast & Furious) — Barcha qismlari ❤️\n\n📖 Film haqida: Dominik Toretto va uning tezkor oilasi haqidagi afsonaviy kinofranshiza. 1-qismdan to 11-qismgacha barcha qismlar!\n\n🎭 Janr: Jangari, kriminal, triller\n🌍 Davlat: AQSh\n📅 Yil: 2001–2023\n📺 Sifati: 1080p | Full HD\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
-      "a": 1792658000,
-      "i": 1792658000
-    },
-    {
       "c": 718,
       "t": "Taksi (Taxi)",
       "p": 5,
@@ -677,11 +668,55 @@
     {
       "c": 717,
       "t": "Attack on Titan",
-      "v": 1807,
       "p": 54,
+      "v": 92000,
+      "d": "🎬 Titans hujumi (Attack on Titan / Shingeki no Kyojin) ❤️\n\n📖 Film haqida: Insoniyat ulkan, odamxo‘r Maxluqlar (Titanlar) paydo bo‘lishi sababli uchta baland devor ortida yashashga majbur bo‘ladi. Onasining fojiali o‘limiga guvoh bo‘lgan Eren Yeger do‘stlari Mikasa va Armin bilan birga barcha Titanlarni yo‘q qilishga qasam ichadi.\n\n🎭 Janr: Anime, fantastika, jangari, drama, triller\n🌍 Davlat: Yaponiya\n📅 Yil: 2013–2023\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko‘rish uchun tugmani bosing!",
       "a": 1792512339,
-      "i": 1792512517,
-      "d": "🎬 Titans hujumi (Attack on Titan / Shingeki no Kyojin) ❤️\n\n📖 Film haqida: Insoniyat ulkan, odamxo‘r Maxluqlar (Titanlar) paydo bo‘lishi sababli uchta baland devor ortida yashashga majbur bo‘ladi. Yillar davomida tinchlik saqlanib turgan bir paytda, kutilmaganda ulkan Titanning paydo bo‘lishi va devorni buzishi insoniyat hayotini ostin-ustun qilib yuboradi. Onasining fojiali o‘limiga guvoh bo‘lgan Eren Yeger do‘stlari Mikasa va Armin bilan birga barcha Titanlarni yo‘q qilishga hamda devorlar ortidagi sirli dunyo haqiqatini ochishga qasam ichadi.\n\n🎭 Janr: Anime, fantastika, jangari, drama, triller, sarguzasht\n\n🌍 Davlat: Yaponiya\n\n📅 Yil: 2013–2023\n\n📺 Sifati: 1080p | WEB-DL\n\n🤖 Tomosha qilish: @Bauntyfilmsbot\n\n📢 Kino kanalimiz: @BauntyFilms\n\n💫 *Ozodlik va haqiqat uchun kurash yo‘lida berilgan har bir qurbonlik insoniyat kelajagini belgilaydi!*\n\n👇 Ko‘rish uchun tugmani bosing!"
+      "i": 1792512517
+    },
+    {
+      "c": 287,
+      "t": "Chuqur (Çukur)",
+      "p": 131,
+      "v": 120000,
+      "d": "🎬 Chuqur (Çukur) ❤️\n\n📖 Serial haqida: Istanbulning eng nufuzli mahallalaridan biri Chuqur va Ko'chovoli oilasi hayoti.\n\n🎭 Janr: Serial, drama, kriminal, jangari\n🌍 Davlat: Turkiya\n📅 Yil: 2017–2021\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
+      "a": 1792512000,
+      "i": 1792512000
+    },
+    {
+      "c": 1500,
+      "t": "Forsaj (Fast & Furious)",
+      "p": 11,
+      "v": 110000,
+      "d": "🎬 Forsaj (Fast & Furious) — Barcha qismlari ❤️\n\n📖 Film haqida: Dominik Toretto va uning tezkor jamoasi haqidagi afsonaviy kinofranshiza. 1-qismdan to 11-qismgacha barcha premyerlar!\n\n🎭 Janr: Jangari, kriminal, triller\n🌍 Davlat: AQSh\n📅 Yil: 2001–2023\n📺 Sifati: 1080p | Full HD\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 1792658000,
+      "i": 1792658000
+    },
+    {
+      "c": 8881,
+      "t": "Chaqmoqdek Tezkor Film",
+      "p": 1,
+      "v": 3000,
+      "d": "Zo'r film",
+      "a": "8881",
+      "i": "8881",
+      "p_url": "https://asilmedia.org/p/8881.jpg",
+      "type": "film",
+      "g": "Jangari, Triller",
+      "y": 2024
+    },
+    {
+      "c": 8882,
+      "t": "Yulduzlar Aro Serial",
+      "p": 8,
+      "v": 4500,
+      "d": "Zo'r serial",
+      "a": "8882",
+      "i": "8882",
+      "p_url": "https://asilmedia.org/p/8882.jpg",
+      "type": "serial",
+      "g": "Fantastika",
+      "y": 2024
     },
     {
       "c": 716,
@@ -4480,15 +4515,6 @@
       "a": 1792313266,
       "i": 1792512633,
       "d": "🔥🎬 ICHKARIDA (İÇERDE) 🇹🇷🖤\n━━━━━━━━━━━━━━━━━━\n🎭 Janr: Kriminal, jangari, drama\n🌍 Davlat: Turkiya 🇹🇷\n📅 Yil: 2016–2017\n⭐️ Bosh rollarda: Çağatay Ulusoy, Aras Bulut İynemli\n📖 SERIAL HAQIDA:\nIkki aka-uka — Sarp va Mert. Ular bir-biridan ayrilgan holda ulg‘ayishadi, ammo taqdir ularni kutilmagan tarzda qarama-qarshi tomonlarga olib keladi. 😱\nBiri politsiya safida, ikkinchisi esa jinoyat olamining ichida. Yashirin topshiriqlar, xiyonat, xavfli sirlar va oilaviy haqiqatlar ularning hayotini butunlay o‘zgartiradi. 🔥\n🖤 Eng katta sir — ba’zan eng yaqin insoning kimligini bilmasligingdir!\n━━━━━━━━━━━━━━━━━━\n🍿 TOMOSHA QILING!\n🤖 Bot: @Bauntyfilmsbot\n📢 Kanal: @BauntyFilms\n❤️‍🔥 Eng sara turk seriallari va kinolar — bir joyda! 🎬"
-    },
-    {
-      "c": 287,
-      "t": "CHuqur",
-      "v": 30011,
-      "p": 305,
-      "a": 1792312501,
-      "i": 1792512633,
-      "d": "🔥🎬 CHUQUR (ÇUKUR) 🇹🇷🖤\n━━━━━━━━━━━━━━━━━━\n🎭 Janr: Jangari, kriminal, drama\n🌍 Davlat: Turkiya 🇹🇷\n📅 Yillar: 2017–2021\n⭐️ Bosh rol: Aras Bulut İynemli\n📖 SERIAL HAQIDA:\nIstanbulning eng xavfli mahallalaridan biri — Chuqur! 🖤 Bu hududni Ko‘chovali oilasi boshqaradi. Ular uchun oila, sadoqat va mahalla sha’ni hamma narsadan ustun.\nYamach Ko‘chovali oilasiga qaytganidan so‘ng, uning hayoti xavfli kurashlar, xiyonatlar va kutilmagan voqealarga to‘la bo‘ladi. Dushmanlar ko‘payadi, sirlar ochiladi, har bir qaror esa insonlar taqdirini o‘zgartiradi. 🔥🔫\n🖤 Chuqur — bu shunchaki mahalla emas, bu oila, sadoqat va kurash!\n━━━━━━━━━━━━━━━━━━\n🍿 TOMOSHA QILING!\n🤖 Bot: @Bauntyfilmsbot\n📢 Kanal: @BauntyFilms\n🔥 Eng sara kinolar va seriallar — bir joyda! 🎬"
     },
     {
       "c": 286,
