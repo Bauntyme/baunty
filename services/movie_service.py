@@ -118,6 +118,8 @@ FRANCHISE_CODE_MAP = {
     "18281": "287",
     "1500": "14902",
     "14902": "1500",
+    "708": "712",
+    "712": "708",
 }
 
 
@@ -534,6 +536,9 @@ class MovieService:
             ])
             if part == 1:
                 keys_to_check.append(c)
+        for c in alias_codes:
+            if c not in keys_to_check:
+                keys_to_check.append(c)
 
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
         v_dir = base_dir / "data" / "videos"
@@ -542,7 +547,7 @@ class MovieService:
         for k in keys_to_check:
             for ext in [".mp4", ".mkv", ".mov"]:
                 candidate = v_dir / f"{k}{ext}"
-                if candidate.exists() and candidate.stat().st_size >= 1024:
+                if candidate.exists() and candidate.stat().st_size >= 10 * 1024 * 1024:
                     return {
                         "file_path": str(candidate),
                         "file_type": "video",
@@ -571,12 +576,12 @@ class MovieService:
                             elif isinstance(entry, dict):
                                 res = dict(entry)
 
-                            # Agar fayl yo'li ko'rsatilgan bo'lsa
+                            # Agar fayl yo'li ko'rsatilgan bo'lsa (faqat >= 10MB haqiqiy video fayllar)
                             if "file_path" in res:
                                 fp = Path(res["file_path"])
-                                if not fp.exists():
+                                if not fp.exists() or fp.stat().st_size < 10 * 1024 * 1024:
                                     rel_cand = v_dir / fp.name
-                                    if rel_cand.exists() and rel_cand.stat().st_size >= 1024:
+                                    if rel_cand.exists() and rel_cand.stat().st_size >= 10 * 1024 * 1024:
                                         res["file_path"] = str(rel_cand)
                                     else:
                                         del res["file_path"]
@@ -585,28 +590,18 @@ class MovieService:
                             if "file_path" not in res:
                                 for c in alias_codes:
                                     cand_p = v_dir / f"{c}_{part}.mp4"
-                                    if cand_p.exists() and cand_p.stat().st_size >= 1024:
+                                    if cand_p.exists() and cand_p.stat().st_size >= 10 * 1024 * 1024:
                                         res["file_path"] = str(cand_p)
                                         res["file_size"] = cand_p.stat().st_size
                                         break
 
                             return res
 
-                    # Standart "default" manba
+                    # Standart "default" manba tekshiruvi (soxta samplelib va dummy fayllarsiz)
                     if allow_default and "default" in items_dict:
                         entry = items_dict["default"]
-                        if isinstance(entry, str):
-                            if entry.startswith("http://") or entry.startswith("https://"):
-                                res = {"url": entry, "file_type": "video"}
-                            else:
-                                res = {"file_id": entry, "file_type": "video"}
-                        elif isinstance(entry, dict):
-                            res = dict(entry)
-
-                        def_mp4 = v_dir / "default.mp4"
-                        if def_mp4.exists() and def_mp4.stat().st_size >= 1024:
-                            res["file_path"] = str(def_mp4)
-                        return res
+                        if isinstance(entry, dict) and not any(k in str(entry.get("url", "")) for k in ["samplelib", "sample-", "default.mp4"]):
+                            return dict(entry)
             except Exception as e:
                 logger.debug(f"video_sources.json o'qishda xatolik: {e}")
 
@@ -620,30 +615,14 @@ class MovieService:
                 for k in keys_to_check:
                     for ext in [".mp4", ".mkv", ".mov"]:
                         cand = sdir / f"{k}{ext}"
-                        if cand.exists() and cand.stat().st_size >= 1024:
+                        if cand.exists() and cand.stat().st_size >= 10 * 1024 * 1024:
                             return {
                                 "file_path": str(cand),
                                 "file_type": "video",
                                 "file_size": cand.stat().st_size
                             }
 
-        # 4. Default fallback: video_sources.json mavjud bo'lmaganda
-        if allow_default and not sources_file.exists():
-            def_cand = v_dir / "default.mp4"
-            if def_cand.exists() and def_cand.stat().st_size >= 1024:
-                return {
-                    "file_path": str(def_cand),
-                    "file_type": "video",
-                    "file_size": def_cand.stat().st_size,
-                    "duration": 4
-                }
-            if VERIFIED_CDN_VIDEO_POOL:
-                code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
-                idx = (code_num * 31 + part) % len(VERIFIED_CDN_VIDEO_POOL)
-                fallback_item = dict(VERIFIED_CDN_VIDEO_POOL[idx])
-                fallback_item.setdefault("file_type", "video")
-                return fallback_item
-
+        # 4. Hech qachon 33KB default.mp4 yoki samplelib videoni qaytarmaslik
         return None
 
     @staticmethod
@@ -654,9 +633,8 @@ class MovieService:
         destination_path: Optional[Path] = None
     ) -> Optional[Path]:
         """
-        Kino uchun 1 soniyada tayyor, yaroqli 720p/HD MP4 video faylini hosil qilish.
-        Render.com yoki serverda video fayli yo'q bo'lsa ham foydalanuvchiga
-        Telegramda haqiqiy video jo'natilishini 100% kafolatlaydi.
+        Kino uchun yaroqli MP4 video faylini tekshirish va tayyorlash.
+        Hech qachon 33KB qora ekranli dummy videolarni yubormaydi yoki ko'chirmaydi.
         """
         import shutil
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
@@ -664,10 +642,10 @@ class MovieService:
         v_dir.mkdir(parents=True, exist_ok=True)
         dest = destination_path or (v_dir / f"{code}_{part}.mp4")
 
-        if dest.exists() and dest.stat().st_size >= 1024:
+        if dest.exists() and dest.stat().st_size >= 10 * 1024 * 1024:
             return dest
 
-        # Franchise alias bo'yicha tayyor faylni qidirish
+        # Franchise alias bo'yicha tayyor haqiqiy faylni qidirish
         clean_code = str(code).strip().lstrip("#№")
         alias_codes = [clean_code]
         if clean_code in FRANCHISE_CODE_MAP:
@@ -676,10 +654,10 @@ class MovieService:
         for c in alias_codes:
             for cand_name in [f"{c}_{part}.mp4", f"{c}_1.mp4", f"{c}.mp4"]:
                 cand_path = v_dir / cand_name
-                if cand_path.exists() and cand_path.stat().st_size >= 1024:
+                if cand_path.exists() and cand_path.stat().st_size >= 10 * 1024 * 1024:
                     try:
                         shutil.copyfile(str(cand_path), str(dest))
-                        if dest.exists() and dest.stat().st_size >= 1024:
+                        if dest.exists() and dest.stat().st_size >= 10 * 1024 * 1024:
                             return dest
                     except Exception:
                         pass
@@ -692,7 +670,7 @@ class MovieService:
                     return dest
             except Exception:
                 pass
-            return default_mp4
+
         return None
 
 
@@ -749,7 +727,7 @@ class MovieService:
             or tf_lower.endswith("_real_fid")
             or tf_lower == "real_fid"
             or tf_lower == "test_fid"
-            or tf_lower.startswith("baacagiaaxkbaae_taxi_")
+            or "baacagiaaxk_test_real_id" in tf_lower
             or "<" in tf
             or len(tf) < 20
         ):
@@ -939,10 +917,17 @@ class MovieService:
         cached_ftype = cached_mf.file_type if cached_mf else "video"
 
         has_cached_mf = MovieService.is_valid_telegram_file_id(cached_fid)
+        if has_cached_mf and cached_mf and getattr(cached_mf, "duration", None) is not None and cached_mf.duration <= 60:
+            has_cached_mf = False
+
         db_fid = (db_movie.file_id or "").strip() if db_movie else ""
-        has_real_video = has_cached_mf or bool(
+        has_db_fid = bool(
             db_movie and MovieService.is_valid_telegram_file_id(db_fid) and (part == 1 or db_movie.code != clean_code)
         )
+        if has_db_fid and db_movie and getattr(db_movie, "duration", None) is not None and db_movie.duration <= 60:
+            has_db_fid = False
+
+        has_real_video = has_cached_mf or has_db_fid
 
         # Video manbasini tekshirish (haqiqiy video manbasini topish)
         if not has_real_video and not resolved_source:
@@ -960,9 +945,6 @@ class MovieService:
                         resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
                 except Exception as se:
                     logger.debug(f"On-demand Asilmedia sync error: {se}")
-            # 3. Zaxira hovuz
-            if not resolved_source:
-                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
 
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
@@ -1016,10 +998,14 @@ class MovieService:
         )
 
         watch_online_url = None
+        download_online_url = None
         if resolved_source:
             watch_online_url = resolved_source.get("watch_url") or resolved_source.get("url")
+            download_online_url = resolved_source.get("download_url") or resolved_source.get("url")
             if watch_online_url and ("sayt.php" in str(watch_online_url) or not str(watch_online_url).startswith("http")):
                 watch_online_url = None
+            if download_online_url and ("sayt.php" in str(download_online_url) or not str(download_online_url).startswith("http")):
+                download_online_url = None
 
         if not watch_online_url and clean_code.isdigit():
             try:
@@ -1027,6 +1013,7 @@ class MovieService:
                 tg_inf = await asilmedia_service.get_telegram_media_info(clean_code)
                 if tg_inf and isinstance(tg_inf.get("fields"), list) and tg_inf["fields"]:
                     watch_online_url = tg_inf["fields"][0].get("watch")
+                    download_online_url = tg_inf["fields"][0].get("download")
             except Exception:
                 pass
 
@@ -1036,10 +1023,15 @@ class MovieService:
                 total_parts=total_parts,
                 current_part=part,
                 page=max(0, (part - 1) // 20),
-                watch_url=watch_online_url
+                watch_url=watch_online_url,
+                download_url=download_online_url
             )
         else:
-            reply_markup = movie_item_keyboard(clean_code, watch_url=watch_online_url)
+            reply_markup = movie_item_keyboard(
+                clean_code,
+                watch_url=watch_online_url,
+                download_url=download_online_url
+            )
 
         # 1. Haqiqiy video yuborish (Telegram Cloud file_id orqali chaqmoqdek tezkor yetkazish)
         video_sent = False
@@ -1080,30 +1072,42 @@ class MovieService:
         if not video_sent:
             candidates = []
             if not resolved_source:
-                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=True)
+                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
             if resolved_source:
-                # Agar lokal fayl bo'lsa
+                # Agar lokal fayl bo'lsa (faqat >= 10MB haqiqiy video fayllar)
                 res_fp = resolved_source.get("file_path")
                 if res_fp:
                     fp = Path(res_fp)
-                    if fp.exists() and fp.stat().st_size >= 1024:
+                    if fp.exists() and fp.stat().st_size >= 10 * 1024 * 1024:
                         candidates.append(resolved_source)
                     else:
                         v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
                         rel_cand = v_dir / fp.name
-                        if rel_cand.exists() and rel_cand.stat().st_size >= 1024:
+                        if rel_cand.exists() and rel_cand.stat().st_size >= 10 * 1024 * 1024:
                             resolved_source["file_path"] = str(rel_cand)
                             candidates.append(resolved_source)
-                elif resolved_source.get("file_id"):
+                elif resolved_source.get("file_id") and MovieService.is_valid_telegram_file_id(resolved_source.get("file_id")):
                     candidates.append(resolved_source)
-                elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["sayt.php", ".html"]):
+                elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
                     candidates.append(resolved_source)
+                    alt_url = resolved_source.get("watch_url") if resolved_source.get("url") != resolved_source.get("watch_url") else resolved_source.get("download_url")
+                    if alt_url and alt_url != resolved_source.get("url") and not any(h in alt_url for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
+                        alt_cand = dict(resolved_source)
+                        alt_cand["url"] = alt_url
+                        candidates.append(alt_cand)
+                    elif "server.asilmedia.org" in resolved_source["url"]:
+                        u = resolved_source["url"]
+                        alt_u = u.replace("/download/", "/watch/") if "/download/" in u else u.replace("/watch/", "/download/")
+                        if alt_u != u:
+                            alt_c = dict(resolved_source)
+                            alt_c["url"] = alt_u
+                            candidates.append(alt_c)
 
-            # 2. data/videos papkasidagi tayyorlangan lokal fayllar (kod va franchise aliaslar)
+            # 2. data/videos papkasidagi tayyorlangan haqiqiy lokal fayllar (kod va franchise aliaslar)
             v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
             for c in alias_codes:
                 a_cand = v_dir / f"{c}_{part}.mp4"
-                if a_cand.exists() and a_cand.stat().st_size >= 1024:
+                if a_cand.exists() and a_cand.stat().st_size >= 10 * 1024 * 1024:
                     if not any(cand.get("file_path") == str(a_cand) for cand in candidates):
                         candidates.insert(0, {
                             "file_path": str(a_cand),
@@ -1113,32 +1117,6 @@ class MovieService:
                         })
                     break
 
-            # 3. Agar hali video manbasi topilmagan bo'lsa, tezkor yuklab olishga urinish
-            if not candidates:
-                try:
-                    prepped = await asyncio.wait_for(
-                        MovieService.download_movie_from_asilmedia(clean_code, part),
-                        timeout=3.0
-                    )
-                    if prepped and prepped.exists() and prepped.stat().st_size >= 100 * 1024:
-                        candidates.insert(0, {
-                            "file_path": str(prepped),
-                            "file_type": "video",
-                            "file_size": prepped.stat().st_size,
-                            "duration": resolved_source.get("duration") if resolved_source else 45
-                        })
-                except Exception as de:
-                    logger.debug(f"Quick video prep error: {de}")
-
-            # Qo'shimcha zaxira CDN video manbalarini navbatga qo'yish
-            code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
-            for offset in range(len(VERIFIED_CDN_VIDEO_POOL)):
-                idx = (code_num * 31 + part + offset) % len(VERIFIED_CDN_VIDEO_POOL)
-                pool_item = dict(VERIFIED_CDN_VIDEO_POOL[idx])
-                pool_item.setdefault("file_type", "video")
-                if not any(c.get("url") == pool_item.get("url") for c in candidates):
-                    candidates.append(pool_item)
-
             for cand in candidates:
                 try:
                     target_video = (
@@ -1146,6 +1124,9 @@ class MovieService:
                         if "file_path" in cand
                         else cand.get("url") or cand.get("file_id")
                     )
+                    if isinstance(target_video, str) and target_video.startswith("http") and "server.asilmedia.org" in target_video and ".mp4" not in target_video:
+                        sep = "&" if "?" in target_video else "?"
+                        target_video = f"{target_video}{sep}file=video.mp4"
                     if not target_video:
                         continue
                     sent_msg = await bot.send_video(
@@ -1175,8 +1156,8 @@ class MovieService:
                                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
                                 ftype = "video" if getattr(sent_msg, "video", None) else "document"
 
-                                # Hech qachon 5 soniyadan kam yoki 100KB dan kichik soxta videolarni keshlamaslik
-                                if (dur_val is None or dur_val > 5) and (fsize_val is None or fsize_val > 100 * 1024):
+                                # Hech qachon 120 soniyadan kam (treyler/sample) yoki 100KB dan kichik (dummy) videolarni keshlamaslik
+                                if (dur_val is None or dur_val >= 120) and (fsize_val is None or fsize_val >= 100 * 1024):
                                     try:
                                         saved_m = await crud.set_movie_video(
                                             session=session,
@@ -1671,7 +1652,7 @@ class MovieService:
                     fast_dest = dest_path.with_name(f"fast_{dest_path.name}")
                     cmd = [
                         ffmpeg_exe, "-y", "-i", str(saved_file),
-                        "-t", "45", "-c", "copy", "-movflags", "+faststart",
+                        "-c", "copy", "-movflags", "+faststart",
                         str(fast_dest)
                     ]
                     proc = await asyncio.create_subprocess_exec(

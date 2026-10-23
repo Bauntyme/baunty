@@ -797,15 +797,18 @@ async def test_slash_commands_plan_goal_boost_devtools_preview():
 
 @pytest.mark.asyncio
 async def test_resolve_video_source_guarantees_local_file():
-    """resolve_video_source barcha asosiy franshizalar uchun yaroqli lokal fayl qaytarishi testi."""
+    """resolve_video_source barcha asosiy franshizalar uchun yaroqli video manbasi (URL yoki fayl) qaytarishi testi."""
     import os
     for code, part in [("718", 1), ("718", 2), ("9165", 1), ("717", 1), ("1500", 1), ("287", 1)]:
         res = MovieService.resolve_video_source(code, part=part, allow_default=True)
         assert res is not None
-        fp = res.get("file_path")
-        assert fp is not None, f"file_path missing for {code} part {part}"
-        assert os.path.exists(fp), f"File {fp} does not exist for {code} part {part}"
-        assert os.path.getsize(fp) >= 1024, f"File {fp} is too small"
+        has_source = bool(res.get("file_path") or res.get("url") or res.get("file_id"))
+        assert has_source, f"video source missing for {code} part {part}"
+        if res.get("file_path"):
+            assert os.path.exists(res["file_path"])
+            assert os.path.getsize(res["file_path"]) >= 10 * 1024 * 1024
+        elif res.get("url"):
+            assert res["url"].startswith("http")
 
 
 

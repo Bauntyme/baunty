@@ -1156,7 +1156,7 @@ async def handle_asil_stream(request: web.Request) -> web.Response:
     # 1. Lokal video fayl mavjud bo'lsa (data/videos/{code}_{part}.mp4)
     v_dir = BASE_DIR / "data" / "videos"
     for cand in [v_dir / f"{clean_id}_{part}.mp4", v_dir / f"{clean_id}.mp4"]:
-        if cand.exists() and cand.stat().st_size >= 1024:
+        if cand.exists() and cand.stat().st_size >= 10 * 1024 * 1024:
             return web.FileResponse(cand)
 
     # 2. Asilmedia orqali Telegram pleyer yoki fayllar stream havolasini olish

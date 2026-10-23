@@ -81,21 +81,30 @@ def genres_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def movie_item_keyboard(movie_code: str, watch_url: Optional[str] = None) -> InlineKeyboardMarkup:
+def movie_item_keyboard(
+    movie_code: str,
+    watch_url: Optional[str] = None,
+    download_url: Optional[str] = None
+) -> InlineKeyboardMarkup:
     """Kino xabari ostidagi tugmalar."""
     builder = InlineKeyboardBuilder()
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
-    builder.row(
-        InlineKeyboardButton(
-            text="▶️ Kinoni tomosha qilish",
-            callback_data=f"watch_part:{movie_code}:1"
-        )
-    )
     if watch_url and watch_url.startswith("http"):
         builder.row(
-            InlineKeyboardButton(text="🌐 Onlayn ko'rish (Full HD)", url=watch_url)
+            InlineKeyboardButton(text="▶️ Kinoni tomosha qilish (Full HD)", url=watch_url)
+        )
+    else:
+        builder.row(
+            InlineKeyboardButton(
+                text="▶️ Kinoni tomosha qilish",
+                callback_data=f"watch_part:{movie_code}:1"
+            )
+        )
+    if download_url and download_url.startswith("http"):
+        builder.row(
+            InlineKeyboardButton(text="📥 Yuklab olish", url=download_url)
         )
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
@@ -116,7 +125,8 @@ def movie_parts_keyboard(
     current_part: int = 1,
     page: Optional[int] = None,
     per_page: int = 20,
-    watch_url: Optional[str] = None
+    watch_url: Optional[str] = None,
+    download_url: Optional[str] = None
 ) -> InlineKeyboardMarkup:
     """Ko'p qismli seriallar uchun qismlar tugmalari ([1] [2] ... [N]) va ulashish.
     Telegram 100-tugma cheklovidan oshib ketmasligi uchun 20 tadan sahifalarga ajratiladi.
@@ -156,17 +166,22 @@ def movie_parts_keyboard(
         if nav_row:
             builder.row(*nav_row)
 
-    target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
-    bot_clean = config.BOT_USERNAME.lstrip('@')
-    builder.row(
-        InlineKeyboardButton(
-            text=f"▶️ {current_part}-qismni ko'rish",
-            url=f"https://t.me/{bot_clean}?start=m_{target_start}"
-        )
-    )
     if watch_url and watch_url.startswith("http"):
         builder.row(
-            InlineKeyboardButton(text=f"🌐 {current_part}-qism onlayn (Full HD)", url=watch_url)
+            InlineKeyboardButton(text=f"▶️ {current_part}-qism onlayn (Full HD)", url=watch_url)
+        )
+    else:
+        target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
+        bot_clean = config.BOT_USERNAME.lstrip('@')
+        builder.row(
+            InlineKeyboardButton(
+                text=f"▶️ {current_part}-qismni ko'rish",
+                url=f"https://t.me/{bot_clean}?start=m_{target_start}"
+            )
+        )
+    if download_url and download_url.startswith("http"):
+        builder.row(
+            InlineKeyboardButton(text="📥 Yuklab olish", url=download_url)
         )
 
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
