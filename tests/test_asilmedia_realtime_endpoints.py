@@ -305,3 +305,124 @@ def test_webapp_assets_and_index_structure():
         fcontent = fpath.read_text(encoding="utf-8").lower()
         assert "zakirov" not in fcontent, f"webapp/{fname} da 'zakirov' brendingi topildi!"
         assert "dilbarzakirova" not in fcontent, f"webapp/{fname} da 'dilbarzakirova' topildi!"
+
+
+@pytest.mark.asyncio
+async def test_asil_send_slot_to_part_resolution():
+    """Mini Appda slot bosilganda (masalan, 2-qism slot 243) handle_asil_send part=2 ni aniqlashi."""
+    import json
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # Cache ga ko'p qismli serial kiritamiz
+        sample_item = {
+            "id": 11637,
+            "t": "Ruhshunos",
+            "seasons": [
+                {
+                    "n": 1,
+                    "eps": [
+                        {"e": 1, "name": "1-qism", "f": [{"s": 240, "q": "1080p", "ok": True}]},
+                        {"e": 2, "name": "2-qism", "f": [{"s": 243, "q": "1080p", "ok": True}]},
+                        {"e": 5, "name": "5-qism", "f": [{"s": 255, "q": "1080p", "ok": True}]},
+                    ]
+                }
+            ]
+        }
+        ws._ASIL_API_CACHE["asil:item:11637"] = {
+            "body": json.dumps({"ok": True, "item": sample_item}).encode("utf-8"),
+            "ts": 9999999999.0
+        }
+
+        mock_bot = AsyncMock()
+        mock_bot.get_chat_member = AsyncMock(return_value=MagicMock(status="member"))
+        orig_bot = ws._bot_instance
+        ws._bot_instance = mock_bot
+
+        with patch.object(ws.movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliver:
+            mock_deliver.return_value = True
+            with patch.object(ws.security_service, "verify_telegram_user", return_value=(12345678, True, None)):
+                # 1. Slot 243 yuboriladi -> part=2 deb aniqlanishi shart
+                resp = await client.post(
+                    "/api/asil/send",
+                    json={"id": "11637", "slot": 243, "user_id": 12345678},
+                    headers=BROWSER_HEADERS
+                )
+                assert resp.status == 200
+                data = await resp.json()
+                assert data.get("ok") is True
+                assert data.get("part") == 2
+                mock_deliver.assert_awaited_with(
+                    bot=mock_bot,
+                    chat_id=12345678,
+                    code="11637",
+                    part=2
+                )
+
+                # 2. Aniq part=5 yuboriladi -> part=5 chaqirilishi shart
+                mock_deliver.reset_mock()
+                resp5 = await client.post(
+                    "/api/asil/send",
+                    json={"id": "11637", "part": 5, "slot": 255, "user_id": 12345678},
+                    headers=BROWSER_HEADERS
+                )
+                assert resp5.status == 200
+                data5 = await resp5.json()
+                assert data5.get("ok") is True
+                assert data5.get("part") == 5
+                mock_deliver.assert_awaited_with(
+                    bot=mock_bot,
+                    chat_id=12345678,
+                    code="11637",
+                    part=5
+                )
+        ws._bot_instance = orig_bot
+    finally:
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_movie_service_sync_catalog_and_fastpath():
+    """movie_service.sync_catalog_from_upstream real-time va fast-path sync testi."""
+    from services.movie_service import movie_service, MovieService
+    from database.session import get_session
+
+    # 1. sync_catalog_from_upstream
+    async with get_session() as session:
+        count = await movie_service.sync_catalog_from_upstream(session=session)
+        assert count is not None and count >= 0
+        cat_718 = movie_service.get_catalog_item("718")
+        assert cat_718 is not None
+        assert "Taksi" in cat_718["t"]
+
+    # 2. Fast-path sync_movie_from_asilmedia
+    fake_item_resp = {
+        "ok": True,
+        "item": {
+            "id": 99991,
+            "t": "Test Film Premyera",
+            "desc": "Tavsif @Zakirovsfilms_bot",
+            "watch": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+            "p": "https://example.com/poster.webp",
+            "y": 2026,
+            "g": ["Jangari"],
+            "type": "film",
+            "files": [{"s": 1, "q": "1080p", "ok": True}]
+        }
+    }
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.json = AsyncMock(return_value=fake_item_resp)
+        mock_get.return_value.__aenter__.return_value = mock_resp
+
+        async with get_session() as session:
+            res = await MovieService.sync_movie_from_asilmedia(code="99991", session=session)
+            assert res.get("success") is True
+            assert "Baunty" in res.get("title", "") or "Test Film Premyera" in res.get("title", "")
+            # Katalog keshiga ham qo'shilganini tekshiramiz
+            cached = movie_service.get_catalog_item("99991")
+            assert cached is not None

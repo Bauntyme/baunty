@@ -160,32 +160,128 @@ class MovieService:
         # 1. Upstream API dan eng yangi kinolar ro'yxatini olish
         try:
             async with aiohttp.ClientSession() as client:
-                async with client.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+                async with client.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                     if resp.status == 200:
                         cat_json = await resp.json()
-                        if isinstance(cat_json, dict) and "items" in cat_json:
+                        if isinstance(cat_json, dict) and "items" in cat_json and isinstance(cat_json["items"], list):
                             for it in cat_json.get("items", []):
                                 if "d" in it:
                                     it["d"] = MovieService.sanitize_branding(it["d"])
                                 if "t" in it:
                                     it["t"] = MovieService.sanitize_branding(it["t"])
-                            cat_json["channel"] = config.CHANNEL_USERNAME
-                            cat_json["bot"] = config.BOT_USERNAME.lstrip("@")
-                            raw_items = cat_json.get("items", [])
-                            # Custom muhim kinolar (718 - Taksi, 717 - Attack on Titan, 287 - Chuqur)
-                            # hech qachon o'chib ketmasligi uchun ularni kiritamiz
-                            existing_codes = {str(it.get("c")) for it in raw_items}
-                            for c_item in reversed(CUSTOM_CATALOG_ITEMS):
-                                if str(c_item.get("c")) not in existing_codes:
-                                    raw_items.insert(0, c_item)
-                            cat_json["items"] = raw_items
-                            if len(raw_items) >= 20:
-                                _CATALOG_CACHE = cat_json
-                                try:
-                                    with open(catalog_file, "w", encoding="utf-8") as f:
-                                        json.dump(cat_json, f, ensure_ascii=False, indent=2)
-                                except Exception as fe:
-                                    logger.warning(f"catalog.json fayliga yozishda xatolik: {fe}")
+                            raw_items = list(cat_json.get("items", []))
+
+                # Real-time AsilMedia bo'limidan kinolar (/api/asil/home)
+                try:
+                    async with client.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=4)) as h_resp:
+                        if h_resp.status == 200:
+                            h_data = await h_resp.json()
+                            if isinstance(h_data, dict):
+                                seen_codes = {str(it.get("c")) for it in raw_items}
+                                for sec in ["pop", "film", "serial"]:
+                                    for it in h_data.get(sec, []):
+                                        iid = it.get("id")
+                                        if iid and str(iid) not in seen_codes:
+                                            seen_codes.add(str(iid))
+                                            t_clean = MovieService.sanitize_branding(it.get("t", ""))
+                                            y_val = it.get("y", "")
+                                            g_val = ", ".join(it.get("g", []))
+                                            desc = (
+                                                f"🎬 <b>{t_clean}</b>"
+                                                + (f" ({y_val})" if y_val else "")
+                                                + "\n\n"
+                                                + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
+                                                + f"📺 <b>Sifati:</b> 1080p | Full HD\n"
+                                                + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+                                                + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
+                                                + "👇 Ko'rish uchun quyidagi tugmani bosing!"
+                                            )
+                                            raw_items.append({
+                                                "c": int(iid) if str(iid).isdigit() else iid,
+                                                "t": t_clean,
+                                                "p": 1 if it.get("type") == "film" else 10,
+                                                "v": 2500,
+                                                "d": desc,
+                                                "a": iid,
+                                                "i": iid,
+                                                "p_url": it.get("p", ""),
+                                                "type": it.get("type", "film"),
+                                            })
+                except Exception as he:
+                    logger.debug("Asil home sync error in sync_catalog_from_upstream: %s", he)
+
+                # Real-time AsilMedia saralangan yangi premyeralar (/api/asil/list?page=1)
+                try:
+                    async with client.get("https://161-97-96-58.sslip.io/api/asil/list?page=1", timeout=aiohttp.ClientTimeout(total=4)) as l_resp:
+                        if l_resp.status == 200:
+                            l_data = await l_resp.json()
+                            if isinstance(l_data, dict) and "items" in l_data and isinstance(l_data["items"], list):
+                                seen_codes = {str(it.get("c")) for it in raw_items}
+                                for it in l_data.get("items", []):
+                                    iid = it.get("id")
+                                    if iid and str(iid) not in seen_codes:
+                                        seen_codes.add(str(iid))
+                                        t_clean = MovieService.sanitize_branding(it.get("t", ""))
+                                        y_val = it.get("y", "")
+                                        g_val = ", ".join(it.get("g", []))
+                                        desc = (
+                                            f"🎬 <b>{t_clean}</b>"
+                                            + (f" ({y_val})" if y_val else "")
+                                            + "\n\n"
+                                            + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
+                                            + f"📺 <b>Sifati:</b> 1080p | Full HD\n"
+                                            + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+                                            + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
+                                            + "👇 Ko'rish uchun quyidagi tugmani bosing!"
+                                        )
+                                        raw_items.append({
+                                            "c": int(iid) if str(iid).isdigit() else iid,
+                                            "t": t_clean,
+                                            "p": 1 if it.get("type") == "film" else 10,
+                                            "v": 2000,
+                                            "d": desc,
+                                            "a": iid,
+                                            "i": iid,
+                                            "p_url": it.get("p", ""),
+                                            "type": it.get("type", "film"),
+                                        })
+                except Exception as le:
+                    logger.debug("Asil list sync error in sync_catalog_from_upstream: %s", le)
+
+                # Mavjud catalog.json dagi barcha kinolarni saqlab qolamiz (hech qachon o'chirilmaydi)
+                if catalog_file.exists():
+                    try:
+                        with open(catalog_file, "r", encoding="utf-8") as f:
+                            local_cat = json.load(f)
+                            if isinstance(local_cat, dict) and "items" in local_cat and isinstance(local_cat["items"], list):
+                                existing_codes = {str(it.get("c")) for it in raw_items}
+                                for loc_it in local_cat["items"]:
+                                    c_key = str(loc_it.get("c"))
+                                    if c_key not in existing_codes:
+                                        existing_codes.add(c_key)
+                                        raw_items.append(loc_it)
+                    except Exception as me:
+                        logger.debug("Merge with existing catalog.json error: %s", me)
+
+                # Custom muhim kinolar (718 - Taksi, 717 - Attack on Titan, 287 - Chuqur, 1500 - Forsaj)
+                # hech qachon o'chib ketmasligi uchun ularni kiritamiz
+                existing_codes = {str(it.get("c")) for it in raw_items}
+                for c_item in reversed(CUSTOM_CATALOG_ITEMS):
+                    if str(c_item.get("c")) not in existing_codes:
+                        raw_items.insert(0, c_item)
+
+                cat_json = {
+                    "items": raw_items,
+                    "channel": config.CHANNEL_USERNAME,
+                    "bot": config.BOT_USERNAME.lstrip("@"),
+                }
+                if len(raw_items) >= 20:
+                    _CATALOG_CACHE = cat_json
+                    try:
+                        with open(catalog_file, "w", encoding="utf-8") as f:
+                            json.dump(cat_json, f, ensure_ascii=False, indent=2)
+                    except Exception as fe:
+                        logger.warning(f"catalog.json fayliga yozishda xatolik: {fe}")
         except Exception as e:
             logger.info(f"Upstream katalog yuklashda xatolik ({e}), lokal kesh ishlatiladi.")
 
@@ -1013,14 +1109,82 @@ class MovieService:
         target_parts = int(cat_item.get("p", 1)) if cat_item else 1
 
         asil_movie = None
-        # 1. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa
+        # 1. Real-time upstream /api/asil/item API orqali tezkor tekshirish (0.2 soniyada javob)
         if clean_code.isdigit() and len(clean_code) >= 2:
+            try:
+                import aiohttp
+                async with aiohttp.ClientSession() as cl:
+                    async with cl.get(
+                        f"https://161-97-96-58.sslip.io/api/asil/item?id={clean_code}",
+                        timeout=aiohttp.ClientTimeout(total=3.5)
+                    ) as i_resp:
+                        if i_resp.status == 200:
+                            i_raw = await i_resp.json()
+                            if isinstance(i_raw, dict) and i_raw.get("ok") and "item" in i_raw:
+                                it_data = i_raw["item"]
+                                it_title = MovieService.sanitize_branding(it_data.get("t") or "")
+                                it_desc = MovieService.sanitize_branding(it_data.get("desc") or "")
+                                it_watch = it_data.get("watch") or ""
+                                it_poster = it_data.get("p") or ""
+                                it_year = it_data.get("y")
+                                it_genres = it_data.get("g") or []
+                                is_ser = (it_data.get("type") == "serial") or bool(it_data.get("seasons"))
+
+                                from services.asilmedia_service import AsilmediaMovie, AsilmediaEpisode
+                                eps_dict = {}
+                                total_p = 1
+                                if it_data.get("seasons"):
+                                    for s_idx, season in enumerate(it_data["seasons"], 1):
+                                        for ep in season.get("eps", []):
+                                            ep_num = int(ep.get("e") or 1)
+                                            if ep_num > total_p:
+                                                total_p = ep_num
+                                            ep_label = ep.get("name") or f"{ep_num}-qism"
+                                            best_q = "1080p"
+                                            for fl in ep.get("f", []):
+                                                if fl.get("ok"):
+                                                    best_q = fl.get("q", "1080p")
+                                                    break
+                                            eps_dict[ep_num] = AsilmediaEpisode(
+                                                part=ep_num,
+                                                label=ep_label,
+                                                url=it_watch,
+                                                season=s_idx,
+                                                episode=ep_num,
+                                                quality=best_q,
+                                                watch_url=it_watch,
+                                                download_url=it_watch
+                                            )
+                                elif it_data.get("files"):
+                                    for fl in it_data["files"]:
+                                        if fl.get("parts", 1) > total_p:
+                                            total_p = int(fl["parts"])
+
+                                asil_movie = AsilmediaMovie(
+                                    id=clean_code,
+                                    title=it_title or target_title or f"Kino #{clean_code}",
+                                    url=it_watch or f"https://asilmedia.org/{clean_code}-kino.html",
+                                    orig_title=it_data.get("alt"),
+                                    year=it_year,
+                                    genres=it_genres,
+                                    description=it_desc,
+                                    poster=it_poster,
+                                    is_series=is_ser,
+                                    total_parts=total_p,
+                                    episodes=eps_dict,
+                                    video_sources={"primary": it_watch} if it_watch else {}
+                                )
+            except Exception as ue:
+                logger.debug(f"Upstream api/asil/item sync failed for {clean_code}: {ue}")
+
+        # 2. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa (lokal asilmedia_service fallback)
+        if not asil_movie and clean_code.isdigit() and len(clean_code) >= 2:
             try:
                 asil_movie = await asilmedia_service.get_movie_details(clean_code)
             except Exception as ge:
                 logger.debug(f"Asilmedia direct id lookup failed for {clean_code}: {ge}")
 
-        # 2. Agar hali topilmasa, target_title bo'yicha qidirish
+        # 3. Target_title bo'yicha lokal asilmedia_service.find_best_match
         if not asil_movie and target_title and not target_title.startswith("Kino "):
             asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
             if not asil_movie:
@@ -1028,7 +1192,7 @@ class MovieService:
                 if len(words) > 1:
                     asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
 
-        # 3. Mashhur franchise kodlari bo'yicha kanonik xaritalash
+        # 4. Mashhur franchise kodlari bo'yicha kanonik xaritalash
         if not asil_movie:
             franchise_map = {
                 "718": ("9165", "Taksi"),
@@ -1045,9 +1209,27 @@ class MovieService:
                 if not asil_movie:
                     asil_movie = await asilmedia_service.find_best_match(f_query, target_parts=target_parts)
 
-        # 4. Agar umumiy target_title bilan qidirish kerak bo'lsa
-        if not asil_movie and target_title:
-            asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
+        # 5. Agar hali topilmasa, upstream /api/asil/search orqali qidirish
+        if not asil_movie and target_title and not target_title.startswith("Kino "):
+            try:
+                import urllib.parse, aiohttp
+                async with aiohttp.ClientSession() as cl:
+                    async with cl.get(
+                        f"https://161-97-96-58.sslip.io/api/asil/search?q={urllib.parse.quote(target_title)}",
+                        timeout=aiohttp.ClientTimeout(total=3.5)
+                    ) as s_resp:
+                        if s_resp.status == 200:
+                            s_raw = await s_resp.json()
+                            if isinstance(s_raw, dict) and s_raw.get("items"):
+                                first_it = s_raw["items"][0]
+                                found_id = str(first_it.get("id"))
+                                if found_id:
+                                    try:
+                                        asil_movie = await asilmedia_service.get_movie_details(found_id)
+                                    except Exception:
+                                        pass
+            except Exception as se:
+                logger.debug(f"Upstream search in sync_movie_from_asilmedia error: {se}")
 
         if not asil_movie:
             return {
@@ -1169,11 +1351,38 @@ class MovieService:
         except Exception as fe:
             logger.warning(f"video_sources.json saqlashda xatolik: {fe}")
 
-        if session:
+        if session and asil_movie:
+            try:
+                await crud.upsert_movie(
+                    session=session,
+                    code=clean_code,
+                    title=asil_movie.title,
+                    description=asil_movie.description,
+                    views_count=1500
+                )
+                await session.commit()
+            except Exception as ue:
+                logger.debug(f"DB upsert in sync_movie_from_asilmedia error: {ue}")
+        elif session:
             try:
                 await session.commit()
             except Exception:
                 pass
+
+        if asil_movie and _CATALOG_CACHE and isinstance(_CATALOG_CACHE.get("items"), list):
+            existing_codes = {str(it.get("c")) for it in _CATALOG_CACHE["items"]}
+            if clean_code not in existing_codes:
+                _CATALOG_CACHE["items"].append({
+                    "c": int(clean_code) if clean_code.isdigit() else clean_code,
+                    "t": asil_movie.title,
+                    "p": total_parts,
+                    "v": 1500,
+                    "d": asil_movie.description or f"🎬 {asil_movie.title}",
+                    "a": clean_code,
+                    "i": clean_code,
+                    "p_url": asil_movie.poster or "",
+                    "type": "serial" if asil_movie.is_series else "film",
+                })
 
         return {
             "success": True,

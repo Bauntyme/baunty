@@ -143,7 +143,7 @@ function centerStrip() {
   const want = on.offsetLeft - (c.clientWidth - on.offsetWidth) / 2;
   c.scrollTo({left: Math.max(0, want), behavior: REDUCE ? "auto" : "smooth"});
 }
-function countText() { return T("AsilMedia katalogi · posterini bosing", "Каталог AsilMedia · нажмите на постер", "AsilMedia catalogue · tap a poster"); }
+function countText() { return T("Kinolar katalogi · posterini bosing", "Каталог фильмов · нажмите на постер", "Movie catalogue · tap a poster"); }
 
 // ------------------------------------------------------------------ navigatsiya
 const vkey = (v) => [v.k, v.s || "", v.typ, v.srt].join("|");
@@ -193,7 +193,7 @@ function viewHome() {
     + (t !== "serial" ? rowHTML("🆕 " + T("Yangi filmlar", "Новые фильмы", "New movies"), home.film, "new", "film") : "")
     + (t !== "film" ? rowHTML("📺 " + T("Yangi seriallar", "Новые сериалы", "New series"), home.serial, "new", "serial") : "")
     + (cts.length ? `<div class="sec-h"><h2>🌍 ${T("Davlatlar", "Страны", "Countries")}</h2>${allBtn("all")}</div><div class="row as-ctrow">${cts.map(ctHTML).join("")}</div>` : "")
-    + `<p class="as-src">${T("Kinolar", "Фильмы", "Movies")} · <b>AsilMedia</b> ${T("hamkorligida", "в партнёрстве", "partner catalogue")}</p>`;
+    + `<p class="as-src">${T("Kinolar", "Фильмы", "Movies")} · <b>Bauntys Films</b> ${T("katalogi", "каталог", "catalogue")}</p>`;
 }
 
 // Bosh sahifadagi «Kolleksiyalar» qatori — ilova har ochilganda boshqa to'plamlar (tasodifiy tartib, keshlanmaydi)
@@ -500,7 +500,7 @@ function closeDet() {
   try { if (!window.ZK_canHideBack || window.ZK_canHideBack()) tg.BackButton.hide(); } catch (e) {}
   return true;
 }
-const fileBtn = (f, label) => `<button class="as-f${f.ok ? "" : " off"}" data-slot="${f.s}"${f.ok ? "" : " disabled"}>
+const fileBtn = (f, label, ep) => `<button class="as-f${f.ok ? "" : " off"}" data-slot="${f.s}"${ep ? ` data-part="${ep}"` : ""}${f.ok ? "" : " disabled"}>
   <b>📥 ${esc(f.q || label || T("Fayl", "Файл", "File"))}</b><small>${f.mb ? (f.mb >= 1024 ? (f.mb / 1024).toFixed(1) + " GB" : f.mb + " MB") : ""}${f.parts > 1 ? ` · ${f.parts} ${T("bo'lak", "частей", "parts")}` : ""}${f.tr ? " · " + esc(f.tr) : ""}${f.ok ? "" : " · " + T("tayyorlanmoqda", "готовится", "preparing")}</small></button>`;
 function paintDet() {
   const x = det.it;
@@ -510,7 +510,7 @@ function paintDet() {
     const ss = x.seasons;
     const cur = ss.find((s) => s.n === det.season) || ss[0];
     files = `${ss.length > 1 ? `<div class="as-seas">${ss.map((s) => `<button data-season="${s.n}" class="${s.n === cur.n ? "on" : ""}">${s.n ? s.n + "-" + T("fasl", "сезон", "season") : T("Qismlar", "Серии", "Episodes")}</button>`).join("")}</div>` : ""}
-      <div class="as-eps">${cur.eps.map((e) => `<div class="as-ep"><span>${esc(e.name || e.e + "-" + T("qism", "серия", "ep."))}</span><div>${e.f.map((f) => fileBtn(f)).join("")}</div></div>`).join("")}</div>`;
+      <div class="as-eps">${cur.eps.map((e) => `<div class="as-ep"><span>${esc(e.name || e.e + "-" + T("qism", "серия", "ep."))}</span><div>${e.f.map((f) => fileBtn(f, null, e.e)).join("")}</div></div>`).join("")}</div>`;
   } else {
     files = (x.files || []).length ? `<div class="as-files">${x.files.map((f) => fileBtn(f)).join("")}</div>` : `<p class="as-note">${T("Fayl hali yuklanmagan", "Файл ещё не загружен", "No file yet")}</p>`;
   }
@@ -522,12 +522,13 @@ function paintDet() {
     ${files}
     ${x.watch ? `<button class="as-watch" data-as="watch">▶️ ${T("Saytda tomosha qilish", "Смотреть на сайте", "Watch on the website")}</button>` : ""}
     ${x.desc ? `<p class="as-desc">${esc(x.desc)}</p>` : ""}
-    <p class="as-src">${T("Kino kodi", "Код фильма", "Movie code")}: <b>${x.id}</b> · AsilMedia</p></div>`;
+    <p class="as-src">${T("Kino kodi", "Код фильма", "Movie code")}: <b>${x.id}</b> · Bauntys Films</p></div>`;
 }
-async function send(slot, btn, recheck) {
+async function send(slot, btn, recheck, part) {
   if (!det || !det.it || det.busy[slot]) return;
   det.busy[slot] = 1; if (btn) btn.classList.add("busy");
-  const r = await api("api/asil/send", {id: det.it.id, slot, recheck: !!recheck});
+  const p = part || 1;
+  const r = await api("api/asil/send", {id: det.it.id, slot, part: p, recheck: !!recheck});
   if (det) delete det.busy[slot];
   if (btn) btn.classList.remove("busy");
   if (r.ok) {
@@ -552,7 +553,12 @@ async function send(slot, btn, recheck) {
 function onDetClick(e) {
   const t = e.target;
   const sl = t.closest("[data-slot]");
-  if (sl) { haptic(); send(+sl.dataset.slot, sl); return; }
+  if (sl) {
+    haptic();
+    const part = sl.dataset.part ? +sl.dataset.part : 1;
+    send(+sl.dataset.slot, sl, false, part);
+    return;
+  }
   const se = t.closest("[data-season]");
   if (se && det) { det.season = +se.dataset.season; haptic(); paintDet(); return; }
   const rc = t.closest("[data-recheck]");

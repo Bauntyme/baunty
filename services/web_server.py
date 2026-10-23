@@ -871,7 +871,7 @@ async def handle_asil_search(request: web.Request) -> web.Response:
 
 
 async def handle_asil_item(request: web.Request) -> web.Response:
-    """Asilmedia film yoki serial to'liq kartochkasi va qismlari (Real-time)."""
+    """Asilmedia film yoki serial to'liq kartochkasi va qismlari (Real-time va 100% Bauntys)."""
     item_id = request.query.get("id", "").strip()
     if not item_id:
         return web.json_response({"ok": False, "error": "not_found"}, status=404)
@@ -893,20 +893,16 @@ async def handle_asil_item(request: web.Request) -> web.Response:
         async with aiohttp.ClientSession() as session:
             async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4.5)) as resp:
                 if resp.status == 200:
-                    raw = await resp.json()
-                    if isinstance(raw, dict) and raw.get("ok") and "item" in raw:
-                        it = raw["item"]
-                        if "t" in it:
-                            it["t"] = sanitize_catalog_text(it["t"])
-                        if "desc" in it:
-                            it["desc"] = sanitize_catalog_text(it["desc"])
-                        clean_bytes = json.dumps(raw, ensure_ascii=False).encode("utf-8")
-                        _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                        return web.Response(
-                            body=clean_bytes,
-                            content_type="application/json",
-                            headers={"Access-Control-Allow-Origin": "*"}
-                        )
+                    resp_bytes = await resp.read()
+                    text = resp_bytes.decode("utf-8", errors="replace")
+                    clean = sanitize_catalog_text(text)
+                    clean_bytes = clean.encode("utf-8")
+                    _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+                    return web.Response(
+                        body=clean_bytes,
+                        content_type="application/json",
+                        headers={"Access-Control-Allow-Origin": "*"}
+                    )
     except Exception as e:
         logger.debug("Upstream /api/asil/item error: %s", e)
 
@@ -969,11 +965,43 @@ async def handle_asil_send(request: web.Request) -> web.Response:
         body = {}
 
     item_id = str(body.get("id") or "").strip()
+    slot = body.get("slot")
     try:
         part = int(body.get("part") or 1)
     except (ValueError, TypeError):
         part = 1
     recheck = bool(body.get("recheck", False))
+
+    # Agar slot berilgan bo'lsa va part aniqlanmagan (1) bo'lsa, qism raqamini slot orqali aniqlash
+    if slot is not None and part == 1 and item_id:
+        try:
+            cached_item = None
+            cache_key = f"asil:item:{item_id}"
+            if cache_key in _ASIL_API_CACHE:
+                try:
+                    raw_c = json.loads(_ASIL_API_CACHE[cache_key]["body"])
+                    cached_item = raw_c.get("item")
+                except Exception:
+                    pass
+            if not cached_item:
+                import aiohttp
+                async with aiohttp.ClientSession() as cl:
+                    async with cl.get(
+                        f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(item_id)}",
+                        timeout=aiohttp.ClientTimeout(total=2.5)
+                    ) as ir:
+                        if ir.status == 200:
+                            ir_data = await ir.json()
+                            cached_item = ir_data.get("item")
+            if cached_item and "seasons" in cached_item:
+                for s in cached_item.get("seasons", []):
+                    for ep in s.get("eps", []):
+                        for fl in ep.get("f", []):
+                            if fl.get("s") == slot:
+                                part = int(ep.get("e") or 1)
+                                break
+        except Exception as sle:
+            logger.debug("Slot to part resolution error: %s", sle)
 
     raw_payload_uid = body.get("user_id") or request.query.get("user_id")
     user_id, is_valid, err = security_service.verify_telegram_user(request, raw_payload_uid)
@@ -1044,14 +1072,30 @@ async def handle_asil_send(request: web.Request) -> web.Response:
         if delivered:
             return web.json_response({"ok": True, "delivered": True, "id": item_id, "part": part})
         else:
-            return web.json_response({
-                "ok": False,
-                "error": "need_start",
-                "url": bot_url,
-                "bot": bot_username
-            })
+            is_chat_error = False
+            try:
+                member = await _bot_instance.get_chat_member(chat_id=user_id, user_id=user_id)
+                if member.status in ("kicked", "left"):
+                    is_chat_error = True
+            except Exception:
+                is_chat_error = True
+
+            if is_chat_error:
+                return web.json_response({
+                    "ok": False,
+                    "error": "need_start",
+                    "url": bot_url,
+                    "bot": bot_username
+                })
+            else:
+                return web.json_response({
+                    "ok": False,
+                    "error": "not_ready",
+                    "id": item_id,
+                    "part": part
+                })
     else:
-        return web.json_response({"ok": True, "delivered": True, "id": item_id, "mock": True})
+        return web.json_response({"ok": True, "delivered": True, "id": item_id, "part": part, "mock": True})
 
 
 
