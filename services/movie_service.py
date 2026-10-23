@@ -690,36 +690,8 @@ class MovieService:
                 shutil.copyfile(str(default_mp4), str(dest))
                 if dest.exists() and dest.stat().st_size >= 1024:
                     return dest
-            except Exception as ce:
-                logger.debug("Failed copying default.mp4 to %s: %s", dest, ce)
-
-        # Fallback to FFmpeg if available
-        try:
-            import asyncio
-            import imageio_ffmpeg
-            ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
-            cmd = [
-                ffmpeg_exe, "-y",
-                "-f", "lavfi", "-i", "color=c=0x0f172a:s=1280x720:d=3",
-                "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-                "-t", "3",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p",
-                "-c:a", "aac", "-b:a", "64k", "-shortest",
-                "-movflags", "+faststart",
-                str(dest)
-            ]
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.DEVNULL,
-                stderr=asyncio.subprocess.DEVNULL
-            )
-            await proc.wait()
-            if dest.exists() and dest.stat().st_size >= 1024:
-                return dest
-        except Exception as fe:
-            logger.debug("Instant FFmpeg video generation error: %s", fe)
-
-        if default_mp4.exists():
+            except Exception:
+                pass
             return default_mp4
         return None
 
@@ -873,9 +845,6 @@ class MovieService:
             if not description:
                 description = db_movie.description
 
-        if part > total_parts:
-            total_parts = part
-
         # Agar na katalogda, na bazada kino mavjud bo'lmasa — upstream dan tezkor sinxronlashga urinish
         if not cat_item and not db_movie:
             if time.time() - _LAST_SYNC_TS > 60:
@@ -927,6 +896,16 @@ class MovieService:
                         title = sync_res["title"]
                     if not total_parts or total_parts <= 1:
                         total_parts = len(sync_res.get("synced_parts", [])) or 1
+                    if not db_movie and session:
+                        try:
+                            db_movie, _ = await crud.upsert_movie(
+                                session=session,
+                                code=clean_code,
+                                title=title or f"Kino #{clean_code}",
+                                views_count=1500
+                            )
+                        except Exception:
+                            pass
             except Exception as se:
                 logger.debug(f"Dynamic Asilmedia sync error: {se}")
 
@@ -934,6 +913,16 @@ class MovieService:
                 resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
                 if not resolved_source:
                     return False
+
+        if part > 1 and total_parts < part:
+            has_part_source = (
+                (db_movie is not None and MovieService.is_valid_telegram_file_id(db_movie.file_id))
+                or MovieService.resolve_video_source(clean_code, part, allow_default=False) is not None
+                or (session and await crud.get_movie_file(session, clean_code, part) is not None)
+            )
+            if not has_part_source:
+                return False
+            total_parts = max(total_parts, part)
 
         if not title:
             title = f"Kino #{clean_code}"
@@ -994,7 +983,7 @@ class MovieService:
         if not clean_base_title:
             clean_base_title = title
 
-        part_suffix = f" — {part}-qism" if total_parts > 1 else ""
+        part_suffix = f" — {part}-qism" if (total_parts > 1 or part > 1) else ""
         display_title = f"{clean_base_title}{part_suffix}"
 
         if resolved_source:
@@ -1029,8 +1018,17 @@ class MovieService:
         watch_online_url = None
         if resolved_source:
             watch_online_url = resolved_source.get("watch_url") or resolved_source.get("url")
-            if watch_online_url and not str(watch_online_url).startswith("http"):
+            if watch_online_url and ("sayt.php" in str(watch_online_url) or not str(watch_online_url).startswith("http")):
                 watch_online_url = None
+
+        if not watch_online_url and clean_code.isdigit():
+            try:
+                from services.asilmedia_service import asilmedia_service
+                tg_inf = await asilmedia_service.get_telegram_media_info(clean_code)
+                if tg_inf and isinstance(tg_inf.get("fields"), list) and tg_inf["fields"]:
+                    watch_online_url = tg_inf["fields"][0].get("watch")
+            except Exception:
+                pass
 
         if total_parts > 1:
             reply_markup = movie_parts_keyboard(
@@ -1098,7 +1096,7 @@ class MovieService:
                             candidates.append(resolved_source)
                 elif resolved_source.get("file_id"):
                     candidates.append(resolved_source)
-                elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["server.asilmedia.org", "fayllar.com"]):
+                elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["sayt.php", ".html"]):
                     candidates.append(resolved_source)
 
             # 2. data/videos papkasidagi tayyorlangan lokal fayllar (kod va franchise aliaslar)
@@ -1115,40 +1113,22 @@ class MovieService:
                         })
                     break
 
-            # 3. Agar hali lokal video fayl tayyorlanmagan bo'lsa, tezkor yuklab olish yoki tayyorlash
-            if not any("file_path" in c for c in candidates):
+            # 3. Agar hali video manbasi topilmagan bo'lsa, tezkor yuklab olishga urinish
+            if not candidates:
                 try:
-                    prepped = await MovieService.download_movie_from_asilmedia(clean_code, part)
-                    if prepped and prepped.exists() and prepped.stat().st_size >= 1024:
+                    prepped = await asyncio.wait_for(
+                        MovieService.download_movie_from_asilmedia(clean_code, part),
+                        timeout=3.0
+                    )
+                    if prepped and prepped.exists() and prepped.stat().st_size >= 100 * 1024:
                         candidates.insert(0, {
                             "file_path": str(prepped),
                             "file_type": "video",
                             "file_size": prepped.stat().st_size,
-                            "duration": resolved_source.get("duration") if resolved_source else None
+                            "duration": resolved_source.get("duration") if resolved_source else 45
                         })
                 except Exception as de:
                     logger.debug(f"Quick video prep error: {de}")
-
-            # 4. Agar hali ham lokal fayl bo'lmasa, generate_instant_movie_video orqali tayyorlash
-            if not any("file_path" in c for c in candidates):
-                gen_file = await MovieService.generate_instant_movie_video(clean_code, part, title=display_title)
-                if gen_file and gen_file.exists() and gen_file.stat().st_size >= 1024:
-                    candidates.insert(0, {
-                        "file_path": str(gen_file),
-                        "file_type": "video",
-                        "file_size": gen_file.stat().st_size,
-                        "duration": 5
-                    })
-
-            # 5. Fallback to default.mp4 if present
-            default_vid = v_dir / "default.mp4"
-            if default_vid.exists() and default_vid.stat().st_size >= 1024 and not any(c.get("file_path") == str(default_vid) for c in candidates):
-                candidates.append({
-                    "file_path": str(default_vid),
-                    "file_type": "video",
-                    "file_size": default_vid.stat().st_size,
-                    "duration": 5
-                })
 
             # Qo'shimcha zaxira CDN video manbalarini navbatga qo'yish
             code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
@@ -1194,33 +1174,36 @@ class MovieService:
                                 fsize_val = int(fsize) if isinstance(fsize, (int, float)) else cand.get("file_size")
                                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
                                 ftype = "video" if getattr(sent_msg, "video", None) else "document"
-                                try:
-                                    saved_m = await crud.set_movie_video(
-                                        session=session,
-                                        code=p_code,
-                                        file_id=new_fid,
-                                        file_type=ftype,
-                                        duration=dur_val,
-                                        file_size=fsize_val,
-                                        title=display_title
-                                    )
-                                    await crud.save_movie_file(
-                                        session=session,
-                                        movie_code=clean_code,
-                                        part=part,
-                                        file_id=new_fid,
-                                        file_type=ftype,
-                                        duration=dur_val,
-                                        file_size=fsize_val,
-                                        quality="1080p"
-                                    )
-                                    if not db_movie:
-                                        db_movie = saved_m
-                                    if db_movie and (db_movie.code == p_code or part == 1):
-                                        db_movie.file_id = new_fid
-                                        db_movie.file_type = ftype
-                                except Exception as se:
-                                    logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
+
+                                # Hech qachon 5 soniyadan kam yoki 100KB dan kichik soxta videolarni keshlamaslik
+                                if (dur_val is None or dur_val > 5) and (fsize_val is None or fsize_val > 100 * 1024):
+                                    try:
+                                        saved_m = await crud.set_movie_video(
+                                            session=session,
+                                            code=p_code,
+                                            file_id=new_fid,
+                                            file_type=ftype,
+                                            duration=dur_val,
+                                            file_size=fsize_val,
+                                            title=display_title
+                                        )
+                                        await crud.save_movie_file(
+                                            session=session,
+                                            movie_code=clean_code,
+                                            part=part,
+                                            file_id=new_fid,
+                                            file_type=ftype,
+                                            duration=dur_val,
+                                            file_size=fsize_val,
+                                            quality="1080p"
+                                        )
+                                        if not db_movie:
+                                            db_movie = saved_m
+                                        if db_movie and (db_movie.code == p_code or part == 1):
+                                            db_movie.file_id = new_fid
+                                            db_movie.file_type = ftype
+                                    except Exception as se:
+                                        logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
 
                         if db_movie:
                             await crud.increment_movie_views(session, db_movie.id)
@@ -1400,20 +1383,20 @@ class MovieService:
             except Exception as ue:
                 logger.debug(f"Upstream api/asil/item sync failed for {clean_code}: {ue}")
 
-        # 2. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa (lokal asilmedia_service fallback)
-        if not asil_movie and clean_code.isdigit() and len(clean_code) >= 2:
-            try:
-                asil_movie = await asilmedia_service.get_movie_details(clean_code)
-            except Exception as ge:
-                logger.debug(f"Asilmedia direct id lookup failed for {clean_code}: {ge}")
-
-        # 3. Target_title bo'yicha lokal asilmedia_service.find_best_match
+        # 2. Target_title bo'yicha lokal asilmedia_service.find_best_match
         if not asil_movie and target_title and not target_title.startswith("Kino "):
             asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
             if not asil_movie:
                 words = target_title.split()
                 if len(words) > 1:
                     asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
+
+        # 3. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa (lokal asilmedia_service fallback)
+        if not asil_movie and clean_code.isdigit() and len(clean_code) >= 2:
+            try:
+                asil_movie = await asilmedia_service.get_movie_details(clean_code)
+            except Exception as ge:
+                logger.debug(f"Asilmedia direct id lookup failed for {clean_code}: {ge}")
 
         # 4. Mashhur franchise kodlari bo'yicha kanonik xaritalash
         if not asil_movie:
@@ -1638,21 +1621,7 @@ class MovieService:
         if dest.exists() and dest.stat().st_size >= 1024:
             return dest
 
-        # 1. Tezkor lokal video tayyorlash (default.mp4 yoki ffmpeg)
-        gen = await MovieService.generate_instant_movie_video(code, part, destination_path=dest)
-        if gen and gen.exists() and gen.stat().st_size >= 1024:
-            return gen
-
-        # 2. CDN orqali yuklab olish
-        code_num = int(code) if str(code).isdigit() else sum(ord(c) for c in str(code))
-        for offset in range(len(VERIFIED_CDN_VIDEO_POOL)):
-            idx = (code_num * 31 + part + offset) % len(VERIFIED_CDN_VIDEO_POOL)
-            pool_url = VERIFIED_CDN_VIDEO_POOL[idx].get("url")
-            if pool_url:
-                saved = await asilmedia_service.download_video_stream(pool_url, dest)
-                if saved and saved.exists() and saved.stat().st_size >= 1024:
-                    return saved
-        return None
+        return await MovieService.download_movie_from_asilmedia(code, part, destination_dir=v_dir)
 
     @staticmethod
     async def download_movie_from_asilmedia(
@@ -1677,23 +1646,45 @@ class MovieService:
         source = MovieService.resolve_video_source(code, part=part, allow_default=False)
         video_url = None
         if source:
-            video_url = source.get("url") or source.get("download_url")
+            u_cand = source.get("url") or source.get("download_url")
+            # HTML sahifalarni (sayt.php, .html) to'g'ridan-to'g'ri video oqimi deb hisoblamaslik
+            if u_cand and not any(h in u_cand for h in ["sayt.php", ".html", "server.asilmedia.org/watch"]):
+                video_url = u_cand
 
         if not video_url:
-            sync_res = await MovieService.sync_movie_from_asilmedia(code)
-            if sync_res.get("success"):
-                source = MovieService.resolve_video_source(code, part=part, allow_default=False)
-                if source:
-                    video_url = source.get("url") or source.get("download_url")
+            movie_det = await asilmedia_service.get_movie_details(code)
+            if movie_det:
+                video_url = (
+                    movie_det.video_sources.get("480p")
+                    or movie_det.video_sources.get("720p")
+                    or movie_det.video_sources.get("1080p")
+                    or movie_det.video_sources.get("primary")
+                )
 
         saved_file = None
-        # Agar to'g'ridan-to'g'ri MP4 oqim bo'lsa
-        if video_url and video_url.startswith("http") and not any(h in video_url for h in ["server.asilmedia.org", "fayllar.com"]):
-            saved_file = await asilmedia_service.download_video_stream(video_url, dest_path)
-
-        # Agar to'g'ridan-to'g'ri MP4 olinmasa (Asilmedia web player HTML qaytarsa), zaxira yuqori sifatli video fayl tayyorlanadi
-        if not saved_file or not saved_file.exists() or saved_file.stat().st_size < 1024:
-            saved_file = await MovieService._prepare_fallback_video_file(code, part, dest_path)
+        if video_url and str(video_url).startswith("http") and "server.asilmedia.org" not in str(video_url):
+            saved_file = await asilmedia_service.download_video_stream(video_url, dest_path, max_bytes=25 * 1024 * 1024)
+            if saved_file and saved_file.exists() and saved_file.stat().st_size >= 100 * 1024:
+                try:
+                    import imageio_ffmpeg
+                    ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
+                    fast_dest = dest_path.with_name(f"fast_{dest_path.name}")
+                    cmd = [
+                        ffmpeg_exe, "-y", "-i", str(saved_file),
+                        "-t", "45", "-c", "copy", "-movflags", "+faststart",
+                        str(fast_dest)
+                    ]
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL
+                    )
+                    await proc.wait()
+                    if fast_dest.exists() and fast_dest.stat().st_size >= 100 * 1024:
+                        if saved_file.exists():
+                            saved_file.unlink()
+                        fast_dest.rename(dest_path)
+                        saved_file = dest_path
+                except Exception as fe:
+                    logger.debug(f"Faststart remux error: {fe}")
 
         if saved_file and saved_file.exists():
             sources_file = base_dir / "data" / "video_sources.json"

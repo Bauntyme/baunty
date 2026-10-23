@@ -936,7 +936,7 @@ async def handle_asil_item(request: web.Request) -> web.Response:
                 "desc": sanitize_catalog_text(movie.description or ""),
                 "dur": movie.duration or "",
                 "lang": "O'zbek",
-                "watch": movie.url,
+                "watch": movie.watch_url or movie.url,
                 "url": movie.url,
                 "files": files
             }
@@ -1011,6 +1011,12 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                 else:
                     file_list = cached_item.get("files") or cached_item.get("f") or []
                     if isinstance(file_list, list):
+                        is_single_film = (
+                            cached_item.get("is_series") is False
+                            or cached_item.get("type") == "film"
+                            or int(cached_item.get("parts") or cached_item.get("p") or 1) <= 1
+                            or all(not re.search(r'(?:qism|part|ep|seriya|taksi|forsaj|chuqur|titan)[\s\-—–]*\d+', f"{fl.get('label', '')} {fl.get('note', '')}", re.IGNORECASE) for fl in file_list if isinstance(fl, dict))
+                        )
                         for idx, fl in enumerate(file_list):
                             if isinstance(fl, dict) and (fl.get("s") == slot or fl.get("slot") == slot):
                                 ep_num = fl.get("part") or fl.get("p") or fl.get("e")
@@ -1027,10 +1033,10 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                                 if m_part:
                                     part = int(m_part.group(1))
                                     break
-                                part = idx + 1
+                                part = 1 if is_single_film else idx + 1
                                 break
                             elif fl == slot:
-                                part = idx + 1
+                                part = 1 if is_single_film else idx + 1
                                 break
         except Exception as sle:
             logger.debug("Slot to part resolution error: %s", sle)
@@ -1129,6 +1135,75 @@ async def handle_asil_send(request: web.Request) -> web.Response:
     else:
         return web.json_response({"ok": True, "delivered": True, "id": item_id, "part": part, "mock": True})
 
+
+async def handle_asil_stream(request: web.Request) -> web.Response:
+    """
+    Kino yoki serial qismini to'g'ridan-to'g'ri o'ynatish / stream qilish (Web App pleyeri uchun).
+    Parametrlar: id (kino ID), part (qism raqami, default 1), quality (sifat, default '1080p')
+    """
+    item_id = request.query.get("id") or request.query.get("code") or ""
+    part_str = request.query.get("part", "1")
+    quality = request.query.get("quality", "1080p")
+    try:
+        part = int(part_str)
+    except (ValueError, TypeError):
+        part = 1
+
+    clean_id = str(item_id).strip().lstrip("#№")
+    if not clean_id:
+        return web.json_response({"ok": False, "error": "id parameter required"}, status=400)
+
+    # 1. Lokal video fayl mavjud bo'lsa (data/videos/{code}_{part}.mp4)
+    v_dir = BASE_DIR / "data" / "videos"
+    for cand in [v_dir / f"{clean_id}_{part}.mp4", v_dir / f"{clean_id}.mp4"]:
+        if cand.exists() and cand.stat().st_size >= 1024:
+            return web.FileResponse(cand)
+
+    # 2. Asilmedia orqali Telegram pleyer yoki fayllar stream havolasini olish
+    try:
+        from services.asilmedia_service import asilmedia_service
+        movie = await asilmedia_service.get_movie_details(clean_id)
+        if movie:
+            watch_url = None
+            if part in movie.episodes:
+                ep = movie.episodes[part]
+                watch_url = ep.watch_url or ep.url
+            if not watch_url:
+                watch_url = (
+                    movie.watch_url
+                    or movie.video_sources.get(f"tg_{quality}")
+                    or movie.video_sources.get(quality)
+                    or movie.video_sources.get("tg_1080p")
+                    or movie.video_sources.get("1080p")
+                    or movie.video_sources.get("primary")
+                    or (list(movie.video_sources.values())[0] if movie.video_sources else None)
+                )
+            if watch_url and str(watch_url).startswith("http"):
+                raise web.HTTPFound(watch_url)
+    except web.HTTPFound:
+        raise
+    except Exception as e:
+        logger.debug("handle_asil_stream lookup error: %s", e)
+
+    # 3. Upstream /api/asil/item orqali qidirish
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as cl:
+            async with cl.get(
+                f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(clean_id)}",
+                timeout=aiohttp.ClientTimeout(total=3.0)
+            ) as ir:
+                if ir.status == 200:
+                    ir_data = await ir.json()
+                    it = ir_data.get("item")
+                    if it and it.get("watch") and str(it["watch"]).startswith("http"):
+                        raise web.HTTPFound(it["watch"])
+    except web.HTTPFound:
+        raise
+    except Exception:
+        pass
+
+    return web.json_response({"ok": False, "error": "Stream not found", "id": clean_id, "part": part}, status=404)
 
 
 async def handle_watch(request: web.Request) -> web.Response:
@@ -2593,6 +2668,7 @@ def create_web_app() -> web.Application:
         ("GET", "/api/asil/colls", handle_asil_colls),
         ("GET", "/api/asil/coll", handle_asil_coll),
         ("POST", "/api/asil/send", handle_asil_send),
+        ("GET", "/api/asil/stream", handle_asil_stream),
         ("GET", "/api/rasxod", handle_upstream_api_proxy),
         ("GET", "/api/rasxod/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/rasxod/{tail:.*}", handle_upstream_api_proxy),

@@ -1,6 +1,13 @@
 {
   "items": [
     {
+      "c": "7771",
+      "t": "Baunty Yangi Kino",
+      "d": "Kino tavsifi @Bauntyfilmsbot va @BauntyFilms",
+      "v": 1000,
+      "y": 2025
+    },
+    {
       "c": 11637,
       "t": "Ruhshunos",
       "p": 10,
@@ -100,17 +107,6 @@
       "type": "serial"
     },
     {
-      "c": 18440,
-      "t": "Najot shifoxonasi",
-      "p": 10,
-      "v": 2500,
-      "d": "🎬 <b>Najot shifoxonasi</b> (2016)\n\n🎭 <b>Janr:</b> Drama, Melodrama\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
-      "a": 18440,
-      "i": 18440,
-      "p_url": "https://asilmedia.org/rasmlar/images/2026/08/13/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-08-14-020149-1.webp",
-      "type": "serial"
-    },
-    {
       "c": 18581,
       "t": "Jonajon uy: Qayta tug'ilish",
       "p": 1,
@@ -120,6 +116,17 @@
       "i": 18581,
       "p_url": "https://asilmedia.org/rasmlar/images/2026/10/17/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-10-17-172416-1.webp",
       "type": "film"
+    },
+    {
+      "c": 18440,
+      "t": "Najot shifoxonasi",
+      "p": 10,
+      "v": 2500,
+      "d": "🎬 <b>Najot shifoxonasi</b> (2016)\n\n🎭 <b>Janr:</b> Drama, Melodrama\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 18440,
+      "i": 18440,
+      "p_url": "https://asilmedia.org/rasmlar/images/2026/08/13/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-08-14-020149-1.webp",
+      "type": "serial"
     },
     {
       "c": 5687,
@@ -219,6 +226,17 @@
       "i": 18314,
       "p_url": "https://asilmedia.org/rasmlar/images/2026/05/19/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-05-20-035114-1.webp",
       "type": "serial"
+    },
+    {
+      "c": 18664,
+      "t": "Sevishingni isbotla",
+      "p": 1,
+      "v": 2500,
+      "d": "🎬 <b>Sevishingni isbotla</b> (2025)\n\n🎭 <b>Janr:</b> Drama, Sarguzasht\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 18664,
+      "i": 18664,
+      "p_url": "https://asilmedia.org/rasmlar/images/2026/10/23/posterabc7881c476d2f81.webp",
+      "type": "film"
     },
     {
       "c": 18663,
@@ -441,17 +459,6 @@
       "type": "film"
     },
     {
-      "c": 18631,
-      "t": "Matritsadagi nosozlik",
-      "p": 1,
-      "v": 2500,
-      "d": "🎬 <b>Matritsadagi nosozlik</b> (2021)\n\n🎭 <b>Janr:</b> Hujjatli\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
-      "a": 18631,
-      "i": 18631,
-      "p_url": "https://asilmedia.org/rasmlar/images/2026/10/15/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-10-15-162506-1.webp",
-      "type": "film"
-    },
-    {
       "c": 18509,
       "t": "Erta bahor",
       "p": 10,
@@ -650,11 +657,15 @@
       "type": "serial"
     },
     {
-      "c": "7771",
-      "t": "Baunty Yangi Kino",
-      "d": "Kino tavsifi @Bauntyfilmsbot va @BauntyFilms",
-      "v": 1000,
-      "y": 2025
+      "c": 18631,
+      "t": "Matritsadagi nosozlik",
+      "p": 1,
+      "v": 2500,
+      "d": "🎬 <b>Matritsadagi nosozlik</b> (2021)\n\n🎭 <b>Janr:</b> Hujjatli\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 18631,
+      "i": 18631,
+      "p_url": "https://asilmedia.org/rasmlar/images/2026/10/15/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-10-15-162506-1.webp",
+      "type": "film"
     },
     {
       "c": 718,

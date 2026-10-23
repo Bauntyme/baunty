@@ -73,7 +73,7 @@ class Movie(Base):
     code = Column(String(64), unique=True, index=True, nullable=False)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
-    file_id = Column(String(255), nullable=False)
+    file_id = Column(String(255), nullable=True, default="")
     file_type = Column(String(32), default="video", nullable=False)  # video yoki document
     file_size = Column(BigInteger, nullable=True)
     duration = Column(Integer, nullable=True)  # soniyalarda
@@ -98,7 +98,7 @@ class MovieFile(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     movie_code = Column(String(64), index=True, nullable=False)
     part = Column(Integer, default=1, nullable=False)
-    file_id = Column(String(255), nullable=False)
+    file_id = Column(String(255), nullable=True, default="")
     file_type = Column(String(32), default="video", nullable=False)  # video yoki document
     file_size = Column(BigInteger, nullable=True)
     duration = Column(Integer, nullable=True)  # soniyalarda

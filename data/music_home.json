@@ -64,13 +64,6 @@
       "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
-      "id": "GBo8GADWvU8",
-      "t": "Saidxon UZ– Yor Yig‘laydi ❤️ | Uzbek Romantic Music 2026",
-      "a": "ENG SARA QO'SHIQLAR",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=GBo8GADWvU8"
-    },
-    {
       "id": "2353",
       "t": "той боб кушиклар Хар хилидан",
       "a": "Кургонтепа Савай-2булим",
@@ -80,6 +73,13 @@
       "m": 1,
       "y": "cRgsDIFWi48",
       "lib": 1
+    },
+    {
+      "id": "GBo8GADWvU8",
+      "t": "Saidxon UZ– Yor Yig‘laydi ❤️ | Uzbek Romantic Music 2026",
+      "a": "ENG SARA QO'SHIQLAR",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=GBo8GADWvU8"
     },
     {
       "id": "2362",
@@ -118,11 +118,15 @@
       "lib": 1
     },
     {
-      "id": "lzOMmTzrkko",
-      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
+      "id": "1849",
+      "t": "Vafodorim | Иззат Шукуров - Вафодорим",
+      "a": "Izzat Shukurov",
+      "d": 243,
+      "s": "tg",
+      "u": "tg:1849",
+      "m": 1,
+      "y": "VNhZHIxmCmA",
+      "lib": 1
     },
     {
       "id": "36",
@@ -136,15 +140,11 @@
       "lib": 1
     },
     {
-      "id": "1849",
-      "t": "Vafodorim | Иззат Шукуров - Вафодорим",
-      "a": "Izzat Shukurov",
-      "d": 243,
-      "s": "tg",
-      "u": "tg:1849",
-      "m": 1,
-      "y": "VNhZHIxmCmA",
-      "lib": 1
+      "id": "lzOMmTzrkko",
+      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
     },
     {
       "id": "423",
@@ -158,13 +158,6 @@
       "lib": 1
     },
     {
-      "id": "1tcAwAt7kiQ",
-      "t": "Ozoda Nursaidova - Boshimni balosi | Озода Нурсаидова - Бошимни балоси",
-      "a": "Sevimli TV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=1tcAwAt7kiQ"
-    },
-    {
       "id": "2959",
       "t": "Izzat Shukurov, G’aybulla Tursunov va Abbose - Popuri (Bolalar qo'shiqlari)",
       "a": "Sevimli TV",
@@ -173,6 +166,17 @@
       "u": "tg:2959",
       "m": 1,
       "y": "h4t8VdTkMvM",
+      "lib": 1
+    },
+    {
+      "id": "2003",
+      "t": "Boshimni balosi | Озода Нурсаидова - Бошимни балоси",
+      "a": "Ozoda Nursaidova",
+      "d": 175,
+      "s": "tg",
+      "u": "tg:2003",
+      "m": 1,
+      "y": "1tcAwAt7kiQ",
       "lib": 1
     },
     {
@@ -205,13 +209,6 @@
       "lib": 1
     },
     {
-      "id": "Hf4Ng5aror4",
-      "t": "Jaloliddin Ahmadaliyev - Erkam (Official Music Video)",
-      "a": "NevoMusic",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=Hf4Ng5aror4"
-    },
-    {
       "id": "2329",
       "t": "MASHINA UCHUN BASS QO'SHIQLAR DODASI ! Крутая Музыка в Машину ! Naushnik ovozini polniy ko'taring.",
       "a": "Dark Hous uz",
@@ -221,6 +218,13 @@
       "m": 1,
       "y": "Y7fNT2WiYUo",
       "lib": 1
+    },
+    {
+      "id": "Hf4Ng5aror4",
+      "t": "Jaloliddin Ahmadaliyev - Erkam (Videoklip)",
+      "a": "NevoMusic",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=Hf4Ng5aror4"
     },
     {
       "id": "2364",
@@ -234,31 +238,6 @@
       "lib": 1
     },
     {
-      "id": "2416",
-      "t": "MASSA Feat. DITTO - Welcome To Dubai (Official Music Video)",
-      "a": "Massa and dittouz",
-      "d": 200,
-      "s": "tg",
-      "u": "tg:2416",
-      "m": 1,
-      "y": "iwcqAfHLWI8",
-      "lib": 1
-    },
-    {
-      "id": "CRM13i0dEQo",
-      "t": "G'aybulla Tursunov - Quralay (Konsert Version 2025)",
-      "a": "G'aybulla Tursunov",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=CRM13i0dEQo"
-    },
-    {
-      "id": "vSA7yMrTETg",
-      "t": "Xamdam Sobirov - Peshta / Хамдам Собиров - Пешта / Video Klip",
-      "a": "Xamdam Sobirov and Muzalar",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=vSA7yMrTETg"
-    },
-    {
       "id": "578",
       "t": "Ikkimizni sevgimiz",
       "a": "Gulasal Abdullayeva",
@@ -268,6 +247,13 @@
       "m": 1,
       "y": "HUJpeEZuhbc",
       "lib": 1
+    },
+    {
+      "id": "vSA7yMrTETg",
+      "t": "Xamdam Sobirov - Peshta / Хамдам Собиров - Пешта / Video Klip",
+      "a": "Xamdam Sobirov and Muzalar",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=vSA7yMrTETg"
     },
     {
       "id": "2471",
@@ -281,6 +267,13 @@
       "lib": 1
     },
     {
+      "id": "CRM13i0dEQo",
+      "t": "G'aybulla Tursunov - Quralay (Konsert Version 2025)",
+      "a": "G'aybulla Tursunov",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=CRM13i0dEQo"
+    },
+    {
       "id": "2415",
       "t": "SPORT UCHUN MUSIQA ,🏋️‍♂️ UDAR TREK",
       "a": "GRAND MUSIC",
@@ -289,6 +282,17 @@
       "u": "tg:2415",
       "m": 1,
       "y": "VXZtxrqSwto",
+      "lib": 1
+    },
+    {
+      "id": "576",
+      "t": "Dil yig‘lar",
+      "a": "Izzat Shukurov ft. Rayhon",
+      "d": 214,
+      "s": "tg",
+      "u": "tg:576",
+      "m": 1,
+      "y": "rv7H2wgZbVI",
       "lib": 1
     },
     {
@@ -306,24 +310,6 @@
       "u": "https://www.youtube.com/watch?v=-USRi1AROrc"
     },
     {
-      "id": "576",
-      "t": "Dil yig‘lar",
-      "a": "Izzat Shukurov ft. Rayhon",
-      "d": 214,
-      "s": "tg",
-      "u": "tg:576",
-      "m": 1,
-      "y": "rv7H2wgZbVI",
-      "lib": 1
-    },
-    {
-      "id": "ahGCYX_atmY",
-      "t": "Jasmin - Izlama (Mood Video)",
-      "a": "Jasmin",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=ahGCYX_atmY"
-    },
-    {
       "id": "2354",
       "t": "#🤵👰. TO'YLAR MUBORAK 🤵👩‍🏭# ( REMIX ) 2021",
       "a": "TAYLONOV RUSTAM",
@@ -332,24 +318,6 @@
       "u": "tg:2354",
       "m": 1,
       "y": "IRPWIhh0ht4",
-      "lib": 1
-    },
-    {
-      "id": "Jvx7s7UqaPo",
-      "t": "Indi - Aytolmayman | Инди - Айтолмайман",
-      "a": "RizaNovaUZ",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=Jvx7s7UqaPo"
-    },
-    {
-      "id": "2351",
-      "t": "Qani yana qaytib kelsa 18 yoshim REMIX ( Cover Odilov Otabek ) | REMIX by XonSaroy Prod",
-      "a": "XON-SAROY Records",
-      "d": 222,
-      "s": "tg",
-      "u": "tg:2351",
-      "m": 1,
-      "y": "1Qp1gOp3cMU",
       "lib": 1
     },
     {
@@ -364,6 +332,35 @@
       "lib": 1
     },
     {
+      "id": "ahGCYX_atmY",
+      "t": "Jasmin - Izlama (Mood Video)",
+      "a": "Jasmin",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=ahGCYX_atmY"
+    },
+    {
+      "id": "2351",
+      "t": "Qani yana qaytib kelsa 18 yoshim REMIX ( Cover Odilov Otabek ) | REMIX by XonSaroy Prod",
+      "a": "XON-SAROY Records",
+      "d": 222,
+      "s": "tg",
+      "u": "tg:2351",
+      "m": 1,
+      "y": "1Qp1gOp3cMU",
+      "lib": 1
+    },
+    {
+      "id": "3213",
+      "t": "Xurshid Rasulov - Uzoqlashib ketyapmiz | Хуршид Расулов - Узоклашиб кетяпмиз (AUDIO)",
+      "a": "RizaNovaUZ",
+      "d": 272,
+      "s": "tg",
+      "u": "tg:3213",
+      "m": 1,
+      "y": "vg__93uwXBo",
+      "lib": 1
+    },
+    {
       "id": "2356",
       "t": "Bunyodbek Saidov Eng ko’p so’ralgan xit qo’shiqlari davrani yondirdi",
       "a": "Bunyodbek Saidov",
@@ -375,11 +372,11 @@
       "lib": 1
     },
     {
-      "id": "Bw5ohaQgBHM",
-      "t": "Gulinur & Ulug'bek Yulchiyev - Qaymog'im (Official Music Video 2024)",
-      "a": "Gulinur",
+      "id": "Jvx7s7UqaPo",
+      "t": "Indi - Aytolmayman | Инди - Айтолмайман",
+      "a": "RizaNovaUZ",
       "s": "yt",
-      "u": "https://www.youtube.com/watch?v=Bw5ohaQgBHM"
+      "u": "https://www.youtube.com/watch?v=Jvx7s7UqaPo"
     },
     {
       "id": "2310",
@@ -391,6 +388,13 @@
       "m": 1,
       "y": "7PgYnDfsZ-g",
       "lib": 1
+    },
+    {
+      "id": "Bw5ohaQgBHM",
+      "t": "Gulinur & Ulug'bek Yulchiyev - Qaymog'im (Official Music Video 2024)",
+      "a": "Gulinur",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=Bw5ohaQgBHM"
     },
     {
       "id": "MmU1yh0nXUk",
@@ -407,17 +411,6 @@
       "u": "https://www.youtube.com/watch?v=udh6z2CJwvU"
     },
     {
-      "id": "3213",
-      "t": "Xurshid Rasulov - Uzoqlashib ketyapmiz | Хуршид Расулов - Узоклашиб кетяпмиз (AUDIO)",
-      "a": "RizaNovaUZ",
-      "d": 272,
-      "s": "tg",
-      "u": "tg:3213",
-      "m": 1,
-      "y": "vg__93uwXBo",
-      "lib": 1
-    },
-    {
       "id": "2337",
       "t": "To'y boshilar o'ynasin. to'y bop qo'shiqlar N 5",
       "a": "Abrorbek95 ( ОНАМГА СОВҒА лойихаси)",
@@ -427,13 +420,6 @@
       "m": 1,
       "y": "3L4dbUHVRas",
       "lib": 1
-    },
-    {
-      "id": "nRhKjGca7vE",
-      "t": "RELENTLESS 🔥 | Gym Motivation | Motivational Songs 🔥",
-      "a": "Alpha Division",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=nRhKjGca7vE"
     },
     {
       "id": "XX-73BtAd5E",
@@ -454,6 +440,13 @@
       "lib": 1
     },
     {
+      "id": "nRhKjGca7vE",
+      "t": "RELENTLESS 🔥 | Gym Motivation | Motivational Songs 🔥",
+      "a": "Alpha Division",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=nRhKjGca7vE"
+    },
+    {
       "id": "KlSm6lTyotg",
       "t": "Uzoqlarga Ketgim Keladi | Yurakka Yetib Boradigan Dardli Qo'shiq",
       "a": "Gendora",
@@ -466,6 +459,17 @@
       "a": "Sevinch Ismoilova",
       "s": "yt",
       "u": "https://www.youtube.com/watch?v=Unqc6rSiTys"
+    },
+    {
+      "id": "2890",
+      "t": "Xamdam Sobirov - Peshta remix 🔥🔥🔥",
+      "a": "Dinamusik77",
+      "d": 184,
+      "s": "tg",
+      "u": "tg:2890",
+      "m": 1,
+      "y": "PUF4N100KMM",
+      "lib": 1
     }
   ],
   "hero": [
@@ -534,13 +538,6 @@
       "u": "https://www.youtube.com/watch?v=tdCjVMAAdxw"
     },
     {
-      "id": "GBo8GADWvU8",
-      "t": "Saidxon UZ– Yor Yig‘laydi ❤️ | Uzbek Romantic Music 2026",
-      "a": "ENG SARA QO'SHIQLAR",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=GBo8GADWvU8"
-    },
-    {
       "id": "2353",
       "t": "той боб кушиклар Хар хилидан",
       "a": "Кургонтепа Савай-2булим",
@@ -550,6 +547,13 @@
       "m": 1,
       "y": "cRgsDIFWi48",
       "lib": 1
+    },
+    {
+      "id": "GBo8GADWvU8",
+      "t": "Saidxon UZ– Yor Yig‘laydi ❤️ | Uzbek Romantic Music 2026",
+      "a": "ENG SARA QO'SHIQLAR",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=GBo8GADWvU8"
     },
     {
       "id": "2362",
@@ -588,11 +592,15 @@
       "lib": 1
     },
     {
-      "id": "lzOMmTzrkko",
-      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
-      "a": "IZZAT SHUKUROV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
+      "id": "1849",
+      "t": "Vafodorim | Иззат Шукуров - Вафодорим",
+      "a": "Izzat Shukurov",
+      "d": 243,
+      "s": "tg",
+      "u": "tg:1849",
+      "m": 1,
+      "y": "VNhZHIxmCmA",
+      "lib": 1
     },
     {
       "id": "36",
@@ -606,15 +614,11 @@
       "lib": 1
     },
     {
-      "id": "1849",
-      "t": "Vafodorim | Иззат Шукуров - Вафодорим",
-      "a": "Izzat Shukurov",
-      "d": 243,
-      "s": "tg",
-      "u": "tg:1849",
-      "m": 1,
-      "y": "VNhZHIxmCmA",
-      "lib": 1
+      "id": "lzOMmTzrkko",
+      "t": "Izzat Shukurov - Qizim // Vafodorim 2 (Official Video Clip)",
+      "a": "IZZAT SHUKUROV",
+      "s": "yt",
+      "u": "https://www.youtube.com/watch?v=lzOMmTzrkko"
     },
     {
       "id": "423",
@@ -628,13 +632,6 @@
       "lib": 1
     },
     {
-      "id": "1tcAwAt7kiQ",
-      "t": "Ozoda Nursaidova - Boshimni balosi | Озода Нурсаидова - Бошимни балоси",
-      "a": "Sevimli TV",
-      "s": "yt",
-      "u": "https://www.youtube.com/watch?v=1tcAwAt7kiQ"
-    },
-    {
       "id": "2959",
       "t": "Izzat Shukurov, G’aybulla Tursunov va Abbose - Popuri (Bolalar qo'shiqlari)",
       "a": "Sevimli TV",
@@ -643,6 +640,17 @@
       "u": "tg:2959",
       "m": 1,
       "y": "h4t8VdTkMvM",
+      "lib": 1
+    },
+    {
+      "id": "2003",
+      "t": "Boshimni balosi | Озода Нурсаидова - Бошимни балоси",
+      "a": "Ozoda Nursaidova",
+      "d": 175,
+      "s": "tg",
+      "u": "tg:2003",
+      "m": 1,
+      "y": "1tcAwAt7kiQ",
       "lib": 1
     },
     {
@@ -811,25 +819,10 @@
       }
     },
     {
-      "n": "Sevimli TV",
-      "it": {
-        "id": "1tcAwAt7kiQ",
-        "s": "yt"
-      }
-    },
-    {
       "n": "RizaNovaUZ",
       "it": {
         "id": "-USRi1AROrc",
         "s": "yt"
-      }
-    },
-    {
-      "n": "Xurshid Rasulov",
-      "it": {
-        "id": "1091",
-        "s": "tg",
-        "y": "quYHz2RBY70"
       }
     },
     {
@@ -838,6 +831,14 @@
         "id": "2326",
         "s": "tg",
         "y": "JLzpHswNMTM"
+      }
+    },
+    {
+      "n": "Xurshid Rasulov",
+      "it": {
+        "id": "1091",
+        "s": "tg",
+        "y": "quYHz2RBY70"
       }
     },
     {
@@ -865,18 +866,18 @@
       }
     },
     {
-      "n": "ENG SARA QO'SHIQLAR",
-      "it": {
-        "id": "GBo8GADWvU8",
-        "s": "yt"
-      }
-    },
-    {
       "n": "Кургонтепа Савай-2булим",
       "it": {
         "id": "2353",
         "s": "tg",
         "y": "cRgsDIFWi48"
+      }
+    },
+    {
+      "n": "ENG SARA QO'SHIQLAR",
+      "it": {
+        "id": "GBo8GADWvU8",
+        "s": "yt"
       }
     },
     {
@@ -891,6 +892,13 @@
       "n": "Dreams by dlej",
       "it": {
         "id": "YA8PBoIRkIg",
+        "s": "yt"
+      }
+    },
+    {
+      "n": "Munisa Rizayeva and RizaNovaUZ",
+      "it": {
+        "id": "sZZW0o9iP8M",
         "s": "yt"
       }
     }
