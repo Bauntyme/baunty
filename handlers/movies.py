@@ -809,6 +809,7 @@ async def cmd_browser(message: Message) -> None:
     telekanallari (1440p QHD) va o'yinlariga tezkor ulanish.
     Foydalanuvchi /browser @Bauntyfilmsbot, /browser asilmedia.org yoki /browser <kino> yozganda ham to'g'ri bog'lanadi.
     """
+    import asyncio
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     raw_args = message.text.split(maxsplit=1)
     arg = raw_args[1].strip() if len(raw_args) > 1 else ""
@@ -816,12 +817,14 @@ async def cmd_browser(message: Message) -> None:
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
 
+    clean_arg = re.sub(r"^@\w+\s*", "", arg).strip()
+
     # 1. Asilmedia portali yoki Asilmedia qidiruvi (/browser asilmedia.org ...)
-    if "asilmedia" in arg.lower():
+    if "asilmedia" in clean_arg.lower():
         clean_query = re.sub(
             r"^(?:https?://)?(?:www\.)?asilmedia\.(?:org|net|uz|tv)\s*",
             "",
-            arg,
+            clean_arg,
             flags=re.IGNORECASE
         ).strip()
         clean_query = re.sub(r"^asilmedia\s*", "", clean_query, flags=re.IGNORECASE).strip()
@@ -971,9 +974,9 @@ async def cmd_browser(message: Message) -> None:
         await message.reply(asil_text, parse_mode="HTML", reply_markup=asil_kb)
         return
 
-    # 2. Umumiy kino kodi / nomi
-    if arg and not arg.startswith("@"):
-        extracted = extract_movie_code_and_part(arg)
+    # 2. Umumiy kino kodi / nomi berilgan bo'lsa
+    if clean_arg:
+        extracted = extract_movie_code_and_part(clean_arg)
         if extracted:
             code, part = extracted
             delivered = await movie_service.deliver_movie(
@@ -986,6 +989,26 @@ async def cmd_browser(message: Message) -> None:
             if delivered:
                 return
 
+        # Nomi bo'yicha qidirib ko'rish
+        try:
+            from services.asilmedia_service import asilmedia_service
+            asil_movie = await asilmedia_service.find_best_match(clean_arg)
+            if asil_movie:
+                delivered = await movie_service.deliver_movie(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    code=str(asil_movie.id),
+                    part=1,
+                    reply_to_message_id=message.message_id
+                )
+                if delivered:
+                    return
+        except Exception as ae:
+            logger.debug(f"Live search error in cmd_browser: {ae}")
+
+    # 3. /browser yoki /browser @bot argumensiz bo'lganda orqa fonda sinxronlash va to'liq menyu
+    asyncio.create_task(movie_service.sync_catalog_from_upstream())
+
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -993,6 +1016,26 @@ async def cmd_browser(message: Message) -> None:
                     text="🍿 Web App Brauzerni Ochish",
                     web_app=WebAppInfo(url=webapp_url)
                 )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🚕 Taksi (1-5)",
+                    callback_data="watch_part:718:1"
+                ),
+                InlineKeyboardButton(
+                    text="⚔️ Titanlar hujumi",
+                    callback_data="watch_part:717:1"
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🔫 Chuqur (131 qism)",
+                    callback_data="watch_part:287:1"
+                ),
+                InlineKeyboardButton(
+                    text="🏎️ Forsaj (1-11)",
+                    callback_data="watch_part:1500:1"
+                ),
             ],
             [
                 InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
@@ -1010,11 +1053,16 @@ async def cmd_browser(message: Message) -> None:
     text = (
         "🌐 <b>Bauntys Web App Brauzeriga xush kelibsiz!</b>\n\n"
         "Barcha yangi premyeralar, 1500+ kinolar va ko'p qismli seriallar "
-        "(Chuqur, Attack on Titan va b.), 150+ telekanallar (1440p QHD / 1080p) "
-        "hamda 50+ o'yinlar yagona portalda jamlangan!\n\n"
+        "(Taksi 1-5, Titanlar hujumi, Chuqur, Forsaj va boshqalar), "
+        "150+ telekanallar (1440p QHD / 1080p) hamda 50+ o'yinlar yagona portalda jamlangan!\n\n"
+        "🎬 <b>Ommabop kinolar va to'plamlar:</b>\n"
+        "🚕 <b>Taksi 1-5</b> — barcha qismlari (kod: <code>718</code>)\n"
+        "⚔️ <b>Titanlar hujumi</b> — 54 qism (kod: <code>717</code>)\n"
+        "🔫 <b>Chuqur</b> — 131 qism (kod: <code>287</code>)\n"
+        "🏎️ <b>Forsaj</b> — 1-11 qismlari (kod: <code>1500</code>)\n\n"
         f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
         f"🍿 <b>Kino kanalimiz:</b> @{channel_name}\n\n"
-        "Quyidagi tugma orqali Web App brauzerni oching:"
+        "Quyidagi tugmalar orqali tomosha qiling yoki Web App brauzerni oching:"
     )
     await message.reply(text, parse_mode="HTML", reply_markup=kb)
 

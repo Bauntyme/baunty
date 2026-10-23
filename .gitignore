@@ -14,5 +14,8 @@ scratch/
 data/posters/*.webp
 data/bk/
 data/videos/*.mp4
+!data/videos/default.mp4
+!data/videos/.gitkeep
 *.mp4
+!data/videos/default.mp4
 

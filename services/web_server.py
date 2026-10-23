@@ -993,13 +993,23 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                         if ir.status == 200:
                             ir_data = await ir.json()
                             cached_item = ir_data.get("item")
-            if cached_item and "seasons" in cached_item:
-                for s in cached_item.get("seasons", []):
-                    for ep in s.get("eps", []):
-                        for fl in ep.get("f", []):
-                            if fl.get("s") == slot:
-                                part = int(ep.get("e") or 1)
-                                break
+            if cached_item:
+                if "seasons" in cached_item:
+                    for s in cached_item.get("seasons", []):
+                        for ep in s.get("eps", []):
+                            for fl in ep.get("f", []):
+                                if fl.get("s") == slot:
+                                    part = int(ep.get("e") or 1)
+                                    break
+                file_list = cached_item.get("files") or cached_item.get("f") or []
+                if isinstance(file_list, list):
+                    for idx, fl in enumerate(file_list):
+                        if isinstance(fl, dict) and (fl.get("s") == slot or fl.get("slot") == slot):
+                            part = idx + 1
+                            break
+                        elif fl == slot:
+                            part = idx + 1
+                            break
         except Exception as sle:
             logger.debug("Slot to part resolution error: %s", sle)
 

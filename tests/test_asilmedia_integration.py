@@ -658,4 +658,101 @@ async def test_dynamic_asilmedia_sync_on_uncataloged_code(in_memory_session):
         assert mock_sync.call_count >= 1
 
 
+@pytest.mark.asyncio
+async def test_cmd_browser_upstream_bot_mention_deliver_movie():
+    """/browser @Zakirovsfilms_bot Taksi 2 buyrug'i @bot prefiksini tozalab darhol deliver_movie chaqirishi testi."""
+    from handlers.movies import cmd_browser
+    msg_mock = AsyncMock()
+    msg_mock.chat = MagicMock(id=123456)
+    msg_mock.from_user = MagicMock(id=123456)
+    msg_mock.message_id = 1001
+    msg_mock.reply = AsyncMock()
+    msg_mock.text = "/browser @Zakirovsfilms_bot Taksi 2"
+
+    with patch("services.movie_service.movie_service.deliver_movie", new_callable=AsyncMock) as mock_deliv:
+        mock_deliv.return_value = True
+        await cmd_browser(msg_mock)
+        mock_deliv.assert_called_once()
+        _, kwargs = mock_deliv.call_args
+        assert kwargs.get("code") == "718"
+        assert kwargs.get("part") == 2
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_upstream_bot_mention_catalog_menu():
+    """/browser @Zakirovsfilms_bot buyrug'i boyitilgan katalog menyusi va sinxronizatsiyani ishga tushirishi testi."""
+    from handlers.movies import cmd_browser
+    msg_mock = AsyncMock()
+    msg_mock.chat = MagicMock(id=123456)
+    msg_mock.from_user = MagicMock(id=123456)
+    msg_mock.message_id = 1002
+    msg_mock.reply = AsyncMock()
+    msg_mock.text = "/browser @Zakirovsfilms_bot"
+
+    with patch.object(MovieService, "sync_catalog_from_upstream", new_callable=AsyncMock) as mock_sync:
+        await cmd_browser(msg_mock)
+        assert msg_mock.reply.called
+        reply_args = msg_mock.reply.call_args
+        menu_text = reply_args.args[0] if reply_args.args else reply_args.kwargs.get("text", "")
+        assert "Bauntys Web App Brauzeriga xush kelibsiz" in menu_text
+        assert "Taksi 1-5" in menu_text
+        assert "Titanlar" in menu_text
+        assert "Chuqur" in menu_text
+        assert "Forsaj" in menu_text
+        assert "Zakirov" not in menu_text
+        assert "dilbarzakirova" not in menu_text
+        kb = reply_args.kwargs.get("reply_markup")
+        assert kb is not None
+        # Tugmalar tekshiruvi (watch_part:718:1, 717:1, 287:1, 1500:1)
+        all_cb_data = [btn.callback_data for row in kb.inline_keyboard for btn in row if btn.callback_data]
+        assert "watch_part:718:1" in all_cb_data
+        assert "watch_part:717:1" in all_cb_data
+        assert "watch_part:287:1" in all_cb_data
+        assert "watch_part:1500:1" in all_cb_data
+
+
+@pytest.mark.asyncio
+async def test_deliver_movie_franchise_alias_codes(in_memory_session):
+    """Asilmedia ID lari (9165, 16913, 18281, 14902) orqali kinoni muvaffaqiyatli yetkazish va Bauntys brendi testi."""
+    bot_mock = AsyncMock()
+    mock_sent = MagicMock()
+    mock_sent.video = MagicMock(file_id="BAACAgIAAxkBAAE_FRANCHISE_ALIAS_FID", duration=120, file_size=1000000)
+    mock_sent.document = None
+    bot_mock.send_video = AsyncMock(return_value=mock_sent)
+
+    for asil_code, expected_part in [("9165", 1), ("16913", 1), ("18281", 1), ("14902", 1)]:
+        bot_mock.send_video.reset_mock()
+        res = await MovieService.deliver_movie(
+            bot=bot_mock,
+            chat_id=777888,
+            code=asil_code,
+            part=expected_part,
+            session=in_memory_session
+        )
+        assert res is True
+        assert bot_mock.send_video.called
+        kwargs = bot_mock.send_video.call_args.kwargs
+        assert kwargs.get("supports_streaming") is True
+        caption = kwargs.get("caption", "")
+        assert "@Baunty" in caption
+        assert "Zakirov" not in caption
+        assert "dilbarzakirova" not in caption
+
+
+@pytest.mark.asyncio
+async def test_generate_instant_movie_video(tmp_path, monkeypatch):
+    """generate_instant_movie_video yaroqli lokal MP4 video yaratishi testi."""
+    v_dir = tmp_path / "data" / "videos"
+    v_dir.mkdir(parents=True, exist_ok=True)
+    def_vid = v_dir / "default.mp4"
+    def_vid.write_bytes(b"\x00" * 2048)
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
+
+    gen_path = await MovieService.generate_instant_movie_video("9999", part=1)
+    assert gen_path is not None
+    assert gen_path.exists()
+    assert gen_path.stat().st_size >= 1024
+
+
+
 
