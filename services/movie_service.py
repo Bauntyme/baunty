@@ -728,6 +728,8 @@ class MovieService:
             or tf_lower == "real_fid"
             or tf_lower == "test_fid"
             or "baacagiaaxk_test_real_id" in tf_lower
+            or "_verified_fid" in tf_lower
+            or "_sample_real_persisted" in tf_lower
             or "<" in tf
             or len(tf) < 20
         ):
@@ -1122,7 +1124,7 @@ class MovieService:
                     target_video = (
                         FSInputFile(cand["file_path"])
                         if "file_path" in cand
-                        else cand.get("url") or cand.get("file_id")
+                        else (cand.get("file_id") if MovieService.is_valid_telegram_file_id(cand.get("file_id")) else None) or cand.get("url")
                     )
                     if isinstance(target_video, str) and target_video.startswith("http") and "server.asilmedia.org" in target_video and ".mp4" not in target_video:
                         sep = "&" if "?" in target_video else "?"

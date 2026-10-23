@@ -295,7 +295,7 @@ async def set_movie_video(
     dur_val = int(duration) if isinstance(duration, (int, float)) else None
     fsize_val = int(file_size) if isinstance(file_size, (int, float)) else None
     fid_str = str(file_id).strip()
-    if not fid_str or fid_str.startswith("<"):
+    if not fid_str or fid_str.startswith("<") or fid_str.lower() in ("none", "null"):
         fid_str = ""
 
     if not movie:
@@ -387,9 +387,11 @@ async def save_movie_file(
     dur_val = int(duration) if isinstance(duration, (int, float)) else None
     fsize_val = int(file_size) if isinstance(file_size, (int, float)) else None
     fid_str = str(file_id).strip()
+    if not fid_str or fid_str.startswith("<") or fid_str.lower() in ("none", "null"):
+        fid_str = ""
 
     if mf:
-        if fid_str and not fid_str.startswith("<"):
+        if fid_str:
             mf.file_id = fid_str
         mf.file_type = file_type
         if dur_val is not None:
