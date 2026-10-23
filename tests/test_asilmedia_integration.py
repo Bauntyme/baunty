@@ -754,5 +754,60 @@ async def test_generate_instant_movie_video(tmp_path, monkeypatch):
     assert gen_path.stat().st_size >= 1024
 
 
+@pytest.mark.asyncio
+async def test_slash_commands_plan_goal_boost_devtools_preview():
+    """/plan, /goal, /boost, /chrome-devtools, /teamwork-preview buyruqlari testi."""
+    from handlers.movies import (
+        cmd_plan,
+        cmd_goal,
+        cmd_boost,
+        cmd_chrome_devtools,
+        cmd_teamwork_preview,
+    )
+
+    msg = AsyncMock(spec=Message)
+    msg.reply = AsyncMock()
+
+    commands = [
+        (cmd_plan, "Roadmap"),
+        (cmd_goal, "Goal"),
+        (cmd_boost, "Turbo Boost"),
+        (cmd_chrome_devtools, "DevTools"),
+        (cmd_teamwork_preview, "Teamwork Preview"),
+    ]
+
+    for handler, expected_keyword in commands:
+        msg.reply.reset_mock()
+        await handler(msg)
+        assert msg.reply.called
+        call_args = msg.reply.call_args
+        text = call_args[0][0]
+        kwargs = call_args[1]
+
+        assert kwargs.get("parse_mode") == "HTML"
+        assert expected_keyword in text or "Bauntys" in text
+        assert "Zakirov" not in text
+        assert "dilbarzakirova" not in text
+        assert "@Baunty" in text or "Bauntys" in text
+
+        kb = kwargs.get("reply_markup")
+        assert kb is not None
+        assert len(kb.inline_keyboard) >= 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_video_source_guarantees_local_file():
+    """resolve_video_source barcha asosiy franshizalar uchun yaroqli lokal fayl qaytarishi testi."""
+    import os
+    for code, part in [("718", 1), ("718", 2), ("9165", 1), ("717", 1), ("1500", 1), ("287", 1)]:
+        res = MovieService.resolve_video_source(code, part=part, allow_default=True)
+        assert res is not None
+        fp = res.get("file_path")
+        assert fp is not None, f"file_path missing for {code} part {part}"
+        assert os.path.exists(fp), f"File {fp} does not exist for {code} part {part}"
+        assert os.path.getsize(fp) >= 1024, f"File {fp} is too small"
+
+
+
 
 

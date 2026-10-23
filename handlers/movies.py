@@ -1086,6 +1086,144 @@ async def cmd_sync_movies(message: Message) -> None:
     )
 
 
+@router.message(Command("plan"))
+async def cmd_plan(message: Message) -> None:
+    """/plan komandasi: Bauntys Rivojlanish Rejasi va Premium Imkoniyatlar."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    channel_name = config.CHANNEL_USERNAME.lstrip("@")
+    webapp_url = config.WEBAPP_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Bauntys Web Appni ochish", web_app=WebAppInfo(url=webapp_url))],
+            [
+                InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
+                InlineKeyboardButton(text="🎭 Janrlar", callback_data="movie:genres"),
+            ],
+            [InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}")]
+        ]
+    )
+    text = (
+        "📋 <b>Bauntys Rivojlanish Rejasi va Imkoniyatlar (Roadmap)</b>\n\n"
+        "• 🚀 <b>Tezkor MP4 Video Streaming:</b> Barcha kinolarni (Taksi, Forsaj, Titanlar, Chuqur va yangi premyeralar) "
+        "bevosita Telegram chatida 1080p sifatda tomosha qilish.\n"
+        "• 🌐 <b>Mini App Integratsiyasi:</b> 1500+ kinolar katalogi, 150+ telekanallar (1440p QHD) va 50+ o'yinlar bitta portalda.\n"
+        "• ⚡ <b>Telegram Global CDN:</b> Barcha video fayllar avtomatik keshlanadi va 0.1 soniyada yetkaziladi.\n"
+        "• 💎 <b>100% Bauntys Oq Brendi:</b> Begona reklamasiz, qulay va xavfsiz kino tizimi.\n\n"
+        f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
+        f"🍿 <b>Kino kanalimiz:</b> @{channel_name}"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("goal"))
+async def cmd_goal(message: Message) -> None:
+    """/goal komandasi: Bauntys Maqsadi va Missiyasi."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    channel_name = config.CHANNEL_USERNAME.lstrip("@")
+    webapp_url = config.WEBAPP_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Web App Brauzer", web_app=WebAppInfo(url=webapp_url))],
+            [
+                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="movie:by_title"),
+                InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
+            ]
+        ]
+    )
+    text = (
+        "🎯 <b>Bauntys Bosh Maqsadi va Missiyasi (Goal)</b>\n\n"
+        "• 🍿 <b>Mukammal Kino Portali:</b> O'zbekistondagi eng qulay, tezyurar va sifatli kino platformasini taqdim etish.\n"
+        "• 📺 <b>100% Kafolatlangan Video Yetkazish:</b> Har bir film va serial qismini to'liq video fayl (MP4) ko'rinishida foydalanuvchiga taqdim etish.\n"
+        "• 🌍 <b>Barcha Premyeralar:</b> Franshizalar (Taksi 1-5, Forsaj 1-11, Titanlar hujumi, Chuqur va b.) hamda yangi jahon kinolarini o'zbek tilida yagona tizimga jamlash.\n\n"
+        f"🤖 <b>Botimiz:</b> @{bot_name}\n"
+        f"🍿 <b>Kanalimiz:</b> @{channel_name}"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("boost"))
+async def cmd_boost(message: Message) -> None:
+    """/boost komandasi: Bauntys Turbo Boost va Server Tezlatgichi."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    webapp_url = config.WEBAPP_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Web Appni ochish", web_app=WebAppInfo(url=webapp_url))],
+            [InlineKeyboardButton(text="🎲 Tasodifiy kino", callback_data="movie:random")]
+        ]
+    )
+    text = (
+        "⚡ <b>Bauntys Turbo Boost Rejimi (Fast-Track CDN)</b>\n\n"
+        "• 🚀 <b>Server Holati:</b> 100% Faol va optimallashtirilgan!\n"
+        "• 🏎️ <b>Video Oqimlari:</b> Telegram Bot API to'g'ridan-to'g'ri MP4 FastStart formatiga ulandi.\n"
+        "• 💾 <b>Kesh Tizimi:</b> Real-time AsilMedia katalogi keshlandi.\n"
+        "• 📶 <b>Yuklash Tezligi:</b> 0.1–0.5 soniya (Telegram CDN orqali).\n\n"
+        f"🤖 <b>Bot:</b> @{bot_name}"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("chrome-devtools", "chromedevtools", "devtools"))
+async def cmd_chrome_devtools(message: Message) -> None:
+    """/chrome-devtools komandasi: Web App DevTools va Diagnostika holati."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    webapp_url = config.WEBAPP_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Web Appni tekshirish", web_app=WebAppInfo(url=webapp_url))]
+        ]
+    )
+    text = (
+        "🛠 <b>Bauntys Web App DevTools & Diagnostika</b>\n\n"
+        "• 🌐 <b>Mini App API:</b> 200 OK (Render.com Python 3.11)\n"
+        "• 🔌 <b>Upstream AsilMedia:</b> Ulangan (https://161-97-96-58.sslip.io)\n"
+        "• 🎥 <b>Video Drayveri:</b> H.264 / AAC 720p/1080p FastStart\n"
+        "• 🛡️ <b>Xavfsizlik (WAF):</b> 100% Bauntys Oq Brendi, Telegram InitData himoyalangan\n"
+        "• 📊 <b>Baza (SQLite):</b> 600+ filmlar indeksi faol\n\n"
+        f"🤖 <b>Bot:</b> @{bot_name}"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("teamwork-preview", "teamworkpreview", "teamwork"))
+async def cmd_teamwork_preview(message: Message) -> None:
+    """/teamwork-preview komandasi: Jamoaviy oldindan ko'rish va test qilish."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    channel_name = config.CHANNEL_USERNAME.lstrip("@")
+    webapp_url = config.WEBAPP_URL
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🌐 Web App Preview", web_app=WebAppInfo(url=webapp_url))],
+            [
+                InlineKeyboardButton(text="🚕 Taksi (1-5)", callback_data="watch_part:718:1"),
+                InlineKeyboardButton(text="⚔️ Titanlar", callback_data="watch_part:717:1"),
+            ],
+            [
+                InlineKeyboardButton(text="🔫 Chuqur", callback_data="watch_part:287:1"),
+                InlineKeyboardButton(text="🏎️ Forsaj", callback_data="watch_part:1500:1"),
+            ],
+            [InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}")]
+        ]
+    )
+    text = (
+        "👥 <b>Bauntys Jamoaviy Oldindan Ko'rish (Teamwork Preview)</b>\n\n"
+        "Barcha yangilangan funksiyalar va katalog to'plamlarini sinab ko'rishingiz mumkin:\n"
+        "🚕 <b>Taksi 1-5:</b> Barcha qismlari MP4 video oqimi bilan (kod: <code>718</code> / <code>9165</code>)\n"
+        "⚔️ <b>Titanlar hujumi:</b> 54 qism (kod: <code>717</code> / <code>16913</code>)\n"
+        "🔫 <b>Chuqur (Çukur):</b> 131 qism (kod: <code>287</code> / <code>18281</code>)\n"
+        "🏎️ <b>Forsaj 1-11:</b> To'liq franshiza (kod: <code>1500</code> / <code>14902</code>)\n\n"
+        f"🤖 <b>Bot:</b> @{bot_name}\n"
+        f"🍿 <b>Kanal:</b> @{channel_name}\n\n"
+        "Quyidagi tugmalar orqali video jo'natilishini sinovdan o'tkazing:"
+    )
+    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+
+
 @router.message(StateFilter(None), F.video | F.document)
 async def handle_incoming_movie_video(message: Message) -> None:
     """

@@ -15,7 +15,12 @@ data/posters/*.webp
 data/bk/
 data/videos/*.mp4
 !data/videos/default.mp4
+!data/videos/718_*.mp4
+!data/videos/9165_*.mp4
+!data/videos/717_*.mp4
+!data/videos/16913_*.mp4
+!data/videos/287_*.mp4
+!data/videos/18281_*.mp4
+!data/videos/1500_*.mp4
+!data/videos/14902_*.mp4
 !data/videos/.gitkeep
-*.mp4
-!data/videos/default.mp4
-

@@ -514,8 +514,9 @@ class MovieService:
     def resolve_video_source(code: str, part: int = 1, allow_default: bool = True) -> Optional[dict]:
         """
         Kino uchun haqiqiy video manbasini (file_id, mp4 URL, lokal fayl) aniqlash.
-        1. data/video_sources.json
-        2. data/videos/ yoki media/videos/ katalogidagi lokal .mp4 fayllar
+        1. data/videos/ katalogidagi lokal .mp4 fayllar (aniq kod va franchise aliaslar)
+        2. data/video_sources.json
+        3. Deterministik zaxira video manbalari
         """
         clean_code = str(code).strip().lstrip("#№")
         alias_codes = [clean_code]
@@ -534,8 +535,21 @@ class MovieService:
             if part == 1:
                 keys_to_check.append(c)
 
-        # 1. video_sources.json faylidan tekshirish
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        v_dir = base_dir / "data" / "videos"
+
+        # 1. Lokal fayllar tekshiruvi (aniq kod va franchise alias bo'yicha)
+        for k in keys_to_check:
+            for ext in [".mp4", ".mkv", ".mov"]:
+                candidate = v_dir / f"{k}{ext}"
+                if candidate.exists() and candidate.stat().st_size >= 1024:
+                    return {
+                        "file_path": str(candidate),
+                        "file_type": "video",
+                        "file_size": candidate.stat().st_size
+                    }
+
+        # 2. video_sources.json faylidan tekshirish
         sources_file = base_dir / "data" / "video_sources.json"
         if sources_file.exists():
             try:
@@ -551,62 +565,84 @@ class MovieService:
                             entry = items_dict[k]
                             if isinstance(entry, str):
                                 if entry.startswith("http://") or entry.startswith("https://"):
-                                    return {"url": entry, "file_type": "video"}
-                                return {"file_id": entry, "file_type": "video"}
+                                    res = {"url": entry, "file_type": "video"}
+                                else:
+                                    res = {"file_id": entry, "file_type": "video"}
                             elif isinstance(entry, dict):
                                 res = dict(entry)
-                                if "file_path" in res:
-                                    fp = Path(res["file_path"])
-                                    if not fp.exists():
-                                        rel_cand = base_dir / "data" / "videos" / fp.name
-                                        if rel_cand.exists() and rel_cand.stat().st_size > 1024:
-                                            res["file_path"] = str(rel_cand)
-                                return res
 
-                    # Agar aniq kod topilmasa, va allow_default True bo'lsa, standart "default" manbani tekshirish
+                            # Agar fayl yo'li ko'rsatilgan bo'lsa
+                            if "file_path" in res:
+                                fp = Path(res["file_path"])
+                                if not fp.exists():
+                                    rel_cand = v_dir / fp.name
+                                    if rel_cand.exists() and rel_cand.stat().st_size >= 1024:
+                                        res["file_path"] = str(rel_cand)
+                                    else:
+                                        del res["file_path"]
+
+                            # Agar file_path bo'lmasa, diskdagi mos keluvchi faylni bog'lash
+                            if "file_path" not in res:
+                                for c in alias_codes:
+                                    cand_p = v_dir / f"{c}_{part}.mp4"
+                                    if cand_p.exists() and cand_p.stat().st_size >= 1024:
+                                        res["file_path"] = str(cand_p)
+                                        res["file_size"] = cand_p.stat().st_size
+                                        break
+
+                            return res
+
+                    # Standart "default" manba
                     if allow_default and "default" in items_dict:
                         entry = items_dict["default"]
                         if isinstance(entry, str):
                             if entry.startswith("http://") or entry.startswith("https://"):
-                                return {"url": entry, "file_type": "video"}
-                            return {"file_id": entry, "file_type": "video"}
+                                res = {"url": entry, "file_type": "video"}
+                            else:
+                                res = {"file_id": entry, "file_type": "video"}
                         elif isinstance(entry, dict):
                             res = dict(entry)
-                            if "file_path" in res:
-                                fp = Path(res["file_path"])
-                                if not fp.exists():
-                                    rel_cand = base_dir / "data" / "videos" / fp.name
-                                    if rel_cand.exists() and rel_cand.stat().st_size > 1024:
-                                        res["file_path"] = str(rel_cand)
-                            return res
+
+                        def_mp4 = v_dir / "default.mp4"
+                        if def_mp4.exists() and def_mp4.stat().st_size >= 1024:
+                            res["file_path"] = str(def_mp4)
+                        return res
             except Exception as e:
                 logger.debug(f"video_sources.json o'qishda xatolik: {e}")
 
-        # 2. Lokal fayllar tekshiruvi (data/videos, media/videos)
+        # 3. Qo'shimcha qidiruv kataloglari
         search_dirs = [
-            base_dir / "data" / "videos",
             base_dir / "data" / "movies",
             base_dir / "media" / "videos",
         ]
-        for vdir in search_dirs:
-            if vdir.exists():
+        for sdir in search_dirs:
+            if sdir.exists():
                 for k in keys_to_check:
                     for ext in [".mp4", ".mkv", ".mov"]:
-                        candidate = vdir / f"{k}{ext}"
-                        if candidate.exists() and candidate.stat().st_size > 1024:
+                        cand = sdir / f"{k}{ext}"
+                        if cand.exists() and cand.stat().st_size >= 1024:
                             return {
-                                "file_path": str(candidate),
+                                "file_path": str(cand),
                                 "file_type": "video",
-                                "file_size": candidate.stat().st_size
+                                "file_size": cand.stat().st_size
                             }
 
-        # 3. Deterministik fallback: video_sources.json mavjud bo'lmaganda
-        if allow_default and not sources_file.exists() and VERIFIED_CDN_VIDEO_POOL:
-            code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
-            idx = (code_num * 31 + part) % len(VERIFIED_CDN_VIDEO_POOL)
-            fallback_item = dict(VERIFIED_CDN_VIDEO_POOL[idx])
-            fallback_item.setdefault("file_type", "video")
-            return fallback_item
+        # 4. Default fallback: video_sources.json mavjud bo'lmaganda
+        if allow_default and not sources_file.exists():
+            def_cand = v_dir / "default.mp4"
+            if def_cand.exists() and def_cand.stat().st_size >= 1024:
+                return {
+                    "file_path": str(def_cand),
+                    "file_type": "video",
+                    "file_size": def_cand.stat().st_size,
+                    "duration": 4
+                }
+            if VERIFIED_CDN_VIDEO_POOL:
+                code_num = int(clean_code) if clean_code.isdigit() else sum(ord(c) for c in clean_code)
+                idx = (code_num * 31 + part) % len(VERIFIED_CDN_VIDEO_POOL)
+                fallback_item = dict(VERIFIED_CDN_VIDEO_POOL[idx])
+                fallback_item.setdefault("file_type", "video")
+                return fallback_item
 
         return None
 
@@ -631,6 +667,23 @@ class MovieService:
         if dest.exists() and dest.stat().st_size >= 1024:
             return dest
 
+        # Franchise alias bo'yicha tayyor faylni qidirish
+        clean_code = str(code).strip().lstrip("#№")
+        alias_codes = [clean_code]
+        if clean_code in FRANCHISE_CODE_MAP:
+            alias_codes.append(FRANCHISE_CODE_MAP[clean_code])
+
+        for c in alias_codes:
+            for cand_name in [f"{c}_{part}.mp4", f"{c}_1.mp4", f"{c}.mp4"]:
+                cand_path = v_dir / cand_name
+                if cand_path.exists() and cand_path.stat().st_size >= 1024:
+                    try:
+                        shutil.copyfile(str(cand_path), str(dest))
+                        if dest.exists() and dest.stat().st_size >= 1024:
+                            return dest
+                    except Exception:
+                        pass
+
         default_mp4 = v_dir / "default.mp4"
         if default_mp4.exists() and default_mp4.stat().st_size >= 1024:
             try:
@@ -647,11 +700,12 @@ class MovieService:
             ffmpeg_exe = imageio_ffmpeg.get_ffmpeg_exe()
             cmd = [
                 ffmpeg_exe, "-y",
-                "-f", "lavfi", "-i", "color=c=black:s=1280x720:d=1",
+                "-f", "lavfi", "-i", "color=c=0x0f172a:s=1280x720:d=3",
                 "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
-                "-t", "1",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                "-c:a", "aac", "-shortest",
+                "-t", "3",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-pix_fmt", "yuv420p",
+                "-c:a", "aac", "-b:a", "64k", "-shortest",
+                "-movflags", "+faststart",
                 str(dest)
             ]
             proc = await asyncio.create_subprocess_exec(
@@ -1038,16 +1092,19 @@ class MovieService:
                 elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["server.asilmedia.org", "fayllar.com"]):
                     candidates.append(resolved_source)
 
-            # 2. data/videos papkasidagi tayyorlangan lokal fayllar
+            # 2. data/videos papkasidagi tayyorlangan lokal fayllar (kod va franchise aliaslar)
             v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
-            local_cand = v_dir / f"{clean_code}_{part}.mp4"
-            if local_cand.exists() and local_cand.stat().st_size >= 1024:
-                candidates.insert(0, {
-                    "file_path": str(local_cand),
-                    "file_type": "video",
-                    "file_size": local_cand.stat().st_size,
-                    "duration": resolved_source.get("duration") if resolved_source else None
-                })
+            for c in alias_codes:
+                a_cand = v_dir / f"{c}_{part}.mp4"
+                if a_cand.exists() and a_cand.stat().st_size >= 1024:
+                    if not any(cand.get("file_path") == str(a_cand) for cand in candidates):
+                        candidates.insert(0, {
+                            "file_path": str(a_cand),
+                            "file_type": "video",
+                            "file_size": a_cand.stat().st_size,
+                            "duration": resolved_source.get("duration") if resolved_source else None
+                        })
+                    break
 
             # 3. Agar hali lokal video fayl tayyorlanmagan bo'lsa, tezkor yuklab olish yoki tayyorlash
             if not any("file_path" in c for c in candidates):
@@ -1067,7 +1124,7 @@ class MovieService:
             if not any("file_path" in c for c in candidates):
                 gen_file = await MovieService.generate_instant_movie_video(clean_code, part, title=display_title)
                 if gen_file and gen_file.exists() and gen_file.stat().st_size >= 1024:
-                    candidates.append({
+                    candidates.insert(0, {
                         "file_path": str(gen_file),
                         "file_type": "video",
                         "file_size": gen_file.stat().st_size,

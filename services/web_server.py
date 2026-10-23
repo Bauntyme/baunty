@@ -964,7 +964,7 @@ async def handle_asil_send(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    item_id = str(body.get("id") or "").strip()
+    item_id = str(body.get("id") or body.get("item_id") or body.get("code") or body.get("c") or "").strip()
     slot = body.get("slot")
     try:
         part = int(body.get("part") or 1)
@@ -994,22 +994,44 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                             ir_data = await ir.json()
                             cached_item = ir_data.get("item")
             if cached_item:
+                found_part = None
                 if "seasons" in cached_item:
                     for s in cached_item.get("seasons", []):
                         for ep in s.get("eps", []):
                             for fl in ep.get("f", []):
-                                if fl.get("s") == slot:
-                                    part = int(ep.get("e") or 1)
+                                if fl.get("s") == slot or fl.get("slot") == slot:
+                                    found_part = int(ep.get("e") or 1)
                                     break
-                file_list = cached_item.get("files") or cached_item.get("f") or []
-                if isinstance(file_list, list):
-                    for idx, fl in enumerate(file_list):
-                        if isinstance(fl, dict) and (fl.get("s") == slot or fl.get("slot") == slot):
-                            part = idx + 1
+                            if found_part is not None:
+                                break
+                        if found_part is not None:
                             break
-                        elif fl == slot:
-                            part = idx + 1
-                            break
+                if found_part is not None:
+                    part = found_part
+                else:
+                    file_list = cached_item.get("files") or cached_item.get("f") or []
+                    if isinstance(file_list, list):
+                        for idx, fl in enumerate(file_list):
+                            if isinstance(fl, dict) and (fl.get("s") == slot or fl.get("slot") == slot):
+                                ep_num = fl.get("part") or fl.get("p") or fl.get("e")
+                                if ep_num is not None:
+                                    try:
+                                        part = int(ep_num)
+                                        break
+                                    except (ValueError, TypeError):
+                                        pass
+                                label_text = f"{fl.get('label', '')} {fl.get('note', '')} {fl.get('tr', '')}"
+                                m_part = re.search(r'(?:taksi|forsaj|chuqur|titan|qism|part|ep|seriya)[\s\-—–]*(\d+)', label_text, re.IGNORECASE)
+                                if not m_part:
+                                    m_part = re.search(r'(\d+)[\s\-—–]*(?:qism|part|seriya|ep)', label_text, re.IGNORECASE)
+                                if m_part:
+                                    part = int(m_part.group(1))
+                                    break
+                                part = idx + 1
+                                break
+                            elif fl == slot:
+                                part = idx + 1
+                                break
         except Exception as sle:
             logger.debug("Slot to part resolution error: %s", sle)
 
