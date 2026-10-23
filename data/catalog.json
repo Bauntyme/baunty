@@ -89,17 +89,6 @@
       "type": "serial"
     },
     {
-      "c": 18440,
-      "t": "Najot shifoxonasi",
-      "p": 10,
-      "v": 2500,
-      "d": "🎬 <b>Najot shifoxonasi</b> (2016)\n\n🎭 <b>Janr:</b> Drama, Melodrama\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
-      "a": 18440,
-      "i": 18440,
-      "p_url": "https://asilmedia.org/rasmlar/images/2026/08/13/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-08-14-020149-1.webp",
-      "type": "serial"
-    },
-    {
       "c": 17018,
       "t": "Qalqon agentlari",
       "p": 10,
@@ -108,6 +97,17 @@
       "a": 17018,
       "i": 17018,
       "p_url": "https://asilmedia.org/rasmlar/images/2026/09/06/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-09-06-234811-1.webp",
+      "type": "serial"
+    },
+    {
+      "c": 18440,
+      "t": "Najot shifoxonasi",
+      "p": 10,
+      "v": 2500,
+      "d": "🎬 <b>Najot shifoxonasi</b> (2016)\n\n🎭 <b>Janr:</b> Drama, Melodrama\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 18440,
+      "i": 18440,
+      "p_url": "https://asilmedia.org/rasmlar/images/2026/08/13/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-08-14-020149-1.webp",
       "type": "serial"
     },
     {
@@ -210,14 +210,14 @@
       "type": "serial"
     },
     {
-      "c": 18168,
-      "t": "Yo'ldagi mashinalar",
+      "c": 18314,
+      "t": "Sevganim sensan",
       "p": 10,
       "v": 2500,
-      "d": "🎬 <b>Yo'ldagi mashinalar</b> (2022)\n\n🎭 <b>Janr:</b> Komediya, Multfilm, Oilaviy\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
-      "a": 18168,
-      "i": 18168,
-      "p_url": "https://asilmedia.org/rasmlar/images/2026/04/09/image.psd.jpg",
+      "d": "🎬 <b>Sevganim sensan</b> (2026)\n\n🎭 <b>Janr:</b> Melodrama\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 18314,
+      "i": 18314,
+      "p_url": "https://asilmedia.org/rasmlar/images/2026/05/19/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-05-20-035114-1.webp",
       "type": "serial"
     },
     {
@@ -485,17 +485,6 @@
       "type": "serial"
     },
     {
-      "c": 18314,
-      "t": "Sevganim sensan",
-      "p": 10,
-      "v": 2500,
-      "d": "🎬 <b>Sevganim sensan</b> (2026)\n\n🎭 <b>Janr:</b> Melodrama\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
-      "a": 18314,
-      "i": 18314,
-      "p_url": "https://asilmedia.org/rasmlar/images/2026/05/19/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-05-20-035114-1.webp",
-      "type": "serial"
-    },
-    {
       "c": 18070,
       "t": "JoJoning g'aroyib sarguzashtlari Anime",
       "p": 10,
@@ -592,6 +581,17 @@
       "a": 18493,
       "i": 18493,
       "p_url": "https://asilmedia.org/rasmlar/images/2026/09/06/IZOBRAZENIE-IZ-BUFERA-OBMENA-2026-09-07-001126-1.webp",
+      "type": "serial"
+    },
+    {
+      "c": 18168,
+      "t": "Yo'ldagi mashinalar",
+      "p": 10,
+      "v": 2500,
+      "d": "🎬 <b>Yo'ldagi mashinalar</b> (2022)\n\n🎭 <b>Janr:</b> Komediya, Multfilm, Oilaviy\n📺 <b>Sifati:</b> 1080p | Full HD\n🤖 <b>Tomosha qilish:</b> @Bauntyfilmsbot\n📢 <b>Kino kanalimiz:</b> @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+      "a": 18168,
+      "i": 18168,
+      "p_url": "https://asilmedia.org/rasmlar/images/2026/04/09/image.psd.jpg",
       "type": "serial"
     },
     {

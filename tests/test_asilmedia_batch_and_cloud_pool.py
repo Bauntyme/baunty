@@ -135,8 +135,11 @@ async def test_save_or_update_movie_video_saves_to_movie_files(in_memory_session
 
 
 @pytest.mark.asyncio
-async def test_sync_catalog_from_asilmedia_batch(in_memory_session: AsyncSession):
+async def test_sync_catalog_from_asilmedia_batch(in_memory_session: AsyncSession, tmp_path, monkeypatch):
     """sync_catalog_from_asilmedia batch qabul qilib bazaga va keshga yozishi testi."""
+    d_dir = tmp_path / "data"
+    d_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
     mock_batch = [
         {
             "id": "8881",
@@ -217,3 +220,68 @@ async def test_cmd_sync_catalog_asilmedia_admin():
         edit_text = status_msg.edit_text.call_args[0][0]
         assert "15 ta" in edit_text
         assert "3 ta" in edit_text
+
+
+@pytest.mark.asyncio
+async def test_movie_file_unique_constraint_and_part_formats(in_memory_session: AsyncSession):
+    """MovieFile compound unique constraint va har xil part formatlari (718-2, 718p2) testi."""
+    # 1. Hyphen formatida saqlash (718-2)
+    mf1 = await crud.save_movie_file(
+        session=in_memory_session,
+        movie_code="718-2",
+        part=1,
+        file_id="BAACAgIAAxkBAAE_SAMPLE_REAL_TELEGRAM_FID_718_P2",
+    )
+    await in_memory_session.commit()
+    assert mf1.movie_code == "718"
+    assert mf1.part == 2
+
+    # 2. get_movie_file ("718", 2) va ("718_2", 1) orqali olish
+    fetched = await crud.get_movie_file(in_memory_session, "718", 2)
+    assert fetched is not None
+    assert fetched.file_id == "BAACAgIAAxkBAAE_SAMPLE_REAL_TELEGRAM_FID_718_P2"
+
+    fetched_alt = await crud.get_movie_file(in_memory_session, "718_2")
+    assert fetched_alt is not None
+    assert fetched_alt.file_id == "BAACAgIAAxkBAAE_SAMPLE_REAL_TELEGRAM_FID_718_P2"
+
+    # 3. Modelda UniqueConstraint mavjudligini tekshirish
+    from database.models import MovieFile
+    constraints = [c for c in MovieFile.__table__.constraints if getattr(c, "columns", None)]
+    has_uq = any(set(col.name for col in c.columns) == {"movie_code", "part"} for c in constraints)
+    assert has_uq, "MovieFile jadvalida (movie_code, part) bo'yicha compound UniqueConstraint mavjud bo'lishi shart"
+
+
+def test_is_valid_telegram_file_id_validation():
+    """is_valid_telegram_file_id haqiqiy va qalbaki file_id larni to'g'ri ajratishi testi."""
+    # Qalbaki / mock / seed / placeholder file_id lar
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAIB_forsaj10_vid") is False
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAIB_mov_8881_vid") is False
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAE_TAXI_1_REAL_FID") is False
+    assert MovieService.is_valid_telegram_file_id("mock_fid_12345678901234567890") is False
+    assert MovieService.is_valid_telegram_file_id("https://cdn.example.com/video.mp4") is False
+    assert MovieService.is_valid_telegram_file_id("") is False
+    assert MovieService.is_valid_telegram_file_id(None) is False
+    assert MovieService.is_valid_telegram_file_id("short_fid") is False
+
+    # Haqiqiy Telegram file_id lar
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkDAAIC_cloud_pool_fid_valid_real_telegram_12345") is True
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAIB_real_video_uploaded_by_telegram_12345678") is True
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_zakirovs_analysis():
+    """/browser @Zakirovsfilms_bot ni toliq organ buyrug'i arxitektura tahlilini qaytarishi testi."""
+    from handlers.movies import cmd_browser
+    message = AsyncMock()
+    message.text = "/browser @Zakirovsfilms_bot ni toliq organ"
+    message.reply = AsyncMock()
+
+    await cmd_browser(message)
+
+    assert message.reply.called
+    reply_text = message.reply.call_args[0][0]
+    assert "Arxitektura Tahlili" in reply_text
+    assert "Asilmedia.org" in reply_text
+    assert "Telegram Cloud Pool" in reply_text
+

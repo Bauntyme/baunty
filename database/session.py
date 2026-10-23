@@ -99,10 +99,17 @@ def _run_sqlite_migrations(sync_conn) -> None:
                 file_size BIGINT,
                 duration INTEGER,
                 quality VARCHAR(32) DEFAULT '1080p',
-                created_at DATETIME NOT NULL
+                created_at DATETIME NOT NULL,
+                CONSTRAINT uq_movie_files_code_part UNIQUE (movie_code, part)
             )
         """))
         sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_movie_files_movie_code ON movie_files (movie_code)"))
+        sync_conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_movie_files_code_part ON movie_files (movie_code, part)"))
+    else:
+        try:
+            sync_conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_movie_files_code_part ON movie_files (movie_code, part)"))
+        except Exception:
+            pass
 
 
 async def init_db() -> None:

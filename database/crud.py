@@ -1,6 +1,7 @@
 """
 Ma'lumotlar bazasi bilan ishlash funksiyalari (CRUD)
 """
+import re
 import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
@@ -326,7 +327,11 @@ async def set_movie_video(
         try:
             m_part = 1
             b_code = clean_code
-            if "_" in clean_code:
+            m_match = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
+            if m_match:
+                b_code = m_match.group(1)
+                m_part = int(m_match.group(2))
+            elif "_" in clean_code:
                 parts_split = clean_code.split("_")
                 if len(parts_split) == 2 and parts_split[1].isdigit():
                     b_code = parts_split[0]
@@ -357,8 +362,8 @@ async def set_movie_video(
 async def save_movie_file(
     session: AsyncSession,
     movie_code: str,
-    part: int,
-    file_id: str,
+    part: int = 1,
+    file_id: str = "",
     file_type: str = "video",
     file_size: Optional[int] = None,
     duration: Optional[int] = None,
@@ -366,9 +371,19 @@ async def save_movie_file(
 ) -> MovieFile:
     """Har bir qism uchun Telegram Cloud file_id sini movie_files jadvalida keshlab saqlash."""
     clean_code = str(movie_code).strip().lstrip("#№")
-    stmt = select(MovieFile).where(MovieFile.movie_code == clean_code, MovieFile.part == int(part))
+    m_part = int(part) if part is not None else 1
+    m_match = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
+    if m_match and m_part == 1:
+        clean_code = m_match.group(1)
+        m_part = int(m_match.group(2))
+
+    stmt = (
+        select(MovieFile)
+        .where(MovieFile.movie_code == clean_code, MovieFile.part == m_part)
+        .order_by(MovieFile.id.desc())
+    )
     res = await session.execute(stmt)
-    mf = res.scalar_one_or_none()
+    mf = res.scalars().first()
     dur_val = int(duration) if isinstance(duration, (int, float)) else None
     fsize_val = int(file_size) if isinstance(file_size, (int, float)) else None
     fid_str = str(file_id).strip()
@@ -388,7 +403,7 @@ async def save_movie_file(
     else:
         new_mf = MovieFile(
             movie_code=clean_code,
-            part=int(part),
+            part=m_part,
             file_id=fid_str,
             file_type=file_type,
             file_size=fsize_val,
@@ -408,9 +423,19 @@ async def get_movie_file(
 ) -> Optional[MovieFile]:
     """Kinoning ma'lum qismi uchun saqlangan Telegram file_id sini olish."""
     clean_code = str(movie_code).strip().lstrip("#№")
-    stmt = select(MovieFile).where(MovieFile.movie_code == clean_code, MovieFile.part == int(part))
+    m_part = int(part) if part is not None else 1
+    m_match = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
+    if m_match and m_part == 1:
+        clean_code = m_match.group(1)
+        m_part = int(m_match.group(2))
+
+    stmt = (
+        select(MovieFile)
+        .where(MovieFile.movie_code == clean_code, MovieFile.part == m_part)
+        .order_by(MovieFile.id.desc())
+    )
     res = await session.execute(stmt)
-    return res.scalar_one_or_none()
+    return res.scalars().first()
 
 
 async def sync_movie_asilmedia_parts(

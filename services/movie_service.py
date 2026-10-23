@@ -759,6 +759,32 @@ class MovieService:
                 )
 
     @staticmethod
+    def is_valid_telegram_file_id(test_fid: Optional[str]) -> bool:
+        """Haqiqiy Telegram file_id ekanligini tekshirish."""
+        if not test_fid:
+            return False
+        tf = str(test_fid).strip()
+        tf_lower = tf.lower()
+        if (
+            tf_lower.startswith("http://")
+            or tf_lower.startswith("https://")
+            or tf_lower.startswith("mov_")
+            or "_mov_" in tf_lower
+            or tf_lower.endswith("_vid")
+            or "_vid_" in tf_lower
+            or "_placeholder" in tf_lower
+            or tf_lower.startswith("mock_")
+            or tf_lower.endswith("_real_fid")
+            or tf_lower == "real_fid"
+            or tf_lower == "test_fid"
+            or tf_lower.startswith("baacagiaaxkbaae_taxi_")
+            or "<" in tf
+            or len(tf) < 20
+        ):
+            return False
+        return True
+
+    @staticmethod
     async def _deliver_movie_impl(
         bot: Bot,
         chat_id: int,
@@ -923,31 +949,10 @@ class MovieService:
         cached_fid = (cached_mf.file_id or "").strip() if cached_mf else ""
         cached_ftype = cached_mf.file_type if cached_mf else "video"
 
-        def is_real_telegram_fid(test_fid: str) -> bool:
-            if not test_fid:
-                return False
-            tf = test_fid.strip()
-            if (
-                tf.startswith("http://")
-                or tf.startswith("https://")
-                or tf.startswith("mov_")
-                or tf.endswith("_vid")
-                or "_placeholder" in tf.lower()
-                or tf.startswith("mock_")
-                or tf == "REAL_FID"
-                or tf == "TEST_FID"
-                or tf.startswith("BAACAgIAAxkBAAE_TAXI_")
-                or tf.startswith("BAACAgIAAxkBAAIB_")
-                or "<" in tf
-                or len(tf) < 20
-            ):
-                return False
-            return True
-
-        has_cached_mf = is_real_telegram_fid(cached_fid)
+        has_cached_mf = MovieService.is_valid_telegram_file_id(cached_fid)
         db_fid = (db_movie.file_id or "").strip() if db_movie else ""
         has_real_video = has_cached_mf or bool(
-            db_movie and is_real_telegram_fid(db_fid) and (part == 1 or db_movie.code != clean_code)
+            db_movie and MovieService.is_valid_telegram_file_id(db_fid) and (part == 1 or db_movie.code != clean_code)
         )
 
         # Video manbasini tekshirish (haqiqiy video manbasini topish)
@@ -994,19 +999,7 @@ class MovieService:
 
         if resolved_source:
             res_fid = resolved_source.get("file_id")
-            if res_fid and not (
-                res_fid.startswith("http://")
-                or res_fid.startswith("https://")
-                or res_fid.startswith("mov_")
-                or res_fid.endswith("_vid")
-                or "_placeholder" in res_fid.lower()
-                or res_fid.startswith("mock_")
-                or res_fid == "REAL_FID"
-                or res_fid == "TEST_FID"
-                or res_fid.startswith("BAACAgIAAxkBAAE_TAXI_")
-                or len(res_fid) < 20
-                or "<" in res_fid
-            ):
+            if res_fid and MovieService.is_valid_telegram_file_id(res_fid):
                 has_real_video = True
                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
                 try:
@@ -1860,12 +1853,20 @@ async def _periodic_sync_loop(interval_seconds: int = 900) -> None:
     except Exception as se:
         logger.warning(f"Dastlabki sinxronizatsiyada ogohlantirish: {se}")
 
+    try:
+        await movie_service.sync_catalog_from_asilmedia(pages=2)
+    except Exception as ae:
+        logger.debug(f"Dastlabki Asilmedia batch sinxronizatsiyada ogohlantirish: {ae}")
+
     while True:
         try:
             await asyncio.sleep(interval_seconds)
             synced = await movie_service.sync_catalog_from_upstream()
             if synced:
                 logger.info(f"Davriy sinxronizatsiya: {synced} ta kino bazada yangilandi.")
+            asil_synced = await movie_service.sync_catalog_from_asilmedia(pages=2)
+            if asil_synced:
+                logger.info(f"Davriy Asilmedia batch sinxronizatsiyasi: {asil_synced} ta yangi kino kiritildi.")
         except asyncio.CancelledError:
             break
         except Exception as e:

@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     Float,
     DateTime,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base
 
@@ -90,6 +91,9 @@ class Movie(Base):
 
 class MovieFile(Base):
     __tablename__ = "movie_files"
+    __table_args__ = (
+        UniqueConstraint("movie_code", "part", name="uq_movie_files_code_part"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     movie_code = Column(String(64), index=True, nullable=False)
