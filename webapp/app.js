@@ -34,7 +34,7 @@ const CYR = {"а":"a","б":"b","в":"v","г":"g","ғ":"g","д":"d","е":"e","ё"
 const norm = (s) => String(s || "").toLowerCase().replace(/[а-яёғқўҳ]/g, (ch) => CYR[ch] ?? ch)
   .replace(/[ʻʼ'`’‘´]/g, "").replace(RE_NONWORD, " ").trim();
 
-let items = [], byCode = new Map(), tab = "all", query = "", channel = "", botName = "";
+let items = [], byCode = new Map(), tab = "all", query = "", channel = "", botName = "", ASIL = false;
 
 const posterHTML = (it, size, extra = "") => {
   const img = it.i ? `<img src="p/${it.c}_${size}.webp?v=${it.i}" alt="${esc(it.t)}" decoding="async" ${size === "s" ? 'loading="lazy"' : ""} onload="this.classList.add('ok')" onerror="this.style.display='none'">` : "";
@@ -55,6 +55,7 @@ function skeleton() {
 let shown = [];
 function render() {
   const m = $("main");
+  if (ASIL && window.ZAsil) { ZAsil.render(m, query, tab); return; }
   let list = items;
   if (tab === "film") list = list.filter((x) => x.p <= 1);
   else if (tab === "ser") list = list.filter((x) => x.p > 1);
@@ -264,6 +265,7 @@ $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") e.target.blur
 $("clr").onclick = (e) => { e.preventDefault(); $("q").value = ""; query = ""; $("sbox").classList.remove("has"); renderCur(); };
 $("dice").onclick = (e) => {
   e.preventDefault();
+  if (ASIL && mode === "kino" && window.ZAsil) { ZAsil.random(); return; }
   const pool = (mode === "kino" && shown.length ? shown : items).filter((x) => x && x.c);
   if (!pool.length) return;
   if (window.ZK_spin) window.ZK_spin(pool, (it) => openDetail(it)); else openDetail(pool[Math.floor(Math.random() * pool.length)]);
@@ -382,6 +384,9 @@ function setMode(m) {
   if (was === "food" && window.ZFood) ZFood.close();
   if (was === "quiz" && window.ZQuiz) ZQuiz.close();
   if (was === "prava" && window.ZPrava) ZPrava.close();
+  if (was === "rasxod" && window.ZRasxod) ZRasxod.close();
+  if (was === "kal" && window.ZKal) ZKal.close();
+  if (was === "mafia" && window.ZMafia) ZMafia.close();
   if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
@@ -391,6 +396,9 @@ function setMode(m) {
   if (m === "food") { if (window.ZFood) ZFood.open(); return; }
   if (m === "quiz") { if (window.ZQuiz) ZQuiz.open(); return; }
   if (m === "prava") { if (window.ZPrava) ZPrava.open(); return; }
+  if (m === "rasxod") { if (window.ZRasxod) ZRasxod.open(); return; }
+  if (m === "kal") { if (window.ZKal) ZKal.open(); return; }
+  if (m === "mafia") { if (window.ZMafia) ZMafia.open(); return; }
   $("seg").querySelectorAll("button[data-m]").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
@@ -405,9 +413,9 @@ function setMode(m) {
   } else if (m === "tv") {
     if (tvItems) { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); } else loadTV();
   } else {
-    $("chips").innerHTML = KINO_CHIPS;
+    $("chips").innerHTML = ASIL ? ZAsil.chips() : KINO_CHIPS;
     $("chips").querySelectorAll(".chip").forEach((c) => c.classList.toggle("on", c.dataset.t === tab));
-    $("count").textContent = `${items.length} ta kino · posterini bosing`;
+    $("count").textContent = ASIL ? ZAsil.countText() : `${items.length} ta kino · posterini bosing`;
     render();
   }
   window.scrollTo({top: 0});
@@ -415,7 +423,7 @@ function setMode(m) {
 const KINO_CHIPS = $("chips").innerHTML;
 $("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
 window.ZK_setMode = setMode;
-window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy());
+window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
 
 // ---------- pleyer ----------
@@ -709,6 +717,12 @@ async function load() {
     const r = await (await fetch("api/catalog", {cache: "no-cache"})).json();
     items = r.items || []; channel = r.channel || ""; botName = r.bot || "";
     tvSoon = !!r.tv_soon;
+    ASIL = !!(r.asil && window.ZAsil);
+    if (ASIL) {
+      window.ZK_BOT = window.ZK_BOT || botName;
+      channel = "";
+      $("chips").innerHTML = ZAsil.chips();
+    }
     if (!r.tv && !tvSoon) $("seg").querySelector('[data-m="tv"]')?.remove();  // TV vaqtincha o'chiq
     if (!r.music) $("seg").querySelector('[data-m="music"]')?.remove();
     if (!r.docs) $("seg").querySelector('[data-m="docs"]')?.remove();
@@ -737,7 +751,7 @@ async function load() {
   }
   items.forEach((x) => { x._n = norm(x.t); x._k = x._n + " " + norm(x.d) + " " + x.c; byCode.set(x.c, x); });
   if (mode !== "kino") return;
-  $("count").textContent = `${items.length} ta kino · posterini bosing`;
+  $("count").textContent = ASIL ? ZAsil.countText() : `${items.length} ta kino · posterini bosing`;
   $("chan").hidden = !channel;
   render();
   const _urlParams = new URLSearchParams(location.search);
@@ -765,8 +779,13 @@ async function load() {
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
     setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
+  if (document.querySelector('#seg [data-m="rasxod"]') && (/^rasxod/i.test(sp) || new URLSearchParams(location.search).has("rasxod"))) { setMode("rasxod"); return; }
+  if (document.querySelector('#seg [data-m="kal"]') && (/^(kal|kaloriya)/i.test(sp) || new URLSearchParams(location.search).has("kal"))) { setMode("kal"); return; }
+  if (document.querySelector('#seg [data-m="mafia"]') && (/^mafia/i.test(sp) || new URLSearchParams(location.search).has("mafia"))) { setMode("mafia"); return; }
   if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { ZHub.ads(); return; }
   const code = +String(sp).replace(/\D/g, "");
+  const aq = new URLSearchParams(location.search).get("asil");
+  if (ASIL && (aq || (/^(asil_|kino_)?\d+$/i.test(sp) && code))) { ZAsil.open(+(aq || code)); return; }
   if (code && byCode.has(code)) { openDetail(byCode.get(code), false); return; }
   if (!sp && !location.search.replace(/^\?/, "").split("&").some((x) => x && !/^(tgWebApp|nosplash)/.test(x))) ZHub.open("");
 }

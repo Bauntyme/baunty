@@ -1,0 +1,149 @@
+/* 🎬 AsilMedia katalogi — mavjud kino kartochkalari (.card/.pst/.row/.grid/.det) ustiga qo'shimchalar */
+.as-sub{margin-top:2px;font-size:11.5px;color:var(--hint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge.as-imdb{background:rgba(245,197,24,.92);color:#1a1300}
+.seen.as-soon{background:rgba(0,0,0,.6)}
+.sec-h .as-all{font-size:13px;font-weight:700;color:var(--link)}
+.as-src{margin:22px 0 4px;text-align:center;color:var(--hint);font-size:12px}
+.as-more{display:flex;justify-content:center;padding:18px 0 6px}
+.as-morebtn{max-width:240px}
+.as-dots{display:flex;justify-content:center;gap:7px;padding:16px 0}.as-dots.big{padding:120px 0}
+.as-dots i{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:asdot 1s ease-in-out infinite}
+.as-dots i:nth-child(2){animation-delay:.15s}.as-dots i:nth-child(3){animation-delay:.3s}
+@keyframes asdot{50%{transform:translateY(-7px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.as-dots i{animation:none}}
+.as-toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:90;max-width:88vw;
+  padding:12px 16px;border-radius:14px;background:#F4F2FB;color:#15122A;font-weight:700;font-size:13.5px;box-shadow:0 14px 34px rgba(0,0,0,.45)}
+
+/* batafsil */
+.as-det{z-index:55}
+.as-x{position:fixed;top:calc(12px + env(safe-area-inset-top));right:14px;z-index:3;width:38px;height:38px;border-radius:12px;
+  background:rgba(0,0,0,.5)!important;color:#fff;font-size:15px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.as-body{padding:14px 16px calc(32px + env(safe-area-inset-bottom));max-width:620px;margin:0 auto}
+.as-body h1{margin:0;font-size:22px;line-height:1.2;font-weight:800;text-align:center}
+.as-alt{margin:4px 0 0;text-align:center;color:var(--hint);font-size:13px}
+.as-meta{margin:8px 0 0;text-align:center;color:var(--hint);font-size:13px}
+.as-im{color:#F5C518}
+.as-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin:12px 0 4px}
+.as-tags span{padding:5px 10px;border-radius:999px;background:var(--bg2);font-size:12px;font-weight:600}
+.as-lbl{margin:18px 2px 8px;font-size:14px;font-weight:800}.as-lbl small{font-weight:500;color:var(--hint)}
+.as-files{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.as-f{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border-radius:14px;text-align:left;
+  background:var(--accent)!important;color:var(--accent-text)!important;transition:opacity .2s,transform .1s}
+.as-f:active{transform:scale(.97)}
+.as-f b{font-size:14.5px;font-weight:800}.as-f small{font-size:11.5px;opacity:.85}
+.as-f.off{background:var(--bg2)!important;color:var(--hint)!important}
+.as-f.busy{opacity:.55}
+.as-seas{display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;scrollbar-width:none}.as-seas::-webkit-scrollbar{display:none}
+.as-seas button{flex:none;padding:8px 13px;border-radius:12px;background:var(--bg2);font-size:13px;font-weight:700;color:var(--hint)}
+.as-seas button.on{background:var(--text);color:var(--bg)}
+.as-eps{display:flex;flex-direction:column;gap:8px}
+.as-ep{padding:10px 12px;border-radius:14px;background:var(--bg2)}
+.as-ep>span{display:block;font-size:13.5px;font-weight:700;margin-bottom:8px}
+.as-ep>div{display:flex;flex-wrap:wrap;gap:6px}
+.as-ep .as-f{flex:1 1 120px;padding:9px 12px}
+.as-ep .as-f b{font-size:13px}
+.as-watch{display:block;width:100%;margin-top:12px;padding:13px;border-radius:14px;text-align:center;font-weight:800;font-size:14px;
+  background:var(--bg2)!important;box-shadow:inset 0 0 0 1px var(--sep)}
+.as-desc{margin:16px 0 0;font-size:14px;line-height:1.55;color:color-mix(in srgb,var(--text) 85%,transparent);white-space:pre-line}
+.as-note{color:var(--hint);font-size:13px}
+.as-sub-box{margin:12px 16px 0;padding:14px;border-radius:16px;background:var(--bg2);box-shadow:inset 0 0 0 1.5px var(--accent);text-align:center}
+.as-sub-box b{display:block;margin-bottom:10px}
+.as-chan{display:block;padding:11px;margin-bottom:8px;border-radius:12px;background:var(--bg);font-weight:700;color:var(--link);cursor:pointer}
+body.as-detopen{overflow:hidden}
+
+/* janrlar tasmasi — qidiruv ostida, doim ko'rinadi (#chips ichida) */
+#chips{overscroll-behavior-x:contain}
+.chips .as-g{flex:none;display:flex;flex-direction:column;align-items:center;gap:5px;width:62px;padding:5px 0 3px;background:none;border-radius:0}
+.as-g i{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;font-size:23px;font-style:normal;line-height:1;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 6px 14px rgba(0,0,0,.18);transition:transform .15s,box-shadow .2s}
+.as-g b{max-width:62px;font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--hint);transition:color .2s}
+.as-g.on i{box-shadow:0 0 0 2.5px var(--bg),0 0 0 4.5px #F2B84B,0 8px 20px rgba(242,184,75,.3)}
+.as-g.on b{color:var(--text)}
+.as-g:active i{transform:scale(.92)}
+.as-g.sk i{background:var(--bg2);box-shadow:none}
+.as-g:focus-visible{outline:none}.as-g:focus-visible i{box-shadow:0 0 0 2.5px var(--bg),0 0 0 4.5px var(--link)}
+
+/* film / serial */
+.as-types{display:flex;gap:4px;margin-top:4px;padding:4px;border-radius:14px;background:var(--bg2)}
+.as-types button{flex:1;height:34px;border-radius:10px;font-size:13px;font-weight:800;color:var(--hint);transition:background .2s,color .2s}
+.as-types button.on{background:var(--text);color:var(--bg)}
+
+/* «Hafta kinosi» karuseli */
+.as-hsk{height:200px;margin-top:12px;border-radius:22px;background:var(--bg2)}
+.as-hero{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;margin-top:12px;border-radius:22px;background:#0b0c16;
+  scrollbar-width:none;overscroll-behavior-x:contain;box-shadow:0 18px 40px rgba(0,0,0,.3)}
+.as-hero::-webkit-scrollbar{display:none}
+.as-slide{position:relative;flex:0 0 100%;height:200px;scroll-snap-align:start;scroll-snap-stop:always;overflow:hidden;cursor:pointer;color:#fff}
+.as-hbg{position:absolute;inset:-24px;background-size:cover;background-position:center;filter:blur(20px) saturate(1.35);transform:scale(1.1)}
+.as-hsh{position:absolute;inset:0;background:linear-gradient(90deg,rgba(6,6,16,.94) 0,rgba(6,6,16,.62) 55%,rgba(6,6,16,.12))}
+.as-hp{position:absolute;right:14px;top:16px;width:112px;height:168px;object-fit:cover;border-radius:12px;box-shadow:0 14px 30px rgba(0,0,0,.6)}
+.as-htx{position:absolute;left:16px;top:16px;right:142px}
+.as-htx small{font-size:11px;font-weight:800;color:#F2B84B}
+.as-htx h3{margin:6px 0;font:800 19px/1.15 Unb,system-ui,sans-serif;letter-spacing:-.01em;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.as-htx p{margin:0;font-size:12px;font-weight:700;color:rgba(255,255,255,.72)}
+.as-hbt{position:absolute;left:16px;bottom:16px;height:36px;padding:0 14px;border-radius:12px;display:flex;align-items:center;
+  background:#F2B84B;color:#2A1500;font-size:12.5px;font-weight:800}
+.as-slide:active .as-hbt{transform:scale(.96)}
+.as-hdots{display:flex;justify-content:center;gap:5px;margin-top:9px}
+.as-hdots i{width:6px;height:6px;border-radius:3px;background:var(--sep);transition:width .25s,background .25s}
+.as-hdots i.on{width:18px;background:#F2B84B}
+
+/* davlatlar */
+.as-ct{height:76px;border-radius:16px;background:var(--bg2);box-shadow:inset 0 0 0 1px var(--sep);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:3px;padding:0 4px;min-width:0;transition:transform .1s}
+.as-ct i{font-size:24px;font-style:normal;line-height:1}
+.as-ct b{font-size:11px;font-weight:800;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.as-ct small{font-size:10px;font-weight:700;color:var(--hint)}
+.row.as-ctrow .as-ct{flex:none;width:84px;scroll-snap-align:start}
+.as-ctry{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+
+/* janr / davlat sahifasi */
+.as-ghead{position:relative;margin-top:6px;padding:16px 16px 18px;border-radius:22px;color:#fff;overflow:hidden;box-shadow:0 14px 30px rgba(0,0,0,.22)}
+.as-ghead::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.34),transparent 75%);pointer-events:none}
+.as-ghead>*{position:relative;z-index:1}
+.as-gi{font-size:38px;line-height:1}
+.as-ghead h2{margin:8px 0 0;font:800 24px/1.12 Unb,system-ui,sans-serif;letter-spacing:-.01em;text-shadow:0 2px 10px rgba(0,0,0,.3);padding-right:96px}
+.as-ghead p{margin:4px 0 0;font-size:12.5px;font-weight:700;opacity:.88}
+.as-ghead .as-back{position:absolute;z-index:2;right:12px;top:12px;height:32px;padding:0 12px;border-radius:10px;
+  background:rgba(0,0,0,.34);color:#fff;font-size:12px;font-weight:800;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.as-ghead+.as-types{margin-top:10px}
+.as-sort{display:flex;gap:6px;overflow-x:auto;margin:10px -16px 0;padding:0 16px 2px;scrollbar-width:none;overscroll-behavior-x:contain}
+.as-sort::-webkit-scrollbar{display:none}
+.as-sort button{flex:none;height:32px;padding:0 13px;border-radius:11px;font-size:12.5px;font-weight:800;background:var(--bg2);color:var(--hint);
+  box-shadow:inset 0 0 0 1px var(--sep);transition:background .2s,color .2s}
+.as-sort button.on{background:var(--text);color:var(--bg);box-shadow:none}
+.as-grid{margin-top:14px}
+.as-foot{min-height:24px}.as-foot>.grid{margin-top:14px}
+.as-sent{height:1px}
+.as-end{margin:20px 0 0;text-align:center;color:var(--hint);font-size:12.5px}
+
+/* barcha janrlar */
+.as-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:9px}
+.as-tl{position:relative;height:84px;border-radius:18px;overflow:hidden;padding:12px 13px;text-align:left;color:#fff;
+  display:flex;flex-direction:column;align-items:flex-start;box-shadow:0 10px 24px rgba(0,0,0,.18);transition:transform .1s}
+.as-tl b{position:relative;z-index:1;max-width:75%;font-size:15px;font-weight:800;line-height:1.2;text-shadow:0 1px 6px rgba(0,0,0,.3)}
+.as-tl small{position:relative;z-index:1;margin-top:3px;font-size:11px;font-weight:800;opacity:.86}
+.as-tl i{position:absolute;right:-4px;bottom:-12px;font-size:54px;font-style:normal;line-height:1;transform:rotate(-12deg)}
+.as-tl:active,.as-ct:active{transform:scale(.97)}
+@media (prefers-reduced-motion:reduce){.as-g i,.as-tl,.as-ct,.as-hdots i{transition:none}}
+/* zk ko'rinishida .top va main ikkalasi z-index:2 — aylantirganda kartochkalar sarlavha ustiga chiqib qolardi */
+body.zk:not([data-zkm])>.top,body.zk[data-zkm="kino"]>.top{z-index:3}
+
+/* kolleksiyalar */
+.as-cl{display:flex;flex-direction:column;align-items:stretch;text-align:left;min-width:0;transition:transform .1s}
+.as-cl:active{transform:scale(.97)}
+.as-cov{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;padding:6px;border-radius:16px;background:var(--bg2);box-shadow:inset 0 0 0 1px var(--sep)}
+.as-cov img,.as-cov span{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:7px;background:color-mix(in srgb,var(--text) 8%,transparent);display:block}
+.as-cov>:nth-child(even){transform:translateY(5px)}
+.as-cl b{margin-top:12px;font-size:13.5px;font-weight:800;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.as-cl small{margin-top:3px;font-size:11.5px;font-weight:700;color:var(--hint)}
+.as-cl.sk .as-cov{height:110px}
+.row.as-clrow .as-cl{flex:none;width:224px;scroll-snap-align:start}
+.as-clsk{height:190px;margin-top:16px;border-radius:16px;background:var(--bg2);opacity:.5}
+.as-cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:18px 10px;margin-top:14px}
+.as-cgroups{margin-top:4px}
+.as-intro{margin:12px 2px 0;font-size:13.5px;line-height:1.5;color:color-mix(in srgb,var(--text) 82%,transparent)}
+.as-intro:empty{display:none}
+.as-ctext{margin:22px 2px 0;padding:14px 16px;border-radius:16px;background:var(--bg2);font-size:13.5px;line-height:1.55;white-space:pre-line;
+  color:color-mix(in srgb,var(--text) 85%,transparent)}
