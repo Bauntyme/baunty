@@ -947,12 +947,12 @@ class AsilmediaService:
         self,
         url: str,
         destination_path: Path,
-        max_bytes: int = 50 * 1024 * 1024,
-        timeout: int = 60
+        max_bytes: int = 2048 * 1024 * 1024,
+        timeout: int = 180
     ) -> Optional[Path]:
         """
-        Asilmedia video faylini xavfsiz holda serverga yuklab olish (chunk streaming).
-        Agar fayl hajmi max_bytes dan oshsa yoki xatolik yuz bersa, to'xtatiladi.
+        Asilmedia video faylini xavfsiz holda serverga to'liq yuklab olish (chunk streaming).
+        2GB gacha bo'lgan barcha to'liq kinolar va serial qismlarini to'liq hajmda yuklaydi.
         HTML sahifalar yoki xato javoblar yuklanmaydi va rad etiladi.
         """
         try:
@@ -982,8 +982,12 @@ class AsilmediaService:
                         return None
 
                     content_length = resp.headers.get("Content-Length")
-                    if content_length and int(content_length) > max_bytes:
-                        logger.info(f"Video hajmi {content_length} bayt limitdan ({max_bytes}) katta, to'liq yuklanmaydi.")
+                    cl_num = int(content_length) if content_length and content_length.isdigit() else None
+                    if cl_num and cl_num > max_bytes:
+                        logger.warning(f"Video hajmi {cl_num} bayt xavfsiz limitdan ({max_bytes}) katta, yuklash to'xtatildi.")
+                        return None
+                    elif cl_num:
+                        logger.info(f"Video to'liq yuklab olinmoqda: {cl_num} bayt ({cl_num // (1024*1024)} MB)...")
 
                     downloaded = 0
                     temp_file = destination_path.with_suffix(".tmp")

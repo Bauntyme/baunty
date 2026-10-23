@@ -1644,7 +1644,7 @@ class MovieService:
 
         saved_file = None
         if video_url and str(video_url).startswith("http") and "server.asilmedia.org" not in str(video_url):
-            saved_file = await asilmedia_service.download_video_stream(video_url, dest_path, max_bytes=25 * 1024 * 1024)
+            saved_file = await asilmedia_service.download_video_stream(video_url, dest_path, max_bytes=2048 * 1024 * 1024)
             if saved_file and saved_file.exists() and saved_file.stat().st_size >= 100 * 1024:
                 try:
                     import imageio_ffmpeg
