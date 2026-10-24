@@ -419,7 +419,7 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
                 if resp.status == 200:
                     content = await resp.read()
                     etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
@@ -501,7 +501,7 @@ async def handle_prava_image_proxy(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
                 if resp.status == 200:
                     content = await resp.read()
                     if content and len(content) > 100:
@@ -590,7 +590,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
                 if resp.status == 200:
                     content = await resp.read()
                     if ext == ".json":
@@ -681,7 +681,7 @@ async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
                 if resp.status == 200:
                     content = await resp.read()
                     etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
@@ -834,7 +834,7 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 url=upstream_url,
                 headers=req_headers,
                 data=body_bytes,
-                timeout=aiohttp.ClientTimeout(total=4, connect=1.5)
+                timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
             ) as resp:
                 resp_bytes = await resp.read()
                 raw_ct = resp.headers.get("Content-Type", "application/json")
@@ -865,7 +865,7 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                     headers={"Access-Control-Allow-Origin": "*"}
                 )
     except Exception as e:
-        logger.warning(f"Upstream API so'rovida xatolik ({upstream_url}): {e}")
+        logger.info(f"Upstream API tezkor zaxiraga o'tildi ({upstream_url}): {e}")
         # Barcha bo'limlar uchun xatosiz zaxira va chidamli fallback
         if "docs/config" in path:
             return await handle_doc_config(request)
@@ -904,6 +904,10 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
             return await handle_get_tv(request)
         if "games" in path:
             return await handle_get_games(request)
+        if "asil/colls" in path or path.endswith("colls"):
+            return await handle_asil_colls(request)
+        if "asil/coll" in path or "coll" in path:
+            return await handle_asil_coll(request)
         if "asil" in path:
             return await handle_asil_home(request)
         if "quiz/home" in path:
@@ -1592,7 +1596,7 @@ async def handle_fx_api(request: web.Request) -> web.Response:
         import aiohttp
         cbu_url = "https://cbu.uz/uz/arkhiv-kursov-valyut/json/"
         async with aiohttp.ClientSession() as session:
-            async with session.get(cbu_url, timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+            async with session.get(cbu_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
                 if resp.status == 200:
                     raw_list = await resp.json()
     except Exception as e:
@@ -1757,7 +1761,7 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get("https://161-97-96-58.sslip.io/api/catalog", timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+            async with session.get("https://161-97-96-58.sslip.io/api/catalog", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     raw_data = await resp.json()
                     if isinstance(raw_data, dict) and isinstance(raw_data.get("items"), list) and len(raw_data["items"]) >= 20:
@@ -1850,7 +1854,7 @@ async def handle_asil_home(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4.5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     resp_bytes = await resp.read()
                     text = resp_bytes.decode("utf-8", errors="replace")
@@ -1909,7 +1913,7 @@ async def handle_asil_list(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4.5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     resp_bytes = await resp.read()
                     text = resp_bytes.decode("utf-8", errors="replace")
@@ -1924,9 +1928,12 @@ async def handle_asil_list(request: web.Request) -> web.Response:
     except Exception as e:
         logger.debug("Upstream /api/asil/list error: %s", e)
 
+    # Fast local fallback
+    data = _build_local_colls_data()
+    fallback_items = data.get("pool", [])[:20]
     return web.json_response({
         "ok": True,
-        "items": [],
+        "items": fallback_items,
         "more": False,
         "page": 1
     }, headers={"Access-Control-Allow-Origin": "*"})
@@ -1953,7 +1960,7 @@ async def handle_asil_search(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4.5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     raw = await resp.json()
                     if isinstance(raw, dict) and "items" in raw:
@@ -2018,7 +2025,7 @@ async def handle_asil_item(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4.5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     resp_bytes = await resp.read()
                     text = resp_bytes.decode("utf-8", errors="replace")
@@ -2074,14 +2081,306 @@ async def handle_asil_item(request: web.Request) -> web.Response:
     return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
 
+_LOCAL_COLLS_CACHE: Optional[Dict[str, Any]] = None
+
+def _get_local_colls_metadata() -> List[Dict[str, Any]]:
+    return [
+        {
+            "s": "hayvonlar-haqida-multfilmlar",
+            "t": "Hayvonlar haqida multfilmlar",
+            "group": "multfilm",
+            "keywords": ["hayvon", "sher", "it", "mushuk", "panda", "madagaskar", "multfilm", "rio", "muzlik", "ayiq", "kuchuk"],
+            "c": 28
+        },
+        {
+            "s": "premyeralar",
+            "t": "Premyeralar va Yangi filmlar",
+            "group": "top",
+            "keywords": ["2026", "2025", "2024", "premyera", "yangi"],
+            "c": 35
+        },
+        {
+            "s": "ommabop",
+            "t": "Ommabop filmlar va seriallar",
+            "group": "top",
+            "keywords": ["qashqirlar", "merlin", "taxtlar", "jek", "ruhshunos", "vampir", "forsaj"],
+            "c": 40
+        },
+        {
+            "s": "uzbek-seriallar",
+            "t": "O'zbek tilidagi seriallar",
+            "group": "serial",
+            "keywords": ["serial", "qism", "fasl", "eshref", "usmon"],
+            "c": 25
+        },
+        {
+            "s": "jangari-va-triller",
+            "t": "Jangari va Triller filmlar",
+            "group": "genre",
+            "keywords": ["jangari", "triller", "action", "urush"],
+            "c": 32
+        },
+        {
+            "s": "komediya",
+            "t": "Kulgili va Komediya filmlar",
+            "group": "genre",
+            "keywords": ["komediya", "kulgili", "kulgu"],
+            "c": 24
+        },
+        {
+            "s": "multfilmlar",
+            "t": "Bolalar uchun multfilmlar",
+            "group": "multfilm",
+            "keywords": ["multfilm", "multik", "bolalar", "animatsiya", "anime"],
+            "c": 30
+        },
+        {
+            "s": "fantastika",
+            "t": "Fantastika va Sarguzasht",
+            "group": "genre",
+            "keywords": ["fantastika", "fentezi", "sarguzasht", "kosmos"],
+            "c": 26
+        },
+        {
+            "s": "turk-seriallari",
+            "t": "Mashhur Turk seriallari",
+            "group": "serial",
+            "keywords": ["turkiya", "turk", "qashqirlar", "eshref", "usmon", "chuqur", "oila"],
+            "c": 20
+        },
+        {
+            "s": "koreys-seriallari",
+            "t": "Koreys dramalari va seriallari",
+            "group": "serial",
+            "keywords": ["koreya", "janubiy koreya", "doroma", "koreys", "kim"],
+            "c": 20
+        },
+        {
+            "s": "detektiv",
+            "t": "Detektiv va Kriminal",
+            "group": "genre",
+            "keywords": ["detektiv", "kriminal", "qotillik", "tergov", "ruhshunos"],
+            "c": 22
+        },
+        {
+            "s": "qorqinchli",
+            "t": "Qo'rqinchli va Dahshatli kinolar",
+            "group": "genre",
+            "keywords": ["qo'rqinchli", "dahshat", "ujas", "vampir", "zombi"],
+            "c": 18
+        }
+    ]
+
+def _build_local_colls_data() -> Dict[str, Any]:
+    global _LOCAL_COLLS_CACHE
+    if _LOCAL_COLLS_CACHE:
+        return _LOCAL_COLLS_CACHE
+
+    cat_items = []
+    cat_file = BASE_DIR / "data" / "catalog.json"
+    if cat_file.exists():
+        try:
+            with open(cat_file, "r", encoding="utf-8") as f:
+                c_json = json.load(f)
+                cat_items = c_json.get("items", [])
+        except Exception:
+            pass
+
+    home_file = BASE_DIR / "data" / "asil_home_cache.json"
+    home_items = []
+    if home_file.exists():
+        try:
+            with open(home_file, "r", encoding="utf-8") as f:
+                h_json = json.load(f)
+                home_items = h_json.get("pop", []) + h_json.get("film", []) + h_json.get("serial", [])
+        except Exception:
+            pass
+
+    all_pool = []
+    seen_ids = set()
+    for it in (home_items + cat_items):
+        cid = str(it.get("c") or it.get("id") or "")
+        if cid and cid not in seen_ids:
+            seen_ids.add(cid)
+            all_pool.append({
+                "id": int(cid) if cid.isdigit() else cid,
+                "t": sanitize_catalog_text(it.get("t") or ""),
+                "p": it.get("p_url") or it.get("p") or "",
+                "y": it.get("y") or 2024,
+                "imdb": it.get("imdb") or 7.5,
+                "type": it.get("type") or "film",
+                "ok": True,
+                "g": it.get("g") or [],
+                "c": it.get("c") if isinstance(it.get("c"), list) else [],
+                "desc": sanitize_catalog_text(it.get("d") or it.get("desc") or "")
+            })
+
+    colls_meta = _get_local_colls_metadata()
+    result_colls = []
+    colls_by_slug = {}
+
+    for cm in colls_meta:
+        kw = [k.lower() for k in cm["keywords"]]
+        matched = []
+        for it in all_pool:
+            text = f"{it['t']} {it['desc']} {' '.join(it['g'])}".lower()
+            if any(k in text for k in kw):
+                matched.append(it)
+        if len(matched) < 4:
+            matched.extend([it for it in all_pool if it not in matched][:6])
+
+        posters = [m["p"] for m in matched if m.get("p")][:4]
+        while len(posters) < 4:
+            posters.append("https://asilmedia.org/rasmlar/images/2026/04/04/image.psd.jpg")
+
+        c_obj = {
+            "s": cm["s"],
+            "t": cm["t"],
+            "c": max(len(matched), cm["c"]),
+            "cov": posters,
+            "group": cm.get("group", "top")
+        }
+        result_colls.append(c_obj)
+        colls_by_slug[cm["s"]] = {
+            "meta": c_obj,
+            "items": matched[:40]
+        }
+
+    _LOCAL_COLLS_CACHE = {
+        "colls": result_colls,
+        "by_slug": colls_by_slug,
+        "pool": all_pool[:50]
+    }
+    return _LOCAL_COLLS_CACHE
+
+
 async def handle_asil_colls(request: web.Request) -> web.Response:
-    """Asilmedia to'plamlari / kolleksiyalari."""
-    return await handle_upstream_api_proxy(request)
+    """Asilmedia to'plamlari / kolleksiyalari — Fast upstream with instant local fallback."""
+    now = time.time()
+    cache_key = f"colls:{request.query_string}"
+    if cache_key in _UPSTREAM_API_CACHE:
+        entry = _UPSTREAM_API_CACHE[cache_key]
+        if now - entry["ts"] < 180:
+            return web.Response(
+                body=entry["body"],
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+    upstream_url = "https://161-97-96-58.sslip.io/api/asil/colls"
+    if request.query_string:
+        upstream_url += f"?{request.query_string}"
+
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
+                if resp.status == 200:
+                    resp_bytes = await resp.read()
+                    clean_text = sanitize_catalog_text(resp_bytes.decode("utf-8", errors="replace"))
+                    clean_bytes = clean_text.encode("utf-8")
+                    _UPSTREAM_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+                    return web.Response(
+                        body=clean_bytes,
+                        content_type="application/json",
+                        headers={"Access-Control-Allow-Origin": "*"}
+                    )
+    except Exception as e:
+        logger.info(f"Upstream colls timeout/error ({e}), using instant local fallback.")
+
+    data = _build_local_colls_data()
+    try:
+        limit = int(request.query.get("limit") or 20)
+    except Exception:
+        limit = 20
+    try:
+        page = int(request.query.get("page") or 1)
+    except Exception:
+        page = 1
+    grp = request.query.get("group") or ""
+
+    items = data["colls"]
+    if grp and grp != "all":
+        items = [c for c in items if c.get("group") == grp]
+    start = max(0, (page - 1) * limit)
+    paged = items[start:start + limit]
+    more = (start + limit) < len(items)
+
+    result = {
+        "ok": True,
+        "items": paged,
+        "groups": [
+            {"s": "all", "n": "Barchasi"},
+            {"s": "top", "n": "Top to'plamlar"},
+            {"s": "genre", "n": "Janrlar"},
+            {"s": "serial", "n": "Seriallar"},
+            {"s": "multfilm", "n": "Multfilmlar"}
+        ],
+        "page": page,
+        "more": more,
+        "seed": "bauntys"
+    }
+    return web.json_response(result, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_asil_coll(request: web.Request) -> web.Response:
-    """Asilmedia alohida to'plam tarkibi."""
-    return await handle_upstream_api_proxy(request)
+    """Asilmedia alohida to'plam tarkibi — Fast upstream with instant local fallback."""
+    slug = request.query.get("slug", "").strip()
+    now = time.time()
+    cache_key = f"coll:{slug}:{request.query_string}"
+    if cache_key in _UPSTREAM_API_CACHE:
+        entry = _UPSTREAM_API_CACHE[cache_key]
+        if now - entry["ts"] < 180:
+            return web.Response(
+                body=entry["body"],
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+    upstream_url = f"https://161-97-96-58.sslip.io/api/asil/coll?{request.query_string}"
+    try:
+        import aiohttp
+        async with aiohttp.ClientSession() as session:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
+                if resp.status == 200:
+                    resp_bytes = await resp.read()
+                    clean_text = sanitize_catalog_text(resp_bytes.decode("utf-8", errors="replace"))
+                    clean_bytes = clean_text.encode("utf-8")
+                    _UPSTREAM_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+                    return web.Response(
+                        body=clean_bytes,
+                        content_type="application/json",
+                        headers={"Access-Control-Allow-Origin": "*"}
+                    )
+    except Exception as e:
+        logger.info(f"Upstream coll [{slug}] timeout/error ({e}), using instant local fallback.")
+
+    data = _build_local_colls_data()
+    coll_info = data["by_slug"].get(slug)
+    if not coll_info:
+        first_coll = data["colls"][0]
+        coll_info = data["by_slug"].get(first_coll["s"], {
+            "meta": first_coll,
+            "items": data["pool"]
+        })
+    meta = coll_info["meta"]
+    items = coll_info["items"]
+
+    res = {
+        "ok": True,
+        "coll": {
+            "s": slug or meta["s"],
+            "t": meta["t"],
+            "c": len(items),
+            "intro": f"{meta['t']} to'plamidagi eng sara filmlar va seriallar",
+            "text": "Bauntys Films katalogidagi eng sara tomoshabop kinolar to'plami.",
+            "gn": "Kolleksiya"
+        },
+        "items": items,
+        "page": 1,
+        "more": False
+    }
+    return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_asil_send(request: web.Request) -> web.Response:
@@ -2115,7 +2414,7 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                 async with aiohttp.ClientSession() as cl:
                     async with cl.get(
                         f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(item_id)}",
-                        timeout=aiohttp.ClientTimeout(total=2.5)
+                        timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
                     ) as ir:
                         if ir.status == 200:
                             ir_data = await ir.json()
@@ -2318,7 +2617,7 @@ async def handle_asil_stream(request: web.Request) -> web.Response:
         async with aiohttp.ClientSession() as cl:
             async with cl.get(
                 f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(clean_id)}",
-                timeout=aiohttp.ClientTimeout(total=3.0)
+                timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
             ) as ir:
                 if ir.status == 200:
                     ir_data = await ir.json()
@@ -2495,7 +2794,7 @@ async def get_cached_music_home(force_refresh: bool = False) -> Dict[str, Any]:
         import aiohttp
         upstream_url = "https://161-97-96-58.sslip.io/api/music/home"
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     resp_bytes = await resp.read()
                     resp_text = resp_bytes.decode("utf-8", errors="replace")
@@ -2810,7 +3109,7 @@ async def handle_music_search(request: web.Request) -> web.Response:
             req_headers["X-Init-Data"] = init_data
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, headers=req_headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.get(upstream_url, headers=req_headers, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     raw_text = await resp.text()
                     clean_text = sanitize_catalog_text(raw_text)
@@ -2860,7 +3159,7 @@ async def handle_music_play(request: web.Request) -> web.Response:
             req_headers["X-Init-Data"] = init_data
 
         async with aiohttp.ClientSession() as session:
-            async with session.post(upstream_url, json=body, headers=req_headers, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.post(upstream_url, json=body, headers=req_headers, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     raw_text = await resp.text()
                     clean_text = sanitize_catalog_text(raw_text)
@@ -2897,7 +3196,7 @@ async def handle_music_play(request: web.Request) -> web.Response:
         try:
             import aiohttp
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://api.deezer.com/track/{track_id}", timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                async with session.get(f"https://api.deezer.com/track/{track_id}", timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
                     if resp.status == 200:
                         dz_data = await resp.json()
                         preview_mp3 = dz_data.get("preview")
@@ -3621,7 +3920,7 @@ async def handle_books_search(request: web.Request) -> web.Response:
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                 if resp.status == 200:
                     raw_data = await resp.json()
                     if isinstance(raw_data, dict) and "items" in raw_data:

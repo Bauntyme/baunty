@@ -175,6 +175,162 @@ body.tvr-on > main {
   transform: scale(0.95);
 }
 
+.tvr-btn-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 999px;
+  color: #C4B5FD;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tvr-btn-guide:active {
+  background: var(--tvr-acc);
+  color: #fff;
+  transform: scale(0.95);
+}
+
+.tvr-btn-guide-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  color: #C4B5FD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.tvr-btn-guide-sm:active {
+  transform: scale(0.92);
+  background: var(--tvr-acc);
+  color: #fff;
+}
+
+.tvr-guide-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(22, 17, 46, 0.8));
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  border-radius: 16px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s, border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.tvr-guide-card:active {
+  transform: scale(0.98);
+  border-color: var(--tvr-acc);
+}
+
+.tvr-guide-card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex: none;
+}
+
+.tvr-guide-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tvr-guide-card-text b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--tvr-text);
+}
+
+.tvr-guide-card-text small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--tvr-sub);
+  margin-top: 2px;
+}
+
+.tvr-guide-sheet {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 20px 24px;
+  border-radius: 24px 24px 0 0;
+  background: #16112E;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.tvr-guide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  max-height: 68vh;
+  overflow-y: auto;
+}
+
+.tvr-g-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--tvr-border);
+  border-radius: 14px;
+}
+
+.tvr-g-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--tvr-acc);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.tvr-g-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tvr-g-body b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--tvr-text);
+}
+
+.tvr-g-body p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--tvr-sub);
+}
+
 /* ---------- 4K TV Player (Tepada) ---------- */
 .tvr-player-box {
   flex: none;

@@ -359,7 +359,7 @@ class AsilmediaService:
         async with aiohttp.ClientSession(headers=self._get_headers()) as session:
             # 1. Upstream /api/asil/home (pop, film, serial)
             try:
-                async with session.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                async with session.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                     if resp.status == 200:
                         h_data = await resp.json()
                         if isinstance(h_data, dict):
@@ -382,7 +382,7 @@ class AsilmediaService:
             # 2. Upstream /api/asil/list?page=1..pages
             for p in range(1, max(2, pages + 1)):
                 try:
-                    async with session.get(f"https://161-97-96-58.sslip.io/api/asil/list?page={p}", timeout=aiohttp.ClientTimeout(total=3.5)) as resp:
+                    async with session.get(f"https://161-97-96-58.sslip.io/api/asil/list?page={p}", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                         if resp.status == 200:
                             l_data = await resp.json()
                             if isinstance(l_data, dict) and isinstance(l_data.get("items"), list):

@@ -376,32 +376,36 @@ function setMode(m) {
   mode = m; haptic(); document.body.dataset.zkm = m;
   document.body.classList.toggle("tvsoon", m === "tv" && tvSoon);
   $("seg").querySelectorAll && $("seg").querySelectorAll("button[data-m]").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
-  if (was === "music" && window.ZMusic) ZMusic.close();
-  if (was === "docs" && window.ZDocs) ZDocs.close();
-  if (was === "games" && window.ZGames) ZGames.close();
-  if (was === "story" && window.ZStory) ZStory.close();
-  if (was === "books" && window.ZBooks) ZBooks.close();
-  if (was === "fx" && window.ZFx) ZFx.close();
-  if (was === "food" && window.ZFood) ZFood.close();
-  if (was === "quiz" && window.ZQuiz) ZQuiz.close();
-  if (was === "prava" && window.ZPrava) ZPrava.close();
-  if (was === "rasxod" && window.ZRasxod) ZRasxod.close();
-  if (was === "kal" && window.ZKal) ZKal.close();
-  if (was === "mafia" && window.ZMafia) ZMafia.close();
-  if (was === "tvroom" && window.ZTvRoom) ZTvRoom.close();
-  if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
-  if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
-  if (m === "games") { if (window.ZGames) ZGames.open(); return; }
-  if (m === "story") { if (window.ZStory) ZStory.open(); return; }
-  if (m === "books") { if (window.ZBooks) ZBooks.open(); return; }
-  if (m === "fx") { if (window.ZFx) ZFx.open(); return; }
-  if (m === "food") { if (window.ZFood) ZFood.open(); return; }
-  if (m === "quiz") { if (window.ZQuiz) ZQuiz.open(); return; }
-  if (m === "prava") { if (window.ZPrava) ZPrava.open(); return; }
-  if (m === "rasxod") { if (window.ZRasxod) ZRasxod.open(); return; }
-  if (m === "kal") { if (window.ZKal) ZKal.open(); return; }
-  if (m === "mafia") { if (window.ZMafia) ZMafia.open(); return; }
-  if (m === "tvroom") { if (window.ZTvRoom) ZTvRoom.open(); return; }
+  if (was === "tv") { try { closeTV(true); } catch (e) {} }
+  if (was === "kino") { try { closeDetail(true); } catch (e) {} }
+  try { if (window.ZAsil && ZAsil.close) ZAsil.close(); } catch (e) {}
+  try { stopVideo(); } catch (e) {}
+  if (was === "music" && window.ZMusic) { try { ZMusic.close(); } catch (e) {} }
+  if (was === "docs" && window.ZDocs) { try { ZDocs.close(); } catch (e) {} }
+  if (was === "games" && window.ZGames) { try { ZGames.close(); } catch (e) {} }
+  if (was === "story" && window.ZStory) { try { ZStory.close(); } catch (e) {} }
+  if (was === "books" && window.ZBooks) { try { ZBooks.close(); } catch (e) {} }
+  if (was === "fx" && window.ZFx) { try { ZFx.close(); } catch (e) {} }
+  if (was === "food" && window.ZFood) { try { ZFood.close(); } catch (e) {} }
+  if (was === "quiz" && window.ZQuiz) { try { ZQuiz.close(); } catch (e) {} }
+  if (was === "prava" && window.ZPrava) { try { ZPrava.close(); } catch (e) {} }
+  if (was === "rasxod" && window.ZRasxod) { try { ZRasxod.close(); } catch (e) {} }
+  if (was === "kal" && window.ZKal) { try { ZKal.close(); } catch (e) {} }
+  if (was === "mafia" && window.ZMafia) { try { ZMafia.close(); } catch (e) {} }
+  if (was === "tvroom" && window.ZTvRoom) { try { ZTvRoom.close(); } catch (e) {} }
+  if (m === "music") { if (window.ZMusic) { try { ZMusic.open(); } catch (e) {} } return; }
+  if (m === "docs") { if (window.ZDocs) { try { ZDocs.open(); } catch (e) {} } return; }
+  if (m === "games") { if (window.ZGames) { try { ZGames.open(); } catch (e) {} } return; }
+  if (m === "story") { if (window.ZStory) { try { ZStory.open(); } catch (e) {} } return; }
+  if (m === "books") { if (window.ZBooks) { try { ZBooks.open(); } catch (e) {} } return; }
+  if (m === "fx") { if (window.ZFx) { try { ZFx.open(); } catch (e) {} } return; }
+  if (m === "food") { if (window.ZFood) { try { ZFood.open(); } catch (e) {} } return; }
+  if (m === "quiz") { if (window.ZQuiz) { try { ZQuiz.open(); } catch (e) {} } return; }
+  if (m === "prava") { if (window.ZPrava) { try { ZPrava.open(); } catch (e) {} } return; }
+  if (m === "rasxod") { if (window.ZRasxod) { try { ZRasxod.open(); } catch (e) {} } return; }
+  if (m === "kal") { if (window.ZKal) { try { ZKal.open(); } catch (e) {} } return; }
+  if (m === "mafia") { if (window.ZMafia) { try { ZMafia.open(); } catch (e) {} } return; }
+  if (m === "tvroom") { if (window.ZTvRoom) { try { ZTvRoom.open(); } catch (e) {} } return; }
   $("seg").querySelectorAll("button[data-m]").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;

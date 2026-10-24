@@ -668,3 +668,63 @@ html.zk-lite #zksplash, body.zk-lite #zksplash, body:not(.zk) #zksplash {
 html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   box-shadow: none !important;
 }
+
+
+/* =========================================================================
+   Standardized Uniform Headers across all sub-apps / pages
+   Ensures consistent 52px height, 38px back button, clean glassmorphism,
+   and proper text ellipsis so no sub-page looks awkward or broken.
+   ========================================================================= */
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) {
+  min-height: 52px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 8px 14px !important;
+  box-sizing: border-box !important;
+  background: var(--zk-nav-bg, rgba(14, 15, 19, 0.88)) !important;
+  backdrop-filter: blur(14px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(180%) !important;
+  border-bottom: 1px solid var(--zk-glass-b, rgba(255, 255, 255, 0.08)) !important;
+  z-index: 40 !important;
+}
+
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) :is(.bk, .bkb, .tvr-back, .tvr-btn-leave, .bx-ib, .bx-bk, .sx-ib, .sx-bk, .dx-ib, .dx-bk, .pv-back, .pv-bk, .gx-back, .gx-bk, .qz-back, .qz-bk, .rx-back, .rx-bk, .kl-back, .kl-bk, .mf-back, .mf-bk, .fd-back, .fd-bk, .fx-back, .fx-bk, button.tvr-btn-back, .m-ib, .m-bk) {
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  border: 1px solid var(--zk-glass-b, rgba(255, 255, 255, 0.1)) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text, #fff) !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  transition: all 0.18s ease !important;
+  flex-shrink: 0 !important;
+}
+
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) :is(.bk, .bkb, .tvr-back, .bx-ib, .bx-bk, .sx-ib, .sx-bk, .dx-ib, .dx-bk, .pv-back, .pv-bk, .gx-back, .gx-bk, .qz-back, .qz-bk, .rx-back, .rx-bk, .kl-back, .kl-bk, .mf-back, .mf-bk, .fd-back, .fd-bk, .fx-back, .fx-bk, button.tvr-btn-back, .m-ib, .m-bk):active {
+  transform: scale(0.92) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+}
+
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(h1, h2, h3, .tl, .title, .tvr-title, .bx-ttl, .sx-ttl, .dx-ttl, .pv-ttl, .gx-ttl, .qz-ttl, .rx-ttl, .kl-ttl, .mf-ttl, .m-ttl, .tt, .rx-tt, .kl-head-title, .qz-head-title, b) {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--text, #f2f3f5) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 1 auto !important;
+  letter-spacing: -0.2px !important;
+}
+

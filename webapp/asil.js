@@ -30,7 +30,11 @@ async function api(path, body) {
       body: body ? JSON.stringify(body) : undefined});
     if (r.status === 401) return {ok: false, error: "auth"};
     if (r.status >= 500) return {ok: false, error: "down"};
-    return await r.json();
+    try {
+      return await r.json();
+    } catch (je) {
+      return {ok: false, error: "parse"};
+    }
   } catch (e) { return {ok: false, error: "network"}; }
 }
 function toast(t) {
@@ -201,9 +205,12 @@ let hColls = null, hCollsP = null;
 function homeCollsHTML() {
   if (!hColls) {
     if (!hCollsP) hCollsP = api("api/asil/colls?limit=10").then((r) => {
-      hColls = r.ok ? r.items : [];
-      if (r.ok && r.groups && r.groups.length && !collGroups) collGroups = r.groups;
+      hColls = (r && r.ok && Array.isArray(r.items)) ? r.items : [];
+      if (r && r.ok && r.groups && r.groups.length && !collGroups) collGroups = r.groups;
       const el = $("ashcoll"); if (el) el.innerHTML = homeCollsHTML();
+    }).catch(() => {
+      hColls = [];
+      const el = $("ashcoll"); if (el) el.innerHTML = "";
     });
     return `<div class="as-clsk"></div>`;
   }
@@ -413,15 +420,18 @@ async function cfill() {
   if (st.seed) p.set("seed", st.seed);            // o'sha tasodifiy tartib — sahifalar aralashmaydi, takrorlanmaydi
   const r = await api("api/asil/colls?" + p);
   st.busy = false;
-  if (!r.ok) st.err = r.error;
+  if (!r || !r.ok) st.err = (r && r.error) || "network";
   else {
-    st.page = r.page; st.more = !!r.more && r.items.length > 0; st.seed = st.seed || r.seed;
+    st.page = r.page || 1;
+    const items = Array.isArray(r.items) ? r.items : [];
+    st.more = !!r.more && items.length > 0;
+    st.seed = st.seed || r.seed;
     if (r.groups && r.groups.length && !collGroups) {
       collGroups = r.groups;
       const bar = main && main.querySelector(".as-cgroups");
       if (bar && view.k === "colls") { const tmp = document.createElement("div"); tmp.innerHTML = viewColls(); bar.replaceWith(tmp.querySelector(".as-cgroups")); }
     }
-    const fresh = r.items.filter((x) => !st.ids.has(x.s));
+    const fresh = items.filter((x) => x && !st.ids.has(x.s));
     fresh.forEach((x) => st.ids.add(x.s));
     st.items.push(...fresh);
     if (cst() === st && view.k === "colls" && $("ascgrid")) $("ascgrid").insertAdjacentHTML("beforeend", fresh.map(collHTML).join(""));

@@ -544,3 +544,78 @@ async def test_cmd_start_deep_link_routing_to_tvroom():
         await cmd_start(msg, state)
         mock_handle2.assert_called_once_with(msg, "tv_5678")
 
+
+
+@pytest.mark.asyncio
+async def test_tvroom_guide_and_controls():
+    """Tv Xona to'liq qo'llanmasi, ulashish (share), va yangi menyu tugmalari testi."""
+    from handlers.tvroom import (
+        cb_tvroom_guide,
+        cb_tvroom_code_prompt,
+        msg_tvroom_direct_code,
+        get_tvroom_keyboard,
+    )
+
+    call = MagicMock()
+    call.from_user = MagicMock(id=999777, first_name="Jamshid", username="jamshid")
+    call.message = MagicMock()
+    call.message.edit_text = AsyncMock()
+    call.answer = AsyncMock()
+
+    # 1. Guide callback
+    await cb_tvroom_guide(call)
+    call.message.edit_text.assert_called()
+    guide_text = call.message.edit_text.call_args[0][0]
+    assert "Qo'llanmasi" in guide_text
+    assert "Sinxron" in guide_text
+    assert "ovozli" in guide_text.lower()
+
+    # 2. Code prompt callback
+    await cb_tvroom_code_prompt(call)
+    call.message.edit_text.assert_called()
+    prompt_text = call.message.edit_text.call_args[0][0]
+    assert "xona kodini" in prompt_text.lower()
+
+    # 3. Rich keyboard buttons
+    kb = get_tvroom_keyboard("8822")
+    flat_btns = [btn for row in kb.inline_keyboard for btn in row]
+    btn_texts = [b.text for b in flat_btns]
+    assert any("Kirish (#8822)" in t for t in btn_texts)
+    assert any("Yangi Tv Xona ochish" in t for t in btn_texts)
+    assert any("Kod orqali kirish" in t for t in btn_texts)
+    assert any("Do'stlarni taklif qilish" in t for t in btn_texts)
+    assert any("Tv Xona qo'llanmasi" in t for t in btn_texts)
+    assert any("Ochiq xonalar" in t for t in btn_texts)
+
+    # Share URL check
+    share_btn = next(b for b in flat_btns if "Do'stlarni taklif qilish" in b.text)
+    assert share_btn.url is not None
+    assert "t.me/share/url" in share_btn.url
+    assert "8822" in share_btn.url
+
+    # 4. Direct message room code
+    msg = MagicMock()
+    msg.from_user = MagicMock(id=999777, first_name="Jamshid")
+    msg.text = "8822"
+    msg.answer = AsyncMock()
+
+    handled = await msg_tvroom_direct_code(msg)
+    assert handled is True
+    msg.answer.assert_called_once()
+    assert "#8822" in msg.answer.call_args[0][0]
+
+    # Hashtag code (#room12)
+    msg_hash = MagicMock()
+    msg_hash.from_user = MagicMock(id=999777, first_name="Jamshid")
+    msg_hash.text = "#room12"
+    msg_hash.answer = AsyncMock()
+    assert await msg_tvroom_direct_code(msg_hash) is True
+    assert "#room12" in msg_hash.answer.call_args[0][0]
+
+    # Common command words must not be intercepted
+    msg_cmd = MagicMock()
+    msg_cmd.text = "start"
+    assert await msg_tvroom_direct_code(msg_cmd) is False
+    msg_cmd.text = "kino"
+    assert await msg_tvroom_direct_code(msg_cmd) is False
+

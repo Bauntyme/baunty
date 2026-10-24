@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from aiogram import Router, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import (
     Message,
     CallbackQuery,
@@ -26,25 +26,38 @@ router = Router(name="tvroom")
 
 
 def get_tvroom_keyboard(code: str = "") -> InlineKeyboardMarkup:
-    """Tv Xona boshqaruv inline klaviaturasi."""
+    """Tv Xona boshqaruv inline klaviaturasi — to'liq tugmalar to'plami."""
+    import urllib.parse
     base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    bot_user = config.BOT_USERNAME.lstrip("@")
     if code:
         norm = normalize_room_code(code)
         webapp_url = f"{base_url}?m=tvroom&room={norm}"
         btn_text = f"📺 Tv Xonaga Kirish (#{code})"
+        share_text = f"Do'stlar, keling birga Bauntys «Tv Xona»da #{code} xonasida 4K TV tomosha qilamiz! 🍿📺"
+        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=tvroom_{code}&text={urllib.parse.quote(share_text)}"
     else:
         webapp_url = f"{base_url}?m=tvroom"
-        btn_text = "📺 Tv Xona Yaratish / Kirish"
+        btn_text = "📺 Tv Xonaga Kirish"
+        share_text = "Do'stlar, keling birga Bauntys «Tv Xona»da 4K telekanal tomosha qilamiz! 🍿📺"
+        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=tvroom&text={urllib.parse.quote(share_text)}"
+
+    create_url = f"{base_url}?m=tvroom&action=create"
 
     buttons = [
         [
             InlineKeyboardButton(text=btn_text, web_app=WebAppInfo(url=webapp_url))
         ],
         [
-            InlineKeyboardButton(text="⚡ Tezkor xonaga kirish", callback_data="tvroom:quick"),
-            InlineKeyboardButton(text="📋 Ommaviy xonalar", callback_data="tvroom:list"),
+            InlineKeyboardButton(text="➕ Yangi Tv Xona ochish", web_app=WebAppInfo(url=create_url)),
+            InlineKeyboardButton(text="🔗 Kod orqali kirish", callback_data="tvroom:code_prompt"),
         ],
         [
+            InlineKeyboardButton(text="👥 Do'stlarni taklif qilish", url=share_link),
+            InlineKeyboardButton(text="📋 Ochiq xonalar ro'yxati", callback_data="tvroom:list"),
+        ],
+        [
+            InlineKeyboardButton(text="ℹ️ Tv Xona qo'llanmasi", callback_data="tvroom:guide"),
             InlineKeyboardButton(text="📡 Telekanallar ro'yxati", callback_data="tvroom:channels"),
         ]
     ]
@@ -64,7 +77,7 @@ async def cmd_tvroom(message: Message) -> None:
     code = ""
 
     if message.text:
-        parts = message.text.split(maxsplit=1)
+        parts = message.text.strip().split(maxsplit=1)
         if len(parts) > 1:
             p = parts[1].strip()
             if p.startswith("tvroom_"):
@@ -75,6 +88,10 @@ async def cmd_tvroom(message: Message) -> None:
                 code = p[3:]
             elif p.isalnum() and len(p) in (4, 5, 6, 7, 8):
                 code = p
+        elif not message.text.startswith("/"):
+            raw_c = message.text.strip().lstrip("#")
+            if raw_c.isalnum() and len(raw_c) in (4, 5, 6, 7, 8):
+                code = raw_c
 
     room_info = f"\n\n🎯 <b>Taklif etilgan xona:</b> <code>#{code}</code>" if code else ""
     text = (
@@ -203,3 +220,57 @@ async def cb_tvroom_channels(call: CallbackQuery) -> None:
     ])
     await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
     await call.answer()
+
+
+@router.callback_query(F.data == "tvroom:guide")
+async def cb_tvroom_guide(call: CallbackQuery) -> None:
+    """Tv Xona to'liq qo'llanmasi (qanday ishlatiladi, do'stlar bilan TV ko'rish, ovozli aloqa)."""
+    base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    text = (
+        "ℹ️ <b>Bauntys «Tv Xona» Qo'llanmasi — Qanday ishlatiladi?</b>\n\n"
+        "1️⃣ <b>Yangi xona ochish:</b>\n"
+        "«➕ Yangi Tv Xona ochish» tugmasini bosing. Siz xona boshqaruvchisi (Host) bo'lasiz.\n\n"
+        "2️⃣ <b>Do'stlarni chaqirish:</b>\n"
+        "«👥 Do'stlarni taklif qilish» tugmasi orqali do'stlaringizga havola yuboring yoki xonangizning maxfiy kodini (masalan: <code>#1234</code>) ulashing. Ular kod orqali bitta bosishda xonaga kirishadi.\n\n"
+        "3️⃣ <b>Sinxron TV efir:</b>\n"
+        "Siz (Host) qaysi kanalni tanlasangiz, xonadagi barcha do'stlaringizda telekanal avtomatik ravishda bir vaqtda almashadi!\n\n"
+        "4️⃣ <b>Kristal ovozli aloqa (Walkie-Talkie):</b>\n"
+        "Pastdagi 🎙 mikrofon tugmasini bosing va shovqinsiz, aks-sadosiz jonli ovozli suhbatlashing.\n\n"
+        "5️⃣ <b>Jonli chat va reaksiyalar:</b>\n"
+        "Efir vaqtida tezkor reaksiyalar (🔥, ❤️, 👏, 🍿) yuboring va fikr almashing.\n\n"
+        "<i>Hoziroq xona ochib, do'stlaringiz bilan birga tomosha qilishni boshlang!</i>"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📺 Tv Xonaga Kirish", web_app=WebAppInfo(url=f"{base_url}?m=tvroom"))],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="tvroom:main")],
+    ])
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    await call.answer()
+
+
+@router.callback_query(F.data == "tvroom:code_prompt")
+async def cb_tvroom_code_prompt(call: CallbackQuery) -> None:
+    """Kod orqali kirish yo'riqnomasi va Mini App ochish."""
+    base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    text = (
+        "🔗 <b>Kod Orqali Tv Xonaga Kirish</b>\n\n"
+        "Do'stingiz sizga yuborgan xona kodini (masalan: <code>1234</code>) kiriting yoki to'g'ridan-to'g'ri Mini App orqali ulaning.\n\n"
+        "💡 <i>Maslahat: Shuningdek, botga to'g'ridan-to'g'ri <code>/tvxona 1234</code> yoki xona kodini yuborsangiz ham xonaga ulanasiz.</i>"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔑 Xona Kodini Kiritish (Mini App)", web_app=WebAppInfo(url=f"{base_url}?m=tvroom"))],
+        [InlineKeyboardButton(text="🔙 Orqaga", callback_data="tvroom:main")],
+    ])
+    await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+    await call.answer()
+
+
+@router.message(StateFilter(None), F.text.regexp(r"^(?:#([a-zA-Z0-9_\-]{3,16})|(\d{4,8}))$"))
+async def msg_tvroom_direct_code(message: Message) -> bool:
+    """Foydalanuvchi to'g'ridan-to'g'ri xona kodini (#code yoki 4-8 xonali raqam) yuborganda."""
+    raw = (message.text or "").strip().lstrip("#")
+    if raw.lower() in ("start", "help", "kino", "menu", "admin", "books", "music"):
+        return False
+    await cmd_tvroom(message)
+    return True
+

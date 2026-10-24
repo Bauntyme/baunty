@@ -199,7 +199,7 @@ def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
         import urllib.request
         url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
         req = urllib.request.Request(url, headers={"User-Agent": "BauntyBot/2.0"})
-        with urllib.request.urlopen(req, timeout=3.5) as resp:
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
             if resp.status == 200:
                 data = json.loads(resp.read().decode("utf-8"))
                 if data.get("ok") and data.get("book"):

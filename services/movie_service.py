@@ -175,7 +175,7 @@ class MovieService:
         # 1. Upstream API dan eng yangi kinolar ro'yxatini olish
         try:
             async with aiohttp.ClientSession() as client:
-                async with client.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                async with client.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
                     if resp.status == 200:
                         cat_json = await resp.json()
                         if isinstance(cat_json, dict) and "items" in cat_json and isinstance(cat_json["items"], list):
@@ -188,7 +188,7 @@ class MovieService:
 
                 # Real-time AsilMedia bo'limidan kinolar (/api/asil/home)
                 try:
-                    async with client.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=4)) as h_resp:
+                    async with client.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as h_resp:
                         if h_resp.status == 200:
                             h_data = await h_resp.json()
                             if isinstance(h_data, dict):
@@ -227,7 +227,7 @@ class MovieService:
 
                 # Real-time AsilMedia saralangan yangi premyeralar (/api/asil/list?page=1)
                 try:
-                    async with client.get("https://161-97-96-58.sslip.io/api/asil/list?page=1", timeout=aiohttp.ClientTimeout(total=4)) as l_resp:
+                    async with client.get("https://161-97-96-58.sslip.io/api/asil/list?page=1", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as l_resp:
                         if l_resp.status == 200:
                             l_data = await l_resp.json()
                             if isinstance(l_data, dict) and "items" in l_data and isinstance(l_data["items"], list):
@@ -1654,7 +1654,7 @@ class MovieService:
                 async with aiohttp.ClientSession() as cl:
                     async with cl.get(
                         f"https://161-97-96-58.sslip.io/api/asil/item?id={clean_code}",
-                        timeout=aiohttp.ClientTimeout(total=3.5)
+                        timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
                     ) as i_resp:
                         if i_resp.status == 200:
                             i_raw = await i_resp.json()
@@ -1754,7 +1754,7 @@ class MovieService:
                 async with aiohttp.ClientSession() as cl:
                     async with cl.get(
                         f"https://161-97-96-58.sslip.io/api/asil/search?q={urllib.parse.quote(target_title)}",
-                        timeout=aiohttp.ClientTimeout(total=3.5)
+                        timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
                     ) as s_resp:
                         if s_resp.status == 200:
                             s_raw = await s_resp.json()

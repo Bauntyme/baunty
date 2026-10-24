@@ -129,6 +129,74 @@
     document.body.appendChild(rootEl);
   }
 
+  // Qo'llanma Modali
+  function openGuideModal() {
+    haptic();
+    let m = $("tvr-guide-modal");
+    if (!m) {
+      m = document.createElement("div");
+      m.id = "tvr-guide-modal";
+      m.className = "tvr-modal";
+      m.innerHTML = `
+        <div class="tvr-sheet tvr-guide-sheet">
+          <div class="tvr-sheet-head">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:20px">ℹ️</span>
+              <h3 style="margin:0;font-size:16px;font-weight:800">Tv Xona Qo'llanmasi</h3>
+            </div>
+            <button class="tvr-sheet-close" id="tvr-guide-close">✕</button>
+          </div>
+          <div class="tvr-guide-content">
+            <div class="tvr-g-step">
+              <div class="tvr-g-badge">1</div>
+              <div class="tvr-g-body">
+                <b>Tv Xona nima?</b>
+                <p>Do'stlaringiz bilan birgalikda 4K telekanallarni bir vaqtda jonli tomosha qilish, ovozli suhbatlashish va fikr almashish xonasi.</p>
+              </div>
+            </div>
+            <div class="tvr-g-step">
+              <div class="tvr-g-badge">2</div>
+              <div class="tvr-g-body">
+                <b>Xona ochish yoki kirish</b>
+                <p>«➕ Yangi Tv Xona Ochish» tugmasi orqali shaxsiy xonangizni oching yoki do'stingiz bergan 4-8 xonali kod orqali ulaning.</p>
+              </div>
+            </div>
+            <div class="tvr-g-step">
+              <div class="tvr-g-badge">3</div>
+              <div class="tvr-g-body">
+                <b>Do'stlarni chaqirish (Ulashish)</b>
+                <p>Xona ichidagi <b>«✈️ Ulashish»</b> tugmasini bosing yoki xona kodi ustiga bosib nusxalang va Telegram orqali do'stlaringizga yuboring.</p>
+              </div>
+            </div>
+            <div class="tvr-g-step">
+              <div class="tvr-g-badge">4</div>
+              <div class="tvr-g-body">
+                <b>Sinxron TV efir va Kanallar</b>
+                <p>Xona egasi (Host) kanalni o'zgartirsa, barcha a'zolarda efir bir vaqtda avtomatik sinxron almashadi.</p>
+              </div>
+            </div>
+            <div class="tvr-g-step">
+              <div class="tvr-g-badge">5</div>
+              <div class="tvr-g-body">
+                <b>Kristal Ovozli aloqa (Walkie-Talkie)</b>
+                <p>Pastdagi <b>🎙 Mikrofon</b> tugmasi orqali shovqinsiz va aks-sadosiz jonli ovozli suhbatlashing hamda chatda fikr bildiring.</p>
+              </div>
+            </div>
+            <button class="tvr-primary-btn" id="tvr-guide-ok" style="margin-top:14px;width:100%">
+              Tushunarli, boshlash! ✨
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(m);
+      const closeGuide = () => { m.hidden = true; };
+      m.querySelector("#tvr-guide-close").onclick = closeGuide;
+      m.querySelector("#tvr-guide-ok").onclick = closeGuide;
+      m.onclick = (e) => { if (e.target === m) closeGuide(); };
+    }
+    m.hidden = false;
+  }
+
   // Boshqaruvchi / Lobby ko'rinishi
   function renderLobby() {
     ensureDOM();
@@ -142,6 +210,7 @@
           </div>
         </div>
         <div class="tvr-h-right">
+          <button class="tvr-btn-guide" id="tvr-btn-lobby-guide">ℹ️ Qo'llanma</button>
           <span class="tvr-badge-live"><i></i> 4K UHD</span>
         </div>
       </div>
@@ -152,6 +221,14 @@
           <h2>Do'stlar bilan TV ko'ring!</h2>
           <p>O'zingiz xona oching yoki do'stingiz bergan kod orqali kiring. Telekanal, chat va ovozli suhbat hamma uchun bir vaqtda sinxron ishlaydi.</p>
         </div>
+
+        <button class="tvr-guide-card" id="tvr-guide-card">
+          <div class="tvr-guide-card-icon">ℹ️</div>
+          <div class="tvr-guide-card-text">
+            <b>Tv Xona nima va qanday ishlatiladi?</b>
+            <small>Do'stlar bilan TV ko'rish, taklif qilish va ovozli suhbat qo'llanmasi ›</small>
+          </div>
+        </button>
 
         <div class="tvr-action-card">
           <button class="tvr-primary-btn" id="tvr-btn-create">
@@ -214,6 +291,9 @@
       haptic();
       close();
     };
+
+    if ($("tvr-btn-lobby-guide")) $("tvr-btn-lobby-guide").onclick = openGuideModal;
+    if ($("tvr-guide-card")) $("tvr-guide-card").onclick = openGuideModal;
 
     $("tvr-btn-create").onclick = async () => {
       haptic("ok");
@@ -282,6 +362,7 @@
           </div>
         </div>
         <div class="tvr-h-right">
+          <button class="tvr-btn-guide-sm" id="tvr-btn-room-guide" title="Qo'llanma">ℹ️</button>
           <button class="tvr-room-pill" id="tvr-copy-code" title="Xona kodi">
             <span>🔑 #${esc(code)}</span>
           </button>
@@ -549,6 +630,8 @@
 
   // Xona hodisalarini ulash
   function bindRoomEvents() {
+    if ($("tvr-btn-room-guide")) $("tvr-btn-room-guide").onclick = openGuideModal;
+
     // Chiqish
     $("tvr-leave").onclick = async () => {
       haptic();
