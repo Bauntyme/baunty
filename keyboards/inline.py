@@ -102,9 +102,12 @@ def movie_item_keyboard(
                 callback_data=f"watch_part:{movie_code}:1"
             )
         )
-    if download_url and download_url.startswith("http"):
+    if download_url:
         builder.row(
-            InlineKeyboardButton(text="📥 Yuklab olish", url=download_url)
+            InlineKeyboardButton(
+                text="📥 Yuklab olish",
+                callback_data=f"download_movie:{movie_code}:1"
+            )
         )
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
@@ -179,9 +182,12 @@ def movie_parts_keyboard(
                 url=f"https://t.me/{bot_clean}?start=m_{target_start}"
             )
         )
-    if download_url and download_url.startswith("http"):
+    if download_url:
         builder.row(
-            InlineKeyboardButton(text="📥 Yuklab olish", url=download_url)
+            InlineKeyboardButton(
+                text="📥 Yuklab olish",
+                callback_data=f"download_movie:{movie_code}:{current_part}"
+            )
         )
 
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"

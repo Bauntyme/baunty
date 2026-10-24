@@ -15,8 +15,18 @@ body.m-np .mf{top:var(--zk-np)}
 .mf button:focus-visible,.mf input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .mf-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 #mfview{padding:10px 14px calc(28px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto}
-.mf-bar{display:flex;align-items:center;margin-bottom:8px}
-.mf-seg{display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none}.mf-seg::-webkit-scrollbar{display:none}.mf-seg button{white-space:nowrap}
+.mf-bar{display:flex;align-items:center;margin-bottom:12px;width:100%}
+.mf-head-clean{display:flex;align-items:center;gap:10px;min-height:46px;margin-bottom:12px;padding:4px 0;width:100%}
+.mf-head-clean .mf-back{width:42px;height:42px;border-radius:14px!important;display:grid;place-items:center;background:rgba(5,7,13,.65)!important;box-shadow:inset 0 0 0 1px var(--line);flex:none;cursor:pointer}
+.mf-head-clean .mf-back:active{transform:scale(.95)}
+.mf-head-clean .mf-tt{flex:1;min-width:0}
+.mf-head-clean .mf-tt b{display:block;font:800 18px/1.2 var(--fd);color:var(--ink);letter-spacing:-.01em}
+.mf-head-clean .mf-tt small{display:block;font:600 12px var(--fb);color:var(--mute);margin-top:2px}
+.mf-head-clean .zk-hubbtn{flex:none;margin-left:auto}
+.mf-seg{display:flex;align-items:center;gap:6px;padding:4px;border-radius:16px;background:rgba(5,7,13,.55);box-shadow:inset 0 0 0 1px var(--line);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.mf-seg::-webkit-scrollbar{display:none}
+.mf-seg button{flex:none;padding:6px 14px;border-radius:12px;font:750 13px var(--fb);color:var(--mute);background:rgba(255,255,255,.05);white-space:nowrap;transition:all .2s}
+.mf-seg button.on{background:var(--red);color:#fff;box-shadow:0 4px 12px rgba(255,74,85,.35)}
 .mf-toast{position:fixed;left:50%;bottom:calc(26px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:90;max-width:88vw;padding:11px 16px;border-radius:14px;background:#F4F6FF;color:#141826;font:800 13px var(--fb);box-shadow:0 14px 34px rgba(0,0,0,.55);text-align:center}
 .mf-fine{margin:6px 4px;color:var(--mute);font-size:12.5px}.mf-fine.c{text-align:center}
 .mf-cta{display:block;width:100%;margin-top:10px;padding:15px;border-radius:16px;text-align:center;font:800 16px var(--fd);color:#fff!important;background:linear-gradient(#FF4A55,#C21E2C)!important;box-shadow:0 5px 0 #7A0F18,0 12px 28px rgba(255,60,70,.3)}

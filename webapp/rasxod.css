@@ -13,10 +13,18 @@ body.m-np .rx{top:var(--zk-np)}
 .rx button:focus-visible,.rx input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .rx-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 #rxview{padding:12px 16px calc(104px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;position:relative}
-.rx-bar{display:flex;align-items:center}
-.rx-seg{display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.rx-bar{display:flex;align-items:center;margin-bottom:12px;width:100%}
+.rx-head-clean{display:flex;align-items:center;gap:10px;min-height:46px;margin-bottom:12px;padding:4px 0;width:100%}
+.rx-head-clean .rx-back{width:42px;height:42px;border-radius:14px!important;display:grid;place-items:center;background:var(--card)!important;box-shadow:inset 0 0 0 1px var(--line);flex:none;cursor:pointer}
+.rx-head-clean .rx-back:active{transform:scale(.95)}
+.rx-head-clean .rx-tt{flex:1;min-width:0}
+.rx-head-clean .rx-tt b{display:block;font:800 18px/1.2 var(--fd);color:var(--ink);letter-spacing:-.01em}
+.rx-head-clean .rx-tt small{display:block;font:600 12px var(--fb);color:var(--mute);margin-top:2px}
+.rx-head-clean .zk-hubbtn{flex:none;margin-left:auto}
+.rx-seg{display:flex;align-items:center;gap:6px;padding:4px;border-radius:16px;background:rgba(238,243,236,.06);box-shadow:inset 0 0 0 1px var(--line);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .rx-seg::-webkit-scrollbar{display:none}
-.rx-seg button{white-space:nowrap}
+.rx-seg button{flex:none;padding:6px 14px;border-radius:12px;font:750 13px var(--fb);color:var(--mute);background:rgba(255,255,255,.05);white-space:nowrap;transition:all .2s}
+.rx-seg button.on{background:var(--gold);color:var(--gi);box-shadow:0 4px 12px rgba(242,184,75,.35)}
 .rx-load{display:flex;justify-content:center;gap:8px;padding:60px 0}
 .rx-load i{width:10px;height:10px;border-radius:50%;background:var(--gold);animation:rxdot 1s ease-in-out infinite}
 .rx-load i:nth-child(2){animation-delay:.15s}.rx-load i:nth-child(3){animation-delay:.3s}

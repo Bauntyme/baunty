@@ -256,7 +256,8 @@ function grpHtml(h) {
 function renderHome() {
   const h = H || {};
   const st = h.st || {};
-  $("mfview").innerHTML = `<div class="mf-bar">${segHtml()}</div>
+  const headHtml = `<div class="mf-head-clean"><button class="mf-back" data-a="homeback" aria-label="${T("Orqaga", "Назад", "Back")}">${BACK}</button><div class="mf-tt"><b>🕵️ Mafia</b><small>${T("Onlayn o'yin (3–20 kishi)", "Онлайн игра (3–20 чел)", "Online game (3–20 players)")}</small></div><button class="zk-hubbtn" data-a="hub" aria-label="${T("Barcha bo'limlar", "Все разделы", "All sections")}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span>${T("Bo'limlar", "Разделы", "Sections")}</span></button></div>`;
+  $("mfview").innerHTML = headHtml + `
    <div class="mf-hero"><div class="mf-moon"></div><div class="mf-city"></div>
     <div class="mf-heroc">${[["don", 2, 22, 120], ["qotil", 22, 30, 108], ["doc", 52, 26, 112], ["kom", 76, 30, 104]].map(([k, x, y, w]) => `<div class="mf-hc" style="left:${x}%;top:${y}px;width:${w}px">${MC(k)}</div>`).join("")}</div>
     <div class="mf-logo"><b>MAF<span>I</span>A</b><small>${T("SHAHAR UXLAYDI · MAFIA UYG'ONADI", "ГОРОД ЗАСЫПАЕТ · ПРОСЫПАЕТСЯ МАФИЯ", "THE CITY SLEEPS · THE MAFIA WAKES")}</small></div></div>
@@ -640,7 +641,9 @@ function onClick(e) {
   if (t.closest("#mfmic")) { recToggle(); return; }
   if (!(el = t.closest("[data-a]"))) return;
   const a = el.dataset.a;
-  if (a === "quick") enterWith("quick", {lk: lsGet("mf_lk", "")});
+  if (a === "homeback") { if (window.ZK_setMode) window.ZK_setMode("kino"); else if (window.ZMafia) window.ZMafia.close(); }
+  else if (a === "hub") { if (window.ZHub) window.ZHub.open("mafia"); }
+  else if (a === "quick") enterWith("quick", {lk: lsGet("mf_lk", "")});
   else if (a === "create") enterWith("create", {lk: lsGet("mf_lk", "")});
   else if (a === "join") { const v = ($("mfcode") || {}).value || ""; if (v.replace(/\D/g, "").length !== 4) { toast(T("4 xonali kodni kiriting", "Введите 4-значный код", "Enter the 4-digit code")); return; } enterWith("join", {code: v}); }
   else if (a === "resume") { api("api/mafia/poll?v=-1&m=0").then((r) => { if (r.ok && r.room) { applyRoom(r.room); startPoll(); } else loadHome(); }); }
@@ -690,9 +693,14 @@ function back() {
 }
 function updateBack() {
   if (!inTg) return;
-  try { (opened && R) ? tg.BackButton.show() : (window.ZK_canHideBack ? window.ZK_canHideBack() && tg.BackButton.hide() : tg.BackButton.hide()); } catch (e) {}
+  try { opened ? tg.BackButton.show() : (window.ZK_canHideBack ? window.ZK_canHideBack() && tg.BackButton.hide() : tg.BackButton.hide()); } catch (e) {}
 }
-if (inTg) tg.BackButton.onClick(() => { if (opened && R) back(); });
+if (inTg) tg.BackButton.onClick(() => {
+  if (!opened) return;
+  if (R) back();
+  else if (window.ZK_setMode) window.ZK_setMode("kino");
+  else if (window.ZMafia) window.ZMafia.close();
+});
 
 window.ZMafia = {
   open() {

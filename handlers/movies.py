@@ -221,6 +221,7 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
 
 @router.callback_query(
     F.data.startswith("watch_part:")
+    | F.data.startswith("download_movie:")
     | (F.data.startswith("movie:") & F.data.func(lambda d: bool(d and len(d.split(":")) >= 3 and any(ch.isdigit() for ch in d.split(":")[1]))))
 )
 async def cb_watch_part(callback: CallbackQuery) -> None:

@@ -56,6 +56,10 @@ function segHtml() {
   const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["rasxod", "Rasxod"]];
   return `<div class="rx-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "rasxod" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
 }
+function rootHead() {
+  const HUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  return `<div class="rx-head-clean"><button class="rx-back" data-act="homeback" aria-label="${_T("Orqaga", "Назад", "Back")}">${ICO.back}</button><div class="rx-tt"><b>💰 Rasxod</b><small>${_T("Xarajatlar daftari", "Книга расходов", "Expense tracker")}</small></div><button class="zk-hubbtn" data-act="hub" aria-label="${_T("Barcha bo'limlar", "Все разделы", "All sections")}">${HUB}<span>${_T("Bo'limlar", "Разделы", "Sections")}</span></button></div>`;
+}
 function head(title, right) {
   return `<div class="rx-head"><button class="rx-back" data-act="back" aria-label="Orqaga">${ICO.back}</button><b>${title}</b>${right || ""}</div>`;
 }
@@ -75,7 +79,7 @@ function catRows(cats) {
 }
 function viewHome() {
   const h = home;
-  const bar = `<div class="rx-bar">${segHtml()}</div>`;
+  const bar = rootHead();
   if (!h) return bar + `<div class="rx-load"><i></i><i></i><i></i></div>`;
   const cur = h.cur;
   const mon = `<div class="rx-mon"><button data-act="mprev" aria-label="Oldingi oy">${ICO.back}</button><span>${cap(OY[h.m])} ${h.y}</span><button data-act="mnext" aria-label="Keyingi oy" ${cur ? "disabled" : ""}>${ICO.next}</button></div>`;
@@ -230,12 +234,20 @@ function render() {
   updateBack();
 }
 function go(v) { stack.push(v); haptic(); render(); $("rxscroll").scrollTop = 0; if (v.v === "hist") loadHist(); }
-function back() { if ($("rxsheet")) { closeSheet(); return; } if (stack.length <= 1) return; stack.pop(); render(); }
+function back() {
+  if ($("rxsheet")) { closeSheet(); return; }
+  if (stack.length <= 1) {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    else window.ZRasxod.close();
+    return;
+  }
+  stack.pop(); render();
+}
 function updateBack() {
   if (!tg || !tg.BackButton) return;
   try {
-    if (opened && stack.length > 1) tg.BackButton.show();
-    else if (opened && (!window.ZK_canHideBack || window.ZK_canHideBack())) tg.BackButton.hide();
+    if (opened) tg.BackButton.show();
+    else if (!window.ZK_canHideBack || window.ZK_canHideBack()) tg.BackButton.hide();
   } catch (e) {}
 }
 async function refresh() {
@@ -243,7 +255,7 @@ async function refresh() {
   if (r.ok) {
     home = r; meta = {}; (r.meta || []).forEach((x) => { meta[x.c] = x; });
     if (opened) { render(); drawInput(); }
-  } else if (!home && opened && top().v === "home") $("rxview").innerHTML = `<div class="rx-bar">${segHtml()}</div><div class="rx-empty"><b>${esc(r.error || "Yuklab bo'lmadi")}</b><br><br><button class="rx-more" data-act="reload">Qayta urinish</button></div>`;
+  } else if (!home && opened && top().v === "home") $("rxview").innerHTML = `${rootHead()}<div class="rx-empty"><b>${esc(r.error || "Yuklab bo'lmadi")}</b><br><br><button class="rx-more" data-act="reload">Qayta urinish</button></div>`;
 }
 function findItem(id) { const v = stack.find((s) => s.v === "hist"); return v && v.items ? v.items.find((x) => x.id === id) : null; }
 
@@ -260,6 +272,13 @@ async function onClick(e) {
   if (!b) return;
   const act = b.dataset.act;
   if (act === "back") back();
+  else if (act === "homeback") {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    else window.ZRasxod.close();
+  }
+  else if (act === "hub") {
+    if (window.ZHub) window.ZHub.open("rasxod");
+  }
   else if (act === "reload") { render(); refresh(); }
   else if (act === "hist") go({v: "hist", cat: ""});
   else if (act === "report") go({v: "report"});
@@ -291,7 +310,7 @@ async function onClick(e) {
   }
 }
 
-if (tg && tg.BackButton) tg.BackButton.onClick(() => { if (opened && (stack.length > 1 || $("rxsheet"))) back(); });
+if (tg && tg.BackButton) tg.BackButton.onClick(() => { if (opened) back(); });
 
 window.ZRasxod = {
   open() {

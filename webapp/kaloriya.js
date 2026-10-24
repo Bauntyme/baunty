@@ -52,6 +52,10 @@ function segHtml() {
   return `<div class="kl-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "kal" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
 }
 const head = (title) => `<div class="kl-head"><button class="kl-back" data-act="back" aria-label="${T("Orqaga", "Назад", "Back")}">${ICO.back}</button><b>${title}</b></div>`;
+function rootHead() {
+  const HUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  return `<div class="kl-head-clean"><button class="kl-back" data-act="homeback" aria-label="${T("Orqaga", "Назад", "Back")}">${ICO.back}</button><div class="kl-head-title"><b>🥗 Kaloriya</b><small>${T("Kunlik kkal va vazn", "Дневные ккал и вес", "Daily kcal and weight")}</small></div><button class="zk-hubbtn" data-act="hub" aria-label="${T("Barcha bo'limlar", "Все разделы", "All sections")}">${HUB}<span>${T("Bo'limlar", "Разделы", "Sections")}</span></button></div>`;
+}
 const MEAL = {b: T("Nonushta", "Завтрак", "Breakfast"), l: T("Tushlik", "Обед", "Lunch"), s: T("Peshin", "Перекус", "Snack"), d: T("Kechki ovqat", "Ужин", "Dinner")};
 const MEALS = [["b", "🌅"], ["l", "☀️"], ["s", "🍎"], ["d", "🌙"]];
 const ACT = [[1, T("Kam harakat", "Мало движения", "Low activity"), T("ofis, uyda", "офис, дом", "desk, home")],
@@ -64,7 +68,7 @@ function viewForm(v) {
   const f = v.f || (v.f = {sex: p.sex || "f", age: p.age || "", height: p.height || "", weight: p.weight || "",
     target: p.target || "", months: +p.months || 0, activity: p.activity && [1, 3, 4].includes(+p.activity) ? +p.activity : 3});
   const inp = (k, label, unit, mode) => `<label class="kl-in"><span>${label}</span><input id="kl_${k}" inputmode="${mode}" value="${esc(f[k] || "")}" autocomplete="off" placeholder="—"><em>${unit}</em></label>`;
-  return (stack.length > 1 ? head(T("Ma'lumotlarim", "Мои данные", "My details")) : `<div class="kl-bar">${segHtml()}</div>`) + `
+  return (stack.length > 1 ? head(T("Ma'lumotlarim", "Мои данные", "My details")) : rootHead()) + `
   <div class="kl-hero"><h1>${T("Vazn yo'qotish yoki vazn olish uchun kuniga qancha yeyish kerak?", "Сколько есть в день, чтобы похудеть или набрать вес?", "How much to eat a day to lose or gain weight?")}</h1>
     <p>${T("4 ta raqam — va shaxsiy rejangiz tayyor.", "4 цифры — и ваш личный план готов.", "4 numbers and your personal plan is ready.")}</p></div>
   <div class="kl-sex">${[["f", "👩", T("Ayol", "Женщина", "Female")], ["m", "👨", T("Erkak", "Мужчина", "Male")]].map(([k, e, n]) => `<button data-sex="${k}" class="${f.sex === k ? "on" : ""}"><i>${e}</i>${n}</button>`).join("")}</div>
@@ -180,7 +184,7 @@ function viewPlan() {
     ["🥩", T("Oqsil, yog', uglevod — avtomatik", "Белки, жиры, углеводы — автоматически", "Protein, fat, carbs — automatic")],
     ["⏰", T("Har kuni bir joyda, ilova o'rnatmasdan", "Каждый день в одном месте, без установки", "Every day in one place, no install")]];
   const locked = !pr.on;
-  return `<div class="kl-bar">${segHtml()}</div>
+  return rootHead() + `
   <div class="kl-plan"><small>${T("Sizning kunlik normangiz", "Ваша дневная норма", "Your daily target")}</small>
     <b>${nf(r.kcal)}</b><span>${kk()} · ${pace}</span>
     <div class="kl-pills"><i>BMI ${String(r.bmi).replace(".", ",")}</i>${hl ? `<i>${T("sog'lom vazn", "здоровый вес", "healthy weight")}: ${String(hl[0]).replace(".", ",")}–${String(hl[1]).replace(".", ",")} kg</i>` : ""}<i>💧 ${String(r.water / 1000).replace(".", ",")} ${T("l suv", "л воды", "L water")}</i></div></div>
@@ -462,7 +466,7 @@ function viewTrack(v) {
       its.map((x) => `<div class="kl-it"><span>${x.src === "p" ? "📸" : "✍️"} ${esc(x.n)}${x.g ? ` <small>${x.g} g</small>` : ""}</span><b>${nf(x.kcal)}</b><button data-del="${x.id}" aria-label="${T("O'chirish", "Удалить", "Delete")}">✕</button></div>`).join("");
   }).join("") : `<p class="kl-empty">${T("Bugun hali hech narsa qo'shilmagan. Birinchi ovqatni suratga oling 👇", "Сегодня пока пусто. Сфотографируйте первую еду 👇", "Nothing logged yet today. Snap your first meal 👇")}</p>`;
   const u = pr.until ? new Date(pr.until) : null;
-  return `<div class="kl-bar">${segHtml()}</div>
+  return rootHead() + `
   <div class="kl-today"><div class="kl-ring" style="--p:${pct};--c:${over ? "#FF7A59" : "var(--acc)"}"><b>${nf(d.eaten)}</b><small>/ ${nf(goal)} ${kk()}</small></div>
     <div class="kl-sum"><b class="${over ? "over" : ""}">${over ? T(`${nf(-left)} kkal oshdi`, `+${nf(-left)} ккал сверх`, `${nf(-left)} kcal over`) : T(`Yana ${nf(left)} kkal`, `Ещё ${nf(left)} ккал`, `${nf(left)} kcal left`)}</b>
       ${bar("p", T("Oqsil", "Белки", "Protein"), "#7CC7FF")}${bar("f", T("Yog'", "Жиры", "Fat"), "#FFC857")}${bar("c", T("Uglevod", "Углев.", "Carbs"), "var(--acc)")}</div></div>
@@ -539,17 +543,17 @@ function render() {
   if (!el) return;
   const v = top();
   let html;
-  if (!st) { load().then(() => { if (opened) render(); }); html = `<div class="kl-bar">${segHtml()}</div><div class="kl-dots big"><i></i><i></i><i></i></div>`; }
+  if (!st) { load().then(() => { if (opened) render(); }); html = `${rootHead()}<div class="kl-dots big"><i></i><i></i><i></i></div>`; }
   else if (v.v === "root") {
     html = !st.p ? viewForm(v) : st.pro && st.pro.on && st.pro.ai ? viewTrack(v) : viewPlan();
-    const bar = `<div class="kl-bar">${segHtml()}</div>`;
+    const bar = rootHead();
     if (st.adm) html = html.indexOf(bar) === 0 ? bar + adminCard() + html.slice(bar.length) : adminCard() + html;
   }
   else if (v.v === "adm") html = viewAdm(v);
   else if (v.v === "ada") html = viewAdd(v);
   else if (v.v === "adw") html = viewWait(v);
   else if (v.v === "edit") html = viewForm(v);
-  else if (v.v === "plan") html = head(T("Rejam", "Мой план", "My plan")) + viewPlan().replace(/^<div class="kl-bar">[\s\S]*?<\/div><\/div>/, "");
+  else if (v.v === "plan") html = head(T("Rejam", "Мой план", "My plan")) + viewPlan().replace(/^<div class="kl-head-clean">[\s\S]*?<\/div>/, "");
   else if (v.v === "pay") html = viewPay(v);
   else if (v.v === "scan") html = viewScan(v);
   else html = "";
@@ -565,12 +569,16 @@ function back() {
   if (top().sel) { top().sel = null; render(); return; }      // avval mijoz kartochkasi yopiladi
   if (top().zoom) { top().zoom = null; render(); return; }
   if (stack.length > 1) { const w = stack.pop(); if (w.v === "pay") stopPoll(); if ((w.v === "ada" || w.v === "adw") && top().v === "adm") admLoad(top()); render(); }
+  else {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    else window.ZKal.close();
+  }
 }
 function updateBack() {
   if (!tg || !tg.BackButton) return;
   try {
-    if (opened && stack.length > 1) tg.BackButton.show();
-    else if (opened && (!window.ZK_canHideBack || window.ZK_canHideBack())) tg.BackButton.hide();
+    if (opened) tg.BackButton.show();
+    else if (!window.ZK_canHideBack || window.ZK_canHideBack()) tg.BackButton.hide();
   } catch (e) {}
 }
 function onClick(e) {
@@ -627,6 +635,13 @@ function onClick(e) {
   if (!a) return;
   const act = a.dataset.act, v = top();
   if (act === "back") back();
+  else if (act === "homeback") {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    else window.ZKal.close();
+  }
+  else if (act === "hub") {
+    if (window.ZHub) window.ZHub.open("kal");
+  }
   else if (act === "calc") calc();
   else if (act === "force") setForce(true);
   else if (act === "unforce") setForce(false);
@@ -656,7 +671,7 @@ function onClick(e) {
     admChange(v, v.found.id, v.m || 1, v.notify).then((r) => { if (r && r.ok) { v.found = r.user; v.q = ""; v.found = null; back(); } });
   }
 }
-if (tg && tg.BackButton) tg.BackButton.onClick(() => { if (opened && stack.length > 1) back(); });
+if (tg && tg.BackButton) tg.BackButton.onClick(() => { if (opened) back(); });
 
 window.ZKal = {
   open() {

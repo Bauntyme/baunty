@@ -6,6 +6,7 @@ import re
 import time
 import json
 import asyncio
+import aiohttp
 import logging
 from typing import Optional, List, Tuple, Dict, Any
 from pathlib import Path
@@ -24,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Kesh
 _CATALOG_CACHE: Optional[dict] = None
 _LAST_SYNC_TS: float = time.time()
+_DOWNLOAD_SEMAPHORE = asyncio.Semaphore(1)
 
 # 100% ishonchli, tezkor va Telegram Bot API limitlariga (<=25MB) to'liq mos keladigan kinolar/treylerlar video oqimlari (200 OK)
 VERIFIED_CDN_VIDEO_POOL = [
@@ -737,6 +739,229 @@ class MovieService:
         return True
 
     @staticmethod
+    async def download_and_upload_media_on_demand(
+        bot: Bot,
+        chat_id: int,
+        code: str,
+        part: int,
+        source_url: str,
+        caption: str,
+        duration: Optional[int] = None,
+        reply_markup: Optional[InlineKeyboardMarkup] = None,
+        reply_to_message_id: Optional[int] = None,
+        session: Optional[AsyncSession] = None,
+        display_title: Optional[str] = None
+    ) -> Optional[Any]:
+        """
+        URL manbasidan xavfsiz navbat (asyncio.Semaphore(1)) va oqimli yuklab olish (<=1MB bo'laklar)
+        orqali videoni yuklab, foydalanuvchiga yuborish va Telegram file_id ni bazaga keshlab qo'yish.
+        RAM yoki diskni to'ldirmaslik uchun vaqtinchalik fayl finally blokida 100% o'chiriladi.
+        """
+        async with _DOWNLOAD_SEMAPHORE:
+            # 1. Navbat ichida keshni qayta tekshirish (agar parallel so'rov allaqachon yuklagan bo'lsa)
+            if session:
+                try:
+                    cached_mf = await crud.get_movie_file(session, code, part)
+                    if cached_mf and MovieService.is_valid_telegram_file_id(cached_mf.file_id):
+                        ftype = cached_mf.file_type or "video"
+                        if ftype == "document":
+                            return await bot.send_document(
+                                chat_id=chat_id,
+                                document=cached_mf.file_id,
+                                caption=caption,
+                                parse_mode="HTML",
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id
+                            )
+                        else:
+                            return await bot.send_video(
+                                chat_id=chat_id,
+                                video=cached_mf.file_id,
+                                caption=caption,
+                                parse_mode="HTML",
+                                duration=cached_mf.duration or duration,
+                                supports_streaming=True,
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id
+                            )
+
+                    p_code = f"{code}_{part}" if part > 1 else code
+                    cached_m = await crud.get_movie_by_code(session, p_code)
+                    if cached_m and MovieService.is_valid_telegram_file_id(cached_m.file_id):
+                        m_ftype = getattr(cached_m, "file_type", "video") or "video"
+                        if m_ftype == "document":
+                            return await bot.send_document(
+                                chat_id=chat_id,
+                                document=cached_m.file_id,
+                                caption=caption,
+                                parse_mode="HTML",
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id
+                            )
+                        else:
+                            return await bot.send_video(
+                                chat_id=chat_id,
+                                video=cached_m.file_id,
+                                caption=caption,
+                                parse_mode="HTML",
+                                duration=cached_m.duration or duration,
+                                supports_streaming=True,
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id
+                            )
+                except Exception as ce:
+                    logger.debug(f"Double-check cache error: {ce}")
+
+            # 2. Vaqtinchalik fayl yo'li
+            v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
+            v_dir.mkdir(parents=True, exist_ok=True)
+            temp_file = v_dir / f"temp_download_{code}_{part}.mp4"
+            temp_file.unlink(missing_ok=True)
+
+            try:
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer": "https://asilmedia.org/",
+                }
+                timeout = aiohttp.ClientTimeout(total=300, connect=30)
+                async with aiohttp.ClientSession(headers=headers, timeout=timeout) as client:
+                    async with client.get(source_url) as resp:
+                        if resp.status not in (200, 206):
+                            logger.warning(f"Download URL returned status {resp.status}: {source_url}")
+                            return None
+                        with open(temp_file, "wb") as f:
+                            async for chunk in resp.content.iter_chunked(1024 * 1024):
+                                if chunk:
+                                    f.write(chunk)
+
+                if not temp_file.exists() or temp_file.stat().st_size < 100 * 1024:
+                    logger.warning(f"Downloaded file invalid or too small: {source_url}")
+                    return None
+
+                file_size = temp_file.stat().st_size
+                media_input = FSInputFile(temp_file)
+                sent_msg = None
+                try:
+                    sent_msg = await bot.send_video(
+                        chat_id=chat_id,
+                        video=media_input,
+                        caption=caption,
+                        parse_mode="HTML",
+                        duration=duration,
+                        supports_streaming=True,
+                        reply_markup=reply_markup,
+                        reply_to_message_id=reply_to_message_id
+                    )
+                except Exception as ve:
+                    logger.warning(f"send_video with FSInputFile failed ({ve}), attempting send_document fallback")
+                    media_input = FSInputFile(temp_file)
+                    try:
+                        sent_msg = await bot.send_document(
+                            chat_id=chat_id,
+                            document=media_input,
+                            caption=caption,
+                            parse_mode="HTML",
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id
+                        )
+                    except Exception as de:
+                        logger.error(f"send_document fallback failed: {de}")
+
+                if not sent_msg and config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
+                    storage_id = str(config.STORAGE_CHANNEL_ID).strip()
+                    try:
+                        media_input = FSInputFile(temp_file)
+                        sent_msg = await bot.send_video(
+                            chat_id=storage_id,
+                            video=media_input,
+                            caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                            duration=duration,
+                            supports_streaming=True
+                        )
+                    except Exception as se_vid:
+                        logger.debug(f"Direct storage channel send_video error: {se_vid}")
+                        try:
+                            media_input = FSInputFile(temp_file)
+                            sent_msg = await bot.send_document(
+                                chat_id=storage_id,
+                                document=media_input,
+                                caption=f"🎬 #{code} - {display_title or code} (Part {part})"
+                            )
+                        except Exception as se_doc:
+                            logger.debug(f"Direct storage channel send_document error: {se_doc}")
+
+                if sent_msg:
+                    sent_media = (
+                        getattr(sent_msg, "video", None)
+                        or getattr(sent_msg, "document", None)
+                    )
+                    if sent_media:
+                        new_fid = getattr(sent_media, "file_id", None)
+                        if new_fid and MovieService.is_valid_telegram_file_id(new_fid):
+                            dur = getattr(sent_media, "duration", None)
+                            dur_val = int(dur) if isinstance(dur, (int, float)) else duration
+                            fsize = getattr(sent_media, "file_size", None)
+                            fsize_val = int(fsize) if isinstance(fsize, (int, float)) else file_size
+                            p_code = f"{code}_{part}" if part > 1 else code
+                            ftype = "video" if getattr(sent_msg, "video", None) else "document"
+
+                            if session:
+                                try:
+                                    await crud.set_movie_video(
+                                        session=session,
+                                        code=p_code,
+                                        file_id=new_fid,
+                                        file_type=ftype,
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        title=display_title or f"Kino #{code}"
+                                    )
+                                    await crud.save_movie_file(
+                                        session=session,
+                                        movie_code=code,
+                                        part=part,
+                                        file_id=new_fid,
+                                        file_type=ftype,
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        quality="1080p"
+                                    )
+                                    await session.commit()
+                                except Exception as pe:
+                                    logger.debug(f"Persist new file_id error: {pe}")
+
+                            if config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
+                                try:
+                                    storage_id = str(config.STORAGE_CHANNEL_ID).strip()
+                                    if storage_id != str(chat_id):
+                                        if ftype == "document":
+                                            await bot.send_document(
+                                                chat_id=storage_id,
+                                                document=new_fid,
+                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})"
+                                            )
+                                        else:
+                                            await bot.send_video(
+                                                chat_id=storage_id,
+                                                video=new_fid,
+                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                                duration=dur_val,
+                                                supports_streaming=True
+                                            )
+                                except Exception as sce:
+                                    logger.debug(f"Storage channel backup error: {sce}")
+
+                    return sent_msg
+            except Exception as ex:
+                logger.error(f"download_and_upload_media_on_demand error for {source_url}: {ex}")
+                return None
+            finally:
+                try:
+                    temp_file.unlink(missing_ok=True)
+                except Exception as ue:
+                    logger.debug(f"Failed to unlink temp file {temp_file}: {ue}")
+
+    @staticmethod
     async def _deliver_movie_impl(
         bot: Bot,
         chat_id: int,
@@ -1119,6 +1344,15 @@ class MovieService:
                         })
                     break
 
+            if not candidates and (download_online_url or watch_online_url):
+                cand_url = download_online_url or watch_online_url
+                if cand_url and str(cand_url).startswith("http") and not any(h in str(cand_url) for h in ["sayt.php", ".html"]):
+                    candidates.append({
+                        "url": str(cand_url),
+                        "duration": None,
+                        "file_size": None
+                    })
+
             for cand in candidates:
                 try:
                     target_video = (
@@ -1131,16 +1365,47 @@ class MovieService:
                         target_video = f"{target_video}{sep}file=video.mp4"
                     if not target_video:
                         continue
-                    sent_msg = await bot.send_video(
-                        chat_id=chat_id,
-                        video=target_video,
-                        caption=caption,
-                        parse_mode="HTML",
-                        duration=cand.get("duration"),
-                        supports_streaming=True,
-                        reply_markup=reply_markup,
-                        reply_to_message_id=reply_to_message_id
-                    )
+
+                    sent_msg = None
+                    if isinstance(target_video, str) and target_video.startswith("http"):
+                        # Avval Telegram URL orqali to'g'ridan-to'g'ri yuborishga urinadi
+                        try:
+                            sent_msg = await bot.send_video(
+                                chat_id=chat_id,
+                                video=target_video,
+                                caption=caption,
+                                parse_mode="HTML",
+                                duration=cand.get("duration"),
+                                supports_streaming=True,
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id
+                            )
+                        except Exception as direct_err:
+                            logger.info(f"Direct send_video via URL failed ({direct_err}), using on-demand stream downloader...")
+                            sent_msg = await MovieService.download_and_upload_media_on_demand(
+                                bot=bot,
+                                chat_id=chat_id,
+                                code=clean_code,
+                                part=part,
+                                source_url=target_video,
+                                caption=caption,
+                                duration=cand.get("duration"),
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id,
+                                session=session,
+                                display_title=display_title
+                            )
+                    else:
+                        sent_msg = await bot.send_video(
+                            chat_id=chat_id,
+                            video=target_video,
+                            caption=caption,
+                            parse_mode="HTML",
+                            duration=cand.get("duration"),
+                            supports_streaming=True,
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id
+                        )
 
                     if sent_msg:
                         # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish

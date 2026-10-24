@@ -59,23 +59,22 @@ body.zk>main{position:relative;z-index:2}
 @keyframes zkword{from{opacity:0;letter-spacing:6px}to{opacity:1;letter-spacing:1.5px}}
 @keyframes zkfade{from{opacity:0}to{opacity:1}}
 
-/* ---------- bo'limlar paneli (hamma bo'limda bir xil) ---------- */
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg){position:relative;display:inline-flex;gap:2px;padding:4px;border-radius:17px;
+/* ---------- bo'limlar paneli (gorizontal suriladigan zamonaviy chip-list, pill tugmalar) ---------- */
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg){position:relative;display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:999px;
   background:rgba(7,11,31,.46);box-shadow:inset 0 0 0 1px var(--zk-line),0 10px 30px rgba(0,0,0,.25);
-  -webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;isolation:isolate}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg)::-webkit-scrollbar{display:none}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.zk-hubbtn){position:relative;z-index:1;display:inline-flex;align-items:center;gap:6px;height:38px;
-  padding:0 11px;border-radius:13px;font:800 13.5px var(--zk-fb);color:var(--zk-mute);white-space:nowrap;background:none!important;box-shadow:none;
-  transition:color .35s,padding .35s}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button.on{color:var(--zk-ink)!important}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.zk-hubbtn)::before{content:"";width:17px;height:17px;flex:none;background:currentColor;
+  -webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);max-width:100%;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none;isolation:isolate}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg)::-webkit-scrollbar{display:none}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button:not(.zk-hubbtn){position:relative;z-index:1;flex:none;display:inline-flex;align-items:center;gap:6px;height:38px;
+  padding:0 14px;border-radius:999px;font:750 13px var(--zk-fb);color:var(--zk-mute);white-space:nowrap;background:rgba(246,238,220,.05)!important;box-shadow:inset 0 0 0 1px var(--zk-line);
+  transition:all .25s ease}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button.on{color:var(--zk-ink)!important;background:var(--zk-acc)!important;box-shadow:0 4px 14px rgba(242,184,75,.4)!important}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button:not(.zk-hubbtn)::before{content:"";width:16px;height:16px;flex:none;background:currentColor;
   -webkit-mask:var(--zk-ic) center/contain no-repeat;mask:var(--zk-ic) center/contain no-repeat}
-.zk .zk-hubbtn{flex:none;height:38px;padding:0 12px;border-radius:13px;font:800 13px var(--zk-fb);color:var(--zk-cream)!important;background:var(--zk-glass)!important;box-shadow:inset 0 0 0 1px var(--zk-line)!important;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;transition:background .2s,transform .15s}
+.zk .zk-hubbtn{flex:none;position:sticky!important;left:0;z-index:5!important;height:38px;padding:0 14px;border-radius:999px!important;font:800 13px var(--zk-fb);color:#2A1500!important;background:#F2B84B!important;box-shadow:0 4px 14px rgba(242,184,75,.4)!important;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;transition:background .2s,transform .15s}
 .zk .zk-hubbtn:active{transform:scale(.96)}
 .zk .zk-hubbtn::before{display:none!important}
-.zk .zk-hubbtn svg{width:16px;height:16px;flex:none;color:var(--zk-acc)}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-ind{position:absolute;z-index:0;left:0;top:4px;bottom:4px;border-radius:13px;background:var(--zk-acc);
-  box-shadow:0 6px 18px color-mix(in srgb,var(--zk-acc) 45%,transparent);transition:background .8s;pointer-events:none}
+.zk .zk-hubbtn svg{width:16px;height:16px;flex:none;color:#2A1500}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) .zk-ind{display:none!important}
 /* panel ikonkalari */
 .zk [data-m="kino"],.zk [data-mode="kino"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='3'/%3E%3Cpath d='M10 9.3v5.4l4.6-2.7z' fill='%23000'/%3E%3C/svg%3E")}
 .zk [data-m="music"],.zk [data-mode="music"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M9 18V5l11-2v13'/%3E%3Ccircle cx='6' cy='18' r='3'/%3E%3Ccircle cx='17' cy='16' r='3'/%3E%3C/svg%3E")}
@@ -88,11 +87,9 @@ body.zk>main{position:relative;z-index:2}
 .zk [data-m="fx"],.zk [data-mode="fx"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M12 3v18M16.5 7.5c-.8-1.5-2.5-2.3-4.5-2.3-2.6 0-4.3 1.3-4.3 3.2 0 4.5 9 2.4 9 7 0 2-1.9 3.4-4.6 3.4-2.2 0-4-.9-4.9-2.6'/%3E%3C/svg%3E")}
 .zk [data-m="prava"],.zk [data-mode="prava"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.3' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9.5'/%3E%3Ccircle cx='12' cy='12' r='2.2'/%3E%3Cpath d='M3 11.5c3-1 6-1.3 9-1.3s6 .3 9 1.3M10.3 13.8 7 20.5M13.7 13.8 17 20.5'/%3E%3C/svg%3E")}
 .zk [data-m="tv"],.zk [data-mode="tv"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'%3E%3Crect x='3' y='7' width='18' height='13' rx='3'/%3E%3Cpath d='m8 3 4 4 4-4'/%3E%3C/svg%3E")}
-/* tor ekran: faqat tanlangan bo'limda yozuv, qolganlari — ikonka */
-@media (max-width:440px){
-  .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.on):not(.zk-hubbtn){font-size:0;gap:0;padding:0 11px}
-  .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.on):not(.zk-hubbtn)::before{width:19px;height:19px}
-}
+.zk [data-m="mafia"],.zk [data-mode="mafia"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2a5 5 0 0 0-5 5v3h10V7a5 5 0 0 0-5-5z'/%3E%3Cpath d='M4 14h16v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z'/%3E%3C/svg%3E")}
+.zk [data-m="rasxod"],.zk [data-mode="rasxod"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 6v12M15 9.5a3 3 0 0 0-6 0c0 3 6 2 6 5a3 3 0 0 1-6 0'/%3E%3C/svg%3E")}
+.zk [data-m="kal"],.zk [data-mode="kal"]{--zk-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 2C6.5 2 2 6.5 2 12c0 4 2.5 7.5 6 9h8c3.5-1.5 6-5 6-9 0-5.5-4.5-10-10-10z'/%3E%3Cpath d='M12 6v6l4 2'/%3E%3C/svg%3E")}
 
 /* ================================================================== 🎬 KINO (asosiy oyna) */
 .zk>.top{background:linear-gradient(rgba(7,11,31,.78),rgba(7,11,31,.5));-webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);
@@ -544,9 +541,9 @@ body.zk.zk-nogl .hb{background:radial-gradient(120% 60% at 15% 0%,#5B3FD8 0,tran
   border:0;border-radius:13px;background:#F2B84B!important;color:#2A1500!important;font:800 13px var(--zk-fb,sans-serif)!important;white-space:nowrap;cursor:pointer;
   box-shadow:0 6px 16px rgba(242,184,75,.32)!important}
 .zk-hubbtn svg{width:17px;height:17px;flex:none}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-hubbtn::before{display:none}
-.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-hubbtn{position:sticky!important;left:0;z-index:3!important;background:#F2B84B!important;color:#2A1500!important;padding:0 12px 0 10px!important}
-@media (max-width:440px){.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) .zk-hubbtn{font-size:13px!important;gap:6px!important}}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) .zk-hubbtn::before{display:none}
+.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) .zk-hubbtn{position:sticky!important;left:0;z-index:3!important;background:#F2B84B!important;color:#2A1500!important;padding:0 12px 0 10px!important}
+@media (max-width:440px){.zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) .zk-hubbtn{font-size:13px!important;gap:6px!important}}
 
 /* ================================================================== ⚡ Oddiy rejim (body.lite): Telegram ranglari, effektlarsiz */
 body.lite *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
@@ -575,12 +572,12 @@ body.lite .hb-pick .opt.on{box-shadow:inset 0 0 0 2.5px var(--tg-theme-button-co
 body.lite .hb-pick .go{background:var(--tg-theme-button-color,#2563EB);color:var(--tg-theme-button-text-color,#fff)!important}
 
 /* ⚡ Oddiy: bo'limlar paneli (Kreativ'da zk.css bezaydi) */
-body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg){display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--bg2,#17181e);
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg){display:flex;gap:4px;padding:3px;border-radius:12px;background:var(--bg2,#17181e);
   max-width:100%;overflow-x:auto;scrollbar-width:none}
-body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg)::-webkit-scrollbar{display:none}
-body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button:not(.zk-hubbtn){flex:none;height:34px;padding:0 11px;border-radius:9px;
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg)::-webkit-scrollbar{display:none}
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button:not(.zk-hubbtn){flex:none;height:34px;padding:0 11px;border-radius:9px;
   font:750 13.5px var(--zk-fb,sans-serif);color:var(--hint,#8b8e98);white-space:nowrap}
-body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg) button.on{background:var(--bg,#0e0f13);color:var(--text,#f2f3f5)}
+body.lite :is(.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button.on{background:var(--bg,#0e0f13);color:var(--text,#f2f3f5)}
 
 /* 🧭 bo'lim ichidan ochilganda — pastdan chiqadigan varaq (fon ko'rinib turadi, pastga surib yopiladi) */
 .hb.hb-sheet{background:rgba(3,5,16,.55)!important;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}

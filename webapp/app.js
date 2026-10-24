@@ -861,7 +861,7 @@ const ZHub = (() => {
     kal: ["Kaloriya", "Kunlik kkal va vazn", "🥗", "#E67E22,#935116"],
   };
   const NEW = new Set(["prava"]);
-  const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg";
+  const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
   let el = null, open_ = false, from = "", don = null, ad = null, page = "";
   const live = {}, liveAt = {};
   const lite = () => !!window.ZK_LITE;
@@ -1053,6 +1053,10 @@ const ZHub = (() => {
   new MutationObserver(() => { if (q) return; q = true; requestAnimationFrame(() => { q = false; addBtns(); }); })
     .observe(document.body, {childList: true, subtree: true});
   addBtns();
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest && e.target.closest(".zk-hubbtn");
+    if (b) { e.stopPropagation(); haptic(); open(document.body.dataset.zkm || "kino"); }
+  });
   // ⚡ Oddiy rejimda donat — bosh ekrandagi karta orqali (Kreativ'da zk.js tepada tugma ko'rsatadi)
   if (lite()) fetch("api/donate").then((r) => r.json()).then((d) => { if (d && d.on && (d.num || (d.cards && d.cards.length))) { don = d; if (open_ && !page && window.ZK_UI_CHOSEN) render(); } }).catch(() => {});
   function donSheet() {
