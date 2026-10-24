@@ -485,6 +485,70 @@ class MovieService:
         return None
 
     @staticmethod
+    def search_catalog_by_actor(actor_query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """Katalogdan aktyor nomi bo'yicha kinolarni qidirish (Lotin + Kirill)."""
+        if not actor_query or len(actor_query.strip()) < 2:
+            return []
+        global _CATALOG_CACHE
+        catalog_path = BASE_DIR / "data" / "catalog.json"
+        if _CATALOG_CACHE is None and catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    _CATALOG_CACHE = json.load(f)
+            except Exception:
+                pass
+
+        from utils.translit import get_actor_variants
+
+        clean_act = actor_query.strip()
+        targets = [t.lower() for t in get_actor_variants(clean_act) if len(t) >= 2]
+
+        items = list(CUSTOM_CATALOG_ITEMS)
+        seen_codes = {str(it.get("c")) for it in items}
+        if _CATALOG_CACHE and "items" in _CATALOG_CACHE:
+            for it in _CATALOG_CACHE["items"]:
+                if str(it.get("c")) not in seen_codes:
+                    items.append(it)
+
+        matched = []
+        for it in items:
+            d_str = str(it.get("d", "")).lower()
+            t_str = str(it.get("t", "")).lower()
+            if any(t in d_str or t in t_str for t in targets):
+                matched.append(it)
+                if len(matched) >= limit:
+                    break
+        return matched
+
+    @staticmethod
+    def search_catalog_by_year(year: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """Katalogdan yil bo'yicha kinolarni qidirish."""
+        global _CATALOG_CACHE
+        catalog_path = BASE_DIR / "data" / "catalog.json"
+        if _CATALOG_CACHE is None and catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    _CATALOG_CACHE = json.load(f)
+            except Exception:
+                pass
+
+        y_str = str(year).strip()
+        items = list(CUSTOM_CATALOG_ITEMS)
+        seen_codes = {str(it.get("c")) for it in items}
+        if _CATALOG_CACHE and "items" in _CATALOG_CACHE:
+            for it in _CATALOG_CACHE["items"]:
+                if str(it.get("c")) not in seen_codes:
+                    items.append(it)
+
+        matched = []
+        for it in items:
+            if str(it.get("y", "")).strip() == y_str:
+                matched.append(it)
+                if len(matched) >= limit:
+                    break
+        return matched
+
+    @staticmethod
     async def find_by_code(session: AsyncSession, code: str) -> Optional[Movie]:
         """Kino kodi orqali kinoni topish."""
         return await crud.get_movie_by_code(session, code)
@@ -503,6 +567,26 @@ class MovieService:
     async def get_genre_count(session: AsyncSession, genre: str) -> int:
         """Janr bo'yicha kinolar soni."""
         return await crud.get_movies_by_genre_count(session, genre)
+
+    @staticmethod
+    async def get_by_year(session: AsyncSession, year: int, limit: int = 10, offset: int = 0) -> List[Movie]:
+        """Yili bo'yicha kinolar ro'yxati."""
+        return await crud.get_movies_by_year(session, year=year, limit=limit, offset=offset)
+
+    @staticmethod
+    async def get_year_count(session: AsyncSession, year: int) -> int:
+        """Yili bo'yicha kinolar soni."""
+        return await crud.get_movies_by_year_count(session, year=year)
+
+    @staticmethod
+    async def search_by_actor(session: AsyncSession, actor: str, limit: int = 10, offset: int = 0) -> List[Movie]:
+        """Aktyor bo'yicha kinolar ro'yxati."""
+        return await crud.get_movies_by_actor(session, actor=actor, limit=limit, offset=offset)
+
+    @staticmethod
+    async def get_actor_count(session: AsyncSession, actor: str) -> int:
+        """Aktyor bo'yicha kinolar soni."""
+        return await crud.get_movies_by_actor_count(session, actor=actor)
 
     @staticmethod
     async def get_random(session: AsyncSession) -> Optional[Movie]:

@@ -793,6 +793,17 @@ async function load() {
   const aq = new URLSearchParams(location.search).get("asil");
   if (ASIL && (aq || (/^(asil_|kino_)?\d+$/i.test(sp) && code))) { ZAsil.open(+(aq || code)); return; }
   if (code && byCode.has(code)) { openDetail(byCode.get(code), false); return; }
+  const yq = _urlParams.get("year");
+  const actq = _urlParams.get("actor");
+  const qq = _urlParams.get("q");
+  if (yq || actq || qq) {
+    const searchVal = qq || actq || yq;
+    if ($("q")) { $("q").value = searchVal; }
+    query = searchVal;
+    if ($("sbox")) $("sbox").classList.add("has");
+    render();
+    return;
+  }
   if (!sp && !location.search.replace(/^\?/, "").split("&").some((x) => x && !/^(tgWebApp|nosplash)/.test(x))) ZHub.open("");
 }
 // ---------- 🔒 majburiy obuna: kanal(lar)ga a'zo bo'lmaguncha ilova yopiq ----------

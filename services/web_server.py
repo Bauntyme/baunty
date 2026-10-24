@@ -2250,9 +2250,11 @@ async def handle_tv_hide(request: web.Request) -> web.Response:
 
 
 async def handle_get_movies(request: web.Request) -> web.Response:
-    """Kinolar ro'yxati va aqlli qidiruv (Lotin-Kirill) - Zero-lag va DB xatoliklariga chidamli."""
+    """Kinolar ro'yxati va aqlli qidiruv (Lotin-Kirill, Janr, Yil, Aktyor) - Zero-lag va DB xatoliklariga chidamli."""
     q = request.query.get("q", "").strip()
     genre = request.query.get("genre", "").strip()
+    year_param = request.query.get("year", "").strip()
+    actor_param = request.query.get("actor", "").strip()
     sort = request.query.get("sort", "views").strip()
     limit = int(request.query.get("limit", 50))
     offset = int(request.query.get("offset", 0))
@@ -2263,6 +2265,10 @@ async def handle_get_movies(request: web.Request) -> web.Response:
                 movies = await crud.smart_search_movies(session, query=q, limit=limit, offset=offset)
             elif genre and genre != "Barchasi":
                 movies = await crud.get_movies_by_genre(session, genre=genre, limit=limit, offset=offset)
+            elif year_param and year_param.isdigit():
+                movies = await crud.get_movies_by_year(session, year=int(year_param), limit=limit, offset=offset)
+            elif actor_param:
+                movies = await crud.get_movies_by_actor(session, actor=actor_param, limit=limit, offset=offset)
             elif sort == "top" or sort == "views":
                 movies = await crud.get_top_movies(session, limit=limit)
             else:
@@ -2283,15 +2289,57 @@ async def handle_get_movies(request: web.Request) -> web.Response:
                     "description": m.description,
                 })
 
+            if not items and (q or year_param or actor_param):
+                cat = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
+                raw_items = cat.get("items", [])
+                from utils.translit import get_both_scripts
+                if q:
+                    q_low = q.lower()
+                    lat_q, cyr_q = get_both_scripts(q)
+                    match_keys = [k for k in [q_low, lat_q.lower(), cyr_q.lower()] if k]
+                    filtered = [it for it in raw_items if any(k in str(it.get("t", "")).lower() or k in str(it.get("c", "")).lower() or k in str(it.get("d", "")).lower() for k in match_keys)]
+                elif year_param and year_param.isdigit():
+                    filtered = [it for it in raw_items if str(it.get("y", "")) == year_param]
+                elif actor_param:
+                    from utils.translit import get_actor_variants
+                    targets = [t.lower() for t in get_actor_variants(actor_param) if len(t) >= 2]
+                    filtered = [it for it in raw_items if any(t in str(it.get("d", "")).lower() or t in str(it.get("t", "")).lower() for t in targets)]
+                else:
+                    filtered = []
+                sliced = filtered[offset:offset + limit]
+                fb_items = []
+                for it in sliced:
+                    fb_items.append({
+                        "id": it.get("c"),
+                        "code": str(it.get("c")),
+                        "title": it.get("t", ""),
+                        "genres": "Barcha",
+                        "year": it.get("y"),
+                        "rating": it.get("r"),
+                        "duration": None,
+                        "views_count": it.get("v", 0),
+                        "downloads_count": 0,
+                        "description": it.get("d"),
+                    })
+                return web.json_response({"ok": True, "items": fb_items, "total": len(filtered), "count": len(fb_items)})
+
             total = await crud.get_total_movies_count(session)
             return web.json_response({"ok": True, "items": items, "total": total, "count": len(items)})
     except Exception as e:
         logger.warning(f"Kinolarni DB dan olishda xatolik ({e}), lokal katalog keshidan foydalanilmoqda")
         cat = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
         raw_items = cat.get("items", [])
+        from utils.translit import get_both_scripts, get_actor_variants
         if q:
             q_low = q.lower()
-            filtered = [it for it in raw_items if q_low in str(it.get("t", "")).lower() or q_low in str(it.get("c", "")).lower()]
+            lat_q, cyr_q = get_both_scripts(q)
+            match_keys = [k for k in [q_low, lat_q.lower(), cyr_q.lower()] if k]
+            filtered = [it for it in raw_items if any(k in str(it.get("t", "")).lower() or k in str(it.get("c", "")).lower() or k in str(it.get("d", "")).lower() for k in match_keys)]
+        elif year_param and year_param.isdigit():
+            filtered = [it for it in raw_items if str(it.get("y", "")) == year_param]
+        elif actor_param:
+            targets = [t.lower() for t in get_actor_variants(actor_param) if len(t) >= 2]
+            filtered = [it for it in raw_items if any(t in str(it.get("d", "")).lower() or t in str(it.get("t", "")).lower() for t in targets)]
         else:
             filtered = raw_items
         sliced = filtered[offset:offset + limit]
@@ -2302,7 +2350,7 @@ async def handle_get_movies(request: web.Request) -> web.Response:
                 "code": str(it.get("c")),
                 "title": it.get("t", ""),
                 "genres": "Barcha",
-                "year": None,
+                "year": it.get("y"),
                 "rating": it.get("r"),
                 "duration": None,
                 "views_count": it.get("v", 0),

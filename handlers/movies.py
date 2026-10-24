@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="movies_router")
 
 
+@router.message(Command("kino", "movie", "film"))
 @router.message(F.text.in_(["🎬 Kino", "🎬 K I N O — kod orqali qidirish"]))
 async def cmd_movies_menu(message: Message, state: FSMContext) -> None:
     await state.clear()
@@ -86,6 +87,30 @@ async def cb_movie_by_title(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(MovieSearchStates.waiting_for_title)
     await callback.message.answer(
         "🔍 <b>Kino nomini kiriting:</b>\nMasalan: <i>Forsaj</i> yoki <i>Avatar</i>",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "movie:by_year")
+async def cb_movie_by_year(callback: CallbackQuery, state: FSMContext) -> None:
+    """Yili bo'yicha qidirishni boshlash."""
+    await state.set_state(MovieSearchStates.waiting_for_year)
+    await callback.message.answer(
+        "📅 <b>Kino chiqarilgan yilini kiriting:</b>\nMasalan: <code>2024</code> yoki <code>2023</code>",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard()
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "movie:by_actor")
+async def cb_movie_by_actor(callback: CallbackQuery, state: FSMContext) -> None:
+    """Aktyor bo'yicha qidirishni boshlash."""
+    await state.set_state(MovieSearchStates.waiting_for_actor)
+    await callback.message.answer(
+        "👤 <b>Aktyor yoki aktrisa ismini kiriting:</b>\nMasalan: <i>Jason Statham</i> yoki <i>Tom Cruise</i>",
         parse_mode="HTML",
         reply_markup=cancel_keyboard()
     )
@@ -341,6 +366,162 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
                 parse_mode="HTML",
                 reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
             )
+
+
+@router.message(MovieSearchStates.waiting_for_year, F.text)
+async def state_process_year(message: Message, state: FSMContext) -> None:
+    """Yil bo'yicha qidirish."""
+    raw_val = message.text.strip()
+    if not raw_val.isdigit() or len(raw_val) != 4:
+        await message.answer(
+            "⚠️ Iltimos, 4 xonali yil kiriting (masalan: <code>2024</code>):",
+            parse_mode="HTML",
+            reply_markup=cancel_keyboard()
+        )
+        return
+    await state.clear()
+    year = int(raw_val)
+
+    async with get_session() as session:
+        total = await movie_service.get_year_count(session, year)
+        movies = await movie_service.get_by_year(session, year, limit=10, offset=0)
+        if not movies:
+            cat_matches = movie_service.search_catalog_by_year(year, limit=10)
+            if cat_matches:
+                upserted = []
+                for it in cat_matches:
+                    c_str = str(it.get("c"))
+                    t_str = it.get("t", f"Kino #{c_str}").strip()
+                    d_str = it.get("d", "").strip() or None
+                    v_str = int(it.get("v", 150))
+                    y_val = int(it.get("y")) if str(it.get("y", "")).isdigit() else year
+                    db_m, _ = await crud.upsert_movie(
+                        session=session,
+                        code=c_str,
+                        title=t_str,
+                        description=d_str,
+                        year=y_val,
+                        views_count=v_str
+                    )
+                    upserted.append(db_m)
+                await session.commit()
+                movies = upserted
+                total = len(upserted)
+
+        if not movies:
+            await message.answer(
+                f"😔 <b>{year}-yil</b>da chiqarilgan kinolar hozircha bazamizda topilmadi.\n"
+                f"🍿 Barcha kinolar kanalimizda: {config.CHANNEL_USERNAME}",
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+            )
+            return
+
+        total_pages = max(1, math.ceil(total / 10))
+        text = f"📅 <b>{year}-yildagi kinolar (1/{total_pages}-sahifa):</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
+        markup = movie_list_keyboard(movies, page=0, total_pages=total_pages, prefix=f"year_page:{year}")
+        await message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("year_page:"))
+async def cb_year_page(callback: CallbackQuery) -> None:
+    """Yil bo'yicha pagination."""
+    parts = callback.data.split(":")
+    year = int(parts[1])
+    page = int(parts[2])
+    await callback.answer()
+
+    async with get_session() as session:
+        total = await movie_service.get_year_count(session, year)
+        total_pages = max(1, math.ceil(total / 10))
+        movies = await movie_service.get_by_year(session, year, limit=10, offset=page * 10)
+        if not movies:
+            return
+
+        text = f"📅 <b>{year}-yildagi kinolar ({page+1}/{total_pages}-sahifa):</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
+        markup = movie_list_keyboard(movies, page=page, total_pages=total_pages, prefix=f"year_page:{year}")
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        except Exception:
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.message(MovieSearchStates.waiting_for_actor, F.text)
+async def state_process_actor(message: Message, state: FSMContext) -> None:
+    """Aktyor bo'yicha qidirish."""
+    actor = message.text.strip()
+    if len(actor) < 2:
+        await message.answer(
+            "⚠️ Aktyor ismini to'liqroq kiriting (kamida 2 ta harf):",
+            reply_markup=cancel_keyboard()
+        )
+        return
+    await state.clear()
+
+    async with get_session() as session:
+        total = await movie_service.get_actor_count(session, actor)
+        movies = await movie_service.search_by_actor(session, actor, limit=10, offset=0)
+        if not movies:
+            cat_matches = movie_service.search_catalog_by_actor(actor, limit=10)
+            if cat_matches:
+                upserted = []
+                for it in cat_matches:
+                    c_str = str(it.get("c"))
+                    t_str = it.get("t", f"Kino #{c_str}").strip()
+                    d_str = it.get("d", "").strip() or None
+                    v_str = int(it.get("v", 150))
+                    y_val = int(it.get("y")) if str(it.get("y", "")).isdigit() else None
+                    db_m, _ = await crud.upsert_movie(
+                        session=session,
+                        code=c_str,
+                        title=t_str,
+                        description=d_str,
+                        year=y_val,
+                        views_count=v_str
+                    )
+                    upserted.append(db_m)
+                await session.commit()
+                movies = upserted
+                total = len(upserted)
+
+        if not movies:
+            await message.answer(
+                f"😔 <b>«{actor}»</b> ishtirokidagi kinolar hozircha bazamizda topilmadi.\n"
+                f"🍿 Barcha kinolar: {config.CHANNEL_USERNAME}",
+                parse_mode="HTML",
+                reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+            )
+            return
+
+        total_pages = max(1, math.ceil(total / 10))
+        text = f"👤 <b>«{actor}» ishtirokidagi kinolar (1/{total_pages}-sahifa):</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
+        markup = movie_list_keyboard(movies, page=0, total_pages=total_pages, prefix=f"actor_page:{actor}")
+        await message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
+@router.callback_query(F.data.startswith("actor_page:"))
+async def cb_actor_page(callback: CallbackQuery) -> None:
+    """Aktyor bo'yicha pagination."""
+    parts = callback.data.split(":")
+    actor = parts[1]
+    page = int(parts[2])
+    await callback.answer()
+
+    async with get_session() as session:
+        total = await movie_service.get_actor_count(session, actor)
+        total_pages = max(1, math.ceil(total / 10))
+        movies = await movie_service.search_by_actor(session, actor, limit=10, offset=page * 10)
+        if not movies:
+            return
+
+        text = f"👤 <b>«{actor}» ishtirokidagi kinolar ({page+1}/{total_pages}-sahifa):</b>\nKo'rmoqchi bo'lgan filmingizni tanlang:"
+        markup = movie_list_keyboard(movies, page=page, total_pages=total_pages, prefix=f"actor_page:{actor}")
+        try:
+            await callback.message.edit_text(text, parse_mode="HTML", reply_markup=markup)
+        except Exception:
+            await callback.message.answer(text, parse_mode="HTML", reply_markup=markup)
+
+
 
 
 def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:

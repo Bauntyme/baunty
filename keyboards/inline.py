@@ -52,6 +52,10 @@ def movie_menu_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🔍 Nomi bo'yicha qidirish", callback_data="movie:by_title"),
     )
     builder.row(
+        InlineKeyboardButton(text="📅 Yili bo'yicha", callback_data="movie:by_year"),
+        InlineKeyboardButton(text="👤 Aktyor bo'yicha", callback_data="movie:by_actor"),
+    )
+    builder.row(
         InlineKeyboardButton(text="🎲 Tasodifiy kino", callback_data="movie:random"),
         InlineKeyboardButton(text="🎭 Janrlar bo'yicha", callback_data="movie:genres"),
     )

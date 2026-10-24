@@ -12,7 +12,7 @@ from database.models import (
     AnonymousMessage, Feedback, Expense, ExpenseBudget, UserCalorieProfile,
     CalorieLogItem, MafiaGameRecord, utc_now
 )
-from utils.translit import get_both_scripts
+from utils.translit import get_both_scripts, get_actor_variants
 
 
 # ==========================================
@@ -226,6 +226,80 @@ async def get_movies_by_genre_count(
     """Janr bo'yicha jami kinolar soni."""
     pattern = f"%{genre.strip()}%"
     stmt = select(func.count(Movie.id)).where(Movie.genres.ilike(pattern))
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_movies_by_year(
+    session: AsyncSession,
+    year: int,
+    limit: int = 10,
+    offset: int = 0
+) -> List[Movie]:
+    """Yili bo'yicha kinolar ro'yxati."""
+    stmt = (
+        select(Movie)
+        .where(Movie.year == year)
+        .order_by(desc(Movie.views_count), desc(Movie.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_movies_by_year_count(
+    session: AsyncSession,
+    year: int
+) -> int:
+    """Yili bo'yicha jami kinolar soni."""
+    stmt = select(func.count(Movie.id)).where(Movie.year == year)
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_movies_by_actor(
+    session: AsyncSession,
+    actor: str,
+    limit: int = 10,
+    offset: int = 0
+) -> List[Movie]:
+    """Aktyor bo'yicha kinolar ro'yxati (nomi va tavsifidan, Lotin hamda Kirill)."""
+    clean_actor = actor.strip()
+    if not clean_actor:
+        return []
+    variants = get_actor_variants(clean_actor)
+    conditions = []
+    for v in variants:
+        pat = f"%{v}%"
+        conditions.append(Movie.title.ilike(pat))
+        conditions.append(Movie.description.ilike(pat))
+    stmt = (
+        select(Movie)
+        .where(or_(*conditions))
+        .order_by(desc(Movie.views_count), desc(Movie.created_at))
+        .limit(limit)
+        .offset(offset)
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_movies_by_actor_count(
+    session: AsyncSession,
+    actor: str
+) -> int:
+    """Aktyor bo'yicha kinolar soni (Lotin hamda Kirill)."""
+    clean_actor = actor.strip()
+    if not clean_actor:
+        return 0
+    variants = get_actor_variants(clean_actor)
+    conditions = []
+    for v in variants:
+        pat = f"%{v}%"
+        conditions.append(Movie.title.ilike(pat))
+        conditions.append(Movie.description.ilike(pat))
+    stmt = select(func.count(Movie.id)).where(or_(*conditions))
     result = await session.execute(stmt)
     return result.scalar() or 0
 

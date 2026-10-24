@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="story_router")
 
 
-@router.message(Command("story"))
+@router.message(Command("story", "stories", "hikoya"))
 @router.message(F.text == "👀 Anonim story")
 async def cmd_story_prompt(message: Message, state: FSMContext) -> None:
     await state.clear()

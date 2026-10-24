@@ -77,7 +77,11 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     args = message.text.split(maxsplit=1)
     if len(args) > 1:
         param = args[1].strip()
-        if param.startswith("kino_") or param.startswith("movie_") or param.startswith("k_"):
+        if param in ("kino", "movie", "film") or param.startswith("kino_") or param.startswith("movie_") or param.startswith("k_"):
+            if param in ("kino", "movie", "film"):
+                from handlers.movies import cmd_movies_menu
+                await cmd_movies_menu(message, state)
+                return
             movie_code = param.replace("kino_", "").replace("movie_", "").replace("k_", "").strip()
             delivered = await movie_service.deliver_movie(
                 bot=message.bot,
@@ -143,6 +147,72 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         elif param in ("kal", "kaloriya", "kcal") or param.startswith("kal_"):
             from handlers.kaloriya import cmd_kaloriya
             await cmd_kaloriya(message)
+            return
+
+        elif param in ("tv", "telekanal") or param.startswith("tv_"):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            url = f"{base_url}?m=tv"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📺 Jonli TV Kanallar (1440p / 1080p)", web_app=WebAppInfo(url=url))
+            ]])
+            text = (
+                "📺 <b>Bauntys Jonli TV Kanallar (1440p / 1080p)</b>\n\n"
+                "• O'zbekiston milliy telekanallari (Sevimli, Zo'r TV, MY5, Milliy va b.)\n"
+                "• Jahon va sport telekanallari\n"
+                "• 1440p QHD / 1080p FHD tiniq uzluksiz oqim\n\n"
+                "Tomosha qilish uchun quyidagi tugmani bosing:"
+            )
+            await message.answer(text, parse_mode="HTML", reply_markup=kb)
+            return
+
+        elif param in ("games", "oyun", "oyinlar") or param.startswith("games_") or param.startswith("game_"):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            url = f"{base_url}?m=games" if param in ("games", "oyun", "oyinlar") else f"{base_url}?games={param}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🎮 O'yinlar Portalini Ochish", web_app=WebAppInfo(url=url))
+            ]])
+            text = (
+                "🎮 <b>Bauntys O'yinlar Portali (Mini App Games)</b>\n\n"
+                "• 2048, Snake, Flappy, Tetris, Runner va b.\n"
+                "• Sandiqlar va mukofotlar\n"
+                "• Uy hayvoni (Pet) tizimi\n\n"
+                "O'yinlarni boshlash uchun quyidagi tugmani bosing:"
+            )
+            await message.answer(text, parse_mode="HTML", reply_markup=kb)
+            return
+
+        elif param in ("quiz", "viktorina") or param.startswith("quiz_") or param.startswith("qz_") or (param.startswith("qz") and len(param) > 2):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            url = f"{base_url}?m=quiz" if param in ("quiz", "viktorina") else f"{base_url}?quiz={param}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🧠 Viktorinani Boshlash", web_app=WebAppInfo(url=url))
+            ]])
+            text = (
+                "🧠 <b>Bauntys Viktorina & Bilim Sinovi (Quiz)</b>\n\n"
+                "• Qiziqarli savollar va intellektual janglar\n"
+                "• Do'stlar bilan duel yoki yakkaxon rejim\n"
+                "• Reyting va ballar tizimi\n\n"
+                "Boshlash uchun quyidagi tugmani bosing:"
+            )
+            await message.answer(text, parse_mode="HTML", reply_markup=kb)
+            return
+
+        elif param in ("music", "musiqa", "song", "mp3"):
+            from handlers.music import cmd_music_menu
+            await cmd_music_menu(message, state)
+            return
+
+        elif param in ("docs", "doc", "hujjat", "hujjatlar") or param.startswith("doc_"):
+            from handlers.docs import cmd_docs_menu
+            await cmd_docs_menu(message, state)
+            return
+
+        elif param in ("story", "stories", "hikoya") or param.startswith("story_"):
+            from handlers.story import cmd_story_prompt
+            await cmd_story_prompt(message, state)
             return
 
         elif param.startswith("q_"):
@@ -298,7 +368,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     )
 
 
-@router.message(Command("prava"))
+@router.message(Command("prava", "pdd", "avto", "imtihon"))
 async def cmd_prava(message: Message) -> None:
     """/prava komandasi orqali to'g'ridan-to'g'ri Prava bo'limini ochish."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -451,4 +521,61 @@ async def cmd_donate(message: Message) -> None:
 async def cb_copy_donate_card(callback: CallbackQuery) -> None:
     """Karta raqamidan nusxa olinganligini xabardor qilish."""
     await callback.answer("✅ Karta raqami nusxalandi: 9860 1766 1922 0088", show_alert=True)
+
+
+@router.message(Command("tv"))
+async def cmd_tv(message: Message) -> None:
+    """/tv buyrug'i: Jonli TV kanallari."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    url = f"{base_url}?m=tv"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📺 Jonli TV Kanallar (1440p / 1080p)", web_app=WebAppInfo(url=url))
+    ]])
+    text = (
+        "📺 <b>Bauntys Jonli TV Kanallar (1440p / 1080p)</b>\n\n"
+        "• O'zbekiston milliy telekanallari (Sevimli, Zo'r TV, MY5, Milliy va b.)\n"
+        "• Jahon va sport telekanallari\n"
+        "• 1440p QHD / 1080p FHD tiniq uzluksiz oqim\n\n"
+        "Tomosha qilish uchun quyidagi tugmani bosing:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("quiz", "viktorina"))
+async def cmd_quiz(message: Message) -> None:
+    """/quiz buyrug'i: Viktorina va bilim sinovi."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    url = f"{base_url}?m=quiz"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🧠 Viktorinani Boshlash", web_app=WebAppInfo(url=url))
+    ]])
+    text = (
+        "🧠 <b>Bauntys Viktorina & Bilim Sinovi (Quiz)</b>\n\n"
+        "• Qiziqarli savollar va intellektual janglar\n"
+        "• Do'stlar bilan duel yoki yakkaxon rejim\n"
+        "• Reyting va ballar tizimi\n\n"
+        "Boshlash uchun quyidagi tugmani bosing:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+
+
+@router.message(Command("games", "oyinlar", "oyunlar"))
+async def cmd_games(message: Message) -> None:
+    """/games buyrug'i: O'yinlar portali."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+    base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+    url = f"{base_url}?m=games"
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🎮 O'yinlar Portalini Ochish", web_app=WebAppInfo(url=url))
+    ]])
+    text = (
+        "🎮 <b>Bauntys O'yinlar Portali (Mini App Games)</b>\n\n"
+        "• 2048, Snake, Flappy, Tetris, Runner va b.\n"
+        "• Sandiqlar va mukofotlar\n"
+        "• Uy hayvoni (Pet) tizimi\n\n"
+        "O'yinlarni boshlash uchun quyidagi tugmani bosing:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=kb)
 

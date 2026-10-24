@@ -7,6 +7,8 @@ from aiogram.fsm.state import State, StatesGroup
 class MovieSearchStates(StatesGroup):
     waiting_for_code = State()
     waiting_for_title = State()
+    waiting_for_year = State()
+    waiting_for_actor = State()
 
 
 class MovieAddStates(StatesGroup):
