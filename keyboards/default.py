@@ -18,6 +18,7 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
         ],
         [
             KeyboardButton(text="🕵️ Mafia"),
+            KeyboardButton(text="📺 Tv Xona"),
             KeyboardButton(text="💰 Rasxod"),
             KeyboardButton(text="🥗 Kaloriya"),
         ],

@@ -26,6 +26,7 @@ const PAL = {
   story: {c: ["#170730", "#8B5CFF", "#FF77BC"], acc: "#FF8CC8", ink: "#2A0018"},
   docs:  {c: ["#071A24", "#1F7A8C", "#F2B84B"], acc: "#F2C14E", ink: "#241800"},
   tv:    {c: ["#120A2A", "#5B3FB8", "#45E8CB"], acc: "#7FE3D3", ink: "#06221F"},
+  tvroom: {c: ["#0C081A", "#8B5CF6", "#06B6D4"], acc: "#A78BFA", ink: "#1E1035"},
   fx:    {c: ["#04201A", "#1C8F6A", "#2440C8"], acc: "#4FE0A6", ink: "#04261A"},
   food:  {c: ["#2A0B12", "#C8344C", "#F2B84B"], acc: "#FF7A59", ink: "#2A0A05"},
   quiz:  {c: ["#120A3A", "#5B3FD8", "#12A99A"], acc: "#8F7CFF", ink: "#14093A"},

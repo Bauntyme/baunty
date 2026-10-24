@@ -149,6 +149,16 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await cmd_kaloriya(message)
             return
 
+        elif (
+            param in ("tvroom", "tvxona")
+            or param.startswith("tvroom_")
+            or param.startswith("tvxona_")
+            or (param.startswith("tv_") and len(param) > 3 and not param.startswith("tv_channel_"))
+        ):
+            from handlers.tvroom import handle_tvroom_start
+            await handle_tvroom_start(message, param)
+            return
+
         elif param in ("tv", "telekanal") or param.startswith("tv_"):
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
             base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"

@@ -18,6 +18,7 @@ from handlers.books import router as books_router
 from handlers.mafia import router as mafia_router
 from handlers.rasxod import router as rasxod_router
 from handlers.kaloriya import router as kaloriya_router
+from handlers.tvroom import router as tvroom_router
 
 
 _root_router: Router = None
@@ -41,6 +42,7 @@ def setup_routers() -> Router:
     _root_router.include_router(mafia_router)
     _root_router.include_router(rasxod_router)
     _root_router.include_router(kaloriya_router)
+    _root_router.include_router(tvroom_router)
     _root_router.include_router(story_router)
     _root_router.include_router(docs_router)
     _root_router.include_router(round_video_router)
@@ -62,6 +64,7 @@ __all__ = [
     "mafia_router",
     "rasxod_router",
     "kaloriya_router",
+    "tvroom_router",
     "story_router",
     "admin_router",
     "docs_router",

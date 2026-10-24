@@ -35,6 +35,7 @@ from services.security_service import (
 from services.rasxod_service import rasxod_service
 from services.kaloriya_service import kaloriya_service
 from services.mafia_service import mafia_service
+from services.tv_room_service import tv_room_service, DEFAULT_CHANNEL_ID
 
 logger = logging.getLogger(__name__)
 
@@ -953,6 +954,8 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
             return await handle_kaloriya_api(request)
         if "mafia" in path:
             return await handle_mafia_api(request)
+        if "tvroom" in path or "tv_room" in path or "tvxona" in path:
+            return await handle_tvroom_api(request)
         return web.json_response({"ok": False, "error": "upstream_unavailable"}, status=502)
 
 
@@ -1251,6 +1254,204 @@ async def handle_mafia_api(request: web.Request) -> web.Response:
         return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         logger.warning(f"Mafia API xatolik: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_tvroom_api(request: web.Request) -> web.Response:
+    """Tv Xona (TV Watch Party Room) Mini App API handleri."""
+    path = request.path.lstrip("/")
+    if path.startswith("webapp/"):
+        path = path[7:]
+    if "?" in path:
+        path = path.split("?", 1)[0]
+    user_id, user_name = extract_request_user(request)
+
+    q_params = dict(request.query)
+    if "?" in request.path:
+        try:
+            qs = request.path.split("?", 1)[1]
+            for k, v in urllib.parse.parse_qsl(qs):
+                q_params[k] = v
+        except Exception:
+            pass
+
+    username = ""
+    photo_url = ""
+    init_data = request.headers.get("X-Init-Data") or q_params.get("init_data")
+    if init_data:
+        try:
+            params = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
+            if "user" in params:
+                u_data = json.loads(params["user"])
+                if isinstance(u_data, dict):
+                    username = u_data.get("username", "")
+                    photo_url = u_data.get("photo_url", "")
+        except Exception:
+            pass
+
+    try:
+        async def _get_body() -> Dict[str, Any]:
+            try:
+                payload_attr = getattr(request, "_payload", None)
+                if isinstance(payload_attr, (bytes, bytearray)) and payload_attr:
+                    return json.loads(payload_attr.decode("utf-8"))
+            except Exception:
+                pass
+            try:
+                return await request.json()
+            except Exception:
+                pass
+            try:
+                raw = await request.read()
+                if raw:
+                    return json.loads(raw.decode("utf-8"))
+            except Exception:
+                pass
+            return {}
+
+        body = await _get_body() if request.method == "POST" else {}
+        if "user_id" in body and body["user_id"]:
+            try:
+                user_id = int(body["user_id"])
+            except Exception:
+                pass
+        elif "user_id" in q_params and q_params["user_id"]:
+            try:
+                user_id = int(q_params["user_id"])
+            except Exception:
+                pass
+
+        if "username" in body and body["username"]:
+            username = str(body["username"])
+        elif "username" in q_params and not username:
+            username = str(q_params["username"])
+
+        if "photo_url" in body and body["photo_url"]:
+            photo_url = str(body["photo_url"])
+        elif "photo_url" in q_params and not photo_url:
+            photo_url = str(q_params["photo_url"])
+
+        if "user_name" in body and body["user_name"]:
+            user_name = str(body["user_name"])
+        elif "user_name" in q_params and q_params["user_name"]:
+            user_name = str(q_params["user_name"])
+
+        # 1. Bosh sahifa / Ommaviy xonalar & Kanallar
+        if path in ("api/tvroom/rooms", "api/tvroom/public", "api/tvroom/home", "api/tvroom"):
+            if request.method == "POST" and "name" in body:
+                res = tv_room_service.create_room(
+                    user_id=user_id,
+                    user_name=user_name,
+                    room_name=str(body.get("name", "")),
+                    channel_id=body.get("channel_id"),
+                    username=username,
+                    photo_url=photo_url,
+                    custom_code=body.get("code"),
+                    pub=bool(body.get("pub", True)),
+                )
+                return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+            rooms = tv_room_service.list_public_rooms()
+            channels = tv_room_service.get_channels_list()
+            return web.json_response({
+                "ok": True,
+                "rooms": rooms,
+                "channels": channels,
+                "user": {"id": user_id, "name": user_name, "username": username, "photo_url": photo_url}
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 2. Mavjud kanallar
+        elif path == "api/tvroom/channels":
+            channels = tv_room_service.get_channels_list()
+            return web.json_response({"ok": True, "channels": channels}, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 3. Xona yaratish
+        elif path == "api/tvroom/create":
+            res = tv_room_service.create_room(
+                user_id=user_id,
+                user_name=user_name,
+                room_name=str(body.get("name", "")),
+                channel_id=body.get("channel_id") or body.get("channel"),
+                username=username,
+                photo_url=photo_url,
+                custom_code=body.get("code") or body.get("custom_code"),
+                pub=bool(body.get("pub", True)),
+            )
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 4. Xonaga qo'shilish
+        elif path == "api/tvroom/join":
+            code = str(body.get("code", body.get("room", body.get("room_id", ""))))
+            if not code:
+                code = q_params.get("room", q_params.get("code", "tv_main"))
+            res = tv_room_service.join_room(
+                room_code=code,
+                user_id=user_id,
+                user_name=user_name,
+                username=username,
+                photo_url=photo_url,
+            )
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 5. Xona holati (polling & state sync)
+        elif path == "api/tvroom/state":
+            code = q_params.get("room", q_params.get("code", body.get("room", body.get("code", ""))))
+            res = tv_room_service.get_room_state(room_code=str(code), user_id=user_id)
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 6. Kanalni o'zgartirish (Host sync)
+        elif path == "api/tvroom/channel":
+            code = str(body.get("room", body.get("code", q_params.get("room", ""))))
+            ch_id = int(body.get("channel_id", body.get("id", body.get("channel", DEFAULT_CHANNEL_ID))))
+            res = tv_room_service.change_channel(room_code=code, user_id=user_id, channel_id=ch_id)
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 7. Matnli xabar yoki reaksiya
+        elif path in ("api/tvroom/msg", "api/tvroom/chat"):
+            code = str(body.get("room", body.get("code", q_params.get("room", ""))))
+            text = str(body.get("text", body.get("t", body.get("msg", ""))))
+            reaction = body.get("reaction") or body.get("r") or body.get("emo")
+            res = tv_room_service.send_chat(
+                room_code=code,
+                user_id=user_id,
+                user_name=user_name,
+                text=text,
+                reaction=reaction,
+                username=username,
+                photo_url=photo_url,
+            )
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 8. WebRTC / Ovoz signallari
+        elif path == "api/tvroom/signal":
+            if request.method == "GET" or body.get("action") == "get":
+                code = q_params.get("room", q_params.get("code", body.get("room", "")))
+                since = float(q_params.get("since", body.get("since", 0.0)))
+                res = tv_room_service.get_signals(room_code=str(code), user_id=user_id, since_ts=since)
+                return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+            else:
+                code = str(body.get("room", body.get("code", "")))
+                to_uid = body.get("to", "all")
+                sig_type = str(body.get("type", body.get("signal_type", "state")))
+                sig_data = body.get("data", body.get("payload", {}))
+                res = tv_room_service.send_signal(
+                    room_code=code,
+                    from_uid=user_id,
+                    to_uid=to_uid,
+                    signal_type=sig_type,
+                    data=sig_data,
+                )
+                return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        # 9. Xonadan chiqish
+        elif path == "api/tvroom/leave":
+            code = str(body.get("room", body.get("code", q_params.get("room", ""))))
+            res = tv_room_service.leave_room(user_id=user_id, room_code=code)
+            return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+        return web.json_response({"ok": False, "error": "unknown_endpoint"}, status=404, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        logger.warning(f"TvRoom API xatolik: {e}")
         return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 
@@ -3730,6 +3931,10 @@ def create_web_app() -> web.Application:
         ("POST", "/api/mafia", handle_mafia_api),
         ("GET", "/api/mafia/{tail:.*}", handle_mafia_api),
         ("POST", "/api/mafia/{tail:.*}", handle_mafia_api),
+        ("GET", "/api/tvroom", handle_tvroom_api),
+        ("POST", "/api/tvroom", handle_tvroom_api),
+        ("GET", "/api/tvroom/{tail:.*}", handle_tvroom_api),
+        ("POST", "/api/tvroom/{tail:.*}", handle_tvroom_api),
         ("GET", "/api/duel", handle_upstream_api_proxy),
         ("GET", "/api/duel/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/duel/{tail:.*}", handle_upstream_api_proxy),

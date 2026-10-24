@@ -388,6 +388,7 @@ function setMode(m) {
   if (was === "rasxod" && window.ZRasxod) ZRasxod.close();
   if (was === "kal" && window.ZKal) ZKal.close();
   if (was === "mafia" && window.ZMafia) ZMafia.close();
+  if (was === "tvroom" && window.ZTvRoom) ZTvRoom.close();
   if (m === "music") { if (window.ZMusic) ZMusic.open(); return; }
   if (m === "docs") { if (window.ZDocs) ZDocs.open(); return; }
   if (m === "games") { if (window.ZGames) ZGames.open(); return; }
@@ -400,6 +401,7 @@ function setMode(m) {
   if (m === "rasxod") { if (window.ZRasxod) ZRasxod.open(); return; }
   if (m === "kal") { if (window.ZKal) ZKal.open(); return; }
   if (m === "mafia") { if (window.ZMafia) ZMafia.open(); return; }
+  if (m === "tvroom") { if (window.ZTvRoom) ZTvRoom.open(); return; }
   $("seg").querySelectorAll("button[data-m]").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
@@ -424,7 +426,7 @@ function setMode(m) {
 const KINO_CHIPS = $("chips").innerHTML;
 $("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
 window.ZK_setMode = setMode;
-window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
+window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZTvRoom && ZTvRoom.busy()) && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
 
 // ---------- pleyer ----------
@@ -779,7 +781,16 @@ async function load() {
   if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
   if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
     setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
-  if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
+  if (document.querySelector('#seg [data-m="tvroom"]') && (/^(tvroom|tvxona|tvr_|tv_)/i.test(sp) || new URLSearchParams(location.search).has("tvroom") || new URLSearchParams(location.search).has("tvxona") || (new URLSearchParams(location.search).get("m") === "tvroom"))) {
+    setMode("tvroom");
+    const m_tv = String(sp).match(/^(?:tvroom_|tvxona_|tvr_|tv_)([a-zA-Z0-9_]+)$/i);
+    const roomParam = new URLSearchParams(location.search).get("room") || (m_tv ? m_tv[1] : "");
+    if (roomParam && !["tvroom", "tvxona", "main"].includes(roomParam.toLowerCase()) && window.ZTvRoom) {
+      ZTvRoom.join(roomParam);
+    }
+    return;
+  }
+  if (document.querySelector('#seg [data-m="tv"]') && (/^tv($|_channel)/i.test(sp) || new URLSearchParams(location.search).has("tv") || (new URLSearchParams(location.search).get("m") === "tv"))) { setMode("tv"); return; }
   if (document.querySelector('#seg [data-m="rasxod"]') && (/^rasxod/i.test(sp) || new URLSearchParams(location.search).has("rasxod"))) { setMode("rasxod"); return; }
   if (document.querySelector('#seg [data-m="kal"]') && (/^(kal|kaloriya)/i.test(sp) || new URLSearchParams(location.search).has("kal"))) { setMode("kal"); return; }
   if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || new URLSearchParams(location.search).has("mafia"))) {
@@ -867,11 +878,12 @@ const ZHub = (() => {
     quiz: ["Viktorina", "Do'stlar bilan", "🧠", "#7C6CFF,#3B2BA8"], prava: ["Prava", "1235 savol", "🚗", "#E8A51F,#7A5200"],
     food: ["Taomlar", "Bugun nima?", "🍲", "#FF6B4A,#A3251A"], fx: ["Kurs", "Dollar, rubl", "💱", "#22B07D,#0B5E44"],
     tv: ["TV", "Jonli efir", "📺", "#6650D8,#2C1F7A"],
+    tvroom: ["Tv Xona", "Do'stlar bilan TV", "📺", "#8B5CF6,#4C1D95"],
     mafia: ["Mafia", "Onlayn o'yin (3–20 kishi)", "🕵️", "#C21E2C,#1E1014"],
     rasxod: ["Rasxod", "Xarajatlar daftari", "💰", "#27AE60,#145A32"],
     kal: ["Kaloriya", "Kunlik kkal va vazn", "🥗", "#E67E22,#935116"],
   };
-  const NEW = new Set(["prava"]);
+  const NEW = new Set(["prava", "tvroom"]);
   const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
   let el = null, open_ = false, from = "", don = null, ad = null, page = "";
   const live = {}, liveAt = {};
