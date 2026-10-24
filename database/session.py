@@ -16,18 +16,28 @@ logger = logging.getLogger(__name__)
 
 from sqlalchemy.pool import NullPool
 
-# Engine yaratish
-engine = create_async_engine(
-    config.db_url,
-    echo=False,
-    poolclass=NullPool if ("postgres" in config.db_url or "sqlite" in config.db_url) else None,
-    connect_args=(
-        {"check_same_thread": False, "timeout": 30} if "sqlite" in config.db_url
-        else ({"ssl": "require"} if ("neon.tech" in config.db_url or "ssl" in config.db_url) else {})
-    )
-)
+# Engine yaratish (Postgres uchun tezkor connection pool, SQLite uchun WAL + NullPool)
+_is_sqlite = "sqlite" in config.db_url
 
-if "sqlite" in config.db_url:
+if _is_sqlite:
+    engine = create_async_engine(
+        config.db_url,
+        echo=False,
+        poolclass=NullPool,
+        connect_args={"check_same_thread": False, "timeout": 30}
+    )
+else:
+    engine = create_async_engine(
+        config.db_url,
+        echo=False,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=180,
+        connect_args={"ssl": "require"} if ("neon.tech" in config.db_url or "ssl" in config.db_url) else {}
+    )
+
+if _is_sqlite:
     from sqlalchemy import event
 
     @event.listens_for(engine.sync_engine, "connect")
@@ -36,6 +46,8 @@ if "sqlite" in config.db_url:
             cursor = dbapi_connection.cursor()
             cursor.execute("PRAGMA journal_mode=WAL")
             cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA cache_size=-64000")
+            cursor.execute("PRAGMA temp_store=MEMORY")
             cursor.close()
         except Exception:
             pass

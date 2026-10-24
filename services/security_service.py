@@ -110,8 +110,8 @@ PROTECTED_EXTENSIONS = (
     ".pem", ".key", ".crt", ".pfx", ".p12",
     # Dastur kodlari va shell skriptlari
     ".py", ".pyc", ".pyo", ".pyd", ".sh", ".bash", ".zsh",
-    # Konteyner va orkestratsiya fayllari
-    ".yml", ".yaml", ".dockerignore", ".lock"
+    # Konteyner va orkestratsiya fayllari hamda source maplar
+    ".yml", ".yaml", ".dockerignore", ".lock", ".map"
 )
 
 # Himoyalangan ichki kataloglar
@@ -937,10 +937,12 @@ def get_security_headers() -> Dict[str, str]:
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
-        # CORS sarlavhalari
+        # CORS sarlavhalari va source maplarni taqiqlash
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-Init-Data",
+        "X-SourceMap": "none",
+        "SourceMap": "",
     }
 
 
@@ -1211,4 +1213,10 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
             resp.headers[k] = v
 
     _clean_sensitive_headers(resp)
+    if hasattr(resp, "enable_compression") and resp.status not in (204, 304):
+        if getattr(resp, "body", None) is not None or isinstance(resp, web.FileResponse):
+            try:
+                resp.enable_compression()
+            except Exception:
+                pass
     return resp

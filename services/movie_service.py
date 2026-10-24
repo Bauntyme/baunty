@@ -1869,6 +1869,8 @@ async def _background_movie_preloader_loop(limit: int = 15) -> None:
     Foydalanuvchining katalogdagi kinolarini (Taksi 1..5, Attack on Titan, Chuqur, Forsaj va boshqalar)
     orqa fonda Asilmedia.org orqali qismlari bilan birga yuklab olib, tayyorlab qo'yuvchi sikl.
     """
+    # Bot va web server tezkor ishga tushishi uchun orqa fon jarayonini biroz kechiktirib boshlaymiz
+    await asyncio.sleep(15)
     logger.info("Asilmedia.org kinolarni orqa fonda yuklab tayyorlash jarayoni boshlandi...")
     try:
         for it in CUSTOM_CATALOG_ITEMS:
@@ -1877,10 +1879,10 @@ async def _background_movie_preloader_loop(limit: int = 15) -> None:
             total_p = int(it.get("p", 1))
             try:
                 await MovieService.sync_movie_from_asilmedia(code=c, title=t, download_files=False)
-                parts_to_download = min(total_p, 5)
+                parts_to_download = min(total_p, 3)
                 for p in range(1, parts_to_download + 1):
                     await MovieService.download_movie_from_asilmedia(code=c, part=p)
-                    await asyncio.sleep(0.2)
+                    await asyncio.sleep(1.0)
             except Exception as e:
                 logger.debug(f"Preloader for #{c} error: {e}")
 

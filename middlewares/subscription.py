@@ -2,7 +2,8 @@
 Majburiy kanal obunasini tekshirish middleware
 """
 import logging
-from typing import Callable, Dict, Any, Awaitable
+import time
+from typing import Callable, Dict, Any, Awaitable, List
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery
 from config import config
@@ -13,6 +14,20 @@ from keyboards.inline import subscription_keyboard
 logger = logging.getLogger(__name__)
 
 ALLOWED_STATUSES = {"creator", "administrator", "member", "restricted"}
+
+# Tezkor xotira keshi (Telegram API va DB ga ortiqcha so'rovlarni oldini olish)
+_CHANNELS_CACHE: Dict[str, Any] = {"channels": [], "ts": 0.0}
+_USER_SUB_CACHE: Dict[int, tuple[float, bool]] = {}
+
+
+def clear_subscription_cache(user_id: int | None = None) -> None:
+    """Homiy kanallar yoki foydalanuvchi keshi tozalanadi."""
+    global _CHANNELS_CACHE
+    if user_id is not None:
+        _USER_SUB_CACHE.pop(user_id, None)
+    else:
+        _CHANNELS_CACHE["ts"] = 0.0
+        _USER_SUB_CACHE.clear()
 
 
 class SubscriptionMiddleware(BaseMiddleware):
@@ -43,13 +58,28 @@ class SubscriptionMiddleware(BaseMiddleware):
 
         if isinstance(event, CallbackQuery):
             if event.data == "check_subscription":
+                # Foydalanuvchi o'zi "Tekshirish"ni bosganda uning keshini yangilaymiz
+                _USER_SUB_CACHE.pop(user.id, None)
                 return await handler(event, data)
 
-        # Bazadagi faol homiy kanallarni olish
-        async with get_session() as session:
-            channels = await crud.get_active_sponsor_channels(session)
+        now = time.monotonic()
+        # Foydalanuvchi yaqinda (oxirgi 60 soniyada) muvaffaqiyatli tekshirilgan bo'lsa darhol o'tkazish
+        if user.id in _USER_SUB_CACHE:
+            cached_ts, is_sub = _USER_SUB_CACHE[user.id]
+            if now - cached_ts < 60.0 and is_sub:
+                return await handler(event, data)
+
+        # Bazadagi faol homiy kanallarni olish (30s TTL kesh bilan)
+        if now - _CHANNELS_CACHE["ts"] < 30.0:
+            channels = _CHANNELS_CACHE["channels"]
+        else:
+            async with get_session() as session:
+                channels = await crud.get_active_sponsor_channels(session)
+            _CHANNELS_CACHE["channels"] = channels
+            _CHANNELS_CACHE["ts"] = now
 
         if not channels:
+            _USER_SUB_CACHE[user.id] = (now, True)
             return await handler(event, data)
 
         unsubscribed = []
@@ -61,6 +91,12 @@ class SubscriptionMiddleware(BaseMiddleware):
             except Exception as e:
                 logger.warning(f"Kanal obunasini tekshirishda xatolik ({ch.channel_id}): {e}")
                 # Agar bot kanalda admin bo'lmasa yoki kanal topilmasa, foydalanuvchini to'xtatmaymiz
+
+        if not unsubscribed:
+            _USER_SUB_CACHE[user.id] = (now, True)
+            return await handler(event, data)
+
+        _USER_SUB_CACHE[user.id] = (now, False)
 
         if unsubscribed:
             alert_text = (

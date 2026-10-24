@@ -61,12 +61,114 @@ async def handle_favicon(request: web.Request) -> web.Response:
     return web.Response(status=204)
 
 
-async def handle_index(request: web.Request) -> web.FileResponse:
-    """Asosiy Mini App sahifasi (index.html)."""
+_PROD_INDEX_CACHE: Dict[str, Any] = {"html": None, "ts": 0}
+
+
+def get_production_index_html() -> str:
+    """Ishlab chiqarish (production) uchun barcha CSS va JS skriptlari bundle qilingan,
+    DevTools shield bilan himoyalangan va 80% gacha yengillashtirilgan index.html ni tayyorlash."""
     index_file = BASE_DIR / "webapp" / "index.html"
-    if index_file.exists():
+    if not index_file.exists():
+        return "<h1>Kinolar katalogi Mini App ishga tushirilmoqda...</h1>"
+
+    bundle_file = BASE_DIR / "webapp" / "dist" / "bundle.min.js"
+    if not bundle_file.exists():
+        bundle_file = BASE_DIR / "webapp" / "bundle.min.js"
+    if not bundle_file.exists():
+        try:
+            from scripts.bundle_frontend import build_bundle
+            build_bundle()
+        except Exception as be:
+            logger.warning(f"Frontend bundle yaratishda xatolik: {be}")
+
+    html = index_file.read_text(encoding="utf-8")
+
+    # 1. 15 ta alohida CSS faylini yagona bundle.min.css ga almashtirish
+    css_pattern = r'<link\s+rel="stylesheet"\s+href="(?:rasxod|kaloriya|asil|kattalar|mafia|music|docs|fx|food|quiz|prava|games|story|books|zk)\.css">'
+    html, n_css = re.subn(css_pattern, '', html)
+    if n_css > 0:
+        html = html.replace('<link rel="preload" as="image" href="logo.webp">', '<link rel="stylesheet" href="bundle.min.css">\n<link rel="preload" as="image" href="logo.webp">')
+
+    # 2. 16 ta alohida JS skriptlarini va 1600 qatorli inline skriptni bundle.min.js ga almashtirish
+    js_pattern = r'<script\s+src="(?:i18n|music|docs|games|kattalar|mafia|story|books|fx|food|quiz|prava|rasxod|kaloriya|asil|zk)\.js"></script>'
+    html = re.sub(js_pattern, '', html)
+
+    last_script_pattern = r'<script>\s*\(\(\)\s*=>\s*\{\s*"use strict";[\s\S]*?load\(\);\s*\}\)\(\);\s*</script>'
+    html = re.sub(last_script_pattern, '<script src="bundle.min.js" defer></script>', html)
+
+    return html
+
+
+async def handle_index(request: web.Request) -> web.Response:
+    """Asosiy Mini App sahifasi (index.html) - production bundle va xavfsizlik bilan."""
+    index_file = BASE_DIR / "webapp" / "index.html"
+    if not index_file.exists():
+        return web.Response(text="<h1>Kinolar katalogi Mini App ishga tushirilmoqda...</h1>", content_type="text/html")
+
+    if request.query.get("raw") == "1":
         return web.FileResponse(index_file)
-    return web.Response(text="<h1>Kinolar katalogi Mini App ishga tushirilmoqda...</h1>", content_type="text/html")
+
+    now = time.time()
+    if _PROD_INDEX_CACHE["html"] is None or (now - _PROD_INDEX_CACHE["ts"] > 300):
+        _PROD_INDEX_CACHE["html"] = get_production_index_html()
+        _PROD_INDEX_CACHE["ts"] = now
+
+    resp = web.Response(
+        text=_PROD_INDEX_CACHE["html"],
+        content_type="text/html",
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "X-SourceMap": "none",
+        }
+    )
+    if hasattr(resp, "enable_compression"):
+        resp.enable_compression()
+    return resp
+
+
+async def handle_bundle_js(request: web.Request) -> web.Response:
+    """Yagona minifikatsiya qilingan va himoyalangan JS bundle."""
+    bundle_file = BASE_DIR / "webapp" / "dist" / "bundle.min.js"
+    if not bundle_file.exists():
+        bundle_file = BASE_DIR / "webapp" / "bundle.min.js"
+    if bundle_file.exists():
+        resp = web.FileResponse(bundle_file)
+        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
+        resp.headers["X-SourceMap"] = "none"
+        if hasattr(resp, "enable_compression"):
+            resp.enable_compression()
+        return resp
+    return web.Response(status=404, text="Bundle topilmadi")
+
+
+async def handle_bundle_css(request: web.Request) -> web.Response:
+    """Yagona minifikatsiya qilingan CSS bundle."""
+    bundle_file = BASE_DIR / "webapp" / "dist" / "bundle.min.css"
+    if not bundle_file.exists():
+        bundle_file = BASE_DIR / "webapp" / "bundle.min.css"
+    if bundle_file.exists():
+        resp = web.FileResponse(bundle_file)
+        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
+        resp.headers["X-SourceMap"] = "none"
+        if hasattr(resp, "enable_compression"):
+            resp.enable_compression()
+        return resp
+    return web.Response(status=404, text="CSS bundle topilmadi")
+
+
+async def handle_shield_js(request: web.Request) -> web.Response:
+    """DevTools himoyasi va anti-debugging skripti."""
+    shield_file = BASE_DIR / "webapp" / "dist" / "shield.min.js"
+    if not shield_file.exists():
+        shield_file = BASE_DIR / "webapp" / "shield.min.js"
+    if shield_file.exists():
+        resp = web.FileResponse(shield_file)
+        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
+        resp.headers["X-SourceMap"] = "none"
+        if hasattr(resp, "enable_compression"):
+            resp.enable_compression()
+        return resp
+    return web.Response(status=404, text="Shield topilmadi")
 
 
 def extract_user_id_from_init_data(init_data: str) -> Optional[int]:
@@ -87,7 +189,7 @@ def extract_user_id_from_init_data(init_data: str) -> Optional[int]:
     return None
 
 
-_CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0}
+_CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0, "bytes": None, "m_hash": None}
 
 
 def sanitize_catalog_text(text: str) -> str:
@@ -637,10 +739,36 @@ async def handle_maintenance(request: web.Request) -> web.Response:
 async def handle_get_catalog(request: web.Request) -> web.Response:
     """Mini Appning rasmiy kinolar katalogi API (Real-time va to'liq oq brendlangan)."""
     now = time.time()
-    if _CATALOG_CACHE["data"] and (now - _CATALOG_CACHE["ts"] < 120):
+    m_state = maintenance_service.get_state()
+    m_hash = json.dumps(m_state, sort_keys=True)
+
+    if _CATALOG_CACHE.get("data") and (now - _CATALOG_CACHE.get("ts", 0) < 120):
+        # Agar maintenance holati o'zgarmagan bo'lsa va bytes tayyor bo'lsa,
+        # event-loop ni bloklamasdan to'g'ridan-to'g'ri tayyor bytes ni qaytaramiz (0.1ms)
+        if _CATALOG_CACHE.get("bytes") and _CATALOG_CACHE.get("m_hash") == m_hash:
+            resp = web.Response(
+                body=_CATALOG_CACHE["bytes"],
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60"}
+            )
+            if hasattr(resp, "enable_compression"):
+                resp.enable_compression()
+            return resp
+
+        # Maintenance o'zgargan bo'lsa, uni yangilab kesh bytes ni qayta hisoblaymiz
         data = dict(_CATALOG_CACHE["data"])
-        data["maintenance"] = maintenance_service.get_state()
-        return web.json_response(data)
+        data["maintenance"] = m_state
+        _CATALOG_CACHE["data"] = data
+        _CATALOG_CACHE["m_hash"] = m_hash
+        _CATALOG_CACHE["bytes"] = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        resp = web.Response(
+            body=_CATALOG_CACHE["bytes"],
+            content_type="application/json",
+            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60"}
+        )
+        if hasattr(resp, "enable_compression"):
+            resp.enable_compression()
+        return resp
 
     data = None
     # 1. Real-time upstreamdan olishga urinish
@@ -696,11 +824,20 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     data["kal"] = True
     data["mafia"] = True
     data["kattalar"] = True
-    data["maintenance"] = maintenance_service.get_state()
+    data["maintenance"] = m_state
 
     _CATALOG_CACHE["data"] = data
     _CATALOG_CACHE["ts"] = now
-    return web.json_response(data)
+    _CATALOG_CACHE["m_hash"] = m_hash
+    _CATALOG_CACHE["bytes"] = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    resp = web.Response(
+        body=_CATALOG_CACHE["bytes"],
+        content_type="application/json",
+        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60"}
+    )
+    if hasattr(resp, "enable_compression"):
+        resp.enable_compression()
+    return resp
 
 
 _ASIL_API_CACHE: Dict[str, Any] = {}
@@ -1803,10 +1940,25 @@ async def handle_music_send(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "message": f"«{artist} - {title}» chatga yuborildi!"})
 
 
+_TV_ALL_CACHE: Dict[str, Any] = {"bytes": None, "ts": 0}
+
+
 async def handle_get_tv(request: web.Request) -> web.Response:
     """Jonli telekanallar ro'yxati (O'zbek telekanallari mutlaq 1-o'rinda, eng yuqori sifat)."""
     cat = request.query.get("category", "all").strip()
     q = request.query.get("q", "").strip().lower()
+
+    now = time.time()
+    if cat in ("all", "") and not q:
+        if _TV_ALL_CACHE.get("bytes") and now - _TV_ALL_CACHE.get("ts", 0) < 180:
+            resp = web.Response(
+                body=_TV_ALL_CACHE["bytes"],
+                content_type="application/json",
+                headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=120"}
+            )
+            if hasattr(resp, "enable_compression"):
+                resp.enable_compression()
+            return resp
 
     channels = list(CHANNELS_LIST)
     if q:
@@ -1834,11 +1986,24 @@ async def handle_get_tv(request: web.Request) -> web.Response:
     # O'zbekiston telekanallari har doim mutlaq 1-o'rinda, keyin qolgan davlatlar
     channels.sort(key=lambda x: (0 if x.get("c") == "uz" else 1, -(x.get("v") or 0)))
 
-    return web.json_response({
+    payload = {
         "categories": TV_CATEGORIES,
         "items": channels,
         "total": len(channels),
-    })
+    }
+    encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    if cat in ("all", "") and not q:
+        _TV_ALL_CACHE["bytes"] = encoded
+        _TV_ALL_CACHE["ts"] = now
+
+    resp = web.Response(
+        body=encoded,
+        content_type="application/json",
+        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=120"}
+    )
+    if hasattr(resp, "enable_compression"):
+        resp.enable_compression()
+    return resp
 
 
 async def handle_tv_icon(request: web.Request) -> web.Response:
@@ -2704,6 +2869,14 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/bk/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/rc/{tail:.*}", handle_rc_asset_proxy)
     app.router.add_get("/webapp/rc/{tail:.*}", handle_rc_asset_proxy)
+
+    # Optimizatsiya qilingan va himoyalangan bundle marshrutlari
+    app.router.add_get("/bundle.min.js", handle_bundle_js)
+    app.router.add_get("/webapp/bundle.min.js", handle_bundle_js)
+    app.router.add_get("/bundle.min.css", handle_bundle_css)
+    app.router.add_get("/webapp/bundle.min.css", handle_bundle_css)
+    app.router.add_get("/shield.min.js", handle_shield_js)
+    app.router.add_get("/webapp/shield.min.js", handle_shield_js)
 
     # Statik fayllarni ulash (CSS, JS, Assetlar, Shriftlar)
     webapp_dir = BASE_DIR / "webapp"
