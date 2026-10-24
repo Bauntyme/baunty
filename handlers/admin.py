@@ -1442,3 +1442,194 @@ async def cb_admin_server_health(callback: CallbackQuery) -> None:
     await callback.answer()
 
 
+# ==========================================
+# ADMIN SLASH KOMANDALARI
+# ==========================================
+
+@router.message(Command("stats", "statistika"))
+async def cmd_admin_stats(message: Message) -> None:
+    """/stats buyrug'i: to'liq bot statistikasi."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+    async with get_session() as session:
+        stats = await crud.get_downloads_stats_by_platform(session)
+        total = await crud.get_total_downloads_count(session)
+        total_users = await crud.get_total_users_count(session)
+        today_users = await crud.get_today_users_count(session)
+        total_movies = await crud.get_total_movies_count(session)
+
+    lines = [
+        "📊 <b>Bot Statistikasi:</b>\n",
+        f"👥 Jami foydalanuvchilar: <b>{total_users:,}</b> ta",
+        f"🆕 Bugun qo'shilganlar: <b>{today_users:,}</b> ta",
+        f"🎬 Jami kinolar: <b>{total_movies:,}</b> ta",
+        f"📦 Jami yuklamalar: <b>{total:,}</b> marta\n",
+        "<b>Platformalar bo'yicha:</b>",
+    ]
+    for platform, count in sorted(stats.items(), key=lambda x: x[1], reverse=True):
+        lines.append(f"• <b>{platform.capitalize()}:</b> {count:,} marta")
+
+    await message.answer("\n".join(lines), parse_mode="HTML")
+
+
+@router.message(Command("movies", "kinolar", "kino_boshqaruv"))
+async def cmd_admin_movies(message: Message) -> None:
+    """/movies buyrug'i: kinolar boshqaruvi."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+    async with get_session() as session:
+        count = await crud.get_total_movies_count(session)
+    text = (
+        "🎬 <b>Kinolar boshqaruvi bo'limi</b>\n\n"
+        f"Bazada jami kinolar soni: <b>{count}</b> ta\n\n"
+        "Kerakli amalni tanlang:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_movies_menu_keyboard())
+
+
+@router.message(Command("sponsors", "homiylar", "kanallar"))
+async def cmd_admin_sponsors(message: Message) -> None:
+    """/sponsors buyrug'i: homiy kanallar menyusi."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+    async with get_session() as session:
+        sponsors = await crud.get_all_sponsor_channels(session)
+    text = (
+        "📢 <b>Majburiy obuna homiy kanallari</b>\n\n"
+        f"Hozirda faol homiy kanallar: <b>{len(sponsors)}</b> ta\n\n"
+        "Yangi homiy kanal qo'shish yoki mavjudlarini o'chirish uchun quyidagi tugmalardan foydalaning:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_sponsors_menu_keyboard(channels=sponsors))
+
+
+@router.message(Command("settings", "sozlamalar"))
+async def cmd_admin_settings(message: Message) -> None:
+    """/settings buyrug'i: bot sozlamalari."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+    async with get_session() as session:
+        channel_name = await crud.get_setting(session, "channel_username", config.CHANNEL_USERNAME)
+
+    text = (
+        f"⚙️ <b>@{config.BOT_USERNAME.lstrip('@')} Tizim Sozlamalari:</b>\n\n"
+        f"🤖 <b>Bot nomi:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+        f"🍿 <b>Rasmiy kino kanali:</b> {channel_name}\n"
+        f"💾 <b>Baza turi:</b> <code>{config.DB_TYPE}</code>\n"
+        f"📦 <b>Max yuklash hajmi:</b> {config.MAX_FILE_SIZE_MB} MB\n"
+        f"⚡ <b>Anti-flood oraliq:</b> {config.RATE_LIMIT_SECONDS}s\n"
+        f"👑 <b>Adminlar soni:</b> {len(config.admin_ids)} ta\n"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_settings_keyboard())
+
+
+@router.message(Command("broadcast", "xabar", "tarqatish"))
+async def cmd_admin_broadcast(message: Message, state: FSMContext) -> None:
+    """/broadcast buyrug'i: barcha foydalanuvchilarga xabar tarqatish."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+    await state.set_state(BroadcastStates.waiting_for_message)
+    text = (
+        "📢 <b>Barcha foydalanuvchilarga xabar yuborish</b>\n\n"
+        "Tarqatmoqchi bo'lgan xabaringizni yuboring (matn, rasm, video, audio yoki havola bilan).\n\n"
+        "<i>Bekor qilish uchun 'Bekor qilish' tugmasini bosing.</i>"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
+
+
+@router.message(Command("profilaktika", "maintenance"))
+async def cmd_admin_profilaktika(message: Message) -> None:
+    """/profilaktika buyrug'i: texnik ta'mirlash rejimini yoqish/o'chirish va boshqaruv."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+
+    args = (message.text or "").split()
+    arg = args[1].lower() if len(args) > 1 else ""
+
+    if arg in ("on", "1", "true", "start", "enable"):
+        maintenance_service.set_global_maintenance(True)
+        await message.answer("🔴 <b>Global profilaktika rejimi YOQILDI!</b>\nOddiy foydalanuvchilarga texnik ishlar xabari ko'rsatiladi.", parse_mode="HTML")
+        return
+    elif arg in ("off", "0", "false", "stop", "disable"):
+        maintenance_service.set_global_maintenance(False)
+        await message.answer("🟢 <b>Global profilaktika rejimi O'CHIRILDI!</b>\nBot barcha foydalanuvchilar uchun odatiy rejimda ishlamoqda.", parse_mode="HTML")
+        return
+
+    is_global = maintenance_service.is_global_maintenance()
+    global_msg = maintenance_service.get_global_message()
+    status_icon = "🔴" if is_global else "🟢"
+    status_text = "FAOL (Foydalanuvchilar cheklangan)" if is_global else "O'CHIQ (Bot normal ishlamoqda)"
+
+    text = (
+        "🛠️ <b>Profilaktika va Texnik Ishlar Boshqaruvi</b>\n\n"
+        f"<b>Global holat:</b> {status_icon} <b>{status_text}</b>\n"
+        f"<b>Amaldagi xabar:</b> <i>{global_msg}</i>\n\n"
+        "💡 <i>Tezkor boshqaruv:</i> <code>/profilaktika on</code> yoki <code>/profilaktika off</code>\n"
+        "Quyidagi tugmalar orqali xabarlarni yoki alohida sahifalarni sozlashingiz mumkin:"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=admin_maintenance_main_keyboard(is_global))
+
+
+@router.message(Command("ban"))
+async def cmd_admin_ban(message: Message) -> None:
+    """/ban <user_id> [sabab]: foydalanuvchini bloklash."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+
+    parts = (message.text or "").split(maxsplit=2)
+    if len(parts) < 2:
+        await message.reply("⚠️ <b>Foydalanish:</b> <code>/ban &lt;user_id&gt; [sabab]</code>\nMasalan: <code>/ban 123456789 spam</code>", parse_mode="HTML")
+        return
+
+    target_id_str = parts[1].strip()
+    reason = parts[2].strip() if len(parts) > 2 else "Qoidabuzarlik"
+
+    if not target_id_str.isdigit():
+        await message.reply("❌ <b>Xatolik:</b> Foydalanuvchi ID raqam bo'lishi kerak!", parse_mode="HTML")
+        return
+
+    target_id = int(target_id_str)
+    if config.is_admin(target_id):
+        await message.reply("❌ <b>Adminni bloklab bo'lmaydi!</b>", parse_mode="HTML")
+        return
+
+    async with get_session() as session:
+        user = await crud.get_user(session, target_id)
+        if not user:
+            await crud.get_or_create_user(session, user_id=target_id)
+        await crud.set_user_ban_status(session, target_id, True)
+
+    await message.answer(f"⛔ <b>Foydalanuvchi bloklandi!</b>\n\n👤 ID: <code>{target_id}</code>\n📝 Sabab: <i>{reason}</i>", parse_mode="HTML")
+
+
+@router.message(Command("unban"))
+async def cmd_admin_unban(message: Message) -> None:
+    """/unban <user_id>: foydalanuvchini blokdan chiqarish."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+
+    parts = (message.text or "").split(maxsplit=1)
+    if len(parts) < 2:
+        await message.reply("⚠️ <b>Foydalanish:</b> <code>/unban &lt;user_id&gt;</code>\nMasalan: <code>/unban 123456789</code>", parse_mode="HTML")
+        return
+
+    target_id_str = parts[1].strip()
+    if not target_id_str.isdigit():
+        await message.reply("❌ <b>Xatolik:</b> Foydalanuvchi ID raqam bo'lishi kerak!", parse_mode="HTML")
+        return
+
+    target_id = int(target_id_str)
+    async with get_session() as session:
+        await crud.set_user_ban_status(session, target_id, False)
+
+    await message.answer(f"✅ <b>Foydalanuvchi blokdan chiqarildi!</b>\n\n👤 ID: <code>{target_id}</code>", parse_mode="HTML")
+
+
+

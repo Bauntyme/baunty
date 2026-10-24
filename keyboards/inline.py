@@ -96,9 +96,22 @@ def movie_item_keyboard(
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
     if watch_url and watch_url.startswith("http"):
-        builder.row(
-            InlineKeyboardButton(text="▶️ Kinoni tomosha qilish (Full HD)", url=watch_url)
-        )
+        app_url = config.webapp_url_resolved
+        if app_url and app_url.startswith("https://"):
+            from aiogram.types import WebAppInfo
+            builder.row(
+                InlineKeyboardButton(
+                    text="▶️ Kinoni tomosha qilish (Full HD)",
+                    web_app=WebAppInfo(url=f"{app_url}?c={movie_code}")
+                )
+            )
+        else:
+            builder.row(
+                InlineKeyboardButton(
+                    text="▶️ Kinoni tomosha qilish (Full HD)",
+                    callback_data=f"watch_part:{movie_code}:1"
+                )
+            )
     else:
         builder.row(
             InlineKeyboardButton(
@@ -173,17 +186,22 @@ def movie_parts_keyboard(
         if nav_row:
             builder.row(*nav_row)
 
-    if watch_url and watch_url.startswith("http"):
-        builder.row(
-            InlineKeyboardButton(text=f"▶️ {current_part}-qism onlayn (Full HD)", url=watch_url)
-        )
-    else:
-        target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
-        bot_clean = config.BOT_USERNAME.lstrip('@')
+    target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
+    app_url = config.webapp_url_resolved
+
+    if app_url and app_url.startswith("https://"):
+        from aiogram.types import WebAppInfo
         builder.row(
             InlineKeyboardButton(
-                text=f"▶️ {current_part}-qismni ko'rish",
-                url=f"https://t.me/{bot_clean}?start=m_{target_start}"
+                text=f"▶️ {current_part}-qism onlayn (Full HD)",
+                web_app=WebAppInfo(url=f"{app_url}?c={movie_code}&part={current_part}")
+            )
+        )
+    else:
+        builder.row(
+            InlineKeyboardButton(
+                text=f"▶️ {current_part}-qism onlayn (Full HD)",
+                callback_data=f"watch_part:{movie_code}:{current_part}"
             )
         )
     if download_url:

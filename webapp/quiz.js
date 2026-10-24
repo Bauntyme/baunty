@@ -34,18 +34,25 @@ async function api(path, body) {
 const toast = (t) => { const el = document.createElement("div"); el.className = "qz-toast"; el.textContent = t; $("quiz").appendChild(el); setTimeout(() => el.remove(), 2400); };
 const fmt = (n) => String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 function backBar(title, right = "") { return `<div class="qz-top"><button class="qz-back" data-act="back" aria-label="Orqaga">${ICO.back}</button><b>${title}</b>${right}</div>`; }
+function rootHead() {
+  const HUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  return `<div class="qz-head-clean"><button class="qz-back" data-act="homeback" aria-label="Orqaga">${ICO.back}</button><div class="qz-head-title"><b>🧠 Viktorina</b><small>Bilim sinovi va duel</small></div><button class="zk-hubbtn" data-act="hub" aria-label="Barcha bo'limlar">${HUB}<span>Bo'limlar</span></button></div>`;
+}
 function segHtml() {
   const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["quiz", "Viktorina"]];
   return `<div class="qz-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "quiz" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
 }
-const roomLink = (pin) => bot ? `https://t.me/${bot}?startapp=q${pin}` : "";
+const roomLink = (pin) => {
+  const cleanBot = (bot || (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.bot_username) || "Bauntyfilmsbot").replace(/^@/, "");
+  return `https://t.me/${cleanBot}?start=quiz_${pin}`;
+};
 function stopLoops() { clearTimeout(poll); poll = null; clearInterval(tick); tick = null; }
 
 // ------------------------------------------------------------------ 🏠 bosh sahifa
 function viewHome() {
   const tps = home ? home.topics : [];
   const d = daily;
-  return `<div class="qz-bar">${segHtml()}</div>
+  return `${rootHead()}<div class="qz-bar">${segHtml()}</div>
   <h1 class="qz-hi">Bilimingizni sinang<span>Yakka o'ynang yoki do'stlaringiz, o'quvchilaringiz bilan bellashing</span></h1>
   <div class="qz-modes"><button class="md solo" data-act="solopick"><i>🎯</i><b>Yakka o'yin</b><small>10 savol · haftalik reyting</small></button>
     <button class="md room" data-act="setup"><i>👥</i><b>Xona ochish</b><small>Kod bilan chaqiring — cheksiz odam</small></button></div>
@@ -142,10 +149,16 @@ async function soloAnswer(orig) {
 }
 async function soloNext() {
   const v = top();
-  if (v.res && v.res.last) { v.final = v.res.final; render(); return; }
+  if (v.res && v.res.last && v.res.final) { v.final = v.res.final; render(); return; }
   const r = await api("api/quiz/solo/next", {sid: v.sid});
-  if (!r.ok) { toast(r.error); return; }
-  Object.assign(v, {i: r.i, q: r.q, res: null}); render(); startSoloTimer();
+  if (!r.ok) { toast(r.error || "Xatolik yuz berdi"); return; }
+  if (r.final) { v.final = r.final; render(); return; }
+  if (!r.q) {
+    v.final = (v.res && v.res.final) ? v.res.final : {ok: 0, n: v.total || 10, score: v.score || 0, avg: 0, best: v.streak || 0, rank: 1};
+    render();
+    return;
+  }
+  Object.assign(v, {i: r.i ?? (v.i + 1), q: r.q, res: null}); render(); startSoloTimer();
 }
 
 // ------------------------------------------------------------------ 👥 xona ochish / qo'shilish
@@ -451,6 +464,13 @@ function onClick(e) {
   if (!(b = g("[data-act]"))) return;
   const act = b.dataset.act, v = top();
   if (act === "back") back();
+  else if (act === "homeback") {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    else if (window.ZQuiz) window.ZQuiz.close();
+  }
+  else if (act === "hub") {
+    if (window.ZHub) window.ZHub.open("");
+  }
   else if (act === "tohome") { stopLoops(); stack.length = 1; render(); refresh(); }
   else if (act === "solopick") go({v: "solopick"});
   else if (act === "setup") { if (!inTg) { toast("Ilovani bot ichida oching"); return; } stopLoops(); go({v: "setup"}); }
@@ -507,10 +527,11 @@ window.ZQuiz = {
     if (top().v === "room") pollRoom();
   },
   start(param) {
-    const p = String(param || "");
+    const raw = String(param || "").trim();
+    const p = raw.replace(/^(?:quiz_|qz_|q_)/i, "");
     const go2 = () => {
       if (/^\d{6}$/.test(p)) { stack.length = 1; go({v: "join", pin: p, name: me ? me.name : ""}); }
-      else if (/^z\d+$/.test(p)) { stack.length = 1; openQuiz(+p.slice(1)); }
+      else if (/^z\d+$/i.test(p)) { stack.length = 1; openQuiz(+p.slice(1)); }
       else if (p === "new") { stack.length = 1; go({v: "edit", f: {t: "", tp: "umumiy", vis: "public", qs: [blankQ()]}}); }
     };
     loadMe().then(go2);

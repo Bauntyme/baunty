@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="feedback_router")
 
 
-@router.message(F.text == "💬 Xato va fikrlar")
+@router.message(F.text.in_(["💬 Xato va fikrlar", "💬 Хато ва фикрлар", "💬 Отзывы и ошибки"]))
 async def cmd_feedback_prompt(message: Message, state: FSMContext) -> None:
     """Fikr bildirish yoki xato haqida xabar berish so'rovi."""
     await state.set_state(FeedbackStates.waiting_for_feedback)

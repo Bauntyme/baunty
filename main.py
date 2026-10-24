@@ -15,7 +15,7 @@ from aiogram.types import BotCommand, BotCommandScopeDefault
 from config import config
 from database.session import init_db, close_db
 from handlers import setup_routers
-from middlewares import SubscriptionMiddleware, ThrottlingMiddleware
+from middlewares import SubscriptionMiddleware, ThrottlingMiddleware, BotSecurityMiddleware
 from utils.notifier import notify_admins_on_startup, notify_admins_on_shutdown
 
 
@@ -38,8 +38,12 @@ async def set_default_commands(bot: Bot) -> None:
     """Bot menyusi komandalarini o'rnatish."""
     commands = [
         BotCommand(command="start", description="Botni ishga tushirish"),
+        BotCommand(command="til", description="Tilni tanlash / Choose language"),
+        BotCommand(command="mafia", description="Mafia onlayn o'yini"),
         BotCommand(command="help", description="Yordam va qo'llanma"),
-        BotCommand(command="admin", description="Admin paneli (adminlar uchun)"),
+        BotCommand(command="admin", description="Admin paneli"),
+        BotCommand(command="stats", description="Statistika (admin)"),
+        BotCommand(command="profilaktika", description="Profilaktika rejimi (admin)"),
     ]
     await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
 
@@ -89,6 +93,8 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
 
     # Middlewarelarni ulash
+    dp.message.middleware(BotSecurityMiddleware())
+    dp.callback_query.middleware(BotSecurityMiddleware())
     dp.message.middleware(ThrottlingMiddleware(rate_limit=config.RATE_LIMIT_SECONDS))
     dp.callback_query.middleware(ThrottlingMiddleware(rate_limit=config.RATE_LIMIT_SECONDS))
     dp.message.middleware(SubscriptionMiddleware())

@@ -43,7 +43,11 @@ def get_rasxod_keyboard() -> InlineKeyboardMarkup:
 
 
 @router.message(Command("rasxod", "xarajat", "harajat"))
-@router.message(F.text.in_(["💰 Rasxod", "📊 Rasxod", "Rasxod", "Xarajatlar", "Xarajat"]))
+@router.message(F.text.in_([
+    "💰 Rasxod", "📊 Rasxod", "Rasxod", "Xarajatlar", "Xarajat",
+    "💰 Расход", "📊 Расход", "Расход", "Харажатлар", "Харажат",
+    "Расходы"
+]))
 async def cmd_rasxod(message: Message) -> None:
     """Rasxod bo'limi bosh menyusi."""
     user_id = message.from_user.id

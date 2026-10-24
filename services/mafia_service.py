@@ -513,8 +513,20 @@ class MafiaService:
         clean_id = room_id.strip()
         room = self.get_room(clean_id)
         if not room:
-            # Agar 4-xonali kod bo'lsa yangi xona yaratish
+            # Agar kod bo'yicha xona topilmasa yangi xona yaratish
+            if user_id in self.user_room_map:
+                self.leave_room(user_id)
             return self.create_room(user_id=user_id, user_name=user_name, room_name=f"Xona #{clean_id}", pub=False, lk=lk)
+
+        # Foydalanuvchi allaqachon boshqa xonada bo'lsa, avval undan chiqarish
+        existing_room_id = self.user_room_map.get(user_id)
+        if existing_room_id and existing_room_id != room.id:
+            self.leave_room(user_id)
+
+        # Agar foydalanuvchi shu xonada allaqachon bo'lsa
+        if any(p["u"] == user_id for p in room.players):
+            self.user_room_map[user_id] = room.id
+            return {"ok": True, "room": room.to_dict_for_user(user_id)}
 
         success = room.add_player(user_id, user_name, lk=lk)
         if not success:
@@ -524,12 +536,29 @@ class MafiaService:
         return {"ok": True, "room": room.to_dict_for_user(user_id)}
 
     def quick_play(self, user_id: int, user_name: str, lk: Optional[str] = None) -> Dict[str, Any]:
-        """Tezkor o'yinga ulanish."""
-        for room in self.rooms.values():
-            if room.pub and room.phase == "lobby" and len(room.players) < room.max_players:
-                room.add_player(user_id, user_name, lk=lk)
-                self.user_room_map[user_id] = room.id
-                return {"ok": True, "room": room.to_dict_for_user(user_id)}
+        """Tezkor o'yinga ulanish: eng to'lgan kutish xonasiga ulaydi yoki yangi ochadi."""
+        # Agar foydalanuvchi allaqachon ochiq lobby xonasida bo'lsa, o'sha xonani qaytarish
+        existing_room_id = self.user_room_map.get(user_id)
+        if existing_room_id and existing_room_id in self.rooms:
+            cur_room = self.rooms[existing_room_id]
+            if cur_room.phase == "lobby":
+                return {"ok": True, "room": cur_room.to_dict_for_user(user_id)}
+            else:
+                self.leave_room(user_id)
+        elif existing_room_id:
+            self.user_room_map.pop(user_id, None)
+
+        candidates = [
+            r for r in self.rooms.values()
+            if r.phase == "lobby" and len(r.players) < r.max_players and not any(p["u"] == user_id for p in r.players)
+        ]
+        if candidates:
+            # Eng ko'p o'yinchisi bor ochiq xonani tanlash (tezroq boshlanishi uchun)
+            candidates.sort(key=lambda r: (1 if r.pub else 0, len(r.players)), reverse=True)
+            room = candidates[0]
+            room.add_player(user_id, user_name, lk=lk)
+            self.user_room_map[user_id] = room.id
+            return {"ok": True, "room": room.to_dict_for_user(user_id)}
 
         return self.create_room(
             user_id=user_id,

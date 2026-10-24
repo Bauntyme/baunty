@@ -22,8 +22,10 @@ router = Router(name="mafia")
 def get_mafia_keyboard(code: str = "") -> InlineKeyboardMarkup:
     """Mafia bosh inline klaviaturasi."""
     base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
-    webapp_url = f"{base_url}?m=mafia" + (f"&startapp=maf_{code}" if code else "")
-    btn_text = f"🕵️ Mafia xonasiga kirish (#{code})" if code else "🕵️ Mafia o'ynash (Mini App)"
+    clean_code = str(code).replace("maf_", "").replace("mafia_", "").replace("m_", "").strip()
+    param_str = f"?m=mafia&room={clean_code}&code={clean_code}&startapp=maf_{clean_code}" if clean_code else "?m=mafia"
+    webapp_url = f"{base_url}{param_str}"
+    btn_text = f"🕵️ Mafia xonasiga kirish (#{clean_code})" if clean_code else "🕵️ Mafia o'ynash (Mini App)"
 
     buttons = [
         [
@@ -41,7 +43,7 @@ def get_mafia_keyboard(code: str = "") -> InlineKeyboardMarkup:
 
 
 @router.message(Command("mafia", "mafiya"))
-@router.message(F.text.in_(["🕵️ Mafia", "🕵️‍♂️ Mafia", "Mafia", "Mafiya"]))
+@router.message(F.text.in_(["🕵️ Mafia", "🕵️‍♂️ Mafia", "Mafia", "Mafiya", "🕵️ Мафия", "Мафия"]))
 async def cmd_mafia(message: Message) -> None:
     """Mafia bosh menyusi."""
     user_name = message.from_user.first_name or "O'yinchi"
@@ -50,12 +52,9 @@ async def cmd_mafia(message: Message) -> None:
         parts = message.text.split(maxsplit=1)
         if len(parts) > 1:
             p = parts[1].strip()
-            if p.startswith("maf_"):
-                code = p[4:]
-            elif p.startswith("mafia_"):
-                code = p[6:]
-            elif p.isdigit() and len(p) in (4, 5, 6):
-                code = p
+            clean_p = p.replace("mafia_", "").replace("maf_", "").replace("m_", "").strip()
+            if clean_p and (clean_p.isalnum() or "_" in clean_p):
+                code = clean_p
 
     room_info = f"\n\n🎯 <b>Taklif qilingan xona:</b> <code>#{code}</code>" if code else ""
     text = (
@@ -89,11 +88,12 @@ async def cb_mafia_quick(call: CallbackQuery) -> None:
     res = mafia_service.quick_play(user_id=user_id, user_name=user_name)
 
     base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
-    room_code = res.get("room", {}).get("id", "r1")
-    app_url = f"{base_url}?m=mafia&room={room_code}"
+    raw_code = res.get("room", {}).get("code") or res.get("room", {}).get("id", "r1")
+    room_code = str(raw_code).replace("m_", "").strip()
+    app_url = f"{base_url}?m=mafia&room={room_code}&code={room_code}&startapp=maf_{room_code}"
 
     text = (
-        f"⚡ <b>Xona tayyor:</b> <code>{room_code}</code>\n\n"
+        f"⚡ <b>Xona tayyor:</b> <code>#{room_code}</code>\n\n"
         f"👤 Siz xonaga muvaffaqiyatli qo'shildingiz!\n"
         f"O'yinni Mini App orqali davom ettiring:"
     )

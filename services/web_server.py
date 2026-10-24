@@ -35,6 +35,7 @@ from services.security_service import (
 from services.rasxod_service import rasxod_service
 from services.kaloriya_service import kaloriya_service
 from services.mafia_service import mafia_service
+from services.quiz_service import quiz_service
 from services.tv_room_service import tv_room_service, DEFAULT_CHANNEL_ID
 
 logger = logging.getLogger(__name__)
@@ -1141,6 +1142,127 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
         return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         logger.warning(f"Kaloriya API xatolik: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_quiz_api(request: web.Request) -> web.Response:
+    """Viktorina (Quiz) Mini App API handleri."""
+    path = request.path.lstrip("/")
+    if path.startswith("webapp/"):
+        path = path[7:]
+    if "?" in path:
+        path = path.split("?", 1)[0]
+    user_id, user_name = extract_request_user(request)
+
+    try:
+        async def _get_body() -> Dict[str, Any]:
+            try:
+                return await request.json()
+            except Exception:
+                return {}
+
+        if path.endswith("/home") or path == "api/quiz":
+            data = quiz_service.get_home_data(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/daily"):
+            if request.method == "POST":
+                body = await _get_body()
+                chosen_o = int(body.get("o", 0))
+                data = quiz_service.answer_daily(user_id=user_id, option_idx=chosen_o)
+            else:
+                data = quiz_service.get_daily(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/me"):
+            data = quiz_service.get_me(user_id=user_id, user_name=user_name)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/weekly"):
+            data = quiz_service.get_weekly(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/solo/start"):
+            body = await _get_body()
+            tp = str(body.get("tp") or body.get("category") or request.query.get("category") or "mix")
+            qid = body.get("id") or body.get("quiz_id")
+            data = quiz_service.start_solo(user_id=user_id, tp=tp, quiz_id=int(qid) if qid else None)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/solo/answer"):
+            body = await _get_body()
+            sid = str(body.get("sid", ""))
+            i = int(body.get("i") if "i" in body else body.get("question_id", 0))
+            o = int(body.get("o") if "o" in body else body.get("selected", -1))
+            data = quiz_service.answer_solo(sid=sid, q_idx=i, chosen_opt=o)
+            if "correct" not in data:
+                data["correct"] = data.get("right", True)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/solo/next"):
+            if request.method == "GET":
+                category = request.query.get("category", "")
+                data = quiz_service.next_solo(sid="")
+                return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+            body = await _get_body()
+            sid = str(body.get("sid", ""))
+            data = quiz_service.next_solo(sid=sid)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/quiz/room" or path.endswith("/room"):
+            body = await _get_body()
+            tp = str(body.get("tp", "mix"))
+            qid = body.get("id")
+            n = int(body.get("n", 10))
+            s = int(body.get("s", 20))
+            hp = bool(body.get("hp", True))
+            data = quiz_service.create_room(user_id=user_id, user_name=user_name, tp=tp, quiz_id=int(qid) if qid else None, n=n, s=s, hp=hp)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif "/room/" in path:
+            parts = path.split("/room/")[1].split("/")
+            pin = parts[0]
+            action = parts[1] if len(parts) > 1 else ""
+
+            if action == "join":
+                body = await _get_body()
+                pname = str(body.get("name") or user_name or "O'yinchi")
+                data = quiz_service.join_room(pin=pin, user_id=user_id, user_name=pname)
+            elif action == "answer":
+                body = await _get_body()
+                qi = int(body.get("qi", 0))
+                o = int(body.get("o", -1))
+                data = quiz_service.answer_room(pin=pin, user_id=user_id, qi=qi, chosen_opt=o)
+            elif action == "host":
+                body = await _get_body()
+                act = str(body.get("act", ""))
+                data = quiz_service.host_room_action(pin=pin, user_id=user_id, act=act)
+            else:
+                data = quiz_service.get_room_state(pin=pin, user_id=user_id)
+
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/save"):
+            body = await _get_body()
+            data = quiz_service.save_quiz(user_id=user_id, data=body)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/parse"):
+            body = await _get_body()
+            text = str(body.get("text", ""))
+            data = quiz_service.parse_bulk_text(text=text)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/report"):
+            return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/delete"):
+            return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+
+        data = quiz_service.get_home_data(user_id=user_id)
+        return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        logger.warning(f"Quiz API xatolik: {e}")
         return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 
@@ -3875,9 +3997,10 @@ def create_web_app() -> web.Application:
         ("POST", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
         ("GET", "/api/food", handle_upstream_api_proxy),
         ("GET", "/api/food/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/food/{tail:.*}", handle_upstream_api_proxy),
-        ("GET", "/api/quiz/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/quiz/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/quiz", handle_quiz_api),
+        ("POST", "/api/quiz", handle_quiz_api),
+        ("GET", "/api/quiz/{tail:.*}", handle_quiz_api),
+        ("POST", "/api/quiz/{tail:.*}", handle_quiz_api),
         ("GET", "/api/fx", handle_fx_api),
         ("POST", "/api/fx", handle_fx_api),
         ("GET", "/api/fx/alerts", handle_fx_alerts),

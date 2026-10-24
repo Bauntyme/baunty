@@ -45,7 +45,7 @@ def docs_menu_keyboard() -> InlineKeyboardMarkup:
 
 
 @router.message(Command("docs", "doc", "hujjat", "hujjatlar"))
-@router.message(F.text == "📄 Hujjatlar")
+@router.message(F.text.in_(["📄 Hujjatlar", "📄 Ҳужжатлар", "📄 Документы", "Hujjatlar", "Ҳужжатлар", "Документы"]))
 async def cmd_docs_menu(message: Message, state: FSMContext) -> None:
     """Hujjatlar asosiy bo'limi."""
     await state.clear()

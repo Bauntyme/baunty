@@ -19,6 +19,7 @@ from handlers.mafia import router as mafia_router
 from handlers.rasxod import router as rasxod_router
 from handlers.kaloriya import router as kaloriya_router
 from handlers.tvroom import router as tvroom_router
+from handlers.language import router as language_router
 
 
 _root_router: Router = None
@@ -32,8 +33,9 @@ def setup_routers() -> Router:
 
     _root_router = Router(name="root_router")
 
-    # Tartib: admin -> start -> downloader -> movies -> music -> books -> mafia -> rasxod -> kaloriya -> story -> docs -> round_video -> anon -> referral -> groups -> feedback
+    # Tartib: admin -> language -> start -> downloader -> movies -> music -> books -> mafia -> rasxod -> kaloriya -> story -> docs -> round_video -> anon -> referral -> groups -> feedback
     _root_router.include_router(admin_router)
+    _root_router.include_router(language_router)
     _root_router.include_router(start_router)
     _root_router.include_router(downloader_router)
     _root_router.include_router(movies_router)

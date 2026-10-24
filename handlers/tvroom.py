@@ -53,7 +53,9 @@ def get_tvroom_keyboard(code: str = "") -> InlineKeyboardMarkup:
 
 @router.message(Command("tvxona", "tvroom"))
 @router.message(F.text.in_([
-    "📺 Tv Xona", "Tv Xona", "TV Xona", "📺 Tv xona", "tvroom", "tvxona", "📺 TV Xona", "📺 TV xona"
+    "📺 Tv Xona", "Tv Xona", "TV Xona", "📺 Tv xona", "tvroom", "tvxona", "📺 TV Xona", "📺 TV xona",
+    "📺 Тв Хона", "Тв Хона", "📺 ТВ Хона", "ТВ Хона",
+    "📺 ТВ Комната", "ТВ Комната", "Тв комната"
 ]))
 async def cmd_tvroom(message: Message) -> None:
     """Tv Xona bosh menyusi."""

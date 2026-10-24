@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="referral_router")
 
 
-@router.message(F.text == "🎁 Do'st taklif qilish")
+@router.message(F.text.in_(["🎁 Do'st taklif qilish", "🎁 Дўст таклиф қилиш", "🎁 Пригласить друга"]))
 async def cmd_referral_info(message: Message, state: FSMContext) -> None:
     """Do'st taklif qilish bo'limi va statistika."""
     await state.clear()

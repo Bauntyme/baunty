@@ -37,7 +37,11 @@ def _cache_track(key: str, data: Any) -> None:
 
 
 @router.message(Command("music", "musiqa", "song", "mp3"))
-@router.message(F.text.in_(["🎵 Qo'shiq topish", "🎵 Musiqa topish", "Qo'shiq topish", "Musiqa topish"]))
+@router.message(F.text.in_([
+    "🎵 Qo'shiq topish", "🎵 Musiqa topish", "Qo'shiq topish", "Musiqa topish",
+    "🎵 Қўшиқ топиш", "🎵 Мусиқа топиш", "Қўшиқ топиш", "Мусиқа топиш",
+    "🎵 Поиск музыки", "Поиск музыки", "Музыка"
+]))
 async def cmd_music_menu(message: Message, state: FSMContext) -> None:
     """Musiqa qidirish boshlanishi."""
     # Agar buyruq bilan birga so'rov ham yozilgan bo'lsa (masalan: /music Konsta, /musiqa Konsta)

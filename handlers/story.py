@@ -22,7 +22,7 @@ router = Router(name="story_router")
 
 
 @router.message(Command("story", "stories", "hikoya"))
-@router.message(F.text == "👀 Anonim story")
+@router.message(F.text.in_(["👀 Anonim story", "👀 Аноним стори", "👀 Анонимные истории"]))
 async def cmd_story_prompt(message: Message, state: FSMContext) -> None:
     await state.clear()
     from services.maintenance_service import maintenance_service

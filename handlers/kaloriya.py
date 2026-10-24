@@ -41,7 +41,11 @@ def get_kaloriya_keyboard() -> InlineKeyboardMarkup:
 
 
 @router.message(Command("kaloriya", "kal", "kcal", "ovqat"))
-@router.message(F.text.in_(["🥗 Kaloriya", "🍏 Kaloriya", "Kaloriya", "Kaloriya hisoblagich"]))
+@router.message(F.text.in_([
+    "🥗 Kaloriya", "🍏 Kaloriya", "Kaloriya", "Kaloriya hisoblagich",
+    "🥗 Калория", "🍏 Калория", "Калория", "Калория ҳисоблагич",
+    "🥗 Калории", "Калории"
+]))
 async def cmd_kaloriya(message: Message) -> None:
     """Kaloriya bo'limi bosh menyusi."""
     user_id = message.from_user.id

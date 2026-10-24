@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="anon_questions_router")
 
 
-@router.message(F.text == "💌 Anonim savollar")
+@router.message(F.text.in_(["💌 Anonim savollar", "💌 Аноним саволлар", "💌 Анонимные вопросы"]))
 async def cmd_anon_questions_link(message: Message, state: FSMContext) -> None:
     """Foydalanuvchining shaxsiy anonim savollar havolasini ko'rsatish."""
     await state.clear()

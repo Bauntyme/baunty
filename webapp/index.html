@@ -1927,10 +1927,13 @@ async function load() {
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv/i.test(sp) || new URLSearchParams(location.search).has("tv"))) { setMode("tv"); return; }
   if (document.querySelector('#seg [data-m="rasxod"]') && (/^rasxod/i.test(sp) || new URLSearchParams(location.search).has("rasxod"))) { setMode("rasxod"); return; }
   if (document.querySelector('#seg [data-m="kal"]') && (/^(kal|kaloriya)/i.test(sp) || new URLSearchParams(location.search).has("kal"))) { setMode("kal"); return; }
-  if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || new URLSearchParams(location.search).has("mafia"))) {
+  const _search = new URLSearchParams(location.search);
+  const _mParam = _search.get("m");
+  if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || _mParam === "mafia" || _search.has("mafia"))) {
     setMode("mafia");
     const mc = String(sp).match(/^(?:maf_|mafia_)?(\d{4,6})$/i);
-    if (mc && window.ZMafia) ZMafia.join(mc[1]);
+    const roomParam = _search.get("room") || _search.get("code") || (mc ? mc[1] : "");
+    if (roomParam && window.ZMafia) ZMafia.join(roomParam);
     return;
   }
   if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { if (window.ZHub) ZHub.ads(); return; }

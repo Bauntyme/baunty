@@ -767,10 +767,14 @@ async function load() {
   const bkq = new URLSearchParams(location.search).get("books");
   if (document.querySelector('#seg [data-m="books"]') && (/^(books|kitob)/i.test(sp) || bkq !== null)) {
     setMode("books"); const bid = (bkq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (bid && window.ZBooks) ZBooks.open(bid); return; }
-  const qzq = new URLSearchParams(location.search).get("quiz");
+  const qzq = new URLSearchParams(location.search).get("quiz") || new URLSearchParams(location.search).get("qz");
   if (document.querySelector('#seg [data-m="quiz"]') && (/^(q\d{6}|qz\d+|quiz)/i.test(sp) || qzq !== null)) {
-    setMode("quiz"); const arg = qzq || (sp.match(/^q(\d{6})$/i) || [])[1] || ((sp.match(/^qz(\d+)$/i) || [])[1] ? "z" + sp.slice(2) : "");
-    if (arg && arg !== "1" && window.ZQuiz) ZQuiz.start(arg); return; }
+    setMode("quiz");
+    const rawQ = qzq || sp;
+    const cleanQ = String(rawQ || "").replace(/^quiz_/i, "").replace(/^qz_/i, "").replace(/^q_/i, "");
+    if (cleanQ && cleanQ !== "1" && window.ZQuiz) ZQuiz.start(cleanQ);
+    return;
+  }
   const pvq = new URLSearchParams(location.search).get("prava");
   if (document.querySelector('#seg [data-m="prava"]') && (/^(prava|avto)/i.test(sp) || pvq !== null)) {
     setMode("prava"); if ((pvq === "exam" || /exam|imtihon/i.test(sp)) && window.ZPrava) ZPrava.start("exam"); return; }
@@ -793,10 +797,13 @@ async function load() {
   if (document.querySelector('#seg [data-m="tv"]') && (/^tv($|_channel)/i.test(sp) || new URLSearchParams(location.search).has("tv") || (new URLSearchParams(location.search).get("m") === "tv"))) { setMode("tv"); return; }
   if (document.querySelector('#seg [data-m="rasxod"]') && (/^rasxod/i.test(sp) || new URLSearchParams(location.search).has("rasxod"))) { setMode("rasxod"); return; }
   if (document.querySelector('#seg [data-m="kal"]') && (/^(kal|kaloriya)/i.test(sp) || new URLSearchParams(location.search).has("kal"))) { setMode("kal"); return; }
-  if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || new URLSearchParams(location.search).has("mafia"))) {
+  const _search = new URLSearchParams(location.search);
+  const _mParam = _search.get("m");
+  if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || _mParam === "mafia" || _search.has("mafia"))) {
     setMode("mafia");
-    const mc = String(sp).match(/^(?:maf_|mafia_)?(\d{4,6})$/i);
-    if (mc && window.ZMafia) ZMafia.join(mc[1]);
+    const mc = String(sp).match(/^(?:maf_|mafia_)?([a-zA-Z0-9]{3,10})$/i);
+    const roomParam = _search.get("room") || _search.get("code") || (mc ? mc[1] : "");
+    if (roomParam && window.ZMafia) ZMafia.join(roomParam);
     return;
   }
   if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { ZHub.ads(); return; }

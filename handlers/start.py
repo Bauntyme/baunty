@@ -20,6 +20,7 @@ router = Router(name="start_router")
 
 
 @router.message(CommandStart())
+@router.message(Command("startapp"))
 async def cmd_start(message: Message, state: FSMContext) -> None:
     """/start komandasi va Deep Link qayta ishlovchisi."""
     await state.clear()
@@ -30,6 +31,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     is_admin = config.is_admin(user.id)
 
     # Foydalanuvchini bazaga kiritish / yangilash
+    user_lang = "uz"
     try:
         async with get_session() as session:
             db_user, created = await crud.get_or_create_user(
@@ -44,6 +46,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             if db_user and db_user.is_banned:
                 await message.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
                 return
+            if db_user and db_user.language:
+                user_lang = db_user.language
     except Exception as e:
         logger.warning(f"cmd_start foydalanuvchini bazada saqlashda xatolik: {e}")
 
@@ -69,7 +73,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await message.answer(
                 maint_text,
                 parse_mode="HTML",
-                reply_markup=maintenance_menu_keyboard(is_admin=False)
+                reply_markup=maintenance_menu_keyboard(is_admin=False, lang=user_lang)
             )
             return
 
@@ -82,12 +86,19 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 from handlers.movies import cmd_movies_menu
                 await cmd_movies_menu(message, state)
                 return
-            movie_code = param.replace("kino_", "").replace("movie_", "").replace("k_", "").strip()
+            raw_param = param.replace("kino_", "").replace("movie_", "").replace("k_", "").strip()
+            movie_code = raw_param
+            part = 1
+            if "_" in raw_param:
+                parts_k = raw_param.rsplit("_", 1)
+                if parts_k[1].isdigit():
+                    movie_code = parts_k[0]
+                    part = int(parts_k[1])
             delivered = await movie_service.deliver_movie(
                 bot=message.bot,
                 chat_id=message.chat.id,
                 code=movie_code,
-                part=1,
+                part=part,
                 reply_to_message_id=message.message_id
             )
             if not delivered:
@@ -137,6 +148,11 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         elif param in ("mafia", "mafiya") or param.startswith("mafia_") or param.startswith("maf_"):
             from handlers.mafia import cmd_mafia
             await cmd_mafia(message)
+            return
+
+        elif param in ("til", "lang", "language") or param.startswith("lang_") or param.startswith("til_"):
+            from handlers.language import cmd_language
+            await cmd_language(message)
             return
 
         elif param in ("rasxod", "xarajat", "harajat") or param.startswith("rasxod_"):
@@ -196,16 +212,19 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         elif param in ("quiz", "viktorina") or param.startswith("quiz_") or param.startswith("qz_") or (param.startswith("qz") and len(param) > 2):
             from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
             base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
-            url = f"{base_url}?m=quiz" if param in ("quiz", "viktorina") else f"{base_url}?quiz={param}"
+            clean_pin = param.replace("quiz_", "").replace("qz_", "").replace("qz", "").strip()
+            url = f"{base_url}?m=quiz&quiz={clean_pin}&room={clean_pin}&code={clean_pin}" if clean_pin else f"{base_url}?m=quiz"
+            btn_text = f"🧠 Viktorina xonasiga kirish (#{clean_pin})" if clean_pin else "🧠 Viktorinani Boshlash"
             kb = InlineKeyboardMarkup(inline_keyboard=[[
-                InlineKeyboardButton(text="🧠 Viktorinani Boshlash", web_app=WebAppInfo(url=url))
+                InlineKeyboardButton(text=btn_text, web_app=WebAppInfo(url=url))
             ]])
+            room_info = f"\n\n🎯 <b>Taklif qilingan xona:</b> <code>#{clean_pin}</code>" if clean_pin else ""
             text = (
-                "🧠 <b>Bauntys Viktorina & Bilim Sinovi (Quiz)</b>\n\n"
-                "• Qiziqarli savollar va intellektual janglar\n"
-                "• Do'stlar bilan duel yoki yakkaxon rejim\n"
-                "• Reyting va ballar tizimi\n\n"
-                "Boshlash uchun quyidagi tugmani bosing:"
+                f"🧠 <b>Bauntys Viktorina & Bilim Sinovi (Quiz)</b>\n\n"
+                f"• Qiziqarli savollar va intellektual janglar\n"
+                f"• Do'stlar bilan duel yoki yakkaxon rejim\n"
+                f"• Reyting va ballar tizimi!{room_info}\n\n"
+                f"Boshlash uchun quyidagi tugmani bosing:"
             )
             await message.answer(text, parse_mode="HTML", reply_markup=kb)
             return
@@ -262,19 +281,30 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                             pass
 
         elif param.startswith("m_"):
-            clean_param = param.replace("m_", "").strip()
+            clean_param = param.replace("m_", "", 1).strip()
+            movie_code = clean_param
+            part = 1
+            if "_" in clean_param:
+                parts_m = clean_param.rsplit("_", 1)
+                if parts_m[1].isdigit():
+                    movie_code = parts_m[0]
+                    part = int(parts_m[1])
+
             # Kino kodi tekshiruvi: katalogda bo'lsa, bazada bo'lsa yoki kino kodi formatida bo'lsa kinoni yetkazish
-            cat_movie = movie_service.get_catalog_item(clean_param)
+            cat_movie = movie_service.get_catalog_item(movie_code)
             is_likely_movie = bool(cat_movie or not (clean_param.isdigit() and len(clean_param) >= 7))
             if is_likely_movie:
                 delivered = await movie_service.deliver_movie(
                     bot=message.bot,
                     chat_id=message.chat.id,
-                    code=clean_param,
-                    part=1,
+                    code=movie_code,
+                    part=part,
                     reply_to_message_id=message.message_id
                 )
                 if delivered:
+                    return
+                elif cat_movie or "_" in clean_param:
+                    await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
                     return
             music_id = clean_param
             status_msg = await message.answer("🎵 <b>Qo'shiq tayyorlanmoqda...</b>", parse_mode="HTML")
@@ -374,7 +404,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await message.answer(
         welcome_text,
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard(is_admin=is_admin)
+        reply_markup=main_menu_keyboard(is_admin=is_admin, lang=user_lang)
     )
 
 
@@ -483,16 +513,27 @@ async def cmd_kino_channel(message: Message) -> None:
     await message.answer(text, parse_mode="HTML", disable_web_page_preview=False)
 
 
-@router.message(F.text.in_(["❌ Bekor qilish", "🔙 Bosh menyu", "🔙 Orqaga"]))
+@router.message(F.text.in_([
+    "❌ Bekor qilish", "❌ Бекор қилиш", "❌ Отмена",
+    "🔙 Bosh menyu", "🔙 Бош меню", "🔙 Главное меню",
+    "🔙 Orqaga", "🔙 Орқага", "🔙 Назад"
+]))
 async def cmd_cancel(message: Message, state: FSMContext) -> None:
     """Amalni bekor qilish va bosh menyuga qaytish."""
     await state.clear()
     user = message.from_user
     is_admin = config.is_admin(user.id) if user else False
+    user_lang = "uz"
+    if user:
+        try:
+            async with get_session() as session:
+                user_lang = await crud.get_user_language(session, user.id)
+        except Exception:
+            pass
     await message.answer(
         "🏠 <b>Bosh menyu:</b>",
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard(is_admin=is_admin)
+        reply_markup=main_menu_keyboard(is_admin=is_admin, lang=user_lang)
     )
 
 

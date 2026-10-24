@@ -32,6 +32,7 @@ class User(Base):
     referral_count = Column(Integer, default=0, nullable=False)
     referral_points = Column(Integer, default=0, nullable=False)
     referred_by = Column(BigInteger, nullable=True)
+    language = Column(String(16), default="uz", nullable=True)
     created_at = Column(DateTime, default=utc_now, nullable=False)
     last_active = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 

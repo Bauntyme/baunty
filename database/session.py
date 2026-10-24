@@ -73,8 +73,8 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-def _run_sqlite_migrations(sync_conn) -> None:
-    """SQLite uchun mavjud jadvallarga yangi ustunlarni qo'shish."""
+def _run_db_migrations(sync_conn) -> None:
+    """Mavjud jadvallarga yangi ustunlarni qo'shish (SQLite va PostgreSQL uchun)."""
     from sqlalchemy import inspect, text
     inspector = inspect(sync_conn)
     existing_tables = set(inspector.get_table_names())
@@ -87,6 +87,8 @@ def _run_sqlite_migrations(sync_conn) -> None:
             sync_conn.execute(text("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0 NOT NULL"))
         if "referred_by" not in existing_cols:
             sync_conn.execute(text("ALTER TABLE users ADD COLUMN referred_by BIGINT"))
+        if "language" not in existing_cols:
+            sync_conn.execute(text("ALTER TABLE users ADD COLUMN language VARCHAR(16) DEFAULT 'uz'"))
 
     if "movies" in existing_tables:
         existing_cols = {c["name"] for c in inspector.get_columns("movies")}
@@ -100,25 +102,22 @@ def _run_sqlite_migrations(sync_conn) -> None:
             sync_conn.execute(text("ALTER TABLE movies ADD COLUMN poster_file_id VARCHAR(255)"))
 
     if "movie_files" not in existing_tables:
-        sync_conn.execute(text("""
-            CREATE TABLE IF NOT EXISTS movie_files (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                movie_code VARCHAR(64) NOT NULL,
-                part INTEGER DEFAULT 1 NOT NULL,
-                file_id VARCHAR(255) NOT NULL,
-                file_type VARCHAR(32) DEFAULT 'video' NOT NULL,
-                file_size BIGINT,
-                duration INTEGER,
-                quality VARCHAR(32) DEFAULT '1080p',
-                created_at DATETIME NOT NULL,
-                CONSTRAINT uq_movie_files_code_part UNIQUE (movie_code, part)
-            )
-        """))
-        sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_movie_files_movie_code ON movie_files (movie_code)"))
-        sync_conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_movie_files_code_part ON movie_files (movie_code, part)"))
-    else:
         try:
-            sync_conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_movie_files_code_part ON movie_files (movie_code, part)"))
+            sync_conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS movie_files (
+                    id SERIAL PRIMARY KEY,
+                    movie_code VARCHAR(64) NOT NULL,
+                    part INTEGER DEFAULT 1 NOT NULL,
+                    file_id VARCHAR(255) NOT NULL,
+                    file_type VARCHAR(32) DEFAULT 'video' NOT NULL,
+                    file_size BIGINT,
+                    duration INTEGER,
+                    quality VARCHAR(32) DEFAULT '1080p',
+                    created_at TIMESTAMP NOT NULL,
+                    CONSTRAINT uq_movie_files_code_part UNIQUE (movie_code, part)
+                )
+            """))
+            sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_movie_files_movie_code ON movie_files (movie_code)"))
         except Exception:
             pass
 
@@ -128,8 +127,7 @@ async def init_db() -> None:
     logger.info("Ma'lumotlar bazasi jadvallari tekshirilmoqda va yaratilmoqda...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        if "sqlite" in config.db_url:
-            await conn.run_sync(_run_sqlite_migrations)
+        await conn.run_sync(_run_db_migrations)
     logger.info("Ma'lumotlar bazasi muvaffaqiyatli ishga tushirildi.")
     # Boshlang'ich kinolar katalogini to'ldirish (185+ ta)
     try:

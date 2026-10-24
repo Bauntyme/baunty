@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 router = Router(name="downloader_router")
 
 
-@router.message(F.text == "📥 Media yuklash")
+@router.message(F.text.in_(["📥 Media yuklash", "📥 Медиа юклаш", "📥 Скачать медиа"]))
 async def cmd_media_download_info(message: Message) -> None:
     """Media yuklash bo'limi ko'rsatmasi."""
     text = (

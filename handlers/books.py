@@ -47,7 +47,11 @@ def get_books_main_keyboard() -> InlineKeyboardMarkup:
 
 
 @router.message(Command("books", "kitob", "kutubxona"))
-@router.message(F.text.in_(["📚 Kitoblar", "📚 Kitob", "Kitoblar", "Kutubxona"]))
+@router.message(F.text.in_([
+    "📚 Kitoblar", "📚 Kitob", "Kitoblar", "Kutubxona",
+    "📚 Китоблар", "📚 Китоб", "Китоблар",
+    "📚 Книги", "📚 Книга", "Книги"
+]))
 async def cmd_books(message: Message) -> None:
     from services.maintenance_service import maintenance_service
     from keyboards.default import maintenance_menu_keyboard

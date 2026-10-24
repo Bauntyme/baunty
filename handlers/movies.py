@@ -29,7 +29,12 @@ router = Router(name="movies_router")
 
 
 @router.message(Command("kino", "movie", "film"))
-@router.message(F.text.in_(["🎬 Kino", "🎬 K I N O — kod orqali qidirish"]))
+@router.message(F.text.in_([
+    "🎬 Kino", "🎬 Кино", "🎬 Фильмы",
+    "🎬 K I N O — kod orqali qidirish",
+    "🎬 К И Н О — код орқали қидириш",
+    "🎬 К И Н О — поиск по коду",
+]))
 async def cmd_movies_menu(message: Message, state: FSMContext) -> None:
     await state.clear()
     from services.maintenance_service import maintenance_service

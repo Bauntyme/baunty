@@ -10,7 +10,7 @@ from config import config
 router = Router(name="groups_router")
 
 
-@router.message(F.text == "👥 Guruhlarim")
+@router.message(F.text.in_(["👥 Guruhlarim", "👥 Гуруҳларим", "👥 Мои группы"]))
 async def cmd_groups_info(message: Message, state: FSMContext) -> None:
     """Botni guruhga qo'shish ko'rsatmasi."""
     await state.clear()

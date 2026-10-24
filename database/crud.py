@@ -77,6 +77,26 @@ async def update_user_activity(session: AsyncSession, user_id: int) -> None:
     await session.execute(stmt)
 
 
+async def get_user_language(session: AsyncSession, user_id: int) -> str:
+    """Foydalanuvchi tanlagan tilni olish (default: 'uz')."""
+    stmt = select(User.language).where(User.id == user_id)
+    result = await session.execute(stmt)
+    lang = result.scalar_one_or_none()
+    return lang or "uz"
+
+
+async def set_user_language(session: AsyncSession, user_id: int, language: str) -> bool:
+    """Foydalanuvchi tilini yangilash ('uz', 'oz', 'ru')."""
+    clean_lang = language.lower() if language in ("uz", "oz", "ru") else "uz"
+    user = await get_user(session, user_id)
+    if not user:
+        await get_or_create_user(session, user_id=user_id)
+    stmt = update(User).where(User.id == user_id).values(language=clean_lang)
+    await session.execute(stmt)
+    await session.commit()
+    return True
+
+
 async def get_total_users_count(session: AsyncSession) -> int:
     """Jami ro'yxatdan o'tgan foydalanuvchilar soni."""
     stmt = select(func.count(User.id))
