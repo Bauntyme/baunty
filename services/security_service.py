@@ -822,6 +822,7 @@ class SlidingWindowRateLimiter:
 
         # 7. Sensitive / state-changing endpoints tekshiruvi
         if clean_path in (
+            "/api/send", "/webapp/api/send",
             "/api/send_to_chat", "/api/music/send", "/api/books/send",
             "/api/story/send", "/api/watch", "/webapp/api/send_to_chat",
             "/webapp/api/music/send", "/webapp/api/books/send", "/webapp/api/watch"
@@ -939,8 +940,9 @@ def get_security_headers() -> Dict[str, str]:
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
         # CORS sarlavhalari va source maplarni taqiqlash
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-Init-Data",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, X-Init-Data, Accept, Origin",
+        "Access-Control-Max-Age": "86400",
         "X-SourceMap": "none",
         "SourceMap": "",
     }
@@ -1212,7 +1214,34 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
         elif k not in resp.headers:
             resp.headers[k] = v
 
+    # Restrictive DENY ni Telegram WebApp iframe uchun SAMEORIGIN ga to'g'irlash
+    if resp.headers.get("X-Frame-Options", "").upper() == "DENY":
+        resp.headers["X-Frame-Options"] = "SAMEORIGIN"
+
     _clean_sensitive_headers(resp)
+
+    # ETag va 304 Not Modified tekshiruvi (Kesh orqali nollik kechikish va ortiqcha tarmoq uzatishlarini yo'qotish)
+    if request.method in ("GET", "HEAD") and resp.status == 200:
+        etag = resp.headers.get("ETag")
+        if not etag and getattr(resp, "body", None) is not None and len(resp.body) < 5_000_000:
+            cc = resp.headers.get("Cache-Control", "")
+            if "public" in cc or "max-age" in cc:
+                etag = f'W/"{hashlib.md5(resp.body).hexdigest()[:16]}"'
+                resp.headers["ETag"] = etag
+
+        if etag:
+            client_inm = request.headers.get("If-None-Match")
+            if client_inm:
+                c_clean = client_inm.strip().strip('"').lstrip('W/').strip('"')
+                s_clean = etag.strip().strip('"').lstrip('W/').strip('"')
+                if client_inm.strip() == etag.strip() or c_clean == s_clean:
+                    resp_304 = web.Response(status=304)
+                    for hk, hv in resp.headers.items():
+                        if hk not in ("Content-Length", "Content-Type"):
+                            resp_304.headers[hk] = hv
+                    _clean_sensitive_headers(resp_304)
+                    return resp_304
+
     if hasattr(resp, "enable_compression") and resp.status not in (204, 304):
         if getattr(resp, "body", None) is not None or isinstance(resp, web.FileResponse):
             try:

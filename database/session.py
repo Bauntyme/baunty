@@ -30,10 +30,7 @@ else:
     engine = create_async_engine(
         config.db_url,
         echo=False,
-        pool_pre_ping=True,
-        pool_size=10,
-        max_overflow=20,
-        pool_recycle=180,
+        poolclass=NullPool,
         connect_args={"ssl": "require"} if ("neon.tech" in config.db_url or "ssl" in config.db_url) else {}
     )
 
@@ -48,6 +45,8 @@ if _is_sqlite:
             cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.execute("PRAGMA cache_size=-64000")
             cursor.execute("PRAGMA temp_store=MEMORY")
+            cursor.execute("PRAGMA busy_timeout=15000")
+            cursor.execute("PRAGMA mmap_size=268435456")
             cursor.close()
         except Exception:
             pass

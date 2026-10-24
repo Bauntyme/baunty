@@ -6,6 +6,8 @@ import os
 import re
 import json
 import time
+import asyncio
+import hashlib
 from datetime import datetime, timedelta
 import random
 import urllib.parse
@@ -57,15 +59,38 @@ async def handle_health(request: web.Request) -> web.Response:
     })
 
 
+_FAVICON_CACHE: Dict[str, Any] = {"bytes": None, "etag": None}
+_STATIC_BUNDLES_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
+
+
 async def handle_favicon(request: web.Request) -> web.Response:
-    """Favicon so'rovlariga javob berish (404 xatoliklarining oldini olish)."""
+    """Favicon so'rovlariga javob berish (404 xatoliklarining oldini olish va 0ms uzatish)."""
     fav_file = BASE_DIR / "webapp" / "favicon.ico"
-    if fav_file.exists():
-        return web.FileResponse(fav_file)
+    if _FAVICON_CACHE["bytes"] is None and fav_file.exists():
+        try:
+            fav_bytes = await asyncio.to_thread(fav_file.read_bytes)
+            _FAVICON_CACHE["bytes"] = fav_bytes
+            _FAVICON_CACHE["etag"] = f'"{hashlib.md5(fav_bytes).hexdigest()[:16]}"'
+        except Exception:
+            pass
+
+    if _FAVICON_CACHE["bytes"] is not None:
+        etag = _FAVICON_CACHE["etag"]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
+        return web.Response(
+            body=_FAVICON_CACHE["bytes"],
+            content_type="image/x-icon",
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
+            }
+        )
     return web.Response(status=204)
 
 
-_PROD_INDEX_CACHE: Dict[str, Any] = {"html": None, "ts": 0}
+_PROD_INDEX_CACHE: Dict[str, Any] = {"html": None, "bytes": None, "etag": None, "ts": 0}
 
 
 def get_production_index_html() -> str:
@@ -104,7 +129,7 @@ def get_production_index_html() -> str:
 
 
 async def handle_index(request: web.Request) -> web.Response:
-    """Asosiy Mini App sahifasi (index.html) - production bundle va xavfsizlik bilan."""
+    """Asosiy Mini App sahifasi (index.html) - production bundle, ETag va nol kechikish bilan."""
     index_file = BASE_DIR / "webapp" / "index.html"
     if not index_file.exists():
         return web.Response(text="<h1>Kinolar katalogi Mini App ishga tushirilmoqda...</h1>", content_type="text/html")
@@ -115,14 +140,21 @@ async def handle_index(request: web.Request) -> web.Response:
     now = time.time()
     if _PROD_INDEX_CACHE["html"] is None or (now - _PROD_INDEX_CACHE["ts"] > 300):
         _PROD_INDEX_CACHE["html"] = get_production_index_html()
+        _PROD_INDEX_CACHE["bytes"] = _PROD_INDEX_CACHE["html"].encode("utf-8")
+        _PROD_INDEX_CACHE["etag"] = f'"{hashlib.md5(_PROD_INDEX_CACHE["bytes"]).hexdigest()[:16]}"'
         _PROD_INDEX_CACHE["ts"] = now
 
+    etag = _PROD_INDEX_CACHE.get("etag")
+    if etag and request.headers.get("If-None-Match") == etag:
+        return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=3600"})
+
     resp = web.Response(
-        text=_PROD_INDEX_CACHE["html"],
+        body=_PROD_INDEX_CACHE["bytes"],
         content_type="text/html",
         headers={
             "Cache-Control": "public, max-age=3600",
             "X-SourceMap": "none",
+            "ETag": etag,
         }
     )
     if hasattr(resp, "enable_compression"):
@@ -136,9 +168,26 @@ async def handle_bundle_js(request: web.Request) -> web.Response:
     if not bundle_file.exists():
         bundle_file = BASE_DIR / "webapp" / "bundle.min.js"
     if bundle_file.exists():
-        resp = web.FileResponse(bundle_file)
-        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
-        resp.headers["X-SourceMap"] = "none"
+        fkey = str(bundle_file)
+        if fkey not in _STATIC_BUNDLES_CACHE or request.query.get("nocache"):
+            content = await asyncio.to_thread(bundle_file.read_bytes)
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            _STATIC_BUNDLES_CACHE[fkey] = (content, "application/javascript", etag)
+
+        content, ct, etag = _STATIC_BUNDLES_CACHE[fkey]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=86400, immutable"})
+
+        resp = web.Response(
+            body=content,
+            content_type=ct,
+            headers={
+                "Cache-Control": "public, max-age=86400, immutable",
+                "X-SourceMap": "none",
+                "ETag": etag,
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
         if hasattr(resp, "enable_compression"):
             resp.enable_compression()
         return resp
@@ -151,9 +200,26 @@ async def handle_bundle_css(request: web.Request) -> web.Response:
     if not bundle_file.exists():
         bundle_file = BASE_DIR / "webapp" / "bundle.min.css"
     if bundle_file.exists():
-        resp = web.FileResponse(bundle_file)
-        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
-        resp.headers["X-SourceMap"] = "none"
+        fkey = str(bundle_file)
+        if fkey not in _STATIC_BUNDLES_CACHE or request.query.get("nocache"):
+            content = await asyncio.to_thread(bundle_file.read_bytes)
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            _STATIC_BUNDLES_CACHE[fkey] = (content, "text/css", etag)
+
+        content, ct, etag = _STATIC_BUNDLES_CACHE[fkey]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=86400, immutable"})
+
+        resp = web.Response(
+            body=content,
+            content_type=ct,
+            headers={
+                "Cache-Control": "public, max-age=86400, immutable",
+                "X-SourceMap": "none",
+                "ETag": etag,
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
         if hasattr(resp, "enable_compression"):
             resp.enable_compression()
         return resp
@@ -166,9 +232,26 @@ async def handle_shield_js(request: web.Request) -> web.Response:
     if not shield_file.exists():
         shield_file = BASE_DIR / "webapp" / "shield.min.js"
     if shield_file.exists():
-        resp = web.FileResponse(shield_file)
-        resp.headers["Cache-Control"] = "public, max-age=86400, immutable"
-        resp.headers["X-SourceMap"] = "none"
+        fkey = str(shield_file)
+        if fkey not in _STATIC_BUNDLES_CACHE or request.query.get("nocache"):
+            content = await asyncio.to_thread(shield_file.read_bytes)
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            _STATIC_BUNDLES_CACHE[fkey] = (content, "application/javascript", etag)
+
+        content, ct, etag = _STATIC_BUNDLES_CACHE[fkey]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=86400, immutable"})
+
+        resp = web.Response(
+            body=content,
+            content_type=ct,
+            headers={
+                "Cache-Control": "public, max-age=86400, immutable",
+                "X-SourceMap": "none",
+                "ETag": etag,
+                "Access-Control-Allow-Origin": "*",
+            }
+        )
         if hasattr(resp, "enable_compression"):
             resp.enable_compression()
         return resp
@@ -275,45 +358,80 @@ def sanitize_book_text(text: str) -> str:
     return text
 
 
+_POSTER_CACHE: Dict[str, Tuple[bytes, str]] = {}
+_PRAVA_CACHE: Dict[str, Tuple[bytes, str]] = {}
+_BOOK_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
+_RC_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
+
+
 async def handle_poster_proxy(request: web.Request) -> web.Response:
-    """Kino posterlarini keshlab uzatish (161-97-96-58.sslip.io ga 1v1 proxy)."""
+    """Kino posterlarini keshlab uzatish (161-97-96-58.sslip.io ga 1v1 proxy va in-memory kesh)."""
     filename = request.match_info.get("filename", "")
     clean_name = os.path.basename(filename)
     if not clean_name or not (clean_name.endswith(".webp") or clean_name.endswith(".jpg") or clean_name.endswith(".png")):
         return web.Response(status=404, text="Topilmadi")
 
-    posters_dir = BASE_DIR / "data" / "posters"
-    posters_dir.mkdir(parents=True, exist_ok=True)
-    local_path = posters_dir / clean_name
-
-    if local_path.exists():
-        with open(local_path, "rb") as f:
-            content = f.read()
+    # 1. Tezkor xotira keshidan uzatish (0ms kechikish)
+    if clean_name in _POSTER_CACHE:
+        content, etag = _POSTER_CACHE[clean_name]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
         return web.Response(
             body=content,
             content_type="image/webp",
             headers={
                 "Cache-Control": "public, max-age=604800, immutable",
                 "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
             }
         )
 
-    # Upstream serverdan yuklab olish
+    posters_dir = BASE_DIR / "data" / "posters"
+    posters_dir.mkdir(parents=True, exist_ok=True)
+    local_path = posters_dir / clean_name
+
+    # 2. Diskdagi fayldan asinxron o'qish (event-loop bloklanmaydi)
+    if local_path.exists():
+        try:
+            content = await asyncio.to_thread(local_path.read_bytes)
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            if len(_POSTER_CACHE) > 500:
+                _POSTER_CACHE.clear()
+            _POSTER_CACHE[clean_name] = (content, etag)
+            if request.headers.get("If-None-Match") == etag:
+                return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
+            return web.Response(
+                body=content,
+                content_type="image/webp",
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "Access-Control-Allow-Origin": "*",
+                    "ETag": etag,
+                }
+            )
+        except Exception:
+            pass
+
+    # 3. Upstream serverdan yuklab olish
     upstream_url = f"https://161-97-96-58.sslip.io/p/{clean_name}"
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
+            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                 if resp.status == 200:
                     content = await resp.read()
-                    with open(local_path, "wb") as pf:
-                        pf.write(content)
+                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                    if len(_POSTER_CACHE) > 500:
+                        _POSTER_CACHE.clear()
+                    _POSTER_CACHE[clean_name] = (content, etag)
+                    asyncio.create_task(asyncio.to_thread(local_path.write_bytes, content))
                     return web.Response(
                         body=content,
                         content_type="image/webp",
                         headers={
                             "Cache-Control": "public, max-age=604800, immutable",
                             "Access-Control-Allow-Origin": "*",
+                            "ETag": etag,
                         }
                     )
     except Exception as e:
@@ -326,8 +444,7 @@ async def handle_prava_image_proxy(request: web.Request) -> web.Response:
     """Prava savollari rasmlarini (prava/... va pv/...) keshlab uzatish."""
     filename = request.match_info.get("filename", "")
     if not filename:
-        tail = request.match_info.get("tail", "").lstrip("/")
-        filename = tail
+        filename = request.match_info.get("tail", "").lstrip("/")
 
     clean_name = os.path.basename(filename)
     if not clean_name:
@@ -336,24 +453,48 @@ async def handle_prava_image_proxy(request: web.Request) -> web.Response:
     if not clean_name.endswith(".webp") and not clean_name.endswith(".png") and not clean_name.endswith(".jpg"):
         clean_name = f"{clean_name}.webp"
 
-    prava_dir = BASE_DIR / "data" / "prava"
-    prava_dir.mkdir(parents=True, exist_ok=True)
-    local_path = prava_dir / clean_name
-
-    # 1. Lokal keshdan bir zumda uzatish (0ms kechikish)
-    if local_path.exists() and local_path.stat().st_size > 100:
-        with open(local_path, "rb") as f:
-            content = f.read()
+    # 1. Xotira keshidan uzatish
+    if clean_name in _PRAVA_CACHE:
+        content, etag = _PRAVA_CACHE[clean_name]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
         return web.Response(
             body=content,
             content_type="image/webp",
             headers={
                 "Cache-Control": "public, max-age=604800, immutable",
                 "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
             }
         )
 
-    # 2. Upstream serverdan yuklab olish va lokal saqlash
+    prava_dir = BASE_DIR / "data" / "prava"
+    prava_dir.mkdir(parents=True, exist_ok=True)
+    local_path = prava_dir / clean_name
+
+    # 2. Lokal diskdan asinxron o'qish
+    if local_path.exists() and local_path.stat().st_size > 100:
+        try:
+            content = await asyncio.to_thread(local_path.read_bytes)
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            if len(_PRAVA_CACHE) > 500:
+                _PRAVA_CACHE.clear()
+            _PRAVA_CACHE[clean_name] = (content, etag)
+            if request.headers.get("If-None-Match") == etag:
+                return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
+            return web.Response(
+                body=content,
+                content_type="image/webp",
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "Access-Control-Allow-Origin": "*",
+                    "ETag": etag,
+                }
+            )
+        except Exception:
+            pass
+
+    # 3. Upstream serverdan yuklab olish va lokal saqlash
     upstream_url = f"https://161-97-96-58.sslip.io/prava/{clean_name}"
     try:
         import aiohttp
@@ -362,17 +503,18 @@ async def handle_prava_image_proxy(request: web.Request) -> web.Response:
                 if resp.status == 200:
                     content = await resp.read()
                     if content and len(content) > 100:
-                        try:
-                            with open(local_path, "wb") as pf:
-                                pf.write(content)
-                        except Exception as we:
-                            logger.debug(f"Prava rasmini saqlashda xatolik: {we}")
+                        etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                        if len(_PRAVA_CACHE) > 500:
+                            _PRAVA_CACHE.clear()
+                        _PRAVA_CACHE[clean_name] = (content, etag)
+                        asyncio.create_task(asyncio.to_thread(local_path.write_bytes, content))
                         return web.Response(
                             body=content,
                             content_type="image/webp",
                             headers={
                                 "Cache-Control": "public, max-age=604800, immutable",
                                 "Access-Control-Allow-Origin": "*",
+                                "ETag": etag,
                             }
                         )
     except Exception as e:
@@ -399,23 +541,44 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     }
     content_type = ct_map.get(ext, "application/octet-stream")
 
+    # 1. Xotira keshidan uzatish
+    if tail in _BOOK_CACHE:
+        content, ct, etag = _BOOK_CACHE[tail]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
+        return web.Response(
+            body=content,
+            content_type=ct,
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
+            }
+        )
+
     bk_dir = BASE_DIR / "data" / "bk"
     local_path = bk_dir / tail
     if local_path.exists():
         try:
-            with open(local_path, "rb") as f:
-                content = f.read()
+            content = await asyncio.to_thread(local_path.read_bytes)
             if ext == ".json":
                 try:
                     content = sanitize_book_text(content.decode("utf-8")).encode("utf-8")
                 except Exception:
                     pass
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            if len(_BOOK_CACHE) > 500:
+                _BOOK_CACHE.clear()
+            _BOOK_CACHE[tail] = (content, content_type, etag)
+            if request.headers.get("If-None-Match") == etag:
+                return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
             return web.Response(
                 body=content,
                 content_type=content_type,
                 headers={
                     "Cache-Control": "public, max-age=604800, immutable",
                     "Access-Control-Allow-Origin": "*",
+                    "ETag": etag,
                 }
             )
         except Exception:
@@ -433,18 +596,24 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
                             content = sanitize_book_text(content.decode("utf-8")).encode("utf-8")
                         except Exception:
                             pass
-                    try:
-                        local_path.parent.mkdir(parents=True, exist_ok=True)
-                        with open(local_path, "wb") as bf:
-                            bf.write(content)
-                    except Exception:
-                        pass
+                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                    if len(_BOOK_CACHE) > 500:
+                        _BOOK_CACHE.clear()
+                    _BOOK_CACHE[tail] = (content, content_type, etag)
+                    def _save_bk(lp, c):
+                        try:
+                            lp.parent.mkdir(parents=True, exist_ok=True)
+                            lp.write_bytes(c)
+                        except Exception:
+                            pass
+                    asyncio.create_task(asyncio.to_thread(_save_bk, local_path, content))
                     return web.Response(
                         body=content,
                         content_type=content_type,
                         headers={
                             "Cache-Control": "public, max-age=604800, immutable",
                             "Access-Control-Allow-Origin": "*",
+                            "ETag": etag,
                         }
                     )
     except Exception as e:
@@ -468,18 +637,39 @@ async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
     }
     content_type = ct_map.get(ext, "image/webp")
 
+    # 1. Xotira keshidan uzatish
+    if tail in _RC_CACHE:
+        content, ct, etag = _RC_CACHE[tail]
+        if request.headers.get("If-None-Match") == etag:
+            return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
+        return web.Response(
+            body=content,
+            content_type=ct,
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
+            }
+        )
+
     rc_dir = BASE_DIR / "data" / "rc"
     local_path = rc_dir / tail
     if local_path.exists():
         try:
-            with open(local_path, "rb") as f:
-                content = f.read()
+            content = await asyncio.to_thread(local_path.read_bytes)
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            if len(_RC_CACHE) > 500:
+                _RC_CACHE.clear()
+            _RC_CACHE[tail] = (content, content_type, etag)
+            if request.headers.get("If-None-Match") == etag:
+                return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=604800, immutable"})
             return web.Response(
                 body=content,
                 content_type=content_type,
                 headers={
                     "Cache-Control": "public, max-age=604800, immutable",
                     "Access-Control-Allow-Origin": "*",
+                    "ETag": etag,
                 }
             )
         except Exception:
@@ -492,24 +682,107 @@ async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
             async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=5)) as resp:
                 if resp.status == 200:
                     content = await resp.read()
-                    try:
-                        local_path.parent.mkdir(parents=True, exist_ok=True)
-                        with open(local_path, "wb") as bf:
-                            bf.write(content)
-                    except Exception:
-                        pass
+                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                    if len(_RC_CACHE) > 500:
+                        _RC_CACHE.clear()
+                    _RC_CACHE[tail] = (content, content_type, etag)
+                    def _save_rc(lp, c):
+                        try:
+                            lp.parent.mkdir(parents=True, exist_ok=True)
+                            lp.write_bytes(c)
+                        except Exception:
+                            pass
+                    asyncio.create_task(asyncio.to_thread(_save_rc, local_path, content))
                     return web.Response(
                         body=content,
                         content_type=content_type,
                         headers={
                             "Cache-Control": "public, max-age=604800, immutable",
                             "Access-Control-Allow-Origin": "*",
+                            "ETag": etag,
                         }
                     )
     except Exception as e:
         logger.warning(f"Taom rasmi yuklanmadi ({tail}): {e}")
 
     return web.Response(status=404, text="Rasm topilmadi")
+
+
+async def handle_watch_get(request: web.Request) -> web.Response:
+    """Watch GET so'rovi (holat va yo'naltirish ma'lumoti)."""
+    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    return web.json_response({
+        "ok": True,
+        "service": "watch",
+        "bot": bot_username,
+        "methods": ["POST"]
+    })
+
+
+async def handle_send_api(request: web.Request) -> web.Response:
+    """Mini Appdan Telegram chatga kino yoki musiqa yuborish (POST va GET)."""
+    if request.method == "POST":
+        return await handle_send_to_chat(request)
+    return web.json_response({
+        "ok": True,
+        "service": "send",
+        "methods": ["POST"],
+        "bot": (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    })
+
+
+async def handle_doc_config(request: web.Request) -> web.Response:
+    """Hujjatlar xizmati konfiguratsiyasi."""
+    return web.json_response({
+        "ok": True,
+        "stamp": True,
+        "max_mb": 50,
+        "translate": True,
+        "max_images": 50,
+        "bot": (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    })
+
+
+async def handle_doc_root(request: web.Request) -> web.Response:
+    """Hujjatlar xizmati asosiy ma'lumotlari."""
+    return web.json_response({
+        "ok": True,
+        "service": "docs",
+        "tools": [
+            {"id": "topdf", "name": "Hujjatni PDF qilish"},
+            {"id": "img2pdf", "name": "Rasmlardan PDF"},
+            {"id": "translit", "name": "Kirill ↔ Lotin"},
+            {"id": "pdf", "name": "Matndan PDF"}
+        ]
+    })
+
+
+async def handle_api_lang(request: web.Request) -> web.Response:
+    """Foydalanuvchi interfeys tili sozlamasi."""
+    lang = "uz"
+    if request.method == "POST":
+        try:
+            body = await request.json()
+            if isinstance(body, dict):
+                lang = body.get("lang") or "uz"
+        except Exception:
+            pass
+    else:
+        lang = request.query.get("lang") or "uz"
+    if lang not in ("uz", "ru", "en"):
+        lang = "uz"
+    return web.json_response({"ok": True, "lang": lang})
+
+
+async def handle_api_overview(request: web.Request) -> web.Response:
+    """Bauntys asosiy API ma'lumotlari."""
+    return web.json_response({
+        "ok": True,
+        "service": "Bauntys API",
+        "bot": (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@"),
+        "channel": config.CHANNEL_USERNAME,
+        "status": "online"
+    })
 
 
 _UPSTREAM_API_CACHE: Dict[str, Any] = {}
@@ -559,7 +832,7 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 url=upstream_url,
                 headers=req_headers,
                 data=body_bytes,
-                timeout=aiohttp.ClientTimeout(total=6)
+                timeout=aiohttp.ClientTimeout(total=4, connect=1.5)
             ) as resp:
                 resp_bytes = await resp.read()
                 raw_ct = resp.headers.get("Content-Type", "application/json")
@@ -591,7 +864,46 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 )
     except Exception as e:
         logger.warning(f"Upstream API so'rovida xatolik ({upstream_url}): {e}")
-        # Quiz uchun zaxira (oflayn yoki upstream ishlamay qolganda ham to'liq ishlashi)
+        # Barcha bo'limlar uchun xatosiz zaxira va chidamli fallback
+        if "docs/config" in path:
+            return await handle_doc_config(request)
+        if "docs" in path:
+            return await handle_doc_root(request)
+        if "books/home" in path or "books/shelf" in path:
+            from services import book_service
+            cat = book_service.get_catalog(limit=20)
+            return web.json_response({
+                "ok": True,
+                "categories": cat.get("categories", []),
+                "featured": cat.get("books", [])[:10],
+                "items": cat.get("books", [])[:20]
+            })
+        if "books/me" in path:
+            return web.json_response({"ok": True, "shelf": [], "history": []})
+        if "duel" in path:
+            return web.json_response({"ok": True, "active": False, "rooms": []})
+        if "story/me" in path:
+            return await handle_story_me(request)
+        if "story" in path:
+            return web.json_response({"ok": True, "items": [], "profiles": []})
+        if "food" in path:
+            return web.json_response({"ok": True, "items": [], "categories": []})
+        if "fx" in path:
+            return await handle_fx_api(request)
+        if "prava" in path:
+            return await handle_prava_home(request)
+        if "music/home" in path or path in ("api/music", "api/music/"):
+            return await handle_music_home(request)
+        if "music/me" in path:
+            return web.json_response({"ok": True, "favorites": [], "history": [], "admin": False})
+        if "music" in path:
+            return web.json_response({"ok": True, "items": TOP_50_TRACKS[:20]})
+        if "tv" in path:
+            return await handle_get_tv(request)
+        if "games" in path:
+            return await handle_get_games(request)
+        if "asil" in path:
+            return await handle_asil_home(request)
         if "quiz/home" in path:
             fallback_quiz = {
                 "ok": True,
@@ -1044,11 +1356,41 @@ async def handle_maintenance(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "maintenance": state, **state})
 
 
+def _save_cat_file(cat_obj: dict, cat_p: Path) -> None:
+    try:
+        cat_p.parent.mkdir(parents=True, exist_ok=True)
+        with open(cat_p, "w", encoding="utf-8") as f:
+            json.dump(cat_obj, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _load_cat_file(cat_p: Path) -> dict:
+    try:
+        if cat_p.exists():
+            with open(cat_p, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return {"items": []}
+
+
 async def handle_get_catalog(request: web.Request) -> web.Response:
     """Mini Appning rasmiy kinolar katalogi API (Real-time va to'liq oq brendlangan)."""
     now = time.time()
     m_state = maintenance_service.get_state()
     m_hash = json.dumps(m_state, sort_keys=True)
+
+    # 304 Not Modified tekshiruvi
+    if _CATALOG_CACHE.get("etag") and request.headers.get("If-None-Match") == _CATALOG_CACHE.get("etag"):
+        return web.Response(
+            status=304,
+            headers={
+                "ETag": _CATALOG_CACHE["etag"],
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=60"
+            }
+        )
 
     if _CATALOG_CACHE.get("data") and (now - _CATALOG_CACHE.get("ts", 0) < 120):
         # Agar maintenance holati o'zgarmagan bo'lsa va bytes tayyor bo'lsa,
@@ -1057,7 +1399,11 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
             resp = web.Response(
                 body=_CATALOG_CACHE["bytes"],
                 content_type="application/json",
-                headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60"}
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=60",
+                    "ETag": _CATALOG_CACHE.get("etag", "")
+                }
             )
             if hasattr(resp, "enable_compression"):
                 resp.enable_compression()
@@ -1069,10 +1415,15 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
         _CATALOG_CACHE["data"] = data
         _CATALOG_CACHE["m_hash"] = m_hash
         _CATALOG_CACHE["bytes"] = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        _CATALOG_CACHE["etag"] = f'W/"{hashlib.md5(_CATALOG_CACHE["bytes"]).hexdigest()}"'
         resp = web.Response(
             body=_CATALOG_CACHE["bytes"],
             content_type="application/json",
-            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60"}
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=60",
+                "ETag": _CATALOG_CACHE["etag"]
+            }
         )
         if hasattr(resp, "enable_compression"):
             resp.enable_compression()
@@ -1095,25 +1446,17 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
                         raw_data["channel"] = config.CHANNEL_USERNAME
                         raw_data["bot"] = config.BOT_USERNAME.lstrip("@")
                         data = raw_data
-                        try:
-                            cat_file = BASE_DIR / "data" / "catalog.json"
-                            with open(cat_file, "w", encoding="utf-8") as f:
-                                json.dump(data, f, ensure_ascii=False, indent=2)
-                        except Exception:
-                            pass
+                        cat_file = BASE_DIR / "data" / "catalog.json"
+                        asyncio.create_task(asyncio.to_thread(_save_cat_file, data, cat_file))
     except Exception as e:
         logger.info(f"Upstream katalog ulanishida kutilmagan holat ({e}), lokal kesh ishlatiladi.")
 
-    # 2. Agar upstream bo'lmasa, lokal fayldan o'qish
+    # 2. Agar upstream bo'lmasa, lokal fayldan o'qish (asinxron thread)
     if not data:
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if catalog_path.exists():
-            with open(catalog_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        else:
-            data = {"items": []}
+        data = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
 
     # Foydalanuvchi boti va kanali bilan dinamik sinxronlash
+    data["ok"] = True
     data["channel"] = config.CHANNEL_USERNAME
     data["bot"] = config.BOT_USERNAME.lstrip("@")
     data["tv"] = True
@@ -1138,10 +1481,26 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     _CATALOG_CACHE["ts"] = now
     _CATALOG_CACHE["m_hash"] = m_hash
     _CATALOG_CACHE["bytes"] = json.dumps(data, ensure_ascii=False).encode("utf-8")
+    _CATALOG_CACHE["etag"] = f'W/"{hashlib.md5(_CATALOG_CACHE["bytes"]).hexdigest()}"'
+
+    if request.headers.get("If-None-Match") == _CATALOG_CACHE["etag"]:
+        return web.Response(
+            status=304,
+            headers={
+                "ETag": _CATALOG_CACHE["etag"],
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=60"
+            }
+        )
+
     resp = web.Response(
         body=_CATALOG_CACHE["bytes"],
         content_type="application/json",
-        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60"}
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=60",
+            "ETag": _CATALOG_CACHE["etag"]
+        }
     )
     if hasattr(resp, "enable_compression"):
         resp.enable_compression()
@@ -1755,6 +2114,38 @@ async def handle_watch(request: web.Request) -> web.Response:
 
 _MUSIC_HOME_CACHE: Optional[Dict[str, Any]] = None
 _MUSIC_HOME_TS: float = 0.0
+_MUSIC_HOME_BYTES_CACHE: Optional[bytes] = None
+_MUSIC_HOME_ETAG: Optional[str] = None
+
+
+def _update_music_home_cache(data: dict, now: float) -> None:
+    global _MUSIC_HOME_CACHE, _MUSIC_HOME_TS, _MUSIC_HOME_BYTES_CACHE, _MUSIC_HOME_ETAG
+    _MUSIC_HOME_CACHE = data
+    _MUSIC_HOME_TS = now
+    try:
+        _MUSIC_HOME_BYTES_CACHE = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        _MUSIC_HOME_ETAG = f'W/"{hashlib.md5(_MUSIC_HOME_BYTES_CACHE).hexdigest()}"'
+    except Exception:
+        pass
+
+
+def _save_music_home_file(data_obj: dict, path: Path) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data_obj, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _load_music_home_file(path: Path) -> Optional[dict]:
+    try:
+        if path.exists():
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return None
 
 
 def get_cached_music_home_sync() -> Dict[str, Any]:
@@ -1762,12 +2153,10 @@ def get_cached_music_home_sync() -> Dict[str, Any]:
     if _MUSIC_HOME_CACHE is not None:
         return _MUSIC_HOME_CACHE
     music_home_path = BASE_DIR / "data" / "music_home.json"
-    if music_home_path.exists():
-        try:
-            with open(music_home_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
+    file_data = _load_music_home_file(music_home_path)
+    if file_data:
+        _update_music_home_cache(file_data, time.time())
+        return file_data
     return {"ok": True, "top": TOP_50_TRACKS}
 
 
@@ -1790,40 +2179,52 @@ async def get_cached_music_home(force_refresh: bool = False) -> Dict[str, Any]:
                     clean_text = sanitize_catalog_text(resp_text)
                     data = json.loads(clean_text)
                     if isinstance(data, dict) and data.get("ok"):
-                        _MUSIC_HOME_CACHE = data
-                        _MUSIC_HOME_TS = now
+                        _update_music_home_cache(data, now)
                         music_home_path = BASE_DIR / "data" / "music_home.json"
-                        try:
-                            with open(music_home_path, "w", encoding="utf-8") as f:
-                                json.dump(data, f, ensure_ascii=False, indent=2)
-                        except Exception as fe:
-                            logger.debug(f"music_home.json saqlashda xatolik: {fe}")
+                        asyncio.create_task(asyncio.to_thread(_save_music_home_file, data, music_home_path))
                         return data
     except Exception as e:
         logger.info(f"Upstream music/home ulanishida xatolik ({e}), lokal kesh ishlatiladi.")
 
-    # 2. Lokal music_home.json faylidan o'qish
+    # 2. Lokal music_home.json faylidan o'qish (asinxron thread)
     music_home_path = BASE_DIR / "data" / "music_home.json"
-    if music_home_path.exists():
-        try:
-            with open(music_home_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            _MUSIC_HOME_CACHE = data
-            _MUSIC_HOME_TS = now
-            return data
-        except Exception as e:
-            logger.warning(f"music_home.json o'qishda xatolik: {e}")
+    file_data = await asyncio.to_thread(_load_music_home_file, music_home_path)
+    if file_data:
+        _update_music_home_cache(file_data, now)
+        return file_data
 
     fallback = {"ok": True, "top": TOP_50_TRACKS}
-    _MUSIC_HOME_CACHE = fallback
-    _MUSIC_HOME_TS = now
+    _update_music_home_cache(fallback, now)
     return fallback
 
 
 async def handle_music_home(request: web.Request) -> web.Response:
     """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar) - kesh orqali bir zumda."""
+    if _MUSIC_HOME_ETAG and request.headers.get("If-None-Match") == _MUSIC_HOME_ETAG:
+        return web.Response(
+            status=304,
+            headers={
+                "ETag": _MUSIC_HOME_ETAG,
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=180"
+            }
+        )
+
     data = await get_cached_music_home()
-    return web.json_response(data, headers={"Cache-Control": "public, max-age=180"})
+    if _MUSIC_HOME_BYTES_CACHE and _MUSIC_HOME_ETAG:
+        resp = web.Response(
+            body=_MUSIC_HOME_BYTES_CACHE,
+            content_type="application/json",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=180",
+                "ETag": _MUSIC_HOME_ETAG
+            }
+        )
+        if hasattr(resp, "enable_compression"):
+            resp.enable_compression()
+        return resp
+    return web.json_response(data, headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=180"})
 
 
 async def handle_music_recognize(request: web.Request) -> web.Response:
@@ -1841,7 +2242,7 @@ async def handle_tv_report(request: web.Request) -> web.Response:
 
 
 async def handle_tv_me(request: web.Request) -> web.Response:
-    return web.json_response({"admin": False})
+    return web.json_response({"ok": True, "admin": False})
 
 
 async def handle_tv_hide(request: web.Request) -> web.Response:
@@ -1849,63 +2250,109 @@ async def handle_tv_hide(request: web.Request) -> web.Response:
 
 
 async def handle_get_movies(request: web.Request) -> web.Response:
-    """Kinolar ro'yxati va aqlli qidiruv (Lotin-Kirill)."""
+    """Kinolar ro'yxati va aqlli qidiruv (Lotin-Kirill) - Zero-lag va DB xatoliklariga chidamli."""
     q = request.query.get("q", "").strip()
     genre = request.query.get("genre", "").strip()
     sort = request.query.get("sort", "views").strip()
     limit = int(request.query.get("limit", 50))
     offset = int(request.query.get("offset", 0))
 
-    async with get_session() as session:
+    try:
+        async with get_session() as session:
+            if q:
+                movies = await crud.smart_search_movies(session, query=q, limit=limit, offset=offset)
+            elif genre and genre != "Barchasi":
+                movies = await crud.get_movies_by_genre(session, genre=genre, limit=limit, offset=offset)
+            elif sort == "top" or sort == "views":
+                movies = await crud.get_top_movies(session, limit=limit)
+            else:
+                movies = await crud.get_all_movies(session, limit=limit, offset=offset)
+
+            items = []
+            for m in movies:
+                items.append({
+                    "id": m.id,
+                    "code": m.code,
+                    "title": m.title,
+                    "genres": m.genres,
+                    "year": m.year,
+                    "rating": m.rating,
+                    "duration": m.duration // 60 if m.duration else None,
+                    "views_count": m.views_count,
+                    "downloads_count": m.downloads_count,
+                    "description": m.description,
+                })
+
+            total = await crud.get_total_movies_count(session)
+            return web.json_response({"ok": True, "items": items, "total": total, "count": len(items)})
+    except Exception as e:
+        logger.warning(f"Kinolarni DB dan olishda xatolik ({e}), lokal katalog keshidan foydalanilmoqda")
+        cat = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
+        raw_items = cat.get("items", [])
         if q:
-            movies = await crud.smart_search_movies(session, query=q, limit=limit, offset=offset)
-        elif genre and genre != "Barchasi":
-            movies = await crud.get_movies_by_genre(session, genre=genre, limit=limit, offset=offset)
-        elif sort == "top" or sort == "views":
-            movies = await crud.get_top_movies(session, limit=limit)
+            q_low = q.lower()
+            filtered = [it for it in raw_items if q_low in str(it.get("t", "")).lower() or q_low in str(it.get("c", "")).lower()]
         else:
-            movies = await crud.get_all_movies(session, limit=limit, offset=offset)
-
+            filtered = raw_items
+        sliced = filtered[offset:offset + limit]
         items = []
-        for m in movies:
+        for it in sliced:
             items.append({
-                "id": m.id,
-                "code": m.code,
-                "title": m.title,
-                "genres": m.genres,
-                "year": m.year,
-                "rating": m.rating,
-                "duration": m.duration // 60 if m.duration else None,
-                "views_count": m.views_count,
-                "downloads_count": m.downloads_count,
-                "description": m.description,
+                "id": it.get("c"),
+                "code": str(it.get("c")),
+                "title": it.get("t", ""),
+                "genres": "Barcha",
+                "year": None,
+                "rating": it.get("r"),
+                "duration": None,
+                "views_count": it.get("v", 0),
+                "downloads_count": 0,
+                "description": it.get("d", "")
             })
-
-        total = await crud.get_total_movies_count(session)
-
-    return web.json_response({"items": items, "total": total, "count": len(items)})
+        return web.json_response({"ok": True, "items": items, "total": len(filtered), "count": len(items)})
 
 
 async def handle_get_movie_detail(request: web.Request) -> web.Response:
-    """Kino kodi bo'yicha batafsil ma'lumot."""
+    """Kino kodi bo'yicha batafsil ma'lumot - DB va katalog zaxirasi bilan."""
     code = request.match_info.get("code", "")
-    async with get_session() as session:
-        movie = await crud.get_movie_by_code(session, code)
-        if not movie:
-            return web.json_response({"error": "Kino topilmadi"}, status=404)
+    try:
+        async with get_session() as session:
+            movie = await crud.get_movie_by_code(session, code)
+            if movie:
+                return web.json_response({
+                    "ok": True,
+                    "id": movie.id,
+                    "code": movie.code,
+                    "title": movie.title,
+                    "genres": movie.genres,
+                    "year": movie.year,
+                    "rating": movie.rating,
+                    "duration": movie.duration // 60 if movie.duration else None,
+                    "views_count": movie.views_count,
+                    "downloads_count": movie.downloads_count,
+                    "description": movie.description,
+                })
+    except Exception as e:
+        logger.warning(f"Kino tafsilotini DB dan olishda xatolik ({e}), zaxira tekshirilmoqda")
 
-        return web.json_response({
-            "id": movie.id,
-            "code": movie.code,
-            "title": movie.title,
-            "genres": movie.genres,
-            "year": movie.year,
-            "rating": movie.rating,
-            "duration": movie.duration // 60 if movie.duration else None,
-            "views_count": movie.views_count,
-            "downloads_count": movie.downloads_count,
-            "description": movie.description,
-        })
+    cat = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
+    for it in cat.get("items", []):
+        if str(it.get("c")) == str(code):
+            return web.json_response({
+                "ok": True,
+                "id": it.get("c"),
+                "code": str(it.get("c")),
+                "title": it.get("t", ""),
+                "genres": "Barcha",
+                "year": None,
+                "rating": it.get("r"),
+                "duration": None,
+                "views_count": it.get("v", 0),
+                "downloads_count": 0,
+                "description": it.get("d", "")
+            })
+
+    return web.json_response({"error": "Kino topilmadi"}, status=404)
 
 
 async def handle_get_music(request: web.Request) -> web.Response:
@@ -1923,6 +2370,7 @@ async def handle_get_music(request: web.Request) -> web.Response:
         tracks = [t for t in tracks if t.get("category") == cat]
 
     return web.json_response({
+        "ok": True,
         "items": tracks,
         "moods": MOODS_LIST,
         "total": len(tracks)
@@ -2248,7 +2696,7 @@ async def handle_music_send(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "message": f"«{artist} - {title}» chatga yuborildi!"})
 
 
-_TV_ALL_CACHE: Dict[str, Any] = {"bytes": None, "ts": 0}
+_TV_ALL_CACHE: Dict[str, Any] = {"bytes": None, "ts": 0, "etag": None}
 
 
 async def handle_get_tv(request: web.Request) -> web.Response:
@@ -2258,11 +2706,24 @@ async def handle_get_tv(request: web.Request) -> web.Response:
 
     now = time.time()
     if cat in ("all", "") and not q:
+        if _TV_ALL_CACHE.get("etag") and request.headers.get("If-None-Match") == _TV_ALL_CACHE.get("etag"):
+            return web.Response(
+                status=304,
+                headers={
+                    "ETag": _TV_ALL_CACHE["etag"],
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=120"
+                }
+            )
         if _TV_ALL_CACHE.get("bytes") and now - _TV_ALL_CACHE.get("ts", 0) < 180:
             resp = web.Response(
                 body=_TV_ALL_CACHE["bytes"],
                 content_type="application/json",
-                headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=120"}
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=120",
+                    "ETag": _TV_ALL_CACHE.get("etag", "")
+                }
             )
             if hasattr(resp, "enable_compression"):
                 resp.enable_compression()
@@ -2295,19 +2756,36 @@ async def handle_get_tv(request: web.Request) -> web.Response:
     channels.sort(key=lambda x: (0 if x.get("c") == "uz" else 1, -(x.get("v") or 0)))
 
     payload = {
+        "ok": True,
         "categories": TV_CATEGORIES,
         "items": channels,
         "total": len(channels),
     }
     encoded = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    etag = f'W/"{hashlib.md5(encoded).hexdigest()}"'
     if cat in ("all", "") and not q:
         _TV_ALL_CACHE["bytes"] = encoded
         _TV_ALL_CACHE["ts"] = now
+        _TV_ALL_CACHE["etag"] = etag
+
+    if request.headers.get("If-None-Match") == etag:
+        return web.Response(
+            status=304,
+            headers={
+                "ETag": etag,
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "public, max-age=120"
+            }
+        )
 
     resp = web.Response(
         body=encoded,
         content_type="application/json",
-        headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=120"}
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=120",
+            "ETag": etag
+        }
     )
     if hasattr(resp, "enable_compression"):
         resp.enable_compression()
@@ -2381,6 +2859,7 @@ async def handle_get_games(request: web.Request) -> web.Response:
         games = [g for g in games if g["category"] == cat]
 
     return web.json_response({
+        "ok": True,
         "games": games,
         "pet": PET_DATA,
         "chest": CHEST_DATA,
@@ -2443,6 +2922,7 @@ async def handle_story(request: web.Request) -> web.Response:
         {"id": 2, "type": "video", "media_url": "https://www.w3schools.com/html/mov_bbb.mp4", "timestamp": "5 soat oldin"},
     ]
     return web.json_response({
+        "ok": True,
         "username": username,
         "avatar": f"https://api.dicebear.com/7.x/identicon/svg?seed={username}",
         "stories": stories,
@@ -2648,7 +3128,7 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
         return web.json_response({"error": "Noto'g'ri so'rov"}, status=400)
 
     user_id_raw = body.get("user_id") or body.get("chat_id")
-    action_type = body.get("type", "movie")
+    action_type = body.get("type") or body.get("action") or "movie"
     code = body.get("code")
 
     if not user_id_raw or not _bot_instance:
@@ -3063,12 +3543,23 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/", handle_index)
 
     api_routes = [
+        ("GET", "/api", handle_api_overview),
+        ("POST", "/api", handle_api_overview),
         ("GET", "/api/catalog", handle_get_catalog),
+        ("POST", "/api/catalog", handle_get_catalog),
+        ("GET", "/api/watch", handle_watch_get),
         ("POST", "/api/watch", handle_watch),
+        ("POST", "/api/send", handle_send_to_chat),
+        ("GET", "/api/send", handle_send_api),
+        ("POST", "/api/send_to_chat", handle_send_to_chat),
         ("GET", "/api/movies", handle_get_movies),
+        ("POST", "/api/movies", handle_get_movies),
         ("GET", "/api/movies/{code}", handle_get_movie_detail),
+        ("POST", "/api/movies/{code}", handle_get_movie_detail),
         ("GET", "/api/music", handle_get_music),
+        ("POST", "/api/music", handle_get_music),
         ("GET", "/api/music/home", handle_music_home),
+        ("POST", "/api/music/home", handle_music_home),
         ("GET", "/api/music/search", handle_music_search),
         ("POST", "/api/music/play", handle_music_play),
         ("POST", "/api/music/send", handle_music_send),
@@ -3081,22 +3572,41 @@ def create_web_app() -> web.Application:
         ("GET", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/tv", handle_get_tv),
+        ("POST", "/api/tv", handle_get_tv),
         ("GET", "/api/tv/icon/{id}", handle_tv_icon),
         ("POST", "/api/tv/report", handle_tv_report),
         ("GET", "/api/tv/me", handle_tv_me),
         ("POST", "/api/tv/hide", handle_tv_hide),
+        ("GET", "/api/tv/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/tv/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/games", handle_get_games),
+        ("POST", "/api/games", handle_get_games),
         ("POST", "/api/games/chest/claim", handle_chest_claim),
         ("POST", "/api/games/pet/action", handle_pet_action),
+        ("GET", "/api/games/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/games/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/story", handle_story),
+        ("POST", "/api/story", handle_story),
         ("GET", "/api/story/me", handle_story_me),
         ("GET", "/api/story/ig", handle_story_ig),
         ("GET", "/api/story/ighl", handle_story_ighl),
         ("GET", "/api/story/tg", handle_story_tg),
         ("POST", "/api/story/send", handle_story_send),
         ("POST", "/api/story/watch", handle_story_watch),
+        ("GET", "/api/story/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/story/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/docs", handle_doc_root),
+        ("POST", "/api/docs", handle_doc_root),
+        ("GET", "/api/docs/config", handle_doc_config),
         ("POST", "/api/docs/convert", handle_doc_convert),
         ("POST", "/api/docs/pdf", handle_doc_pdf),
+        ("POST", "/api/docs/upload", handle_upstream_api_proxy),
+        ("POST", "/api/docs/run", handle_upstream_api_proxy),
+        ("POST", "/api/docs/preview", handle_upstream_api_proxy),
+        ("GET", "/api/docs/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/docs/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/books", handle_books_catalog),
+        ("POST", "/api/books", handle_books_catalog),
         ("GET", "/api/books/home", handle_upstream_api_proxy),
         ("GET", "/api/books/shelf", handle_upstream_api_proxy),
         ("POST", "/api/books/shelf", handle_upstream_api_proxy),
@@ -3106,6 +3616,12 @@ def create_web_app() -> web.Application:
         ("GET", "/api/books/audio", handle_upstream_api_proxy),
         ("GET", "/api/books/b/{id}", handle_upstream_api_proxy),
         ("GET", "/api/books/page/{id}/{n}", handle_upstream_api_proxy),
+        ("GET", "/api/books/search", handle_books_search),
+        ("GET", "/api/books/{id}", handle_book_detail),
+        ("GET", "/api/books/{id}/pdf", handle_book_pdf),
+        ("POST", "/api/books/send", handle_book_send),
+        ("GET", "/api/books/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/books/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
         ("POST", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
         ("GET", "/api/food", handle_upstream_api_proxy),
@@ -3114,17 +3630,16 @@ def create_web_app() -> web.Application:
         ("GET", "/api/quiz/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/quiz/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/fx", handle_fx_api),
+        ("POST", "/api/fx", handle_fx_api),
         ("GET", "/api/fx/alerts", handle_fx_alerts),
         ("GET", "/api/fx/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/fx/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/maintenance", handle_maintenance),
-        ("GET", "/api/books", handle_books_catalog),
-        ("GET", "/api/books/search", handle_books_search),
-        ("GET", "/api/books/{id}", handle_book_detail),
-        ("GET", "/api/books/{id}/pdf", handle_book_pdf),
-        ("POST", "/api/books/send", handle_book_send),
-        ("GET", "/api/books/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/books/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/send_to_chat", handle_send_to_chat),
+        ("POST", "/api/maintenance", handle_maintenance),
+        ("GET", "/api/lang", handle_api_lang),
+        ("POST", "/api/lang", handle_api_lang),
+        ("GET", "/api/prava", handle_prava_home),
+        ("POST", "/api/prava", handle_prava_home),
         ("GET", "/api/prava/home", handle_prava_home),
         ("GET", "/api/prava/set", handle_prava_set),
         ("POST", "/api/prava/ans", handle_prava_ans),
@@ -3135,9 +3650,17 @@ def create_web_app() -> web.Application:
         ("GET", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/sub", handle_api_sub),
+        ("POST", "/api/sub", handle_api_sub),
         ("GET", "/api/donate", handle_api_donate),
+        ("POST", "/api/donate", handle_api_donate),
+        ("GET", "/api/donate/ev", handle_api_donate),
+        ("POST", "/api/donate/ev", handle_api_donate),
         ("GET", "/api/reklama", handle_api_reklama),
+        ("POST", "/api/reklama", handle_api_reklama),
+        ("GET", "/api/asil", handle_asil_home),
+        ("POST", "/api/asil", handle_asil_home),
         ("GET", "/api/asil/home", handle_asil_home),
+        ("POST", "/api/asil/home", handle_asil_home),
         ("GET", "/api/asil/list", handle_asil_list),
         ("GET", "/api/asil/search", handle_asil_search),
         ("GET", "/api/asil/item", handle_asil_item),
@@ -3145,13 +3668,18 @@ def create_web_app() -> web.Application:
         ("GET", "/api/asil/coll", handle_asil_coll),
         ("POST", "/api/asil/send", handle_asil_send),
         ("GET", "/api/asil/stream", handle_asil_stream),
+        ("GET", "/api/asil/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/asil/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/rasxod", handle_rasxod_api),
+        ("POST", "/api/rasxod", handle_rasxod_api),
         ("GET", "/api/rasxod/{tail:.*}", handle_rasxod_api),
         ("POST", "/api/rasxod/{tail:.*}", handle_rasxod_api),
         ("GET", "/api/kal", handle_kaloriya_api),
+        ("POST", "/api/kal", handle_kaloriya_api),
         ("GET", "/api/kal/{tail:.*}", handle_kaloriya_api),
         ("POST", "/api/kal/{tail:.*}", handle_kaloriya_api),
         ("GET", "/api/mafia", handle_mafia_api),
+        ("POST", "/api/mafia", handle_mafia_api),
         ("GET", "/api/mafia/{tail:.*}", handle_mafia_api),
         ("POST", "/api/mafia/{tail:.*}", handle_mafia_api),
         ("GET", "/api/duel", handle_upstream_api_proxy),
