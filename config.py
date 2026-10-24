@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     DATABASE_URL: Optional[str] = Field(default=None)
 
     # Maxfiy kino kanali (ixtiyoriy)
-    STORAGE_CHANNEL_ID: Optional[str] = Field(default=None)
+    STORAGE_CHANNEL_ID: Optional[str] = Field(default="-1004254432863")
 
     # Yuklab olish parametrlari
     DOWNLOAD_DIR: str = Field(default="temp_downloads")
@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # Web Server & Mini App (Render.com mosligi)
     PORT: int = Field(default=8080)
     HOST: str = Field(default="0.0.0.0")
-    WEBAPP_URL: str = Field(default="")
+    WEBAPP_URL: str = Field(default="https://baunty.onrender.com")
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),

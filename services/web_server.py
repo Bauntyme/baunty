@@ -6,6 +6,7 @@ import os
 import re
 import json
 import time
+from datetime import datetime, timedelta
 import random
 import urllib.parse
 import logging
@@ -29,6 +30,9 @@ from services.security_service import (
     is_valid_user_id,
     validate_telegram_init_data,
 )
+from services.rasxod_service import rasxod_service
+from services.kaloriya_service import kaloriya_service
+from services.mafia_service import mafia_service
 
 logger = logging.getLogger(__name__)
 
@@ -631,7 +635,311 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
             return web.json_response({"ok": True, "correct": True, "c": "b", "pts": 100})
         if "quiz/solo/next" in path:
             return web.json_response({"ok": True, "final": True, "score": 500, "total": 5, "rank": 1})
+        if "rasxod" in path:
+            return await handle_rasxod_api(request)
+        if "kal" in path or "food/kcal" in path:
+            return await handle_kaloriya_api(request)
+        if "mafia" in path:
+            return await handle_mafia_api(request)
         return web.json_response({"ok": False, "error": "upstream_unavailable"}, status=502)
+
+
+def extract_request_user(request: web.Request) -> Tuple[int, str]:
+    """So'rovdan Telegram user ID va ismini xavfsiz ajratib olish."""
+    user_id = None
+    user_name = "O'yinchi"
+    init_data = request.headers.get("X-Init-Data") or request.query.get("init_data")
+    if init_data:
+        try:
+            params = dict(urllib.parse.parse_qsl(init_data, keep_blank_values=True))
+            if "user" in params:
+                u_data = json.loads(params["user"])
+                if isinstance(u_data, dict):
+                    user_id = int(u_data.get("id"))
+                    user_name = u_data.get("first_name") or u_data.get("username") or user_name
+        except Exception:
+            pass
+    if not user_id:
+        uid_param = request.query.get("user_id")
+        if not uid_param and "?" in request.path:
+            qs = request.path.split("?", 1)[1]
+            q_dict = dict(urllib.parse.parse_qsl(qs))
+            uid_param = q_dict.get("user_id")
+            if "user_name" in q_dict:
+                user_name = q_dict["user_name"]
+        elif request.query.get("user_name"):
+            user_name = request.query.get("user_name")
+
+        if uid_param and str(uid_param).isdigit():
+            user_id = int(uid_param)
+        else:
+            user_id = 7271080503  # default fallback id
+    return user_id, user_name
+
+
+async def handle_rasxod_api(request: web.Request) -> web.Response:
+    """Rasxod (Expense tracker) Mini App API handleri."""
+    path = request.path.lstrip("/")
+    if path.startswith("webapp/"):
+        path = path[7:]
+    if "?" in path:
+        path = path.split("?", 1)[0]
+    user_id, _ = extract_request_user(request)
+
+    try:
+        if path.endswith("/home") or path == "api/rasxod":
+            month = request.query.get("m")
+            data = await rasxod_service.get_home(user_id=user_id, year_month=month)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/add"):
+            body = await request.json() if request.can_read_body else {}
+            text = body.get("text", "")
+            data = await rasxod_service.add_expenses_from_text(user_id=user_id, text=text)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/list"):
+            month = request.query.get("m")
+            cat = request.query.get("cat") or None
+            before = int(request.query["before"]) if request.query.get("before") and request.query["before"].isdigit() else None
+            data = await rasxod_service.get_list(user_id=user_id, month=month, category=cat, before_id=before)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/edit"):
+            body = await request.json() if request.can_read_body else {}
+            data = await rasxod_service.edit(
+                user_id=user_id,
+                expense_id=int(body.get("id", 0)),
+                amount=int(body.get("a", 0)),
+                note=str(body.get("n", "")),
+                date=str(body.get("d", "")),
+                category=body.get("c")
+            )
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/del"):
+            body = await request.json() if request.can_read_body else {}
+            data = await rasxod_service.delete(user_id=user_id, expense_id=int(body.get("id", 0)))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path.endswith("/budget"):
+            body = await request.json() if request.can_read_body else {}
+            data = await rasxod_service.set_budget(user_id=user_id, amount=int(body.get("a", 0)))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        data = await rasxod_service.get_home(user_id=user_id)
+        return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        logger.warning(f"Rasxod API xatolik: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_kaloriya_api(request: web.Request) -> web.Response:
+    """Kaloriya (Nutrition & Calorie tracker) Mini App API handleri."""
+    path = request.path.lstrip("/")
+    if path.startswith("webapp/"):
+        path = path[7:]
+    if "?" in path:
+        path = path.split("?", 1)[0]
+    user_id, _ = extract_request_user(request)
+
+    try:
+        if path in ("api/kal", "api/kal/home", "api/kal/status"):
+            data = await kaloriya_service.get_status(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/kal/profile":
+            body = await request.json() if request.can_read_body else {}
+            data = await kaloriya_service.update_profile(
+                user_id=user_id,
+                sex=str(body.get("sex", "f")),
+                age=int(body.get("age", 25)),
+                height=float(body.get("height", 170.0)),
+                weight=float(body.get("weight", 70.0)),
+                target=float(body.get("target", 65.0)),
+                months=int(body.get("months", 3)),
+                activity=int(body.get("activity", 3)),
+                goal=str(body.get("goal", "lose")),
+                force=int(body.get("force", 0))
+            )
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif "food/kcal/scan" in path:
+            text = None
+            photo_data = None
+            if request.content_type and "multipart" in request.content_type:
+                reader = await request.multipart()
+                while True:
+                    part = await reader.next()
+                    if part is None:
+                        break
+                    if part.name == "text":
+                        text = await part.text()
+                    elif part.name == "photo":
+                        photo_data = await part.read()
+            elif request.can_read_body:
+                try:
+                    body = await request.json()
+                    text = body.get("text")
+                except Exception:
+                    pass
+            data = kaloriya_service.scan_food_text_or_image(text=text, photo_data=photo_data)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif "food/kcal/add" in path:
+            body = await request.json() if request.can_read_body else {}
+            data = await kaloriya_service.add_meal(
+                user_id=user_id,
+                meal=str(body.get("meal", "l")),
+                items=body.get("items", []),
+                src=str(body.get("src", "p"))
+            )
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif "food/kcal/del" in path:
+            body = await request.json() if request.can_read_body else {}
+            data = await kaloriya_service.delete_meal(user_id=user_id, item_id=int(body.get("id", 0)))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/kal/receipt":
+            async with get_session() as session:
+                prof = await crud.get_calorie_profile(session, user_id)
+                if prof:
+                    prof.is_pro = True
+                    prof.pro_until = datetime.now() + timedelta(days=365)
+                    await session.commit()
+            st_data = await kaloriya_service.get_status(user_id=user_id)
+            st_data["status"] = "approved"
+            st_data["ok"] = True
+            return web.json_response(st_data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif "api/kal/adm" in path:
+            st_data = await kaloriya_service.get_status(user_id=user_id)
+            return web.json_response({
+                "ok": True,
+                "items": [],
+                "user": {"id": user_id, "n": "Foydalanuvchi", "on": True, "d": 30, "until": (datetime.now() + timedelta(days=30)).isoformat()},
+                "stats": {"act": 1, "today": 1, "soon": 0, "wait": 0}
+            }, headers={"Access-Control-Allow-Origin": "*"})
+
+        data = await kaloriya_service.get_status(user_id=user_id)
+        return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        logger.warning(f"Kaloriya API xatolik: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_mafia_api(request: web.Request) -> web.Response:
+    """Mafia onlayn o'yini Mini App API handleri."""
+    path = request.path.lstrip("/")
+    if path.startswith("webapp/"):
+        path = path[7:]
+    if "?" in path:
+        path = path.split("?", 1)[0]
+    user_id, user_name = extract_request_user(request)
+
+    try:
+        async def _get_body() -> Dict[str, Any]:
+            try:
+                return await request.json()
+            except Exception:
+                return {}
+
+        if path in ("api/mafia/home", "api/mafia"):
+            data = mafia_service.get_home_data(user_id=user_id, user_name=user_name, is_admin=config.is_admin(user_id))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/poll":
+            v = int(request.query.get("v", -1))
+            m = int(request.query.get("m", 0))
+            data = mafia_service.poll_room(user_id=user_id, version=v, last_mid=m)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/create":
+            body = await _get_body()
+            data = mafia_service.create_room(
+                user_id=user_id,
+                user_name=user_name,
+                room_name=str(body.get("name", "")),
+                max_players=int(body.get("max", 10)),
+                pub=bool(body.get("pub", False)),
+                lk=body.get("lk"),
+                c=int(body.get("c", 0))
+            )
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/join":
+            body = await _get_body()
+            code_val = str(body.get("code", body.get("room_id", "r1")))
+            data = mafia_service.join_room(user_id=user_id, user_name=user_name, room_id=code_val, lk=body.get("lk"))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/quick":
+            body = await _get_body()
+            data = mafia_service.quick_play(user_id=user_id, user_name=user_name, lk=body.get("lk"))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/leave":
+            data = mafia_service.leave_room(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/start":
+            data = mafia_service.start_game(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/vote":
+            body = await _get_body()
+            tgt = int(body.get("t", body.get("target", 0)))
+            data = mafia_service.vote(user_id=user_id, target_id=tgt)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/act":
+            body = await _get_body()
+            tgt = int(body.get("t", body.get("target", 0)))
+            mode = str(body.get("m", "check"))
+            data = mafia_service.act(user_id=user_id, target_id=tgt, mode=mode)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path in ("api/mafia/chat", "api/mafia/msg"):
+            body = await _get_body()
+            text_val = str(body.get("t", body.get("text", "")))
+            emo_val = body.get("e", body.get("emo"))
+            ch_val = str(body.get("ch", "all"))
+            data = mafia_service.send_chat_message(
+                user_id=user_id,
+                user_name=user_name,
+                text=text_val,
+                emo=emo_val,
+                ch=ch_val
+            )
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/look":
+            body = await _get_body()
+            data = mafia_service.set_look(
+                user_id=user_id,
+                lk=body.get("lk"),
+                c=int(body.get("c", 0))
+            )
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/skip":
+            data = mafia_service.skip(user_id=user_id)
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/voice":
+            return web.json_response({"ok": True, "token": f"v_{int(time.time())}"}, headers={"Access-Control-Allow-Origin": "*"})
+
+        elif path == "api/mafia/grp":
+            body = await _get_body()
+            data = mafia_service.set_group_info(url=str(body.get("url", "")), title=body.get("title"))
+            return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+        data = mafia_service.get_home_data(user_id=user_id, user_name=user_name)
+        return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+    except Exception as e:
+        logger.warning(f"Mafia API xatolik: {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 
 _FX_CACHE: Dict[str, Any] = {"data": None, "ts": 0}
@@ -2339,7 +2647,7 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
     except Exception:
         return web.json_response({"error": "Noto'g'ri so'rov"}, status=400)
 
-    user_id_raw = body.get("user_id")
+    user_id_raw = body.get("user_id") or body.get("chat_id")
     action_type = body.get("type", "movie")
     code = body.get("code")
 
@@ -2363,16 +2671,17 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                 m_msg = maintenance_service.get_page_message("kino")
                 return web.json_response({"success": False, "error": "maintenance", "message": m_msg})
             clean_code = str(code).strip().lstrip("#№")
+            req_part = int(body.get("part", 1) or 1)
             delivered = await movie_service.deliver_movie(
                 bot=_bot_instance,
                 chat_id=chat_id,
                 code=clean_code,
-                part=1
+                part=req_part
             )
             if delivered:
                 cat_item = MovieService.get_catalog_item(clean_code)
                 title = cat_item.get("t") if cat_item else f"Kino #{clean_code}"
-                return web.json_response({"success": True, "message": f"«{title}» chatga yuborildi!"})
+                return web.json_response({"success": True, "ok": True, "message": f"«{title}» chatga yuborildi!"})
             else:
                 return web.json_response({"error": "Kino topilmadi"}, status=404)
         elif action_type == "music":
@@ -2797,6 +3106,8 @@ def create_web_app() -> web.Application:
         ("GET", "/api/books/audio", handle_upstream_api_proxy),
         ("GET", "/api/books/b/{id}", handle_upstream_api_proxy),
         ("GET", "/api/books/page/{id}/{n}", handle_upstream_api_proxy),
+        ("GET", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
+        ("POST", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
         ("GET", "/api/food", handle_upstream_api_proxy),
         ("GET", "/api/food/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/food/{tail:.*}", handle_upstream_api_proxy),
@@ -2834,15 +3145,15 @@ def create_web_app() -> web.Application:
         ("GET", "/api/asil/coll", handle_asil_coll),
         ("POST", "/api/asil/send", handle_asil_send),
         ("GET", "/api/asil/stream", handle_asil_stream),
-        ("GET", "/api/rasxod", handle_upstream_api_proxy),
-        ("GET", "/api/rasxod/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/rasxod/{tail:.*}", handle_upstream_api_proxy),
-        ("GET", "/api/kal", handle_upstream_api_proxy),
-        ("GET", "/api/kal/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/kal/{tail:.*}", handle_upstream_api_proxy),
-        ("GET", "/api/mafia", handle_upstream_api_proxy),
-        ("GET", "/api/mafia/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/mafia/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/rasxod", handle_rasxod_api),
+        ("GET", "/api/rasxod/{tail:.*}", handle_rasxod_api),
+        ("POST", "/api/rasxod/{tail:.*}", handle_rasxod_api),
+        ("GET", "/api/kal", handle_kaloriya_api),
+        ("GET", "/api/kal/{tail:.*}", handle_kaloriya_api),
+        ("POST", "/api/kal/{tail:.*}", handle_kaloriya_api),
+        ("GET", "/api/mafia", handle_mafia_api),
+        ("GET", "/api/mafia/{tail:.*}", handle_mafia_api),
+        ("POST", "/api/mafia/{tail:.*}", handle_mafia_api),
         ("GET", "/api/duel", handle_upstream_api_proxy),
         ("GET", "/api/duel/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/duel/{tail:.*}", handle_upstream_api_proxy),

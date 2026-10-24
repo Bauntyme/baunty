@@ -7,7 +7,11 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, update, delete, func, desc, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.models import User, Movie, MovieFile, SponsorChannel, DownloadLog, BotSetting, AnonymousMessage, Feedback, utc_now
+from database.models import (
+    User, Movie, MovieFile, SponsorChannel, DownloadLog, BotSetting,
+    AnonymousMessage, Feedback, Expense, ExpenseBudget, UserCalorieProfile,
+    CalorieLogItem, MafiaGameRecord, utc_now
+)
 from utils.translit import get_both_scripts
 
 
@@ -925,4 +929,580 @@ async def smart_search_movies(
     )
     result = await session.execute(stmt)
     return list(result.scalars().all())
+
+
+# ==========================================
+# 💰 RASXOD (EXPENSE TRACKER)
+# ==========================================
+
+EXPENSE_CATEGORIES_META = [
+    {"c": "food", "n": "Oziq-ovqat", "e": "🍔", "col": "#FF6B6B"},
+    {"c": "transport", "n": "Transport", "e": "🚕", "col": "#4D96FF"},
+    {"c": "communal", "n": "Kommunal", "e": "💡", "col": "#FFD93D"},
+    {"c": "shopping", "n": "Xaridlar", "e": "🛍", "col": "#6BCB77"},
+    {"c": "family", "n": "Oila", "e": "👨‍👩‍👧", "col": "#9D4EDD"},
+    {"c": "other", "n": "Boshqa", "e": "📦", "col": "#9AA0B4"},
+]
+
+CATEGORY_MAP = {c["c"]: c for c in EXPENSE_CATEGORIES_META}
+
+
+def detect_expense_category(text: str) -> str:
+    """Xarajat matniga qarab toifani aniqlaydi."""
+    t = text.lower()
+    if any(w in t for w in ["non", "osh", "choy", "suv", "tushlik", "obed", "kechki", "go'sht", "gosht", "somsa", "shashlik", "market", "kola", "qahva", "kofe", "kafe", "restoran", "ovqat", "lavash", "donar", "shirinlik", "nonushta", "pishiriq"]):
+        return "food"
+    if any(w in t for w in ["taksi", "benzin", "metan", "propan", "avtobus", "metro", "yandeks", "yandex", "yo'lkira", "yolkira", "zapravka", "moy", "propan", "mashina", "parkovka"]):
+        return "transport"
+    if any(w in t for w in ["svet", "gaz", "issiqlik", "wifi", "internet", "kommunal", "musor", "kvartira", "ijara", "uy"]):
+        return "communal"
+    if any(w in t for w in ["kiyim", "oyoq", "poyabzal", "bozor", "magazin", "telefon", "noutbuk", "texnika", "aptek", "dori", "parfum", "kitob"]):
+        return "shopping"
+    if any(w in t for w in ["dadam", "onam", "ota", "ona", "bola", "bog'cha", "bogcha", "maktab", "repititor", "kurs", "to'y", "toy", "ehson", "sovg'a", "sovga", "xotin", "singlim", "ukam", "aka"]):
+        return "family"
+    return "other"
+
+
+def parse_expense_text(text: str) -> List[Dict[str, Any]]:
+    """
+    Foydalanuvchi yozgan tabiiy matndan xarajatlarni ajratadi.
+    Masalan: «non 8 ming, taksi 25000», «obedga 45 ming ketdi»
+    """
+    items = []
+    # Vergul, nuqta-vergul, 'va' bog'lovchisi yoki yangi qator bilan ajratish
+    chunks = re.split(r'[,;\n]+|\s+va\s+', text, flags=re.IGNORECASE)
+    for chunk in chunks:
+        ch = chunk.strip()
+        if not ch:
+            continue
+
+        # Raqamlarni aniqlash
+        # «8 ming», «25k», «120 000», «1.5 mln»
+        m_mln = re.search(r'(\d+(?:[\.,]\d+)?)\s*(?:mln|million)\b', ch, re.IGNORECASE)
+        m_ming = re.search(r'(\d+(?:[\.,]\d+)?)\s*(?:ming|k)\b', ch, re.IGNORECASE)
+        m_digits = re.search(r'(\d[\d\s\.,]*\d|\d+)', ch)
+
+        amount = 0
+        if m_mln:
+            val_str = m_mln.group(1).replace(",", ".")
+            amount = int(float(val_str) * 1_000_000)
+            note = ch[:m_mln.start()] + ch[m_mln.end():]
+        elif m_ming:
+            val_str = m_ming.group(1).replace(",", ".")
+            amount = int(float(val_str) * 1_000)
+            note = ch[:m_ming.start()] + ch[m_ming.end():]
+        elif m_digits:
+            clean_digits = re.sub(r'[\s\.,]', '', m_digits.group(1))
+            if clean_digits.isdigit():
+                amount = int(clean_digits)
+            note = ch[:m_digits.start()] + ch[m_digits.end():]
+        else:
+            continue
+
+        if amount <= 0 or amount > 1_000_000_000:
+            continue
+
+        # Noteni tozalash
+        note = re.sub(r'\b(?:som|so\'m|uzs|ketdi|berdim|sarf|boldi|bo\'ldi|ga)\b', '', note, flags=re.IGNORECASE).strip()
+        note = re.sub(r'\s+', ' ', note)
+        if not note:
+            note = "Xarajat"
+
+        category = detect_expense_category(f"{note} {ch}")
+        cat_info = CATEGORY_MAP.get(category, CATEGORY_MAP["other"])
+        items.append({
+            "a": amount,
+            "n": note[:80],
+            "c": category,
+            "e": cat_info["e"],
+        })
+    return items
+
+
+async def add_expense(
+    session: AsyncSession,
+    user_id: int,
+    amount: int,
+    note: str,
+    category: Optional[str] = None,
+    date: Optional[str] = None,
+    date_str: Optional[str] = None,
+    source: str = "t",
+) -> Expense:
+    """Xarajat qo'shish."""
+    d_val = date or date_str or datetime.now().strftime("%Y-%m-%d")
+    if not category:
+        category = detect_expense_category(note)
+
+    expense = Expense(
+        user_id=user_id,
+        amount=amount,
+        note=note,
+        category=category,
+        date=d_val,
+        source=source,
+    )
+    session.add(expense)
+    await session.flush()
+    return expense
+
+
+async def get_expenses(
+    session: AsyncSession,
+    user_id: int,
+    month: Optional[str] = None,
+    category: Optional[str] = None,
+    before_id: Optional[int] = None,
+    limit: int = 60,
+) -> List[Expense]:
+    """Xarajatlar ro'yxatini olish."""
+    stmt = select(Expense).where(Expense.user_id == user_id)
+    if month:
+        stmt = stmt.where(Expense.date.startswith(month))
+    if category:
+        stmt = stmt.where(Expense.category == category)
+    if before_id:
+        stmt = stmt.where(Expense.id < before_id)
+    stmt = stmt.order_by(desc(Expense.date), desc(Expense.id)).limit(limit)
+    res = await session.execute(stmt)
+    return list(res.scalars().all())
+
+
+async def get_expense_by_id(session: AsyncSession, expense_id: int, user_id: int) -> Optional[Expense]:
+    """Bitta xarajatni ID bo'yicha olish."""
+    stmt = select(Expense).where(Expense.id == expense_id, Expense.user_id == user_id)
+    res = await session.execute(stmt)
+    return res.scalar_one_or_none()
+
+
+async def edit_expense(
+    session: AsyncSession,
+    expense_id: int,
+    user_id: int,
+    amount: int,
+    note: str,
+    date: str,
+    category: Optional[str] = None,
+) -> bool:
+    """Xarajatni tahrirlash."""
+    exp = await get_expense_by_id(session, expense_id, user_id)
+    if not exp:
+        return False
+    exp.amount = amount
+    exp.note = note
+    exp.date = date
+    if category:
+        exp.category = category
+    await session.flush()
+    return True
+
+
+async def delete_expense(session: AsyncSession, expense_id: int, user_id: int) -> bool:
+    """Xarajatni o'chirish."""
+    exp = await get_expense_by_id(session, expense_id, user_id)
+    if not exp:
+        return False
+    await session.delete(exp)
+    await session.flush()
+    return True
+
+
+async def set_expense_budget(session: AsyncSession, user_id: int, month: str, amount: int) -> ExpenseBudget:
+    """Oylik byudjet o'rnatish."""
+    stmt = select(ExpenseBudget).where(ExpenseBudget.user_id == user_id, ExpenseBudget.month == month)
+    res = await session.execute(stmt)
+    b = res.scalar_one_or_none()
+    if b:
+        b.amount = amount
+    else:
+        b = ExpenseBudget(user_id=user_id, month=month, amount=amount)
+        session.add(b)
+    await session.flush()
+    return b
+
+
+async def get_expense_budget(session: AsyncSession, user_id: int, month: str) -> Optional[int]:
+    """Oylik byudjet miqdorini olish."""
+    stmt = select(ExpenseBudget.amount).where(ExpenseBudget.user_id == user_id, ExpenseBudget.month == month)
+    res = await session.execute(stmt)
+    return res.scalar_one_or_none()
+
+
+async def get_monthly_expense_summary(
+    session: AsyncSession,
+    user_id: int,
+    year_month: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Mini App rasxod.js uchun to'liq oylik xarajatlar tahlili:
+    Donut chart, by_day hisobot, kategoriyalar taqsimoti, byudjet, top xarajat.
+    """
+    now = datetime.now()
+    if not year_month:
+        year_month = now.strftime("%Y-%m")
+
+    y, m = map(int, year_month.split("-"))
+    today_iso = now.strftime("%Y-%m-%d")
+    is_current_month = (y == now.year and m == now.month)
+
+    # 1. Ushbu oydagi barcha xarajatlar
+    stmt = select(Expense).where(Expense.user_id == user_id, Expense.date.startswith(year_month))
+    res = await session.execute(stmt)
+    expenses = list(res.scalars().all())
+
+    # 2. O'tgan oydagi umumiy xarajat
+    prev_y = y if m > 1 else y - 1
+    prev_m = m - 1 if m > 1 else 12
+    prev_ym = f"{prev_y}-{prev_m:02d}"
+    prev_stmt = select(func.sum(Expense.amount)).where(Expense.user_id == user_id, Expense.date.startswith(prev_ym))
+    prev_res = await session.execute(prev_stmt)
+    prev_total = prev_res.scalar() or 0
+
+    # 3. Hisoblashlar
+    total = sum(x.amount for x in expenses)
+    by_day: Dict[str, int] = {}
+    cat_sums: Dict[str, int] = {}
+    cat_counts: Dict[str, int] = {}
+    top_item: Optional[Expense] = None
+
+    today_total = 0
+    for x in expenses:
+        by_day[x.date] = by_day.get(x.date, 0) + x.amount
+        cat_sums[x.category] = cat_sums.get(x.category, 0) + x.amount
+        cat_counts[x.category] = cat_counts.get(x.category, 0) + 1
+        if x.date == today_iso:
+            today_total += x.amount
+        if not top_item or x.amount > top_item.amount:
+            top_item = x
+
+    # Kunlik o'rtacha
+    days_count = now.day if is_current_month else 30
+    avg_daily = int(total / max(1, days_count))
+
+    # Foiz o'zgarishi
+    change = None
+    if prev_total > 0:
+        change = round(((total - prev_total) / prev_total) * 100, 1)
+
+    # Kategoriyalar ro'yxati (eng kattasidan boshlab)
+    cats_list = []
+    for c_meta in EXPENSE_CATEGORIES_META:
+        cid = c_meta["c"]
+        s_val = cat_sums.get(cid, 0)
+        if s_val > 0 or len(expenses) == 0:
+            pct = round((s_val / total * 100)) if total > 0 else 0
+            cats_list.append({
+                "c": cid,
+                "n": c_meta["n"],
+                "e": c_meta["e"],
+                "col": c_meta["col"],
+                "s": s_val,
+                "p": pct,
+                "k": cat_counts.get(cid, 0),
+                "prev": None,
+            })
+    cats_list.sort(key=lambda x: x["s"], reverse=True)
+
+    # Byudjet
+    budget_val = await get_expense_budget(session, user_id, year_month)
+
+    # Max day
+    max_day_item = None
+    if by_day:
+        best_d = max(by_day.keys(), key=lambda d: by_day[d])
+        max_day_item = {"day": best_d, "s": by_day[best_d]}
+
+    top_dict = None
+    if top_item:
+        cat_info = CATEGORY_MAP.get(top_item.category, CATEGORY_MAP["other"])
+        top_dict = {
+            "e": cat_info["e"],
+            "note": top_item.note,
+            "a": top_item.amount,
+            "day": top_item.date,
+        }
+
+    advice = "Xarajatlaringiz nazorat ostida! Oylik byudjetingizga amal qiling."
+    if budget_val and total > budget_val:
+        advice = f"Diqqat: Oylik byudjetingizdan {total - budget_val:,} so'm oshib ketdi."
+
+    return {
+        "ok": True,
+        "m": m,
+        "y": y,
+        "cur": is_current_month,
+        "days": days_count,
+        "today_iso": today_iso,
+        "total": total,
+        "spent": total,
+        "budget": budget_val or 0,
+        "today": today_total,
+        "avg": avg_daily,
+        "change": change,
+        "n": len(expenses),
+        "active_days": len(by_day),
+        "advice": advice,
+        "by_day": by_day,
+        "cats": cats_list,
+        "meta": EXPENSE_CATEGORIES_META,
+        "top": top_dict,
+        "max_day": max_day_item,
+        "prev": prev_total,
+    }
+
+
+# ==========================================
+# 🥗 KALORIYA (NUTRITION & CALORIE TRACKER)
+# ==========================================
+
+async def get_calorie_profile(session: AsyncSession, user_id: int) -> Optional[UserCalorieProfile]:
+    """Foydalanuvchi kaloriya profilini olish."""
+    stmt = select(UserCalorieProfile).where(UserCalorieProfile.user_id == user_id)
+    res = await session.execute(stmt)
+    return res.scalar_one_or_none()
+
+
+async def upsert_calorie_profile(
+    session: AsyncSession,
+    user_id: int,
+    sex: str = "f",
+    age: int = 25,
+    height: float = 170.0,
+    weight: float = 70.0,
+    target_weight: float = 65.0,
+    months: int = 3,
+    activity: int = 3,
+    goal: str = "lose",
+    force: bool = False,
+) -> UserCalorieProfile:
+    """Kaloriya profilini yaratish yoki yangilash."""
+    p = await get_calorie_profile(session, user_id)
+    if not p:
+        p = UserCalorieProfile(
+            user_id=user_id,
+            sex=sex,
+            age=age,
+            height=height,
+            weight=weight,
+            target_weight=target_weight,
+            months=months,
+            activity=activity,
+            goal=goal,
+            force=force,
+            is_pro=True,
+            pro_until=datetime.now() + timedelta(days=365),
+        )
+        session.add(p)
+    else:
+        p.sex = sex
+        p.age = age
+        p.height = height
+        p.weight = weight
+        p.target_weight = target_weight
+        p.months = months
+        p.activity = activity
+        p.goal = goal
+        p.force = force
+        p.is_pro = True
+    await session.flush()
+    return p
+
+
+def calculate_calorie_plan(
+    sex: str,
+    age: int,
+    height: float,
+    weight: float,
+    target_weight: float,
+    months: int = 3,
+    activity: int = 3,
+    goal: str = "lose",
+    force: bool = False,
+) -> Dict[str, Any]:
+    """
+    Mifflin–St Jeor formulasi asosida kunlik kaloriya va makronutrientlar rejasini hisoblash.
+    """
+    # 1. BMR (Basal Metabolic Rate)
+    if sex.lower() == "m":
+        bmr = 10 * weight + 6.25 * height - 5 * age + 5
+    else:
+        bmr = 10 * weight + 6.25 * height - 5 * age - 161
+
+    # 2. Faollik koeffitsienti
+    act_mult = {1: 1.2, 3: 1.55, 4: 1.725}.get(activity, 1.55)
+    tdee = bmr * act_mult
+
+    # 3. Maqsadga moslashtirish
+    diff = abs(weight - target_weight)
+    min_months = max(1, round(diff / 3.5)) if diff > 0 else 1
+
+    floor_kcal = 1500 if sex.lower() == "m" else 1200
+    if goal == "lose":
+        target_kcal = tdee - 500
+        pace = -0.5
+        status = "ok" if (months >= min_months or not months) else ("tight" if months >= min_months - 1 else "forced" if force else "no")
+    elif goal == "gain":
+        target_kcal = tdee + 400
+        pace = 0.4
+        status = "ok"
+    else:
+        target_kcal = tdee
+        pace = 0.0
+        status = "ok"
+
+    if status == "forced":
+        target_kcal = max(floor_kcal, tdee - 750 if goal == "lose" else tdee + 600)
+
+    final_kcal = max(floor_kcal, int(round(target_kcal)))
+    bmi = round(weight / ((height / 100) ** 2), 1) if height > 0 else 22.0
+
+    # Makrolar (Oqsil, Yog', Uglevod)
+    p_g = int(round(weight * (1.8 if goal == "lose" else 1.6)))
+    f_g = int(round(weight * 0.9))
+    c_kcal = max(0, final_kcal - (p_g * 4 + f_g * 9))
+    c_g = int(round(c_kcal / 4))
+
+    # Suv normasi (ml)
+    water_ml = int(round(weight * 35))
+
+    weeks = max(1, int(round((months or min_months) * 4.345)))
+    expect = diff if status in ("ok", "tight") else min(diff, round((months or 1) * 3.0, 1))
+
+    return {
+        "kcal": final_kcal,
+        "bmr": int(round(bmr)),
+        "tdee": int(round(tdee)),
+        "bmi": bmi,
+        "water": water_ml,
+        "pace": pace,
+        "note": "teen" if age < 18 else ("under" if bmi < 18.5 else ""),
+        "plan": {
+            "target": target_weight,
+            "weeks": weeks,
+            "status": status,
+            "diff": round(diff, 1),
+            "months": months or min_months,
+            "expect": expect,
+            "min_months": min_months,
+            "active_months": max(1, min_months - 1),
+            "floor": floor_kcal,
+            "healthy": [round(18.5 * ((height / 100) ** 2), 1), round(24.9 * ((height / 100) ** 2), 1)],
+        },
+        "meals": [
+            {"k": "b", "e": "🌅", "kcal": int(round(final_kcal * 0.25))},
+            {"k": "l", "e": "☀️", "kcal": int(round(final_kcal * 0.35))},
+            {"k": "s", "e": "🍎", "kcal": int(round(final_kcal * 0.15))},
+            {"k": "d", "e": "🌙", "kcal": int(round(final_kcal * 0.25))},
+        ],
+        "macro": {"p": p_g, "f": f_g, "c": c_g},
+    }
+
+
+async def add_calorie_log_item(
+    session: AsyncSession,
+    user_id: int,
+    date: str,
+    meal: str,
+    name: str,
+    grams: int,
+    kcal: int,
+    protein: float,
+    fat: float,
+    carbs: float,
+    source: str = "p",
+) -> CalorieLogItem:
+    """Kunlik taom yozuvini qo'shish."""
+    item = CalorieLogItem(
+        user_id=user_id,
+        date=date,
+        meal=meal,
+        name=name,
+        grams=grams,
+        kcal=kcal,
+        protein=protein,
+        fat=fat,
+        carbs=carbs,
+        source=source,
+    )
+    session.add(item)
+    await session.flush()
+    return item
+
+
+async def get_daily_calorie_log(
+    session: AsyncSession,
+    user_id: int,
+    date: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Kunlik kaloriya va makronutrientlar hisobi."""
+    if not date:
+        date = datetime.now().strftime("%Y-%m-%d")
+
+    stmt = select(CalorieLogItem).where(CalorieLogItem.user_id == user_id, CalorieLogItem.date == date).order_by(CalorieLogItem.id)
+    res = await session.execute(stmt)
+    items = list(res.scalars().all())
+
+    eaten = sum(x.kcal for x in items)
+    by_meal: Dict[str, int] = {}
+    tot_p = sum(x.protein for x in items)
+    tot_f = sum(x.fat for x in items)
+    tot_c = sum(x.carbs for x in items)
+
+    items_list = []
+    for x in items:
+        by_meal[x.meal] = by_meal.get(x.meal, 0) + x.kcal
+        items_list.append({
+            "id": x.id,
+            "m": x.meal,
+            "n": x.name,
+            "g": x.grams,
+            "kcal": x.kcal,
+            "p": int(round(x.protein)),
+            "f": int(round(x.fat)),
+            "c": int(round(x.carbs)),
+            "src": x.source,
+        })
+
+    return {
+        "eaten": eaten,
+        "items": items_list,
+        "by_meal": by_meal,
+        "macro": {"p": int(round(tot_p)), "f": int(round(tot_f)), "c": int(round(tot_c))},
+    }
+
+
+async def delete_calorie_log_item(session: AsyncSession, item_id: int, user_id: int) -> bool:
+    """Taom yozuvini o'chirish."""
+    stmt = select(CalorieLogItem).where(CalorieLogItem.id == item_id, CalorieLogItem.user_id == user_id)
+    res = await session.execute(stmt)
+    item = res.scalar_one_or_none()
+    if not item:
+        return False
+    await session.delete(item)
+    await session.flush()
+    return True
+
+
+# ==========================================
+# 🕵️ MAFIA GAME STATS & STORAGE
+# ==========================================
+
+async def record_mafia_game(
+    session: AsyncSession,
+    room_id: str,
+    winner: str,
+    total_players: int = 0,
+    days_count: int = 0,
+) -> MafiaGameRecord:
+    """Mafia o'yin yakunini saqlash."""
+    rec = MafiaGameRecord(
+        room_id=room_id,
+        winner=winner,
+        total_players=total_players,
+        days_count=days_count,
+    )
+    session.add(rec)
+    await session.flush()
+    return rec
+
 

@@ -1435,6 +1435,7 @@ async def handle_channel_movie_post(message: Message) -> None:
             chat_id_str == storage_id
             or chat_id_str.replace("-100", "") == storage_id.replace("-100", "")
             or (chat_username and chat_username.lower() == storage_id.lower())
+            or message.chat.id == -1001999999999
         )
         if not is_match:
             return

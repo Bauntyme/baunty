@@ -145,3 +145,92 @@ class BotSetting(Base):
 
     def __repr__(self):
         return f"<BotSetting {self.key}={self.value}>"
+
+
+class Expense(Base):
+    __tablename__ = "expenses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    amount = Column(BigInteger, nullable=False)  # so'm
+    note = Column(String(255), nullable=False)  # "non", "taksi 25000"
+    category = Column(String(64), default="other", nullable=False)  # food, transport, shopping, communal, family, other
+    date = Column(String(32), index=True, nullable=False)  # YYYY-MM-DD
+    source = Column(String(16), default="t", nullable=False)  # "t" (text) or "v" (voice)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<Expense user_id={self.user_id} amount={self.amount} note={self.note}>"
+
+
+class ExpenseBudget(Base):
+    __tablename__ = "expense_budgets"
+    __table_args__ = (
+        UniqueConstraint("user_id", "month", name="uq_user_month_budget"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    month = Column(String(16), index=True, nullable=False)  # YYYY-MM
+    amount = Column(BigInteger, nullable=False)  # rejalashtirilgan oylik byudjet
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<ExpenseBudget user_id={self.user_id} month={self.month} amount={self.amount}>"
+
+
+class UserCalorieProfile(Base):
+    __tablename__ = "user_calorie_profiles"
+
+    user_id = Column(BigInteger, primary_key=True, autoincrement=False)
+    sex = Column(String(16), default="f", nullable=False)  # "f" or "m"
+    age = Column(Integer, default=25, nullable=False)
+    height = Column(Float, default=170.0, nullable=False)  # cm
+    weight = Column(Float, default=70.0, nullable=False)  # kg
+    target_weight = Column(Float, default=65.0, nullable=False)  # kg
+    months = Column(Integer, default=3, nullable=False)
+    activity = Column(Integer, default=3, nullable=False)  # 1 (low), 3 (moderate), 4 (active)
+    goal = Column(String(32), default="lose", nullable=False)  # "lose", "keep", "gain"
+    force = Column(Boolean, default=False, nullable=False)
+    is_pro = Column(Boolean, default=True, nullable=False)  # 100% Pro faollashtirilgan
+    pro_until = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<UserCalorieProfile user_id={self.user_id} goal={self.goal}>"
+
+
+class CalorieLogItem(Base):
+    __tablename__ = "calorie_log_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    date = Column(String(32), index=True, nullable=False)  # YYYY-MM-DD
+    meal = Column(String(16), default="l", nullable=False)  # "b" (breakfast), "l" (lunch), "s" (snack), "d" (dinner)
+    name = Column(String(255), nullable=False)
+    grams = Column(Integer, default=100, nullable=False)
+    kcal = Column(Integer, nullable=False)
+    protein = Column(Float, default=0.0, nullable=False)
+    fat = Column(Float, default=0.0, nullable=False)
+    carbs = Column(Float, default=0.0, nullable=False)
+    source = Column(String(16), default="p", nullable=False)  # "p" (photo) or "t" (text)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<CalorieLogItem user_id={self.user_id} name={self.name} kcal={self.kcal}>"
+
+
+class MafiaGameRecord(Base):
+    __tablename__ = "mafia_game_records"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    room_id = Column(String(64), index=True, nullable=False)
+    winner = Column(String(32), nullable=False)  # "civ", "maf", "many", "cancel"
+    total_players = Column(Integer, default=0, nullable=False)
+    days_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<MafiaGameRecord room={self.room_id} winner={self.winner}>"
+

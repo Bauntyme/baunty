@@ -17,6 +17,11 @@ def main_menu_keyboard(is_admin: bool = False) -> ReplyKeyboardMarkup:
             KeyboardButton(text="📚 Kitoblar"),
         ],
         [
+            KeyboardButton(text="🕵️ Mafia"),
+            KeyboardButton(text="💰 Rasxod"),
+            KeyboardButton(text="🥗 Kaloriya"),
+        ],
+        [
             KeyboardButton(text="📥 Media yuklash"),
             KeyboardButton(text="👀 Anonim story"),
         ],

@@ -130,6 +130,21 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await send_donate_info(message)
             return
 
+        elif param in ("mafia", "mafiya") or param.startswith("mafia_") or param.startswith("maf_"):
+            from handlers.mafia import cmd_mafia
+            await cmd_mafia(message)
+            return
+
+        elif param in ("rasxod", "xarajat", "harajat") or param.startswith("rasxod_"):
+            from handlers.rasxod import cmd_rasxod
+            await cmd_rasxod(message)
+            return
+
+        elif param in ("kal", "kaloriya", "kcal") or param.startswith("kal_"):
+            from handlers.kaloriya import cmd_kaloriya
+            await cmd_kaloriya(message)
+            return
+
         elif param.startswith("q_"):
             target_id_str = param.replace("q_", "").strip()
             if target_id_str.isdigit():
