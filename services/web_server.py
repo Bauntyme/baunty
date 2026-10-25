@@ -31,7 +31,10 @@ from services.security_service import (
     security_middleware,
     is_valid_user_id,
     validate_telegram_init_data,
+    extract_client_ip,
 )
+from services.telemetry_service import telemetry_service
+from services.admin_flow_html import ADMIN_FLOW_HTML
 from services.rasxod_service import rasxod_service
 from services.kaloriya_service import kaloriya_service
 from services.mafia_service import mafia_service
@@ -68,6 +71,89 @@ async def handle_ping(request: web.Request) -> web.Response:
         content_type="text/plain",
         headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
     )
+
+
+@web.middleware
+async def telemetry_middleware(request: web.Request, handler) -> web.Response:
+    """Barcha keluvchi so'rovlarni ring buffer va telemetriya xizmatiga yozish."""
+    t0 = time.perf_counter()
+    status = 500
+    client_ip = extract_client_ip(request)
+    method = request.method
+    path = request.path_qs if hasattr(request, "path_qs") else request.path
+    user_agent = request.headers.get("User-Agent", "")
+    try:
+        response = await handler(request)
+        status = response.status
+        return response
+    except web.HTTPException as http_ex:
+        status = http_ex.status
+        raise
+    except Exception:
+        status = 500
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - t0) * 1000
+        telemetry_service.record_request(
+            method=method,
+            path=path,
+            status=status,
+            duration_ms=duration_ms,
+            client_ip=client_ip,
+            user_agent=user_agent,
+        )
+
+
+async def handle_admin_flow(request: web.Request) -> web.Response:
+    """Admin Flow & Database Monitor UI sahifasini uzatish."""
+    return web.Response(
+        text=ADMIN_FLOW_HTML,
+        content_type="text/html",
+        charset="utf-8",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+async def handle_admin_flow_data(request: web.Request) -> web.Response:
+    """Admin Flow uchun real-vaqtdagi telemetriya va baza ma'lumotlarini JSON qaytarish."""
+    data = await telemetry_service.get_full_telemetry()
+    return web.json_response(data, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+    })
+
+
+async def handle_admin_flow_benchmark(request: web.Request) -> web.Response:
+    """Admin Flow ma'lumotlar bazasi tezkorlik benchmarkini bajarish."""
+    t0 = time.perf_counter()
+    try:
+        from sqlalchemy import text
+        async with get_session() as session:
+            await session.execute(text("SELECT 1"))
+        ping_ms = round((time.perf_counter() - t0) * 1000, 2)
+        return web.json_response({
+            "ok": True,
+            "status": "ONLINE",
+            "ping_ms": ping_ms,
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        return web.json_response({
+            "ok": False,
+            "status": "ERROR",
+            "error": str(e),
+            "ping_ms": -1,
+            "timestamp": time.time()
+        }, status=500)
+
+
+async def handle_admin_flow_clear(request: web.Request) -> web.Response:
+    """Admin Flow so'rovlar buferini tozalash."""
+    telemetry_service.clear_buffer()
+    return web.json_response({"ok": True, "message": "Buffer cleared"})
 
 
 _FAVICON_CACHE: Dict[str, Any] = {"bytes": None, "etag": None}
@@ -4276,14 +4362,17 @@ def create_web_app() -> web.Application:
     """aiohttp web application yaratish va routerlarni sozlash."""
     app = web.Application()
 
-    # CORS, DoS / DDoS Rate Limiting, WAF va Clickjacking (CSP) xavfsizlik middleware
+    # So'rovlar oqimi telemetriyasi va xavfsizlik middleware lari
+    app.middlewares.append(telemetry_middleware)
     app.middlewares.append(security_middleware)
 
-    # API va sahifa marshrutlari (UptimeRobot, healthcheck va Telegram WebApp)
+    # API va sahifa marshrutlari (UptimeRobot, healthcheck, Admin Flow va Telegram WebApp)
     app.router.add_get("/ping", handle_ping)
     app.router.add_get("/health", handle_health)
     app.router.add_get("/favicon.ico", handle_favicon)
     app.router.add_get("/webapp/favicon.ico", handle_favicon)
+    app.router.add_get("/admin/flow", handle_admin_flow)
+    app.router.add_get("/webapp/admin/flow", handle_admin_flow)
     app.router.add_get("/", handle_index)
     app.router.add_get("/index.html", handle_index)
     app.router.add_get("/webapp", handle_index)
@@ -4291,6 +4380,11 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/index.html", handle_index)
 
     api_routes = [
+        ("GET", "/api/admin/flow/data", handle_admin_flow_data),
+        ("POST", "/api/admin/flow/data", handle_admin_flow_data),
+        ("GET", "/api/admin/flow/benchmark", handle_admin_flow_benchmark),
+        ("POST", "/api/admin/flow/benchmark", handle_admin_flow_benchmark),
+        ("POST", "/api/admin/flow/clear", handle_admin_flow_clear),
         ("GET", "/api", handle_api_overview),
         ("POST", "/api", handle_api_overview),
         ("GET", "/api/catalog", handle_get_catalog),

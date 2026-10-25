@@ -1418,6 +1418,9 @@ async def cb_admin_server_health(callback: CallbackQuery) -> None:
 
     maint_status = "🔴 Profilaktika" if maintenance_service.is_global_maintenance() else "🟢 Faol (Normal)"
 
+    app_url = config.webapp_url_resolved
+    flow_url = f"{app_url}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty.onrender.com/admin/flow"
+
     text = (
         "🖥️ <b>Server va Tizim Salomatligi:</b>\n\n"
         f"🟢 <b>Status:</b> Onlayn va barqaror\n"
@@ -1428,9 +1431,14 @@ async def cb_admin_server_health(callback: CallbackQuery) -> None:
         f"🌐 <b>Web App Port:</b> {config.PORT}\n\n"
         f"👥 <b>Foydalanuvchilar:</b> {u_count:,} ta\n"
         f"🎬 <b>Kinolar:</b> {m_count:,} ta\n"
-        f"📥 <b>Jami yuklamalar:</b> {d_count:,} marta"
+        f"📥 <b>Jami yuklamalar:</b> {d_count:,} marta\n\n"
+        f"🔗 <b>Live Flow Dashboard:</b>\n<code>{flow_url}</code>"
     )
+    from aiogram.types import WebAppInfo
     builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="⚡ Live Flow & DB Monitor", web_app=WebAppInfo(url=flow_url))
+    )
     builder.row(
         InlineKeyboardButton(text="🔄 Yangilash", callback_data="admin:server:health"),
         InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"),
@@ -1630,6 +1638,37 @@ async def cmd_admin_unban(message: Message) -> None:
         await crud.set_user_ban_status(session, target_id, False)
 
     await message.answer(f"✅ <b>Foydalanuvchi blokdan chiqarildi!</b>\n\n👤 ID: <code>{target_id}</code>", parse_mode="HTML")
+
+
+@router.message(Command("flow"))
+async def cmd_admin_flow(message: Message) -> None:
+    """/flow: Live Flow & Database Monitor havolasini yuborish."""
+    if not is_admin_check(message.from_user.id):
+        await message.reply("⛔ <b>Kechirasiz, siz ushbu buyruqdan foydalana olmaysiz!</b>", parse_mode="HTML")
+        return
+
+    app_url = config.webapp_url_resolved
+    flow_url = f"{app_url}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty.onrender.com/admin/flow"
+
+    from aiogram.types import InlineKeyboardButton, WebAppInfo
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="⚡ Live Flow & DB Monitor", web_app=WebAppInfo(url=flow_url))
+    )
+    builder.row(
+        InlineKeyboardButton(text="🌐 Brauzerda ochish", url=flow_url)
+    )
+
+    text = (
+        "⚡ <b>Bauntys Flow & Database Live Monitor</b>\n\n"
+        "Ushbu monitoring paneli orqali:\n"
+        "• 🟢 Neon PostgreSQL ulanish holati va ping kechikishi (ms)\n"
+        "• 📊 Asosiy jadvallar (users, movies, downloads, expenses, calories, mafia)\n"
+        "• 🌊 Jonli kelayotgan so'rovlar oqimi (Method, Path, Status, Latency, IP)\n"
+        "• ⚡ Real-vaqtdagi DB Latency Benchmark\n\n"
+        f"🔗 <b>To'g'ridan-to'g'ri havola:</b>\n<code>{flow_url}</code>"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=builder.as_markup())
 
 
 

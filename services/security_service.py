@@ -231,10 +231,14 @@ def check_reconnaissance_and_database_shield(path: str) -> Tuple[bool, Optional[
     norm_lower = norm_lower.rstrip("/. \t\r\n")
     if not norm_lower:
         norm_lower = "/"
-
     # 1. Path traversal tekshiruvi: .., ..;, %2e%2e
     if ".." in norm_lower:
         return True, "path_traversal"
+
+    # 2. Admin Flow monitoring endpointlari uchun to'g'ridan-to'g'ri ruxsat
+    if norm_lower in ("/admin/flow", "/webapp/admin/flow") or norm_lower.startswith(("/admin/flow/", "/webapp/admin/flow/", "/api/admin/flow", "/webapp/api/admin/flow")):
+        if not any(norm_lower.endswith(ext) for ext in (".db", ".sqlite", ".py", ".env", ".sh")):
+            return False, None
 
     # 2. Kitob va retsept assetlari (/bk/ va /rc/) keshdan xizmat ko'rsatiladi
     # Lekin ularning ichida ham hech qanday traversal yoki .db/.py/.env bo'lmasligi shart
@@ -412,6 +416,11 @@ def is_malicious_request(
     is_recon, recon_threat = check_reconnaissance_and_database_shield(path)
     if is_recon:
         return True, recon_threat
+
+    # 2. Admin Flow monitoring endpointlari uchun WAF / Scanner bypass
+    # (Admin brauzerlar, skanerlar, curl, bo'sh UA va Telegram Webviewlar to'siqsiz kirishi uchun)
+    if clean_path in ("/admin/flow", "/webapp/admin/flow") or clean_path.startswith(("/admin/flow/", "/webapp/admin/flow/", "/api/admin/flow", "/webapp/api/admin/flow")):
+        return False, None
 
     # 2. User-Agent va Health/Ping tekshiruvi (UptimeRobot va Render healthcheck oq ro'yxatda)
     ua_raw = user_agent or ""
@@ -1072,8 +1081,12 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
 
     path = request.path
 
-    # 2. Render.com va UptimeRobot health check - tezkor va to'siqsiz o'tkazish
+    # 2. Render.com, UptimeRobot health check va Admin Flow monitoring - to'siqsiz o'tkazish
     ua = (request.headers.get("User-Agent") or "").lower()
+    is_admin_flow = (
+        path in ("/admin/flow", "/admin/flow/", "/webapp/admin/flow", "/webapp/admin/flow/")
+        or path.startswith(("/admin/flow/", "/webapp/admin/flow/", "/api/admin/flow/", "/api/admin/flow", "/webapp/api/admin/flow/", "/webapp/api/admin/flow"))
+    )
     is_health_or_ping = (
         path in (
             "/health", "/health/", "/ping", "/ping/",
@@ -1087,8 +1100,8 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
     )
     is_uptimerobot = "uptimerobot" in ua or "uptime" in ua
 
-    if is_health_or_ping or is_uptimerobot:
-        # Agar UptimeRobot IP manzili adashib jail ga olingan bo'lsa, avtomatik ravishda unban qilinadi
+    if is_health_or_ping or is_uptimerobot or is_admin_flow:
+        # Agar admin yoki UptimeRobot IP manzili adashib jail ga olingan bo'lsa, avtomatik ravishda unban qilinadi
         client_ip = extract_client_ip(request)
         if client_ip:
             security_service.unban_ip(client_ip)

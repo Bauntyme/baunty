@@ -1,0 +1,1231 @@
+"""
+Bauntys Production Flow Dashboard HTML Generator
+=================================================
+Ultra-Zamonaviy Dark Glassmorphism Admin Flow & Database Monitor UI
+100% Bauntys Branding (@Bauntyfilmsbot, @BauntyFilms)
+Hech qanday tashqi CDN yoki kutubxonalarsiz — 100% mustaqil (Self-contained).
+"""
+
+ADMIN_FLOW_HTML = """<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Bauntys Flow & Database Monitor • @Bauntyfilmsbot</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <style>
+    :root {
+      --bg-base: #080b11;
+      --bg-card: rgba(15, 23, 42, 0.72);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --border-card: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(245, 158, 11, 0.35);
+      --primary: #f59e0b;
+      --primary-hover: #d97706;
+      --primary-light: rgba(245, 158, 11, 0.15);
+      --accent-green: #10b981;
+      --accent-green-bg: rgba(16, 185, 129, 0.15);
+      --accent-cyan: #06b6d4;
+      --accent-cyan-bg: rgba(6, 182, 212, 0.15);
+      --accent-purple: #a855f7;
+      --accent-purple-bg: rgba(168, 85, 247, 0.15);
+      --accent-yellow: #f59e0b;
+      --accent-yellow-bg: rgba(245, 158, 11, 0.15);
+      --accent-red: #ef4444;
+      --accent-red-bg: rgba(239, 68, 68, 0.15);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-sub: #64748b;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-base);
+      background-image: 
+        radial-gradient(circle at 10% 15%, rgba(245, 158, 11, 0.07) 0%, transparent 40%),
+        radial-gradient(circle at 90% 25%, rgba(59, 130, 246, 0.07) 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", sans-serif;
+      min-height: 100vh;
+      line-height: 1.5;
+      padding-bottom: 40px;
+    }
+
+    /* Container */
+    .flow-container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 20px 24px;
+    }
+
+    /* Glass Effect Utility */
+    .glass-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+      transition: all 0.25s ease;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    /* Top Navigation / Header */
+    header.flow-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 16px 24px;
+      margin-bottom: 24px;
+      position: sticky;
+      top: 12px;
+      z-index: 100;
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+    }
+
+    .brand-info h1 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #f59e0b, #fbbf24, #f8fafc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-info p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand-info a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .brand-info a:hover {
+      text-decoration: underline;
+    }
+
+    /* Header Controls */
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .live-pulse-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      border-radius: 30px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #34d399;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .live-pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulseAnimation 1.6s infinite;
+    }
+
+    .live-pulse-dot.paused {
+      background-color: #94a3b8;
+      box-shadow: none;
+      animation: none;
+    }
+
+    @keyframes pulseAnimation {
+      0% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.9); opacity: 0.8; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    /* Action Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #0f172a;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #fbbf24, #f59e0b);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+    }
+
+    .btn-icon {
+      padding: 8px 12px;
+    }
+
+    .select-interval {
+      background: rgba(15, 23, 42, 0.8);
+      color: var(--text-main);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* KPI Metrics Grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .kpi-card {
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--card-accent, var(--primary)), transparent);
+    }
+
+    .kpi-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .kpi-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .kpi-icon {
+      font-size: 1.25rem;
+      opacity: 0.8;
+    }
+
+    .kpi-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.03em;
+    }
+
+    .kpi-unit {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .kpi-footer {
+      font-size: 0.75rem;
+      color: var(--text-sub);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Badge styles */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-green { background: var(--accent-green-bg); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
+    .badge-cyan { background: var(--accent-cyan-bg); color: #38bdf8; border: 1px solid rgba(6, 182, 212, 0.25); }
+    .badge-purple { background: var(--accent-purple-bg); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.25); }
+    .badge-yellow { background: var(--accent-yellow-bg); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.25); }
+    .badge-red { background: var(--accent-red-bg); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); }
+
+    /* Middle Section: DB Tables Inventory & Benchmark */
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .db-section {
+      margin-bottom: 24px;
+    }
+
+    .db-card-body {
+      padding: 22px;
+    }
+
+    .db-tables-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .db-table-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .db-table-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+      transform: translateY(-2px);
+      border-color: rgba(245, 158, 11, 0.25);
+    }
+
+    .table-name-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .table-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .table-count-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      font-family: var(--font-mono);
+    }
+
+    .table-desc {
+      font-size: 0.7rem;
+      color: var(--text-sub);
+    }
+
+    /* Benchmark Strip */
+    .db-benchmark-strip {
+      background: rgba(245, 158, 11, 0.05);
+      border: 1px solid rgba(245, 158, 11, 0.15);
+      border-radius: var(--radius-sm);
+      padding: 14px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .benchmark-info {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .benchmark-stat {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .benchmark-stat strong {
+      color: var(--text-main);
+      font-family: var(--font-mono);
+    }
+
+    /* Live Requests Stream Section */
+    .stream-section {
+      margin-bottom: 24px;
+    }
+
+    .stream-header-toolbar {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+
+    .search-filter-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      max-width: 450px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(10, 15, 29, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: var(--radius-sm);
+      color: var(--text-main);
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .filter-chips {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 5px 12px;
+      font-size: 0.74rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .filter-chip:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .filter-chip.active {
+      background: var(--primary);
+      color: #0f172a;
+      border-color: var(--primary);
+      font-weight: 700;
+    }
+
+    .checkbox-label {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    /* Table Container */
+    .table-container {
+      overflow-x: auto;
+      max-height: 520px;
+      position: relative;
+    }
+
+    table.stream-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.82rem;
+    }
+
+    table.stream-table th {
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 12px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    table.stream-table td {
+      padding: 10px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+
+    table.stream-table tbody tr {
+      transition: background 0.15s ease;
+    }
+
+    table.stream-table tbody tr:hover {
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .req-time {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .req-path {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #e2e8f0;
+      max-width: 380px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .req-ip {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-sub);
+    }
+
+    .req-ua {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-sub);
+      font-size: 0.74rem;
+    }
+
+    .empty-state {
+      padding: 48px 24px;
+      text-align: center;
+      color: var(--text-muted);
+    }
+
+    .empty-state-icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+
+    /* Footer */
+    footer.flow-footer {
+      text-align: center;
+      padding-top: 24px;
+      color: var(--text-sub);
+      font-size: 0.75rem;
+    }
+
+    footer.flow-footer a {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    /* Toast notification */
+    #flowToast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--border-glow);
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: var(--radius-sm);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+      font-size: 0.82rem;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 1000;
+      backdrop-filter: blur(10px);
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .flow-container { padding: 12px; }
+      header.flow-header { padding: 14px; position: static; }
+      .header-controls { width: 100%; justify-content: space-between; }
+      .kpi-grid { grid-template-columns: 1fr; }
+      .db-tables-grid { grid-template-columns: 1fr 1fr; }
+      .search-filter-box { max-width: 100%; }
+      .req-path { max-width: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="flow-container">
+    
+    <!-- Top Sticky Header -->
+    <header class="flow-header glass-card">
+      <div class="header-brand">
+        <div class="brand-logo-badge">🎬</div>
+        <div class="brand-info">
+          <h1>BAUNTYS FLOW <span class="badge badge-yellow">LIVE MONITOR</span></h1>
+          <p>
+            Real-time Production Database & Request Telemetry • 
+            <a href="https://t.me/Bauntyfilmsbot" target="_blank" rel="noopener">@Bauntyfilmsbot</a>
+          </p>
+        </div>
+      </div>
+      
+      <div class="header-controls">
+        <div class="live-pulse-badge">
+          <span class="live-pulse-dot" id="pulseDot"></span>
+          <span id="pulseText">STREAMING (2s)</span>
+        </div>
+
+        <select id="intervalSelect" class="select-interval" onchange="changeInterval(this.value)">
+          <option value="1000">Tez (1s)</option>
+          <option value="2000" selected>O'rtacha (2s)</option>
+          <option value="5000">Sekin (5s)</option>
+        </select>
+
+        <button id="toggleBtn" class="btn btn-secondary btn-icon" onclick="toggleStream()" title="To'xtatish yoki Davom ettirish">
+          ⏸️ Pauza
+        </button>
+
+        <button class="btn btn-primary" onclick="fetchTelemetry(true)" title="Hoziroq yangilash">
+          🔄 Yangilash
+        </button>
+
+        <a href="/webapp" class="btn btn-secondary" title="Mini App katalogiga o'tish">
+          🍿 Mini App
+        </a>
+      </div>
+    </header>
+
+    <!-- Top KPI Grid -->
+    <div class="kpi-grid">
+      <!-- Card 1: Database Health -->
+      <div class="kpi-card glass-card" style="--card-accent: #10b981;">
+        <div class="kpi-header">
+          <span class="kpi-title">Database Health & Latency</span>
+          <span class="kpi-icon">⚡</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="dbPing">--</div>
+          <span class="kpi-unit">ms ping</span>
+        </div>
+        <div class="kpi-footer">
+          <span id="dbStatusBadge" class="badge badge-green">ONLINE</span>
+          <span id="dbEngineText" style="font-family: var(--font-mono); font-size: 0.72rem;">Neon PostgreSQL</span>
+        </div>
+      </div>
+
+      <!-- Card 2: Live Flow RPM -->
+      <div class="kpi-card glass-card" style="--card-accent: #f59e0b;">
+        <div class="kpi-header">
+          <span class="kpi-title">Request Flow (RPM)</span>
+          <span class="kpi-icon">🌊</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="flowRpm">0</div>
+          <span class="kpi-unit">req / min</span>
+        </div>
+        <div class="kpi-footer">
+          <span>Jami so'rovlar: <strong id="totalReqsCount" style="color: #fff;">0</strong></span>
+          <span class="badge badge-yellow">Rolling 60s</span>
+        </div>
+      </div>
+
+      <!-- Card 3: Success Rate & Latency -->
+      <div class="kpi-card glass-card" style="--card-accent: #06b6d4;">
+        <div class="kpi-header">
+          <span class="kpi-title">Success Rate & Avg Latency</span>
+          <span class="kpi-icon">🎯</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="successRate">100%</div>
+          <span class="kpi-unit">success</span>
+        </div>
+        <div class="kpi-footer">
+          <span>O'rtacha: <strong id="avgLatency">0.0</strong> ms</span>
+          <span>P95: <strong id="p95Latency">0.0</strong> ms</span>
+        </div>
+      </div>
+
+      <!-- Card 4: Server Memory & Uptime -->
+      <div class="kpi-card glass-card" style="--card-accent: #a855f7;">
+        <div class="kpi-header">
+          <span class="kpi-title">Server Uptime & Memory</span>
+          <span class="kpi-icon">💻</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="memUsage">--</div>
+          <span class="kpi-unit">MB RSS</span>
+        </div>
+        <div class="kpi-footer">
+          <span>Uptime: <strong id="uptimeStr">0s</strong></span>
+          <span id="serverRuntime" style="font-size: 0.72rem;">Python 3.12</span>
+        </div>
+      </div>
+
+      <!-- Card 5: Total Records Across Tables -->
+      <div class="kpi-card glass-card" style="--card-accent: #ec4899;">
+        <div class="kpi-header">
+          <span class="kpi-title">Total Database Records</span>
+          <span class="kpi-icon">📦</span>
+        </div>
+        <div class="kpi-value-row">
+          <div class="kpi-value" id="totalRecordsSum">0</div>
+          <span class="kpi-unit">records</span>
+        </div>
+        <div class="kpi-footer">
+          <span>6 ta asosiy jadval yig'indisi</span>
+          <span class="badge badge-purple">LIVE COUNT</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Database Inventory & Table Counters -->
+    <div class="db-section glass-card">
+      <div class="db-card-body">
+        <div class="section-title">
+          <span>🗄️ MA'LUMOTLAR BAZASI HOLATI VA JADVALLAR STATISTIKASI</span>
+          <span id="dbPoolStatus" class="badge badge-cyan" style="font-family: var(--font-mono);">Connection Pool: Active</span>
+        </div>
+
+        <div class="db-tables-grid">
+          <!-- 1. Movies -->
+          <div class="db-table-item">
+            <div class="table-name-row">
+              <span class="table-label">🎬 movies</span>
+              <span class="badge badge-yellow">Katalog</span>
+            </div>
+            <div class="table-count-value" id="countMovies">0</div>
+            <div class="table-desc">Filmlar va seriallar soni</div>
+          </div>
+
+          <!-- 2. Users -->
+          <div class="db-table-item">
+            <div class="table-name-row">
+              <span class="table-label">👤 users</span>
+              <span class="badge badge-green">Telegram</span>
+            </div>
+            <div class="table-count-value" id="countUsers">0</div>
+            <div class="table-desc">Ro'yxatdan o'tgan foydalanuvchilar</div>
+          </div>
+
+          <!-- 3. Downloads -->
+          <div class="db-table-item">
+            <div class="table-name-row">
+              <span class="table-label">📥 downloads</span>
+              <span class="badge badge-cyan">Media</span>
+            </div>
+            <div class="table-count-value" id="countDownloads">0</div>
+            <div class="table-desc">Instagram/TikTok/YT yuklamalar</div>
+          </div>
+
+          <!-- 4. Expenses -->
+          <div class="db-table-item">
+            <div class="table-name-row">
+              <span class="table-label">💰 expenses</span>
+              <span class="badge badge-purple">Rasxod</span>
+            </div>
+            <div class="table-count-value" id="countExpenses">0</div>
+            <div class="table-desc">Xarajatlar va byudjet yozuvlari</div>
+          </div>
+
+          <!-- 5. Calories -->
+          <div class="db-table-item">
+            <div class="table-name-row">
+              <span class="table-label">🥗 calories</span>
+              <span class="badge badge-yellow">Nutrition</span>
+            </div>
+            <div class="table-count-value" id="countCalories">0</div>
+            <div class="table-desc">Ovqatlar va kaloriya hisobi</div>
+          </div>
+
+          <!-- 6. Mafia Games -->
+          <div class="db-table-item">
+            <div class="table-name-row">
+              <span class="table-label">🕵️ mafia_games</span>
+              <span class="badge badge-red">O'yinlar</span>
+            </div>
+            <div class="table-count-value" id="countMafia">0</div>
+            <div class="table-desc">O'tkazilgan Mafia partiyalari</div>
+          </div>
+        </div>
+
+        <!-- Interactive Live Benchmark Strip -->
+        <div class="db-benchmark-strip">
+          <div class="benchmark-info">
+            <span class="benchmark-stat">DB Ulanishi: <strong id="dbUrlMasked">postgresql://...neon.tech</strong></span>
+            <span class="benchmark-stat">So'nggi tekshiruv: <strong id="lastCheckedTime">Hozir</strong></span>
+            <span id="benchmarkResult" class="badge badge-green">Tayyor</span>
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="runDbBenchmark()" id="btnBenchmark">
+              ⚡ Test DB Query (Benchmark)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Requests Stream Section -->
+    <div class="stream-section glass-card">
+      <div class="stream-header-toolbar">
+        <div class="search-filter-box">
+          <input type="text" id="streamSearch" class="search-input" placeholder="🔍 Path, Method, IP yoki Status bo'yicha qidirish..." oninput="renderTable()">
+        </div>
+
+        <div class="filter-chips">
+          <div id="methodChips" style="display: inline-flex; gap: 4px;">
+            <span class="filter-chip active" onclick="setMethodFilter('ALL', this)">Barchasi</span>
+            <span class="filter-chip" onclick="setMethodFilter('GET', this)">GET</span>
+            <span class="filter-chip" onclick="setMethodFilter('POST', this)">POST</span>
+          </div>
+          <span style="opacity: 0.25; margin: 0 4px;">|</span>
+          <div id="statusChips" style="display: inline-flex; gap: 4px;">
+            <span class="filter-chip active" onclick="setStatusFilter('ALL', this)">Barcha Status</span>
+            <span class="filter-chip" onclick="setStatusFilter('2XX', this)">2xx OK</span>
+            <span class="filter-chip" onclick="setStatusFilter('4XX', this)">4xx Ogohlantirish</span>
+            <span class="filter-chip" onclick="setStatusFilter('5XX', this)">5xx Xato</span>
+          </div>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <label class="checkbox-label">
+            <input type="checkbox" id="hidePollsCheck" checked onchange="renderTable()">
+            <span>Monitoring so'rovlarini yashirish</span>
+          </label>
+          <button class="btn btn-secondary btn-icon" onclick="clearLogs()" title="Jurnallarni tozalash">
+            🗑️ Tozalash
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="stream-table">
+          <thead>
+            <tr>
+              <th style="width: 90px;">Vaqt</th>
+              <th style="width: 80px;">Metod</th>
+              <th style="width: 90px;">Status</th>
+              <th>Yo'l (Path / Endpoint)</th>
+              <th style="width: 100px;">Kechikish</th>
+              <th style="width: 130px;">Mijoz IP</th>
+              <th style="width: 220px;">User-Agent</th>
+            </tr>
+          </thead>
+          <tbody id="streamTableBody">
+            <tr>
+              <td colspan="7" class="empty-state">
+                <div class="empty-state-icon">📡</div>
+                <div>Server so'rovlari oqimi yuklanmoqda...</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="flow-footer">
+      <p>
+        Bauntys Cinema Ecosystem • Powered by 
+        <a href="https://t.me/Bauntyfilmsbot" target="_blank" rel="noopener">@Bauntyfilmsbot</a> &amp; 
+        <a href="https://t.me/BauntyFilms" target="_blank" rel="noopener">@BauntyFilms</a>
+      </p>
+      <p style="margin-top: 4px; color: var(--text-sub);">
+        Neon PostgreSQL • High-Concurrency Async Architecture • Zero Reconnaissance Shield Active
+      </p>
+    </footer>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="flowToast"></div>
+
+  <!-- Real-time Client Script -->
+  <script>
+    let pollIntervalMs = 2000;
+    let timerId = null;
+    let isStreaming = true;
+    let currentMethodFilter = 'ALL';
+    let currentStatusFilter = 'ALL';
+    let cachedRequests = [];
+
+    // Telegram WebApp expand if available
+    if (window.Telegram && window.Telegram.WebApp) {
+      try {
+        window.Telegram.WebApp.ready();
+        window.Telegram.WebApp.expand();
+      } catch (e) {}
+    }
+
+    function showToast(msg, isSuccess = true) {
+      const toast = document.getElementById('flowToast');
+      toast.innerHTML = (isSuccess ? '✅ ' : '⚠️ ') + msg;
+      toast.style.borderColor = isSuccess ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)';
+      toast.style.display = 'flex';
+      setTimeout(() => { toast.style.display = 'none'; }, 3000);
+    }
+
+    function changeInterval(val) {
+      pollIntervalMs = parseInt(val, 10) || 2000;
+      document.getElementById('pulseText').innerText = `STREAMING (${pollIntervalMs / 1000}s)`;
+      if (isStreaming) {
+        clearInterval(timerId);
+        timerId = setInterval(fetchTelemetry, pollIntervalMs);
+      }
+      showToast(`Yangilanish oralig'i: ${pollIntervalMs / 1000} soniyaga o'rnatildi`);
+    }
+
+    function toggleStream() {
+      isStreaming = !isStreaming;
+      const btn = document.getElementById('toggleBtn');
+      const dot = document.getElementById('pulseDot');
+      const text = document.getElementById('pulseText');
+
+      if (isStreaming) {
+        btn.innerHTML = '⏸️ Pauza';
+        dot.classList.remove('paused');
+        text.innerText = `STREAMING (${pollIntervalMs / 1000}s)`;
+        timerId = setInterval(fetchTelemetry, pollIntervalMs);
+        fetchTelemetry();
+        showToast('Oqim davom ettirildi');
+      } else {
+        btn.innerHTML = '▶️ Davom';
+        dot.classList.add('paused');
+        text.innerText = 'PAUZA QILINGAN';
+        clearInterval(timerId);
+        showToast('Oqim vaqtincha to\\'xtatildi', false);
+      }
+    }
+
+    function setMethodFilter(method, el) {
+      currentMethodFilter = method;
+      document.querySelectorAll('#methodChips .filter-chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      renderTable();
+    }
+
+    function setStatusFilter(statusGroup, el) {
+      currentStatusFilter = statusGroup;
+      document.querySelectorAll('#statusChips .filter-chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      renderTable();
+    }
+
+    async function fetchTelemetry(isManual = false) {
+      try {
+        const res = await fetch('/api/admin/flow/data?t=' + Date.now(), {
+          headers: { 'Accept': 'application/json' }
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        updateUI(data);
+        if (isManual) showToast('Telemetriya yangilandi');
+      } catch (err) {
+        console.error('Telemetriya yuklashda xatolik:', err);
+        document.getElementById('dbStatusBadge').className = 'badge badge-red';
+        document.getElementById('dbStatusBadge').innerText = 'OFFLINE';
+        if (isManual) showToast('Serverga ulanishda xatolik: ' + err.message, false);
+      }
+    }
+
+    function updateUI(data) {
+      if (!data || !data.ok) return;
+
+      // 1. Database
+      const db = data.database || {};
+      const ping = db.ping_ms !== undefined ? db.ping_ms : -1;
+      const dbPingEl = document.getElementById('dbPing');
+      dbPingEl.innerText = ping >= 0 ? ping.toFixed(1) : 'Err';
+
+      const statusBadge = document.getElementById('dbStatusBadge');
+      if (db.status === 'ONLINE') {
+        statusBadge.className = 'badge badge-green';
+        statusBadge.innerText = '● ONLINE';
+        dbPingEl.style.color = ping < 50 ? '#34d399' : (ping < 200 ? '#fbbf24' : '#f87171');
+      } else if (db.status === 'DEGRADED') {
+        statusBadge.className = 'badge badge-yellow';
+        statusBadge.innerText = '● DEGRADED';
+        dbPingEl.style.color = '#fbbf24';
+      } else {
+        statusBadge.className = 'badge badge-red';
+        statusBadge.innerText = '● OFFLINE';
+        dbPingEl.style.color = '#f87171';
+      }
+
+      document.getElementById('dbEngineText').innerText = db.engine || 'PostgreSQL';
+      document.getElementById('dbPoolStatus').innerText = db.pool_status || 'NullPool (Cloud Active)';
+      document.getElementById('dbUrlMasked').innerText = db.db_url_masked || 'Configured';
+      if (db.checked_at) {
+        const d = new Date(db.checked_at);
+        document.getElementById('lastCheckedTime').innerText = d.toLocaleTimeString();
+      }
+
+      // Table counts
+      const counts = db.table_counts || {};
+      document.getElementById('countMovies').innerText = (counts.movies || 0).toLocaleString();
+      document.getElementById('countUsers').innerText = (counts.users || 0).toLocaleString();
+      document.getElementById('countDownloads').innerText = (counts.downloads || 0).toLocaleString();
+      document.getElementById('countExpenses').innerText = (counts.expenses || 0).toLocaleString();
+      document.getElementById('countCalories').innerText = (counts.calories || 0).toLocaleString();
+      document.getElementById('countMafia').innerText = (counts.mafia_games || 0).toLocaleString();
+      document.getElementById('totalRecordsSum').innerText = (counts.total_records || 0).toLocaleString();
+
+      // 2. Traffic Flow
+      const tr = data.traffic || {};
+      document.getElementById('flowRpm').innerText = tr.rpm !== undefined ? tr.rpm : 0;
+      document.getElementById('totalReqsCount').innerText = (tr.total_requests || 0).toLocaleString();
+      document.getElementById('successRate').innerText = (tr.success_rate || 100).toFixed(1) + '%';
+      document.getElementById('avgLatency').innerText = (tr.avg_latency_ms || 0).toFixed(1);
+      document.getElementById('p95Latency').innerText = (tr.p95_latency_ms || 0).toFixed(1);
+
+      // 3. Server
+      const srv = data.server || {};
+      document.getElementById('memUsage').innerText = (srv.memory_mb || 0).toFixed(1);
+      document.getElementById('uptimeStr').innerText = srv.uptime_str || '0s';
+      document.getElementById('serverRuntime').innerText = `Python ${srv.python_version || '3.12'}`;
+
+      // 4. Requests buffer
+      cachedRequests = data.recent_requests || [];
+      renderTable();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('streamTableBody');
+      const search = (document.getElementById('streamSearch').value || '').toLowerCase().trim();
+      const hidePolls = document.getElementById('hidePollsCheck').checked;
+
+      let filtered = cachedRequests.filter(item => {
+        // Hide telemetry polls filter
+        if (hidePolls && item.path && item.path.includes('/api/admin/flow')) {
+          return false;
+        }
+
+        // Method filter
+        if (currentMethodFilter !== 'ALL' && item.method !== currentMethodFilter) {
+          return false;
+        }
+
+        // Status filter
+        if (currentStatusFilter === '2XX' && !(item.status >= 200 && item.status < 300)) return false;
+        if (currentStatusFilter === '4XX' && !(item.status >= 400 && item.status < 500)) return false;
+        if (currentStatusFilter === '5XX' && item.status < 500) return false;
+
+        // Text search
+        if (search) {
+          const hay = `${item.path} ${item.method} ${item.status} ${item.client_ip} ${item.user_agent}`.toLowerCase();
+          if (!hay.includes(search)) return false;
+        }
+
+        return true;
+      });
+
+      if (!filtered.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7" class="empty-state">
+              <div class="empty-state-icon">🔍</div>
+              <div>Hech qanday mos keluvchi so'rov topilmadi</div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(req => {
+        // Method badge
+        let mBadge = 'badge-cyan';
+        if (req.method === 'POST') mBadge = 'badge-purple';
+        else if (req.method === 'OPTIONS') mBadge = 'badge-yellow';
+
+        // Status badge
+        let sBadge = 'badge-green';
+        if (req.status === 304) sBadge = 'badge-cyan';
+        else if (req.status >= 400 && req.status < 500) sBadge = 'badge-yellow';
+        else if (req.status >= 500) sBadge = 'badge-red';
+
+        // Latency badge
+        const lat = req.duration_ms || 0;
+        let lColor = '#34d399';
+        if (lat > 200) lColor = '#f87171';
+        else if (lat > 50) lColor = '#fbbf24';
+
+        html += `
+          <tr>
+            <td class="req-time">${escapeHtml(req.time_str || '')}</td>
+            <td><span class="badge ${mBadge}">${escapeHtml(req.method || 'GET')}</span></td>
+            <td><span class="badge ${sBadge}">${req.status}</span></td>
+            <td class="req-path" title="${escapeHtml(req.path || '/')}">${escapeHtml(req.path || '/')}</td>
+            <td style="color: ${lColor}; font-family: var(--font-mono); font-weight: 700;">${lat.toFixed(1)} ms</td>
+            <td class="req-ip">${escapeHtml(req.client_ip || '-')}</td>
+            <td class="req-ua" title="${escapeHtml(req.user_agent || '-')}">${escapeHtml(req.user_agent || '-')}</td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+    }
+
+    async function runDbBenchmark() {
+      const btn = document.getElementById('btnBenchmark');
+      const badge = document.getElementById('benchmarkResult');
+      btn.disabled = true;
+      btn.innerText = '⏳ Test olinmoqda...';
+      badge.className = 'badge badge-yellow';
+      badge.innerText = 'Bajarilmoqda...';
+
+      try {
+        const t0 = performance.now();
+        const res = await fetch('/api/admin/flow/benchmark', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' }
+        });
+        const roundTrip = Math.round(performance.now() - t0);
+        const data = await res.json();
+
+        if (data.ok) {
+          const dbPing = data.ping_ms !== undefined ? data.ping_ms.toFixed(1) : roundTrip;
+          badge.className = 'badge badge-green';
+          badge.innerText = `Ping: ${dbPing} ms (RT: ${roundTrip}ms)`;
+          showToast(`Ma'lumotlar bazasi tezkorligi a'lo darajada: ${dbPing} ms`);
+        } else {
+          badge.className = 'badge badge-red';
+          badge.innerText = 'DB Xato';
+          showToast('DB xatoligi: ' + (data.error || 'Noma\\'lum'), false);
+        }
+      } catch (e) {
+        badge.className = 'badge badge-red';
+        badge.innerText = 'Ulanish xatosi';
+        showToast('So\\'rov yuborishda xatolik: ' + e.message, false);
+      } finally {
+        btn.disabled = false;
+        btn.innerText = '⚡ Test DB Query (Benchmark)';
+        fetchTelemetry();
+      }
+    }
+
+    async function clearLogs() {
+      if (!confirm("Haqiqatdan ham so'rovlar buferini tozalamoqchimisiz?")) return;
+      try {
+        await fetch('/api/admin/flow/clear', { method: 'POST' });
+        cachedRequests = [];
+        renderTable();
+        showToast("So'rovlar jurnali tozalandi");
+      } catch (e) {
+        showToast('Tozalashda xatolik: ' + e.message, false);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Initial fetch and start interval
+    fetchTelemetry();
+    timerId = setInterval(fetchTelemetry, pollIntervalMs);
+  </script>
+</body>
+</html>
+"""

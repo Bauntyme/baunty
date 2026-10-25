@@ -339,6 +339,12 @@ def music_results_keyboard(
 def admin_dashboard_keyboard() -> InlineKeyboardMarkup:
     """Admin boshqaruv paneli inline klaviaturasi."""
     builder = InlineKeyboardBuilder()
+    app_url = config.webapp_url_resolved
+    flow_url = f"{app_url}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty.onrender.com/admin/flow"
+    from aiogram.types import WebAppInfo
+    builder.row(
+        InlineKeyboardButton(text="⚡ Live Flow & DB Monitor", web_app=WebAppInfo(url=flow_url)),
+    )
     builder.row(
         InlineKeyboardButton(text="📊 To'liq statistika", callback_data="admin:stats"),
         InlineKeyboardButton(text="🎬 Kinolar boshqaruvi", callback_data="admin:movies"),
