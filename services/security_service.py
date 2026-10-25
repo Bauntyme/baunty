@@ -413,12 +413,18 @@ def is_malicious_request(
     if is_recon:
         return True, recon_threat
 
-    # 2. User-Agent tekshiruvi
+    # 2. User-Agent va Health/Ping tekshiruvi (UptimeRobot va Render healthcheck oq ro'yxatda)
     ua_raw = user_agent or ""
     ua_clean = ua_raw.strip().lower()
 
+    if "uptimerobot" in ua_clean or "uptime" in ua_clean or clean_path in (
+        "/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status",
+        "/", "", "/webapp", "webapp", "/webapp/", "/favicon.ico", "favicon.ico"
+    ):
+        return False, None
+
     if not ua_clean:
-        if clean_path not in ("/health", "health") and not is_test:
+        if clean_path not in ("/health", "health", "/ping", "ping", "/healthz", "healthz", "/", "", "/webapp", "webapp") and not is_test:
             return True, "empty_user_agent"
     else:
         # Taniqli tajovuzkor skanerlar va avtomatlashtirilgan exploit agentlarini tekshirish
@@ -758,9 +764,9 @@ class SlidingWindowRateLimiter:
     def is_allowed(self, client_ip: str, path: str = "", user_id: Optional[int] = None) -> Tuple[bool, Optional[int]]:
         now = time.monotonic()
 
-        # 1. /health va render ichki cheklari har doim oq ro'yxatda
+        # 1. /health, /ping va render ichki cheklari har doim oq ro'yxatda
         clean_path = path.lower().split("?")[0].rstrip("/")
-        if clean_path in ("/health", "health"):
+        if clean_path in ("/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status"):
             return True, None
 
         # 2. Localhost / Trusted proxy / TestClient uchun testlarda yengillik
@@ -1066,8 +1072,26 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
 
     path = request.path
 
-    # 2. Render.com health check - tezkor va to'siqsiz o'tkazish
-    if path in ("/health", "/health/"):
+    # 2. Render.com va UptimeRobot health check - tezkor va to'siqsiz o'tkazish
+    ua = (request.headers.get("User-Agent") or "").lower()
+    is_health_or_ping = (
+        path in (
+            "/health", "/health/", "/ping", "/ping/",
+            "/healthz", "/healthz/", "/status", "/status/",
+            "/favicon.ico", "/webapp/favicon.ico"
+        ) or (
+            path in ("/", "", "/webapp", "/webapp/", "/webapp/index.html", "/index.html")
+            and request.method in ("GET", "HEAD")
+            and ("uptimerobot" in ua or "uptime" in ua or not ua or "bot" in ua or "monitor" in ua or "ping" in ua)
+        )
+    )
+    is_uptimerobot = "uptimerobot" in ua or "uptime" in ua
+
+    if is_health_or_ping or is_uptimerobot:
+        # Agar UptimeRobot IP manzili adashib jail ga olingan bo'lsa, avtomatik ravishda unban qilinadi
+        client_ip = extract_client_ip(request)
+        if client_ip:
+            security_service.unban_ip(client_ip)
         resp = await handler(request)
         for k, v in sec_headers.items():
             if k not in resp.headers:

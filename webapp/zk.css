@@ -22,7 +22,7 @@ img{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 /* Splash paytida header va sahifa kontenti 100% yashiriladi */
 body.splashing > .top, body.splashing > main,
 body.zk:has(#zksplash:not(.out)) > .top, body.zk:has(#zksplash:not(.out)) > main{display:none!important}
-body.zk>.top{position:sticky;top:0;z-index:999;transition:opacity .3s ease}
+body.zk>.top{position:sticky;top:0;z-index:999;transition:opacity .3s ease;flex-shrink:0!important;box-sizing:border-box!important;width:100%!important}
 body.zk:has(#det.open)>.top,body.zk:has(#tvp.open)>.top,body.zk:has(#zkslot.on)>.top,
 body.det-open>.top,body.tvp-open>.top,body.slot-open>.top{display:none!important}
 body.zk>main{position:relative;z-index:2}
@@ -93,7 +93,7 @@ body.zk>main{position:relative;z-index:2}
 
 /* ================================================================== 🎬 KINO (asosiy oyna) */
 .zk>.top{background:linear-gradient(rgba(7,11,31,.78),rgba(7,11,31,.5));-webkit-backdrop-filter:var(--zk-blur);backdrop-filter:var(--zk-blur);
-  box-shadow:0 1px 0 var(--zk-line);padding:12px 16px 10px}
+  box-shadow:0 1px 0 var(--zk-line);padding:12px 16px 10px;padding-top:max(12px,env(safe-area-inset-top,12px))!important;flex-shrink:0!important;box-sizing:border-box!important;width:100%!important}
 .zk .brand > div:first-child{overflow:visible;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 
 .zk .brand small{color:var(--zk-mute);font-weight:600;margin-top:8px}
@@ -681,7 +681,10 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   align-items: center !important;
   gap: 10px !important;
   padding: 8px 14px !important;
+  padding-top: max(8px, env(safe-area-inset-top, 8px)) !important;
   box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
   background: var(--zk-nav-bg, rgba(14, 15, 19, 0.88)) !important;
   backdrop-filter: blur(14px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(180%) !important;
@@ -715,7 +718,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   background: rgba(255, 255, 255, 0.14) !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(h1, h2, h3, .tl, .title, .tvr-title, .bx-ttl, .sx-ttl, .dx-ttl, .pv-ttl, .gx-ttl, .qz-ttl, .rx-ttl, .kl-ttl, .mf-ttl, .m-ttl, .tt, .rx-tt, .kl-head-title, .qz-head-title, b) {
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(h1, h2, h3, .tl, .title, .tvr-title, .bx-ttl, .sx-ttl, .dx-ttl, .pv-ttl, .gx-ttl, .qz-ttl, .rx-ttl, .kl-ttl, .mf-ttl, .m-ttl, b):not(.kl-head-title):not(.qz-head-title):not(.rx-tt):not(.mf-tt):not(.mf-head-title):not(.tt):not(.tvr-h-left):not(.tvr-h-info):not(.tvr-h-right) {
   font-size: 16px !important;
   font-weight: 700 !important;
   color: var(--text, #f2f3f5) !important;
@@ -726,5 +729,87 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   text-overflow: ellipsis !important;
   flex: 1 1 auto !important;
   letter-spacing: -0.2px !important;
+}
+
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .tt, .tvr-h-info) {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  white-space: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .tt, .tvr-h-info) > :is(b, span, strong) {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--text, #f2f3f5) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .tt, .tvr-h-info) > small {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: var(--hint, rgba(246, 238, 220, 0.64)) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  margin-top: 1px !important;
+  line-height: 1.2 !important;
+}
+
+/* TV Room sarlavhasi va tugmalari siqilmasligi uchun */
+.tvr-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  width: 100% !important;
+}
+.tvr-h-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+.tvr-h-info {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  min-width: 0 !important;
+}
+.tvr-h-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: var(--text, #f2f3f5) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.tvr-h-sub {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: var(--hint, rgba(246, 238, 220, 0.64)) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+.tvr-h-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-shrink: 0 !important;
+}
+
+/* Bo'limlar (Hub) tugmasi sarlavhani siqmasdan chetda turishi */
+.zk-hubbtn {
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
 }
 

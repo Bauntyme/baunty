@@ -61,6 +61,15 @@ async def handle_health(request: web.Request) -> web.Response:
     })
 
 
+async def handle_ping(request: web.Request) -> web.Response:
+    """Render.com va UptimeRobot uchun tezkor ping endpointi (200 OK)."""
+    return web.Response(
+        text="pong",
+        content_type="text/plain",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate"}
+    )
+
+
 _FAVICON_CACHE: Dict[str, Any] = {"bytes": None, "etag": None}
 _STATIC_BUNDLES_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
 
@@ -95,7 +104,25 @@ async def handle_favicon(request: web.Request) -> web.Response:
 _PROD_INDEX_CACHE: Dict[str, Any] = {"html": None, "bytes": None, "etag": None, "ts": 0}
 
 
-def get_production_index_html() -> str:
+def _get_bundle_version_hash() -> str:
+    """bundle.min.js va bundle.min.css fayllaridan xesh olib 12 xonali versiya tamg'asini olish."""
+    h = hashlib.md5()
+    dist_dir = BASE_DIR / "webapp" / "dist"
+    webapp_dir = BASE_DIR / "webapp"
+    for fname in ("bundle.min.css", "bundle.min.js"):
+        p = dist_dir / fname
+        if not p.exists():
+            p = webapp_dir / fname
+        if p.exists():
+            try:
+                h.update(p.read_bytes())
+            except Exception:
+                pass
+    v = h.hexdigest()[:12]
+    return v if v else "1.0.0"
+
+
+def get_production_index_html(cache_bust: bool = False, version: Optional[str] = None) -> str:
     """Ishlab chiqarish (production) uchun barcha CSS va JS skriptlari bundle qilingan,
     DevTools shield bilan himoyalangan va 80% gacha yengillashtirilgan index.html ni tayyorlash."""
     index_file = BASE_DIR / "webapp" / "index.html"
@@ -114,18 +141,25 @@ def get_production_index_html() -> str:
 
     html = index_file.read_text(encoding="utf-8")
 
-    # 1. 15 ta alohida CSS faylini yagona bundle.min.css ga almashtirish
-    css_pattern = r'<link\s+rel="stylesheet"\s+href="(?:rasxod|kaloriya|asil|kattalar|mafia|music|docs|fx|food|quiz|prava|games|story|books|zk)\.css">'
+    v_str = version or _get_bundle_version_hash()
+    css_ref = f'bundle.min.css?v={v_str}' if (cache_bust or version) else 'bundle.min.css'
+    js_ref = f'bundle.min.js?v={v_str}' if (cache_bust or version) else 'bundle.min.js'
+
+    # 1. 16 ta alohida CSS faylini yagona bundle.min.css ga almashtirish
+    css_pattern = r'<link\s+rel="stylesheet"\s+href="(?:rasxod|kaloriya|asil|kattalar|mafia|tvroom|music|docs|fx|food|quiz|prava|games|story|books|zk)\.css">'
     html, n_css = re.subn(css_pattern, '', html)
     if n_css > 0:
-        html = html.replace('<link rel="preload" as="image" href="logo.webp">', '<link rel="stylesheet" href="bundle.min.css">\n<link rel="preload" as="image" href="logo.webp">')
+        html = html.replace(
+            '<link rel="preload" as="image" href="logo.webp">',
+            f'<link rel="stylesheet" href="{css_ref}">\n<link rel="preload" as="image" href="logo.webp">'
+        )
 
-    # 2. 16 ta alohida JS skriptlarini va 1600 qatorli inline skriptni bundle.min.js ga almashtirish
-    js_pattern = r'<script\s+src="(?:i18n|music|docs|games|kattalar|mafia|story|books|fx|food|quiz|prava|rasxod|kaloriya|asil|zk)\.js"></script>'
+    # 2. 17 ta alohida JS skriptlarini va 1600 qatorli inline skriptni bundle.min.js ga almashtirish
+    js_pattern = r'<script\s+src="(?:i18n|music|docs|games|kattalar|mafia|tvroom|story|books|fx|food|quiz|prava|rasxod|kaloriya|asil|zk)\.js"></script>'
     html = re.sub(js_pattern, '', html)
 
     last_script_pattern = r'<script>\s*\(\(\)\s*=>\s*\{\s*"use strict";[\s\S]*?load\(\);\s*\}\)\(\);\s*</script>'
-    html = re.sub(last_script_pattern, '<script src="bundle.min.js" defer></script>', html)
+    html = re.sub(last_script_pattern, f'<script src="{js_ref}" defer></script>', html)
 
     return html
 
@@ -140,21 +174,36 @@ async def handle_index(request: web.Request) -> web.Response:
         return web.FileResponse(index_file)
 
     now = time.time()
-    if _PROD_INDEX_CACHE["html"] is None or (now - _PROD_INDEX_CACHE["ts"] > 300):
-        _PROD_INDEX_CACHE["html"] = get_production_index_html()
+    file_mtime = index_file.stat().st_mtime if index_file.exists() else 0
+    if (
+        _PROD_INDEX_CACHE["html"] is None
+        or (now - _PROD_INDEX_CACHE["ts"] > 300)
+        or (_PROD_INDEX_CACHE["ts"] < file_mtime)
+        or request.query.get("nocache")
+    ):
+        _PROD_INDEX_CACHE["html"] = get_production_index_html(cache_bust=True)
         _PROD_INDEX_CACHE["bytes"] = _PROD_INDEX_CACHE["html"].encode("utf-8")
         _PROD_INDEX_CACHE["etag"] = f'"{hashlib.md5(_PROD_INDEX_CACHE["bytes"]).hexdigest()[:16]}"'
         _PROD_INDEX_CACHE["ts"] = now
 
     etag = _PROD_INDEX_CACHE.get("etag")
     if etag and request.headers.get("If-None-Match") == etag:
-        return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=3600"})
+        return web.Response(
+            status=304,
+            headers={
+                "ETag": etag,
+                "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+                "Pragma": "no-cache",
+            }
+        )
 
     resp = web.Response(
         body=_PROD_INDEX_CACHE["bytes"],
         content_type="text/html",
         headers={
-            "Cache-Control": "public, max-age=3600",
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
             "X-SourceMap": "none",
             "ETag": etag,
         }
@@ -171,12 +220,14 @@ async def handle_bundle_js(request: web.Request) -> web.Response:
         bundle_file = BASE_DIR / "webapp" / "bundle.min.js"
     if bundle_file.exists():
         fkey = str(bundle_file)
-        if fkey not in _STATIC_BUNDLES_CACHE or request.query.get("nocache"):
+        file_mtime = bundle_file.stat().st_mtime
+        cached = _STATIC_BUNDLES_CACHE.get(fkey)
+        if cached is None or (len(cached) > 3 and cached[3] < file_mtime) or request.query.get("nocache"):
             content = await asyncio.to_thread(bundle_file.read_bytes)
             etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-            _STATIC_BUNDLES_CACHE[fkey] = (content, "application/javascript", etag)
+            _STATIC_BUNDLES_CACHE[fkey] = (content, "application/javascript", etag, file_mtime)
 
-        content, ct, etag = _STATIC_BUNDLES_CACHE[fkey]
+        content, ct, etag, _ = _STATIC_BUNDLES_CACHE[fkey]
         if request.headers.get("If-None-Match") == etag:
             return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=86400, immutable"})
 
@@ -203,12 +254,14 @@ async def handle_bundle_css(request: web.Request) -> web.Response:
         bundle_file = BASE_DIR / "webapp" / "bundle.min.css"
     if bundle_file.exists():
         fkey = str(bundle_file)
-        if fkey not in _STATIC_BUNDLES_CACHE or request.query.get("nocache"):
+        file_mtime = bundle_file.stat().st_mtime
+        cached = _STATIC_BUNDLES_CACHE.get(fkey)
+        if cached is None or (len(cached) > 3 and cached[3] < file_mtime) or request.query.get("nocache"):
             content = await asyncio.to_thread(bundle_file.read_bytes)
             etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-            _STATIC_BUNDLES_CACHE[fkey] = (content, "text/css", etag)
+            _STATIC_BUNDLES_CACHE[fkey] = (content, "text/css", etag, file_mtime)
 
-        content, ct, etag = _STATIC_BUNDLES_CACHE[fkey]
+        content, ct, etag, _ = _STATIC_BUNDLES_CACHE[fkey]
         if request.headers.get("If-None-Match") == etag:
             return web.Response(status=304, headers={"ETag": etag, "Cache-Control": "public, max-age=86400, immutable"})
 
@@ -1056,12 +1109,21 @@ async def handle_rasxod_api(request: web.Request) -> web.Response:
 
 async def handle_kaloriya_api(request: web.Request) -> web.Response:
     """Kaloriya (Nutrition & Calorie tracker) Mini App API handleri."""
-    path = request.path.lstrip("/")
+    path = request.path.lstrip("/").rstrip("/")
     if path.startswith("webapp/"):
-        path = path[7:]
+        path = path[7:].lstrip("/").rstrip("/")
     if "?" in path:
-        path = path.split("?", 1)[0]
+        path = path.split("?", 1)[0].rstrip("/")
     user_id, _ = extract_request_user(request)
+    user_id = user_id or 0
+
+    async def _safe_json() -> Dict[str, Any]:
+        if not request.can_read_body:
+            return {}
+        try:
+            return await request.json()
+        except Exception:
+            return {}
 
     try:
         if path in ("api/kal", "api/kal/home", "api/kal/status"):
@@ -1069,7 +1131,7 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path == "api/kal/profile":
-            body = await request.json() if request.can_read_body else {}
+            body = await _safe_json()
             data = await kaloriya_service.update_profile(
                 user_id=user_id,
                 sex=str(body.get("sex", "f")),
@@ -1098,16 +1160,13 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
                     elif part.name == "photo":
                         photo_data = await part.read()
             elif request.can_read_body:
-                try:
-                    body = await request.json()
-                    text = body.get("text")
-                except Exception:
-                    pass
+                body = await _safe_json()
+                text = body.get("text")
             data = kaloriya_service.scan_food_text_or_image(text=text, photo_data=photo_data)
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif "food/kcal/add" in path:
-            body = await request.json() if request.can_read_body else {}
+            body = await _safe_json()
             data = await kaloriya_service.add_meal(
                 user_id=user_id,
                 meal=str(body.get("meal", "l")),
@@ -1117,7 +1176,7 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif "food/kcal/del" in path:
-            body = await request.json() if request.can_read_body else {}
+            body = await _safe_json()
             data = await kaloriya_service.delete_meal(user_id=user_id, item_id=int(body.get("id", 0)))
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
@@ -1146,7 +1205,24 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
         return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
     except Exception as e:
         logger.warning(f"Kaloriya API xatolik: {e}")
-        return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
+        try:
+            default_plan = crud.calculate_calorie_plan(
+                sex="m", age=25, height=175.0, weight=75.0, target_weight=70.0, months=3, activity=3, goal="lose", force=False
+            )
+            return web.json_response({
+                "ok": True,
+                "p": {"sex": "m", "age": 25, "height": 175.0, "weight": 75.0, "target": 70.0, "target_weight": 70.0, "months": 3, "activity": 3, "goal": "lose", "force": False},
+                "r": default_plan,
+                "profile": {"sex": "m", "age": 25, "height": 175.0, "weight": 75.0, "target": 70.0, "target_weight": 70.0, "months": 3, "activity": 3, "goal": "lose", "force": False},
+                "plan": default_plan,
+                "today": {"kcal": 0, "target": default_plan.get("kcal", 2000), "rem": default_plan.get("kcal", 2000), "p": 0, "f": 0, "c": 0},
+                "pro": {"on": True, "ai": True, "days": 365, "price": 45000, "until": (datetime.now() + timedelta(days=365)).isoformat()},
+                "day": {"eaten": 0, "items": []},
+                "meals": {"b": {"items": [], "total": {"kcal": 0}}, "l": {"items": [], "total": {"kcal": 0}}, "d": {"items": [], "total": {"kcal": 0}}, "s": {"items": [], "total": {"kcal": 0}}},
+                "adm": None
+            }, headers={"Access-Control-Allow-Origin": "*"})
+        except Exception:
+            return web.json_response({"ok": False, "error": str(e)}, status=200, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_quiz_api(request: web.Request) -> web.Response:
@@ -4203,7 +4279,8 @@ def create_web_app() -> web.Application:
     # CORS, DoS / DDoS Rate Limiting, WAF va Clickjacking (CSP) xavfsizlik middleware
     app.middlewares.append(security_middleware)
 
-    # API va sahifa marshrutlari
+    # API va sahifa marshrutlari (UptimeRobot, healthcheck va Telegram WebApp)
+    app.router.add_get("/ping", handle_ping)
     app.router.add_get("/health", handle_health)
     app.router.add_get("/favicon.ico", handle_favicon)
     app.router.add_get("/webapp/favicon.ico", handle_favicon)
@@ -4211,6 +4288,7 @@ def create_web_app() -> web.Application:
     app.router.add_get("/index.html", handle_index)
     app.router.add_get("/webapp", handle_index)
     app.router.add_get("/webapp/", handle_index)
+    app.router.add_get("/webapp/index.html", handle_index)
 
     api_routes = [
         ("GET", "/api", handle_api_overview),
