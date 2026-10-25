@@ -70,6 +70,80 @@ body.zk>main{position:relative;z-index:2}
 .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button.on{color:var(--zk-ink)!important;background:var(--zk-acc)!important;box-shadow:0 4px 14px rgba(242,184,75,.4)!important}
 .zk :is(#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg,.mf-seg,.rx-seg,.kl-seg) button:not(.zk-hubbtn)::before{content:"";width:16px;height:16px;flex:none;background:currentColor;
   -webkit-mask:var(--zk-ic) center/contain no-repeat;mask:var(--zk-ic) center/contain no-repeat}
+.zk-hubbtn{flex:none!important;height:38px!important;padding:0 14px!important;border-radius:999px!important;font:800 13px var(--zk-fb, sans-serif)!important;color:#2A1500!important;background:linear-gradient(135deg,#F2B84B,#FFA500)!important;box-shadow:0 4px 14px rgba(242,184,75,.45)!important;display:inline-flex!important;align-items:center!important;gap:6px!important;cursor:pointer!important;white-space:nowrap!important;transition:background .2s,transform .15s!important;border:none!important;text-decoration:none!important;-webkit-tap-highlight-color:transparent!important}
+.zk-hubbtn:active{transform:scale(.95)!important}
+.zk-hubbtn::before{display:none!important}
+.zk-hubbtn svg{width:16px!important;height:16px!important;flex:none!important;color:#2A1500!important;display:block!important}
+
+/* ---------- 🌟 Umumiy Glassmorphism Sarlavhalar (Header) barcha bo'limlar uchun ---------- */
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean){
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  min-height: 52px !important;
+  margin-bottom: 14px !important;
+  padding: 8px 14px !important;
+  background: rgba(14, 19, 48, 0.75) !important;
+  border: 1px solid rgba(246, 238, 220, 0.14) !important;
+  border-radius: 18px !important;
+  backdrop-filter: blur(20px) saturate(1.3) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.3) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  position: relative !important;
+  z-index: 10 !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) :is(.pv-back, .qz-back, .fd-back, .fx-back, .dx-ib, .bx-back, .gx-back, .sx-back, .mf-back, .rx-back, .kl-back){
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 12px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: rgba(246, 238, 220, 0.08) !important;
+  box-shadow: inset 0 0 0 1px rgba(246, 238, 220, 0.14) !important;
+  color: var(--zk-cream, #F6EEDC) !important;
+  flex: none !important;
+  cursor: pointer !important;
+  border: 0 !important;
+  transition: transform 0.15s, background 0.15s !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) :is(.pv-back, .qz-back, .fd-back, .fx-back, .dx-ib, .bx-back, .gx-back, .sx-back, .mf-back, .rx-back, .kl-back):active{
+  transform: scale(.93) !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) :is(.pv-back, .qz-back, .fd-back, .fx-back, .dx-ib, .bx-back, .gx-back, .sx-back, .mf-back, .rx-back, .kl-back) svg{
+  width: 18px !important;
+  height: 18px !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) :is(.pv-head-title, .qz-head-title, .fd-head-title, .fx-head-title, .dx-head-title, .bx-head-title, .gx-head-title, .sx-head-title, .mf-tt, .rx-tt, .kl-head-title){
+  flex: 1 !important;
+  min-width: 0 !important;
+  text-align: left !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) :is(.pv-head-title, .qz-head-title, .fd-head-title, .fx-head-title, .dx-head-title, .bx-head-title, .gx-head-title, .sx-head-title, .mf-tt, .rx-tt, .kl-head-title) b{
+  display: block !important;
+  font: 800 16.5px/1.2 var(--zk-fd, -apple-system, sans-serif) !important;
+  color: var(--zk-cream, #F6EEDC) !important;
+  letter-spacing: -.01em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) :is(.pv-head-title, .qz-head-title, .fd-head-title, .fx-head-title, .dx-head-title, .bx-head-title, .gx-head-title, .sx-head-title, .mf-tt, .rx-tt, .kl-head-title) small{
+  display: block !important;
+  font: 600 12px var(--zk-fb, sans-serif) !important;
+  color: var(--zk-mute, rgba(246, 238, 220, 0.65)) !important;
+  margin-top: 2px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+:is(.pv-head-clean, .qz-head-clean, .fd-head-clean, .fx-head-clean, .dx-head-clean, .bx-head-clean, .gx-head-clean, .sx-head-clean, .mf-head-clean, .rx-head-clean, .kl-head-clean) .zk-hubbtn{
+  flex: none !important;
+  margin-left: auto !important;
+}
+
 .zk .zk-hubbtn{flex:none;position:sticky!important;left:0;z-index:5!important;height:38px;padding:0 14px;border-radius:999px!important;font:800 13px var(--zk-fb);color:#2A1500!important;background:#F2B84B!important;box-shadow:0 4px 14px rgba(242,184,75,.4)!important;display:inline-flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;transition:background .2s,transform .15s}
 .zk .zk-hubbtn:active{transform:scale(.96)}
 .zk .zk-hubbtn::before{display:none!important}
@@ -675,7 +749,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
    Ensures consistent 52px height, 38px back button, clean glassmorphism,
    and proper text ellipsis so no sub-page looks awkward or broken.
    ========================================================================= */
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) {
   min-height: 52px !important;
   display: flex !important;
   align-items: center !important;
@@ -692,7 +766,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   z-index: 40 !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) :is(.bk, .bkb, .tvr-back, .tvr-btn-leave, .bx-ib, .bx-bk, .sx-ib, .sx-bk, .dx-ib, .dx-bk, .pv-back, .pv-bk, .gx-back, .gx-bk, .qz-back, .qz-bk, .rx-back, .rx-bk, .kl-back, .kl-bk, .mf-back, .mf-bk, .fd-back, .fd-bk, .fx-back, .fx-bk, button.tvr-btn-back, .m-ib, .m-bk) {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) :is(.bk, .bkb, .tvr-back, .tvr-btn-leave, .bx-ib, .bx-bk, .bx-back, .sx-ib, .sx-bk, .sx-back, .dx-ib, .dx-bk, .dx-back, .pv-back, .pv-bk, .gx-back, .gx-bk, .qz-back, .qz-bk, .rx-back, .rx-bk, .kl-back, .kl-bk, .mf-back, .mf-bk, .fd-back, .fd-bk, .fx-back, .fx-bk, button.tvr-btn-back, .m-ib, .m-bk, .m-back) {
   width: 38px !important;
   height: 38px !important;
   min-width: 38px !important;
@@ -713,12 +787,12 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   flex-shrink: 0 !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) :is(.bk, .bkb, .tvr-back, .bx-ib, .bx-bk, .sx-ib, .sx-bk, .dx-ib, .dx-bk, .pv-back, .pv-bk, .gx-back, .gx-bk, .qz-back, .qz-bk, .rx-back, .rx-bk, .kl-back, .kl-bk, .mf-back, .mf-bk, .fd-back, .fd-bk, .fx-back, .fx-bk, button.tvr-btn-back, .m-ib, .m-bk):active {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) :is(.bk, .bkb, .tvr-back, .bx-ib, .bx-bk, .bx-back, .sx-ib, .sx-bk, .sx-back, .dx-ib, .dx-bk, .dx-back, .pv-back, .pv-bk, .gx-back, .gx-bk, .qz-back, .qz-bk, .rx-back, .rx-bk, .kl-back, .kl-bk, .mf-back, .mf-bk, .fd-back, .fd-bk, .fx-back, .fx-bk, button.tvr-btn-back, .m-ib, .m-bk, .m-back):active {
   transform: scale(0.92) !important;
   background: rgba(255, 255, 255, 0.14) !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(h1, h2, h3, .tl, .title, .tvr-title, .bx-ttl, .sx-ttl, .dx-ttl, .pv-ttl, .gx-ttl, .qz-ttl, .rx-ttl, .kl-ttl, .mf-ttl, .m-ttl, b):not(.kl-head-title):not(.qz-head-title):not(.rx-tt):not(.mf-tt):not(.mf-head-title):not(.tt):not(.tvr-h-left):not(.tvr-h-info):not(.tvr-h-right) {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) > :is(h1, h2, h3, .tl, .title, .tvr-title, .bx-ttl, .sx-ttl, .dx-ttl, .pv-ttl, .gx-ttl, .qz-ttl, .rx-ttl, .kl-ttl, .mf-ttl, .m-ttl, b):not(.kl-head-title):not(.qz-head-title):not(.rx-tt):not(.mf-tt):not(.mf-head-title):not(.pv-head-title):not(.fd-head-title):not(.fx-head-title):not(.dx-head-title):not(.bx-head-title):not(.sx-head-title):not(.gx-head-title):not(.m-head-title):not(.tt):not(.tvr-h-left):not(.tvr-h-info):not(.tvr-h-right) {
   font-size: 16px !important;
   font-weight: 700 !important;
   color: var(--text, #f2f3f5) !important;
@@ -731,7 +805,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   letter-spacing: -0.2px !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .tt, .tvr-h-info) {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .pv-head-title, .fd-head-title, .fx-head-title, .dx-head-title, .bx-head-title, .sx-head-title, .gx-head-title, .m-head-title, .tt, .tvr-h-info) {
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
@@ -742,7 +816,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   padding: 0 !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .tt, .tvr-h-info) > :is(b, span, strong) {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .pv-head-title, .fd-head-title, .fx-head-title, .dx-head-title, .bx-head-title, .sx-head-title, .gx-head-title, .m-head-title, .tt, .tvr-h-info) > :is(b, span, strong) {
   font-size: 16px !important;
   font-weight: 700 !important;
   color: var(--text, #f2f3f5) !important;
@@ -753,7 +827,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   margin: 0 !important;
 }
 
-:is(.tvr-head, .bx-top, .sx-top, .dx-bar, .pv-head, .gx-bar, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fx-top, .m-bar) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .tt, .tvr-h-info) > small {
+:is(.tvr-head, .bx-top, .bx-head-clean, .sx-top, .sx-head-clean, .dx-bar, .dx-head-clean, .pv-head, .pv-head-clean, .gx-bar, .gx-head-clean, .qz-top, .qz-head-clean, .rx-head, .rx-head-clean, .kl-head, .kl-head-clean, .mf-top, .mf-head-clean, .fd-top, .fd-head-clean, .fx-top, .fx-head-clean, .m-bar, .m-head-clean) > :is(.rx-tt, .kl-head-title, .qz-head-title, .mf-tt, .mf-head-title, .pv-head-title, .fd-head-title, .fx-head-title, .dx-head-title, .bx-head-title, .sx-head-title, .gx-head-title, .m-head-title, .tt, .tvr-h-info) > small {
   font-size: 11.5px !important;
   font-weight: 500 !important;
   color: var(--hint, rgba(246, 238, 220, 0.64)) !important;

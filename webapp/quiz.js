@@ -52,7 +52,7 @@ function stopLoops() { clearTimeout(poll); poll = null; clearInterval(tick); tic
 function viewHome() {
   const tps = home ? home.topics : [];
   const d = daily;
-  return `${rootHead()}<div class="qz-bar">${segHtml()}</div>
+  return `${rootHead()}
   <h1 class="qz-hi">Bilimingizni sinang<span>Yakka o'ynang yoki do'stlaringiz, o'quvchilaringiz bilan bellashing</span></h1>
   <div class="qz-modes"><button class="md solo" data-act="solopick"><i>🎯</i><b>Yakka o'yin</b><small>10 savol · haftalik reyting</small></button>
     <button class="md room" data-act="setup"><i>👥</i><b>Xona ochish</b><small>Kod bilan chaqiring — cheksiz odam</small></button></div>

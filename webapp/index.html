@@ -905,7 +905,8 @@ $("dice").onclick = (e) => {
 $("chan").onclick = () => { if (!channel) return; inTg ? tg.openTelegramLink(channel) : window.open(channel); };
 
 // =================================================================== 📺 ONLAYN TV
-const CAT = {general: "📡 Umumiy", news: "📰 Yangiliklar", sports: "⚽ Sport", kids: "🧸 Bolalar", music: "🎵 Musiqa",
+const CAT = {ufc: "🥊 UFC & Jang", futbol: "⚽ Futbol & Sport", sport: "⚽ Barcha Sport", sports: "⚽ Barcha Sport",
+  general: "📡 Umumiy", news: "📰 Yangiliklar", kids: "🧸 Bolalar", music: "🎵 Musiqa",
   movies: "🎬 Kino", series: "📺 Seriallar", entertainment: "🎭 Ko'ngilochar", documentary: "🌍 Hujjatli",
   religious: "🕌 Diniy", education: "📚 Ta'lim", culture: "🏛 Madaniyat", family: "👨‍👩‍👧 Oilaviy", comedy: "😂 Komediya",
   animation: "🎞 Multfilm", cooking: "🍳 Taomlar", travel: "✈️ Sayohat", auto: "🚗 Avto", business: "💼 Biznes",
@@ -944,8 +945,13 @@ function tvChips() {
   $("chips").innerHTML = [["all", "Hammasi"], ...cc.map((c) => [c, FLAG[c] || c.toUpperCase()]), ["fav", "⭐ Sevimlilar"]]
     .map(([k, l]) => `<button class="chip${tvCountry === k ? " on" : ""}" data-t="${k}">${l}</button>`).join("");
   const cats = {};
-  tvItems.forEach((x) => { cats[x.k] = (cats[x.k] || 0) + 1; });
-  const keys = Object.keys(cats).filter((k) => cats[k] >= 2).sort((a, b) => cats[b] - cats[a]);
+  tvItems.forEach((x) => {
+    cats[x.k] = (cats[x.k] || 0) + 1;
+    if (x.categories) x.categories.forEach((catKey) => { cats[catKey] = (cats[catKey] || 0) + 1; });
+  });
+  const priority = ["ufc", "futbol"].filter((k) => cats[k]);
+  const otherKeys = Object.keys(cats).filter((k) => !priority.includes(k) && (CAT[k] || cats[k] >= 2)).sort((a, b) => (cats[b] || 0) - (cats[a] || 0));
+  const keys = [...priority, ...otherKeys];
   $("chips2").innerHTML = [["all", "Barcha janrlar"], ...keys.map((k) => [k, CAT[k] || k])]
     .map(([k, l]) => `<button class="chip s${tvCat === k ? " on" : ""}" data-t="${k}">${l}</button>`).join("");
 }
@@ -953,7 +959,9 @@ function tvFiltered() {
   let l = tvItems;
   if (tvCountry === "fav") l = l.filter((x) => tvFav.includes(x.i));
   else if (tvCountry !== "all") l = l.filter((x) => x.c === tvCountry);
-  if (tvCat !== "all") l = l.filter((x) => x.k === tvCat);
+  if (tvCat !== "all") {
+    l = l.filter((x) => x.k === tvCat || (x.categories && x.categories.includes(tvCat)) || (tvCat === "sport" && (x.k === "ufc" || x.k === "futbol" || x.k === "sport" || x.k === "sports" || (x.categories && (x.categories.includes("sport") || x.categories.includes("ufc") || x.categories.includes("futbol"))))));
+  }
   if (query) {
     const q = norm(query), words = q.split(" ").filter(Boolean);
     l = l.filter((x) => words.every((w) => x._k.includes(w)));
@@ -1000,7 +1008,15 @@ async function loadTV() {
     $("tvreload").onclick = () => loadTV();
     return;
   }
-  tvItems.forEach((x) => { x._k = norm(x.n); tvById.set(x.i, x); });
+  tvItems.forEach((x) => {
+    x._k = norm(x.n);
+    tvById.set(x.i, x);
+    tvById.set(String(x.i), x);
+    if (x.id != null) {
+      tvById.set(x.id, x);
+      tvById.set(String(x.id), x);
+    }
+  });
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
 const MODE_TO_PAGE = {
@@ -1021,7 +1037,9 @@ const MODE_TO_PAGE = {
   taomlar: "food",
   fx: "fx",
   kurs: "fx",
-  tv: "tv"
+  tv: "tv",
+  tvroom: "tvroom",
+  tvxona: "tvroom"
 };
 const PAGE_EMOJIS = {
   kino: "🎬",
@@ -1041,7 +1059,9 @@ const PAGE_EMOJIS = {
   taomlar: "🍲",
   fx: "💱",
   kurs: "💱",
-  tv: "📺"
+  tv: "📺",
+  tvroom: "📺",
+  tvxona: "📺"
 };
 
 function getMaintenanceFor(m) {
@@ -1077,6 +1097,7 @@ function setMode(m, force) {
   if (was === "rasxod" && window.ZRasxod) ZRasxod.close();
   if (was === "kal" && window.ZKal) ZKal.close();
   if (was === "mafia" && window.ZMafia) ZMafia.close();
+  if (was === "tvroom" && window.ZTvRoom) { try { ZTvRoom.close(); } catch (e) {} }
 
   const maint = getMaintenanceFor(m);
   if (maint) {
@@ -1109,6 +1130,7 @@ function setMode(m, force) {
   if (m === "rasxod") { if (window.ZRasxod) ZRasxod.open(); return; }
   if (m === "kal") { if (window.ZKal) ZKal.open(); return; }
   if (m === "mafia") { if (window.ZMafia) ZMafia.open(); return; }
+  if (m === "tvroom") { if (window.ZTvRoom) { try { ZTvRoom.open(); } catch (e) {} } return; }
   $("seg").querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
@@ -1133,8 +1155,10 @@ function setMode(m, force) {
 const KINO_CHIPS = $("chips").innerHTML;
 $("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
 window.ZK_setMode = setMode;
-window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
+window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZTvRoom && ZTvRoom.busy()) && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
+window.openTV = openTV;
+window.loadTV = loadTV;
 
 // ---------- pleyer ----------
 const vid = $("vid");
@@ -1246,14 +1270,15 @@ function attempt(url) {
             liveMaxLatencyDurationCount: 5,
             maxBufferLength: 20, // Low-latency fast buffer (legacy maxBufferLength: 45)
             maxMaxBufferLength: 45, // Fast buffer ceiling (legacy maxMaxBufferLength: 120)
-            maxBufferHole: 0.5,
+            maxBufferHole: 0.3,
+            maxFragLookUpTolerance: 0.25,
             maxBufferSize: 30 * 1024 * 1024,
             backBufferLength: 4,
             abrEwmaDefaultEstimate: _isSlow ? 1800000 : 2500000,
             testBandwidth: true,
             highBufferWatchdogPeriod: 1,
-            nudgeOffset: 0.1,
-            nudgeMaxRetry: 5,
+            nudgeOffset: 0.05,
+            nudgeMaxRetry: 8,
             manifestLoadingTimeOut: 5000,
             manifestLoadingMaxRetry: 4,
             levelLoadingTimeOut: 5000,
@@ -1314,11 +1339,11 @@ function attempt(url) {
               }
             } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
               try {
-                if (vid.currentTime > 0) vid.currentTime += 0.1;
-                if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
-                if (hls && hls.currentLevel !== -1) {
-                  hls.currentLevel = -1;
+                if (hls) {
+                  try { hls.startLoad(); } catch (err) {}
+                  if (hls.currentLevel !== -1) hls.currentLevel = -1;
                 }
+                if (vid.paused && !userStoppedVideo) vid.play().catch(() => {});
               } catch (e) {}
             }
           });
@@ -1822,6 +1847,16 @@ if (pipBtn) {
   };
 }
 document.addEventListener("click", (e) => {
+  const hb = e.target.closest && e.target.closest('[data-act="homeback"], [data-a="homeback"]');
+  if (hb) {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    return;
+  }
+  const hub = e.target.closest && e.target.closest('[data-act="hub"], [data-a="hub"]');
+  if (hub) {
+    if (window.ZHub && window.ZHub.open) window.ZHub.open();
+    return;
+  }
   const t = e.target.closest("[data-tv]");
   if (!t) return;
   const rawId = t.dataset.tv;
@@ -1936,6 +1971,15 @@ async function load() {
     if (roomParam && window.ZMafia) ZMafia.join(roomParam);
     return;
   }
+  if (document.querySelector('#seg [data-m="tvroom"]') && (/^(tvroom|tvxona|tvr_|tv_)/i.test(sp) || _search.has("tvroom") || _search.has("tvxona") || (_mParam === "tvroom"))) {
+    setMode("tvroom");
+    const m_tv = String(sp).match(/^(?:tvroom_|tvxona_|tvr_|tv_)([a-zA-Z0-9_]+)$/i);
+    const roomParam = _search.get("room") || (m_tv ? m_tv[1] : "");
+    if (roomParam && !["tvroom", "tvxona", "main"].includes(roomParam.toLowerCase()) && window.ZTvRoom) {
+      ZTvRoom.join(roomParam);
+    }
+    return;
+  }
   if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { if (window.ZHub) ZHub.ads(); return; }
   const code = +String(sp).replace(/\D/g, "");
   const aq = new URLSearchParams(location.search).get("asil");
@@ -2018,12 +2062,13 @@ const ZHub = (() => {
     quiz: ["Viktorina", "Do'stlar bilan", "🧠", "#7C6CFF,#3B2BA8"], prava: ["Prava", "1235 savol", "🚗", "#E8A51F,#7A5200"],
     food: ["Taomlar", "Bugun nima?", "🍲", "#FF6B4A,#A3251A"], fx: ["Kurs", "Dollar, rubl", "💱", "#22B07D,#0B5E44"],
     tv: ["TV", "Jonli efir", "📺", "#6650D8,#2C1F7A"],
+    tvroom: ["Tv Xona", "Do'stlar bilan TV", "📺", "#8B5CF6,#4C1D95"],
     mafia: ["Mafia", "Onlayn o'yin (3–20 kishi)", "🕵️", "#C21E2C,#1E1014"],
     rasxod: ["Rasxod", "Xarajatlar daftari", "💰", "#27AE60,#145A32"],
     kal: ["Kaloriya", "Kunlik kkal va vazn", "🥗", "#E67E22,#935116"],
   };
-  const NEW = new Set(["prava"]);
-  const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
+  const NEW = new Set(["prava", "tvroom"]);
+  const SEG = "#seg";
   let el = null, open_ = false, from = "", don = null, ad = null, page = "";
   const live = {}, liveAt = {};
   const lite = () => !!window.ZK_LITE;

@@ -15,10 +15,15 @@ body.m-np .fd{top:var(--zk-np)}
 .fd-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 #fdview{padding:12px 16px calc(28px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto}
 .fd[data-v="recipe"] #fdview{padding-top:0;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
-.fd-bar{display:flex;align-items:center;gap:8px}
-.fd-seg{display:inline-flex;max-width:100%;overflow-x:auto;scrollbar-width:none}
-.fd-seg::-webkit-scrollbar{display:none}
-.fd-seg button{white-space:nowrap}
+.fd-head-clean{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:52px!important;margin-bottom:14px!important;padding:8px 14px!important;background:rgba(22,17,46,.85)!important;border:1px solid rgba(246,238,220,.12)!important;border-radius:18px!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;box-shadow:0 8px 24px rgba(0,0,0,.4)!important;box-sizing:border-box!important;width:100%!important}
+.fd-head-clean .fd-back{width:38px!important;height:38px!important;border-radius:12px!important;display:grid!important;place-items:center!important;background:rgba(246,238,220,.08)!important;box-shadow:inset 0 0 0 1px rgba(246,238,220,.12)!important;color:var(--cream)!important;flex:none!important;cursor:pointer!important;border:0!important}
+.fd-head-clean .fd-back:active{transform:scale(.94)!important}
+.fd-head-clean .fd-head-title{flex:1!important;min-width:0!important;text-align:left!important}
+.fd-head-clean .fd-head-title b{display:block!important;font:800 16px/1.2 var(--fd)!important;color:var(--cream)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.fd-head-clean .fd-head-title small{display:block!important;font:600 12px var(--fb)!important;color:var(--mute)!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.fd-head-clean .zk-hubbtn{flex:none!important;margin-left:auto!important}
+.fd-bar{display:none!important}
+.fd-seg{display:none!important}
 .fd-load{display:flex;justify-content:center;gap:8px;padding:70px 0}
 .fd-load i{width:10px;height:10px;border-radius:50%;background:var(--acc);animation:fddot 1s ease-in-out infinite}
 .fd-load i:nth-child(2){animation-delay:.15s}.fd-load i:nth-child(3){animation-delay:.3s}

@@ -21,11 +21,14 @@ body.d-on>.top,body.d-on>main,body.d-on .m-mini{display:none}
 /* ---------- yuqori qator ---------- */
 .dx-bar{position:sticky;top:0;z-index:4;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px 8px;
   background:linear-gradient(var(--paper) 75%,rgba(243,238,227,0))}
-.dx-seg{display:inline-flex;background:var(--paper2);border-radius:14px;padding:4px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:none}
-.dx-seg::-webkit-scrollbar{display:none}
-.dx-seg button{padding:7px 11px;border-radius:10px;font-weight:700;font-size:14px;color:var(--mute);white-space:nowrap}
-@media (max-width:374px){.dx-seg button{padding:7px 9px;font-size:13.5px}}
-.dx-seg button.on{background:var(--ink);color:var(--paper);font-weight:800}
+.dx-head-clean{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:52px!important;margin:8px 16px 14px!important;padding:8px 14px!important;background:rgba(233,226,211,.85)!important;border:1px solid rgba(27,35,64,.12)!important;border-radius:18px!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;box-shadow:0 8px 24px rgba(0,0,0,.08)!important;box-sizing:border-box!important}
+.dx-head-clean .dx-back{width:38px!important;height:38px!important;border-radius:12px!important;display:grid!important;place-items:center!important;background:rgba(27,35,64,.08)!important;box-shadow:inset 0 0 0 1px rgba(27,35,64,.12)!important;color:var(--ink)!important;flex:none!important;cursor:pointer!important;border:0!important}
+.dx-head-clean .dx-back:active{transform:scale(.94)!important}
+.dx-head-clean .dx-head-title{flex:1!important;min-width:0!important;text-align:left!important}
+.dx-head-clean .dx-head-title b{display:block!important;font:800 16px/1.2 Unb,sans-serif!important;color:var(--ink)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.dx-head-clean .dx-head-title small{display:block!important;font:600 12px Man,sans-serif!important;color:var(--mute)!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.dx-head-clean .zk-hubbtn{flex:none!important;margin-left:auto!important}
+.dx-seg{display:none!important}
 .dx-ib{width:40px;height:40px;border-radius:50%;background:var(--paper2);display:inline-flex;align-items:center;justify-content:center;flex:none;transition:transform .12s}
 .dx-ib:active{transform:scale(.92)}
 .dx-ib svg{width:20px;height:20px}

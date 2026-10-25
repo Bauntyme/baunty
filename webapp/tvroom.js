@@ -203,7 +203,7 @@
     rootEl.innerHTML = `
       <div class="tvr-head">
         <div class="tvr-h-left">
-          <button class="tvr-btn-back" id="tvr-back" aria-label="Orqaga">‹</button>
+          <button class="tvr-btn-back" id="tvr-back" data-act="homeback" aria-label="Orqaga">‹</button>
           <div class="tvr-h-info">
             <span class="tvr-h-title">📺 Tv Xona</span>
             <span class="tvr-h-sub">Do'stlar bilan tomosha partiyasi</span>
@@ -211,7 +211,7 @@
         </div>
         <div class="tvr-h-right">
           <button class="tvr-btn-guide" id="tvr-btn-lobby-guide">ℹ️ Qo'llanma</button>
-          <span class="tvr-badge-live"><i></i> 4K UHD</span>
+          <button class="zk-hubbtn" data-act="hub" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button>
         </div>
       </div>
 
@@ -1227,7 +1227,7 @@
       }
     }
     if (window.ZK_setMode) {
-      window.ZK_setMode("tv");
+      window.ZK_setMode("kino");
     }
   }
 

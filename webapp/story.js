@@ -115,9 +115,8 @@ function addHist(p, u, name) {
 }
 
 // ------------------------------------------------------------------ chizish: umumiy
-function segHTML() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["story", "Story"]];
-  return `<div class="sx-segw"><div class="sx-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "story" ? "on" : ""}">${esc(l)}</button>`).join("")}</div></div>`;
+function rootHead() {
+  return `<header class="sx-head-clean"><button class="sx-back" data-act="homeback" aria-label="Bosh sahifa">${I.back}</button><div class="sx-head-title"><b>Anonim Story</b><small>Instagram va Telegram story'lari</small></div><button class="zk-hubbtn" data-act="hub" type="button" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button></header>`;
 }
 function navHTML() {
   const n = me.watch.length;
@@ -144,7 +143,7 @@ function render() {
 function homeHTML() {
   const h = hist(), w = me.watch, f = me.featured.filter((x) => x.p === "ig" || me.tg);
   const ph = plat === "ig" ? "@username yoki profil havolasi" : "@kanal yoki t.me/ havolasi";
-  return `${segHTML()}
+  return `${rootHead()}
   <div class="sx-hero"><div class="sx-hrow"><div class="sx-eye">${I.eye}</div>
     <span class="sx-chip ok" style="margin-top:6px"><i></i>Siz ko'rinmaysiz</span></div>
     <h2>Story'larni sezdirmasdan ko'ring</h2>
@@ -571,6 +570,8 @@ function onClick(e) {
   const t = e.target.closest("button, [data-open]"); if (!t || !$("sxview").contains(t)) return;
   const d = t.dataset;
   if (d.mode) { if (d.mode !== "story" && window.ZK_setMode) window.ZK_setMode(d.mode); return; }
+  if (d.act === "homeback") { if (window.ZK_setMode) window.ZK_setMode("kino"); return; }
+  if (d.act === "hub") { if (window.ZHub && window.ZHub.open) window.ZHub.open(); return; }
   if (d.tab) { tab = d.tab; stack = []; prof = null; selMode = false; render(); if (tab === "home") setTimeout(() => $("sxq") && $("sxq").focus(), 50); return; }
   if (d.plat) {
     const first = !picked; plat = d.plat; picked = true; lsSet("zk_st_plat", plat); haptic(); render();

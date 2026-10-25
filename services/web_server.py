@@ -3572,16 +3572,18 @@ async def handle_get_tv(request: web.Request) -> web.Response:
             c for c in channels
             if c.get("category") == cat
             or c.get("k") == cat
-            or cat in c.get("categories", [])
-            or (cat == "kino" and (c.get("is_kino") or "kino" in c.get("categories", []) or c.get("k") == "kino" or c.get("name") in [
+            or cat in (c.get("categories") or [])
+            or (cat == "ufc" and ("ufc" in (c.get("categories") or []) or c.get("k") == "ufc" or c.get("category") == "ufc" or any(w in (c.get("name") or "").lower() for w in ["ufc", "боец", "boets", "boks", "boxing", "mma", "борец"])))
+            or (cat == "futbol" and ("futbol" in (c.get("categories") or []) or c.get("k") == "futbol" or c.get("category") == "futbol" or (any(w in (c.get("name") or "").lower() for w in ["futbol", "football", "match", "матч", "setanta", "sport"]) and not any(x in (c.get("name") or "").lower() for x in ["боец", "boets", "boks", "boxing", "mma", "борец", "ufc"]))))
+            or (cat == "sport" and (c.get("k") in ("sport", "ufc", "futbol") or c.get("category") in ("sport", "ufc", "futbol") or any(x in (c.get("categories") or []) for x in ("sport", "ufc", "futbol")) or c.get("name") in ["Sport TV", "Futbol TV", "Setanta Sports 1 HD", "Setanta Sports 2 HD"]))
+            or (cat == "kino" and (c.get("is_kino") or "kino" in (c.get("categories") or []) or c.get("k") == "kino" or c.get("name") in [
                 "BIZ Cinema", "Kinoteatr TV", "Sevimli TV", "Zo'r TV",
                 "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV",
                 "Insayt TV", "Hayot TV", "Biz TV", "Makon TV", "Cheksiz TV",
                 "LTV HD", "Yoshlar", "Toshkent", "Dasturxon TV"
             ]))
-            or (cat == "sport" and (c.get("k") == "sport" or "sport" in c.get("categories", []) or c.get("name") in ["Sport TV", "Futbol TV", "Setanta Sports 1 HD"]))
-            or (cat == "milliy" and c.get("c") == "uz" and (c.get("category") == "milliy" or c.get("k") == "milliy" or "milliy" in c.get("categories", []) or c.get("name") in ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"]))
-            or (cat == "xususiy" and c.get("c") == "uz" and (c.get("category") == "xususiy" or c.get("k") == "xususiy" or "xususiy" in c.get("categories", []) or c.get("name") in ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV", "Makon TV", "Cheksiz TV", "LTV HD"]))
+            or (cat == "milliy" and c.get("c") == "uz" and (c.get("category") == "milliy" or c.get("k") == "milliy" or "milliy" in (c.get("categories") or []) or c.get("name") in ["Kinoteatr TV", "Sport TV", "O'zbekiston 24", "Dunyo bo'ylab", "Navo TV"]))
+            or (cat == "xususiy" and c.get("c") == "uz" and (c.get("category") == "xususiy" or c.get("k") == "xususiy" or "xususiy" in (c.get("categories") or []) or c.get("name") in ["Sevimli TV", "Zo'r TV", "Milliy TV", "Mening Yurtim (MY5)", "Renessans TV", "Biz TV", "BIZ Cinema", "Insayt TV", "Makon TV", "Cheksiz TV", "LTV HD"]))
         ]
 
     # O'zbekiston telekanallari har doim mutlaq 1-o'rinda, keyin qolgan davlatlar

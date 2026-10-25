@@ -73,9 +73,16 @@ function backBar(title) {
 }
 
 // ------------------------------------------------------------------ 🏠 bosh sahifa
-function segHtml() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["food", "Taomlar"]];
-  return `<div class="fd-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "food" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+function rootHead() {
+  const HUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  return `<div class="fd-head-clean">
+    <button class="fd-back" data-act="homeback" aria-label="Orqaga">${ICO.back}</button>
+    <div class="fd-head-title">
+      <b>🍲 Taomlar</b>
+      <small>Bugun nima pishiramiz? · Retseptlar</small>
+    </div>
+    <button class="zk-hubbtn" data-act="hub" aria-label="Barcha bo'limlar">${HUB}<span>Bo'limlar</span></button>
+  </div>`;
 }
 function laganSvg() {
   return `<svg class="rim" viewBox="0 0 250 250" aria-hidden="true"><defs><pattern id="fdpt" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(12)">
@@ -84,14 +91,14 @@ function laganSvg() {
     <circle cx="125" cy="125" r="72" fill="#F6EEDC" stroke="#1D3E8F" stroke-width="4"/></svg>`;
 }
 function viewHome() {
-  if (!items) return `<div class="fd-bar">${segHtml()}</div><div class="fd-load"><i></i><i></i><i></i></div>`;
+  if (!items) return `${rootHead()}<div class="fd-load"><i></i><i></i><i></i></div>`;
   const p = pool();
   const around = [...p].sort(() => Math.random() - 0.5).slice(0, 4);
   const favs = new Set(me.fav);
   const qq = q.trim().toLowerCase();
   const list = items.filter((x) => (kind === "fav" ? favs.has(x.id) : !kind || x.k === kind) && (!qq || x.t.toLowerCase().includes(qq)));
   const center = around[0];
-  return `<div class="fd-bar">${segHtml()}</div>
+  return `${rootHead()}
   <h1 class="fd-hi">Bugun nima pishiramiz?<span>Mahalni tanlang — lagan aylanib, taom tanlab beradi</span></h1>
   <div class="fd-meal" role="tablist">${MEALS.map(([k, ic, n]) => `<button data-meal="${k}" role="tab" aria-selected="${k === meal}" class="${k === meal ? "on" : ""}">${ic} ${n}</button>`).join("")}</div>
   <div class="fd-lagan" id="fdlagan">
@@ -297,7 +304,18 @@ function onClick(e) {
   const a = t.closest("[data-act]");
   if (!a) return;
   const act = a.dataset.act, v = top();
-  if (act === "back") back();
+  if (act === "homeback") {
+    haptic();
+    if (window.ZK_setMode) ZK_setMode("kino");
+    else if (window.setMode) setMode("kino");
+    return;
+  }
+  else if (act === "hub") {
+    haptic();
+    if (window.ZHub) ZHub.open("food");
+    return;
+  }
+  else if (act === "back") back();
   else if (act === "spin") spin();
   else if (act === "again") again();
   else if (act === "new") go({v: "edit"});

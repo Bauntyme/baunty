@@ -34,9 +34,16 @@ async function api(path, body) {
 const toast = (t) => { const el = document.createElement("div"); el.className = "pv-toast"; el.textContent = t; $("prava").appendChild(el); setTimeout(() => el.remove(), 2400); };
 const fmt = (n) => String(Math.round(n || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 const mmss = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0")}`;
-function segHtml() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["prava", "Prava"]];
-  return `<div class="pv-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "prava" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+function rootHead() {
+  const HUB = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>';
+  return `<div class="pv-head-clean">
+    <button class="pv-back" data-act="homeback" aria-label="Orqaga">${ICO.back}</button>
+    <div class="pv-head-title">
+      <b>🚗 Prava imtihoni</b>
+      <small>Yoʻl harakati qoidalari · 1235 savol</small>
+    </div>
+    <button class="zk-hubbtn" data-act="hub" aria-label="Barcha bo'limlar">${HUB}<span>Bo'limlar</span></button>
+  </div>`;
 }
 function head(title, sub = "", right = "") {
   return `<div class="pv-head"><button class="pv-back" data-act="back" aria-label="Orqaga">${ICO.back}</button><div class="tt"><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</div>${right}</div>`;
@@ -50,9 +57,9 @@ function ring(pct) {
 }
 function viewHome() {
   const h = home;
-  if (!h) return `<div class="pv-bar">${segHtml()}</div><div class="pv-load"><i></i><i></i><i></i></div>`;
+  if (!h) return `${rootHead()}<div class="pv-load"><i></i><i></i><i></i></div>`;
   const pct = h.total ? Math.round(h.solved / h.total * 100) : 0;
-  return `<div class="pv-bar">${segHtml()}</div>
+  return `${rootHead()}
   <h1 class="pv-hi">Prava imtihoni<span>Yoʻl harakati qoidalari · ${fmt(h.total)} savol · ${h.bilets.length} bilet</span></h1>
   <div class="pv-stat">
     <div class="pv-ring">${ring(pct)}<div><b>${pct}%</b><small>oʻrganildi</small></div></div>
@@ -280,7 +287,7 @@ function updateBack() {
 async function refresh() {
   const r = await api("api/prava/home");
   if (r.ok) { home = r; if (opened && top().v === "home") render(); }
-  else if (!home && opened && top().v === "home") $("pvview").innerHTML = `<div class="pv-bar">${segHtml()}</div><div class="pv-empty">${esc(r.error || "Yuklab boʻlmadi")}<br><br><button class="pv-btn" data-act="reload">Qayta urinish</button></div>`;
+  else if (!home && opened && top().v === "home") $("pvview").innerHTML = `${rootHead()}<div class="pv-empty">${esc(r.error || "Yuklab boʻlmadi")}<br><br><button class="pv-btn" data-act="reload">Qayta urinish</button></div>`;
 }
 
 function onClick(e) {
@@ -299,7 +306,18 @@ function onClick(e) {
   const b = t.closest("[data-act]");
   if (!b) return;
   const act = b.dataset.act, v = top();
-  if (act === "back") back();
+  if (act === "homeback") {
+    haptic();
+    if (window.ZK_setMode) ZK_setMode("kino");
+    else if (window.setMode) setMode("kino");
+    return;
+  }
+  else if (act === "hub") {
+    haptic();
+    if (window.ZHub) ZHub.open("prava");
+    return;
+  }
+  else if (act === "back") back();
   else if (act === "quit") back();
   else if (act === "home") { stopTick(); stack.length = 1; render(); refresh(); }
   else if (act === "reload") { render(); refresh(); }

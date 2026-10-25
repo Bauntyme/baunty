@@ -25,10 +25,14 @@ body.m-on>.top,body.m-on>main{display:none}
   padding-bottom:calc(150px + env(safe-area-inset-bottom))}
 .m-bar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:12px 16px 10px;background:linear-gradient(var(--m-bg) 70%,rgba(22,19,46,0))}
-.m-seg{display:inline-flex;background:var(--m-bg2);border-radius:14px;padding:4px;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
-.m-seg::-webkit-scrollbar{display:none}
-.m-seg button{padding:7px 12px;border-radius:10px;font-weight:700;font-size:14.5px;white-space:nowrap;color:var(--m-mute);transition:background .15s,color .15s}
-.m-seg button.on{background:var(--m-text);color:var(--m-bg);font-weight:800}
+.m-head-clean{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;min-height:52px!important;margin:8px 16px 14px!important;padding:8px 14px!important;background:rgba(33,29,66,.85)!important;border:1px solid rgba(244,241,255,.12)!important;border-radius:18px!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;box-shadow:0 8px 24px rgba(0,0,0,.35)!important;box-sizing:border-box!important}
+.m-head-clean .m-back{width:38px!important;height:38px!important;border-radius:12px!important;display:grid!important;place-items:center!important;background:rgba(244,241,255,.08)!important;box-shadow:inset 0 0 0 1px rgba(244,241,255,.12)!important;color:var(--m-text)!important;flex:none!important;cursor:pointer!important;border:0!important}
+.m-head-clean .m-back:active{transform:scale(.94)!important}
+.m-head-clean .m-head-title{flex:1!important;min-width:0!important;text-align:left!important}
+.m-head-clean .m-head-title b{display:block!important;font:800 16px/1.2 Unb,-apple-system,sans-serif!important;color:var(--m-text)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.m-head-clean .m-head-title small{display:block!important;font:600 12px Man,sans-serif!important;color:var(--m-mute)!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.m-head-clean .zk-hubbtn{flex:none!important;margin-left:auto!important}
+.m-seg{display:none!important}
 .m-ib{width:40px;height:40px;border-radius:50%;background:var(--m-bg2);display:inline-flex;align-items:center;justify-content:center;flex:none}
 .m-ib svg{width:20px;height:20px}
 .m-ib:active,.m-tr:active,.m-tile:active,.m-card:active{transform:scale(.96)}

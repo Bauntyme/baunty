@@ -118,9 +118,8 @@ function resHTML(b) {
 }
 
 // ------------------------------------------------------------------ umumiy qismlar
-function segHTML() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["books", "Kitoblar"]];
-  return `<div class="bx-segw"><div class="bx-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "books" ? "on" : ""}">${esc(l)}</button>`).join("")}</div></div>`;
+function rootHead() {
+  return `<header class="bx-head-clean"><button class="bx-back" data-act="homeback" aria-label="Bosh sahifa">${I.back}</button><div class="bx-head-title"><b>Kutubxona</b><small>Elektron kitoblar va audio</small></div><button class="zk-hubbtn" data-act="hub" type="button" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button></header>`;
 }
 function navHTML() {
   return `<nav class="bx-nav">
@@ -151,11 +150,11 @@ function render(keepScroll) {
 // ------------------------------------------------------------------ 1 · Kutubxona
 function homeHTML() {
   if (!home) {
-    return segHTML() + (homeErr ? `<div class="bx-empty"><div class="big">📶</div><b>Yuklab bo'lmadi</b>Internetni tekshirib, qayta urinib ko'ring.<br><br>
+    return rootHead() + (homeErr ? `<div class="bx-empty"><div class="big">📶</div><b>Yuklab bo'lmadi</b>Internetni tekshirib, qayta urinib ko'ring.<br><br>
       <button class="bx-more" data-act="reload">🔄 Qayta urinish</button></div>` : `<div class="bx-hello"><h1>Bugun nima o'qiymiz?</h1></div>${skel(4)}`);
   }
   const langs = Object.keys(home.langs || {}).filter((l) => LANGS[l]);
-  let h = segHTML() + `<div class="bx-hello"><h1>Bugun nima<br>o'qiymiz?</h1>
+  let h = rootHead() + `<div class="bx-hello"><h1>Bugun nima<br>o'qiymiz?</h1>
     <p>${home.total ? `${langs.length || 1} tilda ${home.total.toLocaleString("ru-RU").replace(/,/g, " ")} ta kitob` : "Kutubxona to'ldirilmoqda"}</p></div>
     <button class="bx-search" data-tab="search">${I.search}<span>Kitob, muallif yoki janr</span></button>`;
   const feat = (home.shelves || []).find((x) => x.k === "featured");
@@ -1300,6 +1299,8 @@ function onClick(e) {
   const gs = t.closest("[data-gs]"); if (gs) { S.g = gs.dataset.gs; haptic(); runSearch(true); return; }
   const a = t.closest("[data-act]"); if (!a) return;
   const act = a.dataset.act, top = stack[stack.length - 1];
+  if (act === "homeback") { if (window.ZK_setMode) window.ZK_setMode("kino"); return; }
+  if (act === "hub") { if (window.ZHub && window.ZHub.open) window.ZHub.open(); return; }
   if (act === "back") back();
   else if (act === "reload") { homeErr = false; render(); loadHome(); }
   else if (act === "save") toggleSave(top.id);

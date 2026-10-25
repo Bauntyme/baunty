@@ -628,9 +628,8 @@ function trackRow(it, i, lid, numbered = false) {
 const listHTML = (arr, lid, numbered) => `<div class="m-list">${arr.map((x, i) => trackRow(x, i, lid, numbered)).join("")}</div>`;
 const skel = (n = 6) => Array.from({length: n}, () => '<div class="m-sk"></div>').join("");
 
-function segHTML() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["music", "Musiqa"]];
-  return `<div class="m-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "music" ? "on" : ""}">${l}</button>`).join("")}</div>`;
+function rootHead() {
+  return `<header class="m-head-clean"><button class="m-back" data-act="homeback" aria-label="Bosh sahifa">${ICON.back || `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg>`}</button><div class="m-head-title"><b class="m-h">Musiqa</b><small>Xitlar, ijrochilar va mikslar</small></div><button class="m-ib" data-go="search" aria-label="Qidirish">${ICON.search}</button><button class="zk-hubbtn" data-act="hub" type="button" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button></header>`;
 }
 
 function renderHome() {
@@ -645,7 +644,7 @@ function renderHome() {
     return `<button class="m-hs" data-l="${heroId}" data-i="${i}" style="background-image:${src ? `url('${esc(src)}'),` : ""}${ikatFor(x.id, 390, 230, 5)}">
       <span class="sh"></span><span class="tx"><span class="k">🔥 Kun xiti · ${i + 1}</span><b class="m-h">${esc(p.song)}</b><small>${esc(p.artist)}</small></span>
       <span class="m-play">${ICON.play}</span></button>`; }).join("");
-  let h = `<div class="m-bar">${segHTML()}<button class="m-ib" data-go="search" aria-label="Qidirish">${ICON.search}</button></div>
+  let h = `${rootHead()}
     <h1 class="m-h m-greet">${greet()}${name ? `,<br>${esc(name)}` : ""}</h1>
     <button class="m-bigq" data-go="search" aria-label="Qo'shiq qidirish">${ICON.search}<span><b>Qo'shiq qidirish</b><small>Qo'shiq, ijrochi yoki so'zlaridan</small></span><i>Izlash</i></button>
     <div class="m-deck" id="mdeck">
@@ -1103,6 +1102,10 @@ document.addEventListener("click", (e) => {
   unlock();
   const seg = t.closest("[data-mode]");
   if (seg) { if (seg.dataset.mode !== "music" && window.ZK_setMode) window.ZK_setMode(seg.dataset.mode); return; }
+  const hb = t.closest('[data-act="homeback"]');
+  if (hb) { if (window.ZK_setMode) window.ZK_setMode("kino"); return; }
+  const hub = t.closest('[data-act="hub"]');
+  if (hub) { if (window.ZHub && window.ZHub.open) window.ZHub.open(); return; }
   const art = t.closest("[data-artist]");
   if (art) { haptic(); openArtist(art.dataset.artist); return; }
   const sh = t.closest("[data-shelf]");

@@ -111,9 +111,8 @@ function fileDesc(f) {
 const scriptLabel = (f) => f.lang === "uz" && f.script ? (f.script === "cyrl" ? "Kirill yozuvi" : "Lotin yozuvi") : f.lang ? `${LANG[f.lang]} tili` : "";
 
 // =================================================================== ko'rinishlar
-function segHTML() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["docs", "Hujjatlar"]];
-  return `<div class="dx-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "docs" ? "on" : ""}">${l}</button>`).join("")}</div>`;
+function rootHead() {
+  return `<header class="dx-head-clean"><button class="dx-back" data-act="homeback" aria-label="Bosh sahifa">${ICO.back}</button><div class="dx-head-title"><b>Hujjatlar</b><small>PDF, Word, OCR va konvertor</small></div><button class="zk-hubbtn" data-act="hub" type="button" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button></header>`;
 }
 const bar = (title, left = "back", right = "") => `<div class="dx-bar"><button class="dx-ib" data-nav="${left}">${ICO[left === "home" ? "x" : left]}</button>
   <span class="dx-ttl">${esc(title)}</span>${right ? `<button class="dx-ib" data-nav="${right}">${ICO[right]}</button>` : '<span style="width:40px"></span>'}</div>`;
@@ -122,7 +121,7 @@ function vHome() {
   const tiles = ["topdf", "img2pdf", "pdf2jpg", "pdf2txt", "split", "ocr"].map((k) => { const t = TOOLS[k];
     return `<button class="dx-tool" data-tool="${k}"><div class="fic ${t.k} sm">${t.ic}</div><div><b>${t.n}</b><small>${t.d}</small></div></button>`; }).join("");
   const rec = recent.slice(0, 5).map((r) => `<div class="dx-row">${fic(r.k)}<div class="t"><b>${esc(r.name)}</b><small>${esc(r.desc)}</small></div><small>${ago(r.at)}</small></div>`).join("");
-  return {html: `<div class="dx-bar">${segHTML()}</div>
+  return {html: `${rootHead()}
     <h1 class="dx-h" style="font-size:27px">Hujjat bilan<br>nima qilamiz?</h1>
     <button class="dx-drop" data-pick="">
       <span class="glow"></span>
@@ -642,6 +641,12 @@ document.addEventListener("click", async (e) => {
   if (!t.closest("#docs")) return;
   const seg = t.closest("[data-mode]");
   if (seg) { if (seg.dataset.mode !== "docs" && window.ZK_setMode) window.ZK_setMode(seg.dataset.mode); return; }
+  const a = t.closest("[data-act]");
+  if (a) {
+    const act = a.dataset.act;
+    if (act === "homeback") { if (window.ZK_setMode) window.ZK_setMode("kino"); return; }
+    if (act === "hub") { if (window.ZHub && window.ZHub.open) window.ZHub.open(); return; }
+  }
   const nav = t.closest("[data-nav]");
   if (nav) { const n = nav.dataset.nav;
     if (n === "back") pop(); else if (n === "home" || n === "x") goHome();

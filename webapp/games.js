@@ -173,9 +173,8 @@ function wrong(el) {
 }
 
 // =================================================================== chizish
-function segHTML() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["games", "O'yinlar"]];
-  return `<div class="gx-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "games" ? "on" : ""}">${l}</button>`).join("")}</div>`;
+function rootHead() {
+  return `<header class="gx-head-clean"><button class="gx-back" data-act="homeback" aria-label="Bosh sahifa">${BACK}</button><div class="gx-head-title"><b class="b">Bolajonlar o'yinlari</b><small>Qiziqarli va xavfsiz mini o'yinlar</small></div>${starsHTML()}<button class="zk-hubbtn" data-act="hub" type="button" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button></header>`;
 }
 const starsHTML = () => `<div class="gx-stars" aria-label="Yulduzchalar: ${stars}">${STAR}<b class="b">${stars}</b></div>`;
 function bar(g, right = "") {
@@ -198,7 +197,7 @@ function renderHome() {
   const pet = lsGet("zk_gpet", null);
   const petMsg = pet ? petMood(petLoad()) : "Menga ism qo'yilgan: Dumboq. Keling, tanishamiz!";
   const list = GAMES.filter((g) => g.id !== "kuchuk" && (homeCat === "all" || (homeCat === "new" ? g.v3 : g.cat === homeCat)));
-  $("gxview").innerHTML = `<div class="gx-bar">${segHTML()}${starsHTML()}</div>
+  $("gxview").innerHTML = `${rootHead()}
     <div class="g-hero"><span class="av">${ANOR()}</span>
       <div class="bub"><b class="b">Salom! Men Anorjon.</b><span>${GAMES.length} ta o'yin seni kutyapti!</span></div>
       ${chestReady() ? `<button class="g-chest" data-chest aria-label="Kunlik sovg'a sandiqchasi"><svg viewBox="0 0 60 56" aria-hidden="true"><rect x="6" y="22" width="48" height="30" rx="6" fill="#B5651D"/><path d="M6 24 Q30 2 54 24 Z" fill="#D9822B"/><rect x="26" y="20" width="8" height="32" fill="#FFC93C"/><rect x="24" y="26" width="12" height="10" rx="2" fill="#FFE66D"/></svg><i>1</i></button>` : ""}</div>
@@ -2079,6 +2078,8 @@ document.addEventListener("click", (e) => {
   ctx();
   const seg = t.closest("[data-mode]");
   if (seg) { if (seg.dataset.mode !== "games" && window.ZK_setMode) window.ZK_setMode(seg.dataset.mode); return; }
+  if (t.closest('[data-act="homeback"]')) { if (window.ZK_setMode) window.ZK_setMode("kino"); return; }
+  if (t.closest('[data-act="hub"]')) { if (window.ZHub && window.ZHub.open) window.ZHub.open(); return; }
   if (t.closest("[data-home]")) { haptic(); home(); return; }
   const gm = t.closest("[data-game]"); if (gm) { haptic(); open(gm.dataset.game); return; }
   if (t.closest("[data-chest]")) { openChest(); return; }

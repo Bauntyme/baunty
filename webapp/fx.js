@@ -71,9 +71,8 @@ async function loadAlerts() {
 }
 
 // ------------------------------------------------------------------ kichik qismlar
-function segHtml() {
-  const segs = window.ZK_SEGS || [["kino", "Kinolar"], ["fx", "Kurs"]];
-  return `<div class="fx-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "fx" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
+function rootHead() {
+  return `<header class="fx-head-clean"><button class="fx-back" data-act="homeback" aria-label="Bosh sahifa">${ICO.back}</button><div class="fx-head-title"><b>Valyuta Kurslari</b><small>Markaziy bank va tijorat banklari</small></div><button class="zk-hubbtn" data-act="hub" type="button" aria-label="Barcha bo'limlar"><span>☰</span> Bo'limlar</button></header>`;
 }
 function spark(vals, w, h, up) {
   if (!vals || vals.length < 2) return `<svg class="sp" viewBox="0 0 ${w} ${h}" aria-hidden="true"></svg>`;
@@ -93,7 +92,7 @@ function backBar(title, extra = "") {
 // ------------------------------------------------------------------ 🏠 bosh sahifa
 function viewHome() {
   if (!data) {
-    return `<div class="fx-bar">${segHtml()}</div><div class="fx-load"><i></i><i></i><i></i></div>
+    return `${rootHead()}<div class="fx-load"><i></i><i></i><i></i></div>
       <p class="fx-empty">${loading ? "Kurslar yuklanmoqda…" : "Kurslar hali yuklanmagan. Birozdan keyin qayta oching."}</p>`;
   }
   const usd = byCode("USD") || data.items[0];
@@ -103,7 +102,7 @@ function viewHome() {
   const rest = data.items.filter((x) => x !== usd);
   const list = showAll ? rest : rest.slice(0, 7);
   const prev = usd.r - usd.d;
-  return `<div class="fx-bar">${segHtml()}</div>
+  return `${rootHead()}
   <div class="fx-date"><span>${esc(dateLabel(data.date))}</span><span class="fx-live"><i></i>Markaziy bank</span></div>
   <div class="fx-board" data-cur="${usd.c}" role="button" tabindex="0">
     <div class="bh"><span class="fl">${flag(usd.c)}</span><div><b>${usd.n > 1 ? usd.n + " " : "1 "}${esc(usd.nm)}</b><small>${usd.c} · rasmiy kurs</small></div>${chg(usd.d, "pill")}</div>
@@ -328,6 +327,8 @@ function onClick(e) {
   const a = t.closest("[data-act]");
   if (a) {
     const act = a.dataset.act;
+    if (act === "homeback") { if (window.ZK_setMode) window.ZK_setMode("kino"); return; }
+    if (act === "hub") { if (window.ZHub && window.ZHub.open) window.ZHub.open(); return; }
     if (act === "back") back();
     else if (act === "conv") { fresh = true; go({v: "conv"}); }
     else if (act === "all") { showAll = !showAll; haptic(); render(); }

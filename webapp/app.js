@@ -274,7 +274,8 @@ $("dice").onclick = (e) => {
 $("chan").onclick = () => { if (!channel) return; inTg ? tg.openTelegramLink(channel) : window.open(channel); };
 
 // =================================================================== 📺 ONLAYN TV
-const CAT = {general: "📡 Umumiy", news: "📰 Yangiliklar", sports: "⚽ Sport", kids: "🧸 Bolalar", music: "🎵 Musiqa",
+const CAT = {ufc: "🥊 UFC & Jang", futbol: "⚽ Futbol & Sport", sport: "⚽ Barcha Sport", sports: "⚽ Barcha Sport",
+  general: "📡 Umumiy", news: "📰 Yangiliklar", kids: "🧸 Bolalar", music: "🎵 Musiqa",
   movies: "🎬 Kino", series: "📺 Seriallar", entertainment: "🎭 Ko'ngilochar", documentary: "🌍 Hujjatli",
   religious: "🕌 Diniy", education: "📚 Ta'lim", culture: "🏛 Madaniyat", family: "👨‍👩‍👧 Oilaviy", comedy: "😂 Komediya",
   animation: "🎞 Multfilm", cooking: "🍳 Taomlar", travel: "✈️ Sayohat", auto: "🚗 Avto", business: "💼 Biznes",
@@ -310,8 +311,13 @@ function tvChips() {
   $("chips").innerHTML = [["all", "Hammasi"], ...cc.map((c) => [c, FLAG[c] || c.toUpperCase()]), ["fav", "⭐ Sevimlilar"]]
     .map(([k, l]) => `<button class="chip${tvCountry === k ? " on" : ""}" data-t="${esc(k)}">${esc(l)}</button>`).join("");
   const cats = {};
-  tvItems.forEach((x) => { cats[x.k] = (cats[x.k] || 0) + 1; });
-  const keys = Object.keys(cats).filter((k) => cats[k] >= 2).sort((a, b) => cats[b] - cats[a]);
+  tvItems.forEach((x) => {
+    cats[x.k] = (cats[x.k] || 0) + 1;
+    if (x.categories) x.categories.forEach((catKey) => { cats[catKey] = (cats[catKey] || 0) + 1; });
+  });
+  const priority = ["ufc", "futbol"].filter((k) => cats[k]);
+  const otherKeys = Object.keys(cats).filter((k) => !priority.includes(k) && (CAT[k] || cats[k] >= 2)).sort((a, b) => (cats[b] || 0) - (cats[a] || 0));
+  const keys = [...priority, ...otherKeys];
   $("chips2").innerHTML = [["all", "Barcha janrlar"], ...keys.map((k) => [k, CAT[k] || k])]
     .map(([k, l]) => `<button class="chip s${tvCat === k ? " on" : ""}" data-t="${esc(k)}">${esc(l)}</button>`).join("");
 }
@@ -319,7 +325,9 @@ function tvFiltered() {
   let l = tvItems;
   if (tvCountry === "fav") l = l.filter((x) => tvFav.includes(x.i));
   else if (tvCountry !== "all") l = l.filter((x) => x.c === tvCountry);
-  if (tvCat !== "all") l = l.filter((x) => x.k === tvCat);
+  if (tvCat !== "all") {
+    l = l.filter((x) => x.k === tvCat || (x.categories && x.categories.includes(tvCat)) || (tvCat === "sport" && (x.k === "ufc" || x.k === "futbol" || x.k === "sport" || x.k === "sports" || (x.categories && (x.categories.includes("sport") || x.categories.includes("ufc") || x.categories.includes("futbol"))))));
+  }
   if (query) {
     const q = norm(query), words = q.split(" ").filter(Boolean);
     l = l.filter((x) => words.every((w) => x._k.includes(w)));
@@ -366,7 +374,15 @@ async function loadTV() {
     $("tvreload").onclick = () => loadTV();
     return;
   }
-  tvItems.forEach((x) => { x._k = norm(x.n); tvById.set(x.i, x); });
+  tvItems.forEach((x) => {
+    x._k = norm(x.n);
+    tvById.set(x.i, x);
+    tvById.set(String(x.i), x);
+    if (x.id != null) {
+      tvById.set(x.id, x);
+      tvById.set(String(x.id), x);
+    }
+  });
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
 function setMode(m) {
@@ -708,9 +724,20 @@ $("tvfs").onclick = () => {
   } catch (e) {}
 };
 document.addEventListener("click", (e) => {
+  const hb = e.target.closest && e.target.closest('[data-act="homeback"], [data-a="homeback"]');
+  if (hb) {
+    if (window.ZK_setMode) window.ZK_setMode("kino");
+    return;
+  }
+  const hub = e.target.closest && e.target.closest('[data-act="hub"], [data-a="hub"]');
+  if (hub) {
+    if (window.ZHub && window.ZHub.open) window.ZHub.open();
+    return;
+  }
   const t = e.target.closest("[data-tv]");
   if (!t) return;
-  const c = tvById.get(t.dataset.tv);
+  const rawId = t.dataset.tv;
+  const c = tvById.get(rawId) || tvById.get(+rawId) || tvById.get(String(rawId)) || (tvItems && tvItems.find(x => String(x.i) === String(rawId) || String(x.id) === String(rawId)));
   if (!c) return;
   openTV(c, !tvCur);
 });
@@ -895,7 +922,7 @@ const ZHub = (() => {
     kal: ["Kaloriya", "Kunlik kkal va vazn", "🥗", "#E67E22,#935116"],
   };
   const NEW = new Set(["prava", "tvroom"]);
-  const SEG = "#seg,.m-seg,.bx-seg,.sx-seg,.gx-seg,.dx-seg,.fx-seg,.fd-seg,.qz-seg,.pv-seg";
+  const SEG = "#seg";
   let el = null, open_ = false, from = "", don = null, ad = null, page = "";
   const live = {}, liveAt = {};
   const lite = () => !!window.ZK_LITE;

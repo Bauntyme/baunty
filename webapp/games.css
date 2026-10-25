@@ -21,10 +21,15 @@ body.g-on>.top,body.g-on>main,body.g-on .m-mini{display:none}
 
 /* ---------- yuqori qator ---------- */
 .gx-bar{display:flex;align-items:center;gap:10px;padding:14px 16px 6px}
-.gx-seg{display:inline-flex;background:rgba(255,255,255,.7);border-radius:14px;padding:4px;gap:2px;max-width:calc(100% - 90px);overflow-x:auto;scrollbar-width:none}
-.gx-seg::-webkit-scrollbar{display:none}
-.gx-seg button{padding:7px 10px;border-radius:10px;font-weight:800;font-size:14px;color:var(--ink2);white-space:nowrap}
-.gx-seg button.on{background:var(--ink);color:#fff}
+.gx-head-clean{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:10px!important;min-height:52px!important;margin:8px 16px 12px!important;padding:8px 14px!important;background:rgba(255,255,255,.85)!important;border:1px solid rgba(29,42,91,.15)!important;border-radius:20px!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;box-shadow:0 6px 18px rgba(29,42,91,.08)!important;box-sizing:border-box!important}
+.gx-head-clean .gx-back{width:38px!important;height:38px!important;border-radius:12px!important;display:grid!important;place-items:center!important;background:#fff!important;box-shadow:0 3px 0 var(--edge,#9CCBEA)!important;color:var(--ink)!important;flex:none!important;cursor:pointer!important;border:0!important}
+.gx-head-clean .gx-back:active{transform:scale(.94)!important}
+.gx-head-clean .gx-head-title{flex:1!important;min-width:0!important;text-align:left!important}
+.gx-head-clean .gx-head-title b{display:block!important;font:800 16px/1.2 Bal,Man,sans-serif!important;color:var(--ink)!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.gx-head-clean .gx-head-title small{display:block!important;font:600 12px Man,sans-serif!important;color:var(--ink2)!important;margin-top:2px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.gx-head-clean .gx-stars{margin-left:0!important;padding:4px 8px!important;box-shadow:0 2px 0 var(--edge,#9CCBEA)!important}
+.gx-head-clean .zk-hubbtn{flex:none!important;margin-left:auto!important}
+.gx-seg{display:none!important}
 .gx-back{width:48px;height:48px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;
   box-shadow:0 4px 0 var(--edge,#9CCBEA);transition:transform .1s}
 .gx-back:active{transform:translateY(3px);box-shadow:0 1px 0 var(--edge,#9CCBEA)}
