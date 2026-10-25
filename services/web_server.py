@@ -3626,6 +3626,174 @@ async def handle_get_tv(request: web.Request) -> web.Response:
     return resp
 
 
+async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
+    """
+    Jonli telekanallar uchun yuqori tezlikdagi HLS (m3u8 va ts segmentlar) proxy va CORS relay.
+    CORS cheklovlari va brauzer aralash kontent (mixed-content) xatolarini bartaraf qiladi.
+    M3U8 oqimlari relatsion yo'llarini qayta yozadi, TS segmentlarini oqimli uzatadi.
+    """
+    if request.method == "OPTIONS":
+        return web.Response(
+            status=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+
+    target_url = request.query.get("url", "").strip()
+    if request.query_string.startswith("url="):
+        full_val = request.query_string[4:].strip()
+        if full_val.startswith("http%3A") or full_val.startswith("https%3A"):
+            from urllib.parse import unquote
+            target_url = unquote(full_val)
+        elif (full_val.startswith("http://") or full_val.startswith("https://")) and len(full_val) > len(target_url):
+            target_url = full_val
+
+    if not target_url:
+        return web.Response(
+            status=400,
+            text="url parametri yetishmaydi",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+    if not (target_url.startswith("http://") or target_url.startswith("https://")):
+        return web.Response(
+            status=400,
+            text="Noto'g'ri URL protokoli",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+    # Xavfsizlik: SSRF himoyasi
+    from urllib.parse import urlparse, quote, urljoin
+    try:
+        parsed = urlparse(target_url)
+        host = (parsed.hostname or "").lower()
+        if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1") or host.startswith("192.168.") or host.startswith("10.") or host.startswith("172.16."):
+            return web.Response(
+                status=403,
+                text="Taqiqlangan manzil",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+    except Exception:
+        pass
+
+    req_headers = {
+        "User-Agent": request.headers.get("User-Agent") or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": request.headers.get("Accept") or "*/*",
+    }
+    if "Range" in request.headers:
+        req_headers["Range"] = request.headers["Range"]
+
+    try:
+        import aiohttp
+        timeout = aiohttp.ClientTimeout(total=12.0, connect=3.0)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.request(
+                method=request.method,
+                url=target_url,
+                headers=req_headers,
+                allow_redirects=True,
+            ) as upstream_resp:
+                parsed_upstream = urlparse(target_url)
+                path_lower = (parsed_upstream.path or "").lower()
+                raw_ct = upstream_resp.headers.get("Content-Type", "").lower()
+                is_m3u8 = (
+                    path_lower.endswith(".m3u8")
+                    or ".m3u8" in target_url.lower()
+                    or "mpegurl" in raw_ct
+                    or "application/x-mpegurl" in raw_ct
+                    or "vnd.apple.mpegurl" in raw_ct
+                )
+
+                if is_m3u8:
+                    content_bytes = await upstream_resp.read()
+                    try:
+                        text = content_bytes.decode("utf-8", errors="replace")
+                        base_url = str(upstream_resp.url)
+                        lines = text.splitlines()
+                        rewritten_lines = []
+                        for line in lines:
+                            s = line.strip()
+                            if not s:
+                                rewritten_lines.append(line)
+                                continue
+                            if s.startswith("#"):
+                                if 'URI="' in s:
+                                    def _repl_uri(m):
+                                        sub_uri = m.group(1)
+                                        abs_sub = urljoin(base_url, sub_uri)
+                                        proxy_sub = f"/api/tv/stream?url={quote(abs_sub, safe='')}"
+                                        return f'URI="{proxy_sub}"'
+                                    s = re.sub(r'URI="([^"]+)"', _repl_uri, s)
+                                rewritten_lines.append(s)
+                            else:
+                                abs_seg = urljoin(base_url, s)
+                                proxy_seg = f"/api/tv/stream?url={quote(abs_seg, safe='')}"
+                                rewritten_lines.append(proxy_seg)
+
+                        rewritten_bytes = "\n".join(rewritten_lines).encode("utf-8")
+                        return web.Response(
+                            body=rewritten_bytes,
+                            status=upstream_resp.status,
+                            content_type="application/vnd.apple.mpegurl",
+                            headers={
+                                "Access-Control-Allow-Origin": "*",
+                                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                                "Access-Control-Allow-Headers": "*",
+                                "Cache-Control": "no-cache, no-store, must-revalidate",
+                            }
+                        )
+                    except Exception:
+                        return web.Response(
+                            body=content_bytes,
+                            status=upstream_resp.status,
+                            content_type="application/vnd.apple.mpegurl",
+                            headers={
+                                "Access-Control-Allow-Origin": "*",
+                                "Cache-Control": "no-cache, no-store, must-revalidate",
+                            }
+                        )
+
+                # Media segmenti (ts / m4s) -> streaming response
+                resp_headers = {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                    "Cache-Control": "public, max-age=3600",
+                }
+                if "Content-Type" in upstream_resp.headers:
+                    resp_headers["Content-Type"] = upstream_resp.headers["Content-Type"]
+                else:
+                    resp_headers["Content-Type"] = "video/mp2t"
+                if "Content-Length" in upstream_resp.headers:
+                    resp_headers["Content-Length"] = upstream_resp.headers["Content-Length"]
+                if "Content-Range" in upstream_resp.headers:
+                    resp_headers["Content-Range"] = upstream_resp.headers["Content-Range"]
+                if "Accept-Ranges" in upstream_resp.headers:
+                    resp_headers["Accept-Ranges"] = upstream_resp.headers["Accept-Ranges"]
+
+                stream_resp = web.StreamResponse(
+                    status=upstream_resp.status,
+                    headers=resp_headers
+                )
+                await stream_resp.prepare(request)
+                async for chunk in upstream_resp.content.iter_chunked(64 * 1024):
+                    await stream_resp.write(chunk)
+                await stream_resp.write_eof()
+                return stream_resp
+
+    except Exception as e:
+        logger.warning(f"TV Stream Proxy xatosi ({target_url}): {e}")
+        return web.Response(
+            status=502,
+            text=f"Stream proxy xatosi: {str(e)}",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
+
+
 async def handle_tv_icon(request: web.Request) -> web.Response:
     """Telekanal logosi / ikonkasini tiniq vektor SVG sifatida uzatish (100% tezkor va barqaror)."""
     raw_id = request.match_info.get("id", "").replace(".svg", "").replace(".ico", "").replace(".png", "")
@@ -4415,6 +4583,8 @@ def create_web_app() -> web.Application:
         ("POST", "/api/music/purge", handle_music_purge),
         ("GET", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("POST", "/api/music/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/tv/stream", handle_tv_stream_proxy),
+        ("POST", "/api/tv/stream", handle_tv_stream_proxy),
         ("GET", "/api/tv", handle_get_tv),
         ("POST", "/api/tv", handle_get_tv),
         ("GET", "/api/tv/icon/{id}", handle_tv_icon),
@@ -4557,6 +4727,10 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/bk/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/rc/{tail:.*}", handle_rc_asset_proxy)
     app.router.add_get("/webapp/rc/{tail:.*}", handle_rc_asset_proxy)
+    app.router.add_route("OPTIONS", "/api/tv/stream", handle_tv_stream_proxy)
+    app.router.add_route("OPTIONS", "/webapp/api/tv/stream", handle_tv_stream_proxy)
+    app.router.add_route("HEAD", "/api/tv/stream", handle_tv_stream_proxy)
+    app.router.add_route("HEAD", "/webapp/api/tv/stream", handle_tv_stream_proxy)
 
     # Optimizatsiya qilingan va himoyalangan bundle marshrutlari
     app.router.add_get("/bundle.min.js", handle_bundle_js)

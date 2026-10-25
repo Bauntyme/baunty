@@ -599,22 +599,34 @@
             maxMaxBufferLength: 60,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 5,
+            manifestLoadingTimeOut: 2000,
+            manifestLoadingMaxRetry: 1,
+            levelLoadingTimeOut: 2000,
+            levelLoadingMaxRetry: 1,
+            fragLoadingTimeOut: 4000,
+            fragLoadingMaxRetry: 1,
           });
           hlsInstance.loadSource(streamUrl);
           hlsInstance.attachMedia(video);
           hlsInstance.on(HlsClass.Events.MANIFEST_PARSED, onPlayReady);
+          let proxyTried = false;
           hlsInstance.on(HlsClass.Events.ERROR, (event, data) => {
             if (data.fatal) {
               if (backupIdx < backups.length) {
                 const nextUrl = backups[backupIdx++];
                 hlsInstance.loadSource(nextUrl);
                 hlsInstance.startLoad();
+              } else if (!proxyTried && !streamUrl.includes("/api/tv/stream")) {
+                proxyTried = true;
+                const proxyUrl = `/api/tv/stream?url=${encodeURIComponent(streamUrl)}`;
+                hlsInstance.loadSource(proxyUrl);
+                hlsInstance.startLoad();
               } else {
                 if (loader) loader.hidden = false;
                 $("tvr-load-text").textContent = "Qayta ulanmoqda…";
                 setTimeout(() => {
                   if (hlsInstance) hlsInstance.startLoad();
-                }, 2000);
+                }, 1500);
               }
             }
           });

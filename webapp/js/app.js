@@ -458,23 +458,49 @@ const App = {
                 highBufferWatchdogPeriod: 2,
                 nudgeOffset: 0.1,
                 nudgeMaxRetry: 5,
+                manifestLoadingTimeOut: 2000,
+                manifestLoadingMaxRetry: 1,
+                manifestLoadingRetryDelay: 500,
+                levelLoadingTimeOut: 2000,
+                levelLoadingMaxRetry: 1,
+                levelLoadingRetryDelay: 500,
+                fragLoadingTimeOut: 4000,
+                fragLoadingMaxRetry: 1,
                 backBufferLength: 4,
                 startFragPrefetch: true
             });
             this.hls.loadSource(targetUrl);
             this.hls.attachMedia(video);
             let fallbackTried = false;
+            let proxyTried = false;
+            let netFatalRetries = 0;
             this.hls.on(window.Hls.Events.ERROR, (e, data) => {
-                if (data && data.fatal && !fallbackTried && targetUrl.includes('cinerama.uz')) {
-                    fallbackTried = true;
-                    const altUrl = targetUrl.includes('tracks-v1a1')
-                        ? targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8')
-                        : targetUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
-                    if (altUrl !== targetUrl) {
-                        targetUrl = altUrl;
+                if (data && data.fatal) {
+                    if (!fallbackTried && targetUrl.includes('cinerama.uz')) {
+                        fallbackTried = true;
+                        const altUrl = targetUrl.includes('tracks-v1a1')
+                            ? targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8')
+                            : targetUrl.replace('playlist.m3u8', 'tracks-v1a1/mono.ts.m3u8');
+                        if (altUrl !== targetUrl) {
+                            targetUrl = altUrl;
+                            this.hls.loadSource(targetUrl);
+                            this.hls.startLoad();
+                            return;
+                        }
+                    }
+                    if (!proxyTried && !targetUrl.includes('/api/tv/stream')) {
+                        proxyTried = true;
+                        targetUrl = `/api/tv/stream?url=${encodeURIComponent(targetUrl)}`;
                         this.hls.loadSource(targetUrl);
                         this.hls.startLoad();
                         return;
+                    }
+                    if (data.type === window.Hls.ErrorTypes.NETWORK_ERROR) {
+                        if (++netFatalRetries <= 2) {
+                            try { this.hls.startLoad(); } catch (err) {}
+                        }
+                    } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
+                        try { this.hls.recoverMediaError(); } catch (err) {}
                     }
                 }
             });

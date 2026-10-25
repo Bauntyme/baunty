@@ -1362,19 +1362,23 @@ async def cmd_plan(message: Message) -> None:
         inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Bauntys Web Appni ochish", web_app=WebAppInfo(url=webapp_url))],
             [
+                InlineKeyboardButton(text="📺 Jonli TV (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
                 InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
-                InlineKeyboardButton(text="🎭 Janrlar", callback_data="movie:genres"),
             ],
-            [InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}")]
+            [
+                InlineKeyboardButton(text="🎭 Janrlar", callback_data="movie:genres"),
+                InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}"),
+            ]
         ]
     )
     text = (
         "📋 <b>Bauntys Rivojlanish Rejasi va Imkoniyatlar (Roadmap)</b>\n\n"
         "• 🚀 <b>Tezkor MP4 Video Streaming:</b> Barcha kinolarni (Taksi, Forsaj, Titanlar, Chuqur va yangi premyeralar) "
         "bevosita Telegram chatida 1080p sifatda tomosha qilish.\n"
-        "• 🌐 <b>Mini App Integratsiyasi:</b> 1500+ kinolar katalogi, 150+ telekanallar (1440p QHD) va 50+ o'yinlar bitta portalda.\n"
-        "• ⚡ <b>Telegram Global CDN:</b> Barcha video fayllar avtomatik keshlanadi va 0.1 soniyada yetkaziladi.\n"
-        "• 💎 <b>100% Bauntys Oq Brendi:</b> Begona reklamasiz, qulay va xavfsiz kino tizimi.\n\n"
+        "• 📺 <b>1440p QHD / 1080p 60fps Jonli Telekanallar:</b> 208 ta milliy va jahon telekanallari (Zo'r TV, Sevimli, Milliy, MY5, UFC, Futbol) qotmasdan va uzilmasdan tezkor efir uzatish.\n"
+        "• 🌐 <b>Mini App Integratsiyasi:</b> 1500+ kinolar katalogi, 208 ta telekanal (1440p QHD) va 50+ o'yinlar bitta portalda.\n"
+        "• ⚡ <b>Telegram Global CDN & Proxy Relay:</b> Barcha video fayllar va TV oqimlari avtomatik keshlanadi va 0.1-1.0 soniyada ulanadi.\n"
+        "• 💎 <b>100% Bauntys Oq Brendi:</b> Begona reklamasiz, qulay va xavfsiz tizim.\n\n"
         f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
         f"🍿 <b>Kino kanalimiz:</b> @{channel_name}"
     )
@@ -1392,15 +1396,17 @@ async def cmd_goal(message: Message) -> None:
         inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Web App Brauzer", web_app=WebAppInfo(url=webapp_url))],
             [
+                InlineKeyboardButton(text="📺 Jonli TV (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
                 InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="movie:by_title"),
-                InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
-            ]
+            ],
+            [InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top")]
         ]
     )
     text = (
         "🎯 <b>Bauntys Bosh Maqsadi va Missiyasi (Goal)</b>\n\n"
         "• 🍿 <b>Mukammal Kino Portali:</b> O'zbekistondagi eng qulay, tezyurar va sifatli kino platformasini taqdim etish.\n"
-        "• 📺 <b>100% Kafolatlangan Video Yetkazish:</b> Har bir film va serial qismini to'liq video fayl (MP4) ko'rinishida foydalanuvchiga taqdim etish.\n"
+        "• 📺 <b>1440p QHD Uzluksiz Jonli Telekanallar:</b> Barcha 208 ta telekanalni (Milliy, Sevimli, Zo'r TV, UFC, Futbol) 1 soniyada ochiladigan, qotmaydigan va uzilmaydigan efirda uzatish.\n"
+        "• 📼 <b>100% Kafolatlangan Video Yetkazish:</b> Har bir film va serial qismini to'liq video fayl (MP4) ko'rinishida foydalanuvchiga taqdim etish.\n"
         "• 🌍 <b>Barcha Premyeralar:</b> Franshizalar (Taksi 1-5, Forsaj 1-11, Titanlar hujumi, Chuqur va b.) hamda yangi jahon kinolarini o'zbek tilida yagona tizimga jamlash.\n\n"
         f"🤖 <b>Botimiz:</b> @{bot_name}\n"
         f"🍿 <b>Kanalimiz:</b> @{channel_name}"
@@ -1417,15 +1423,19 @@ async def cmd_boost(message: Message) -> None:
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Web Appni ochish", web_app=WebAppInfo(url=webapp_url))],
-            [InlineKeyboardButton(text="🎲 Tasodifiy kino", callback_data="movie:random")]
+            [
+                InlineKeyboardButton(text="⚡ TV FastTrack (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
+                InlineKeyboardButton(text="🎲 Tasodifiy kino", callback_data="movie:random"),
+            ]
         ]
     )
     text = (
-        "⚡ <b>Bauntys Turbo Boost Rejimi (Fast-Track CDN)</b>\n\n"
+        "⚡ <b>Bauntys Turbo Boost Rejimi (Fast-Track CDN & TV)</b>\n\n"
         "• 🚀 <b>Server Holati:</b> 100% Faol va optimallashtirilgan!\n"
+        "• 📺 <b>TV Oqimlari:</b> 1440p QHD adaptiv HLS, 208 ta kanal, CORS Relay Proxy va zaxira oqimlar faol.\n"
         "• 🏎️ <b>Video Oqimlari:</b> Telegram Bot API to'g'ridan-to'g'ri MP4 FastStart formatiga ulandi.\n"
-        "• 💾 <b>Kesh Tizimi:</b> Real-time AsilMedia katalogi keshlandi.\n"
-        "• 📶 <b>Yuklash Tezligi:</b> 0.1–0.5 soniya (Telegram CDN orqali).\n\n"
+        "• 💾 <b>Kesh Tizimi:</b> Real-time AsilMedia katalogi va TV kanallar keshlandi.\n"
+        "• 📶 <b>Yuklash Tezligi:</b> 0.1–0.5 soniya (Telegram CDN & Fast-Track proxy orqali).\n\n"
         f"🤖 <b>Bot:</b> @{bot_name}"
     )
     await message.reply(text, parse_mode="HTML", reply_markup=kb)
@@ -1439,12 +1449,14 @@ async def cmd_chrome_devtools(message: Message) -> None:
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🌐 Web Appni tekshirish", web_app=WebAppInfo(url=webapp_url))]
+            [InlineKeyboardButton(text="🌐 Web Appni tekshirish", web_app=WebAppInfo(url=webapp_url))],
+            [InlineKeyboardButton(text="📺 TV Diagnostika (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv"))]
         ]
     )
     text = (
         "🛠 <b>Bauntys Web App DevTools & Diagnostika</b>\n\n"
         "• 🌐 <b>Mini App API:</b> 200 OK (Render.com Python 3.11)\n"
+        "• 📺 <b>Jonli TV Drayveri:</b> 208 kanal, 1440p QHD / 1080p 60fps, CORS Proxy (/api/tv/stream) 100% faol\n"
         "• 🔌 <b>Upstream AsilMedia:</b> Ulangan (https://161-97-96-58.sslip.io)\n"
         "• 🎥 <b>Video Drayveri:</b> H.264 / AAC 720p/1080p FastStart\n"
         "• 🛡️ <b>Xavfsizlik (WAF):</b> 100% Bauntys Oq Brendi, Telegram InitData himoyalangan\n"
@@ -1491,19 +1503,23 @@ async def cmd_teamwork_preview(message: Message) -> None:
         inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Web App Preview", web_app=WebAppInfo(url=webapp_url))],
             [
+                InlineKeyboardButton(text="📺 Jonli TV (1440p QHD)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
                 InlineKeyboardButton(text="🚕 Taksi (1-5)", callback_data="watch_part:718:1"),
-                InlineKeyboardButton(text="⚔️ Titanlar", callback_data="watch_part:717:1"),
             ],
             [
+                InlineKeyboardButton(text="⚔️ Titanlar", callback_data="watch_part:717:1"),
                 InlineKeyboardButton(text="🔫 Chuqur", callback_data="watch_part:287:1"),
-                InlineKeyboardButton(text="🏎️ Forsaj", callback_data="watch_part:1500:1"),
             ],
-            [InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}")]
+            [
+                InlineKeyboardButton(text="🏎️ Forsaj", callback_data="watch_part:1500:1"),
+                InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}"),
+            ]
         ]
     )
     text = (
         "👥 <b>Bauntys Jamoaviy Oldindan Ko'rish (Teamwork Preview)</b>\n\n"
         "Barcha yangilangan funksiyalar va katalog to'plamlarini sinab ko'rishingiz mumkin:\n"
+        "📺 <b>Jonli TV (1440p QHD):</b> 208 ta kanal, sub-second start, zaxira oqimlar va proxy relay\n"
         "🚕 <b>Taksi 1-5:</b> Barcha qismlari MP4 video oqimi bilan (kod: <code>718</code> / <code>9165</code>)\n"
         "⚔️ <b>Titanlar hujumi:</b> 54 qism (kod: <code>717</code> / <code>16913</code>)\n"
         "🔫 <b>Chuqur (Çukur):</b> 131 qism (kod: <code>287</code> / <code>18281</code>)\n"

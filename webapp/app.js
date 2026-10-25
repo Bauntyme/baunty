@@ -488,7 +488,7 @@ function ytEmbed(url) {
 function attempt(url) {
   return new Promise(async (ok, bad) => {
     let done = false;
-    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = null; f(v); } };
+    const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = vid.onloadedmetadata = vid.ontimeupdate = null; f(v); } };
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
     const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 2.0 || (_conn.effectiveType && /2g/.test(_conn.effectiveType))));
@@ -496,10 +496,12 @@ function attempt(url) {
       window._tvSpeedWarned = true;
       try { setTimeout(() => { toast("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi.", 3200); }, 600); } catch (e) {}
     }
-    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 15000 : 12000);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 3500 : 2000);
     vid.onplaying = () => fin(ok);
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
+    vid.onloadedmetadata = () => fin(ok);
+    vid.ontimeupdate = () => { if (vid.currentTime > 0) fin(ok); };
     vid.onerror = () => fin(bad, "media");
 
     let streamTarget = url;
@@ -530,13 +532,18 @@ function attempt(url) {
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
             nudgeMaxRetry: 5,
-            manifestLoadingTimeOut: 5000,
-            manifestLoadingMaxRetry: 4,
-            levelLoadingTimeOut: 5000,
-            levelLoadingMaxRetry: 4,
-            fragLoadingTimeOut: 7000,
+            manifestLoadingTimeOut: 2000,
+            manifestLoadingMaxRetry: 1,
+            manifestLoadingRetryDelay: 500,
+            levelLoadingTimeOut: 2000,
+            levelLoadingMaxRetry: 1,
+            levelLoadingRetryDelay: 500,
+            fragLoadingTimeOut: 4000,
+            fragLoadingMaxRetry: 1,
           });
           let fallbackTried = false;
+          let proxyTried = false;
+          let netFatalRetries = 0;
           hls.on(Hls.Events.ERROR, (_, d) => {
             if (d.fatal) {
               if (!fallbackTried && streamTarget.includes("cinerama.uz")) {
@@ -553,7 +560,22 @@ function attempt(url) {
                   } catch (err) {}
                 }
               }
-              if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              if (!proxyTried && !streamTarget.includes("/api/tv/stream")) {
+                proxyTried = true;
+                streamTarget = `/api/tv/stream?url=${encodeURIComponent(streamTarget)}`;
+                try {
+                  hls.loadSource(streamTarget);
+                  hls.startLoad();
+                  return;
+                } catch (err) {}
+              }
+              if (d.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                if (++netFatalRetries <= 2) {
+                  try { hls.startLoad(); } catch (err) {}
+                } else {
+                  fin(bad, "network_fatal");
+                }
+              } else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) {
                 try { hls.recoverMediaError(); } catch (err) { fin(bad, d.type); }
               } else {
                 fin(bad, d.type);
@@ -584,11 +606,7 @@ function attempt(url) {
               hls.autoLevelCapping = -1;
               hls.startLevel = _isSlow ? slowIdx : targetIdx;
               hls.currentLevel = -1; // Adaptive, never lock!
-              if (!_isSlow && data.levels.length > 1) {
-                hls.minAutoLevel = minFhdIdx || 0;
-              } else {
-                hls.minAutoLevel = 0;
-              }
+              hls.minAutoLevel = 0;
             }
           });
           try {
@@ -623,10 +641,11 @@ let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
   stopVideo(); tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
-  for (let n = from; n < c.u.length; n++) {
-    const [idx, url] = c.u[n];
+  const streamList = Array.isArray(c.u) && c.u.length ? c.u : [[0, c.stream || c.u]];
+  for (let n = from; n < streamList.length; n++) {
+    const [idx, url] = streamList[n];
     tvN = n;
-    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${c.u.length})…`);
+    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${streamList.length})…`);
     const emb = ytEmbed(url);
     if (emb) {
       vid.hidden = true; const yt = $("yt"); yt.hidden = false;
@@ -641,6 +660,18 @@ async function playTV(c, from = 0) {
       if (my !== tvTry) return;
       report(c, idx, false);
       if (hls) { try { hls.destroy(); } catch (x) {} hls = null; }
+    }
+  }
+  // Agar to'g'ridan-to'g'ri barcha manbalar ishlamasa, Bauntys proxy server orqali ulanish
+  if (my === tvTry) {
+    const primaryUrl = c.stream || (streamList[0] && streamList[0][1]);
+    if (primaryUrl && !primaryUrl.includes("/api/tv/stream")) {
+      const proxyUrl = `/api/tv/stream?url=${encodeURIComponent(primaryUrl)}`;
+      try {
+        tvState("load", "Tezkor zaxira orqali ulanmoqda…");
+        await attempt(proxyUrl);
+        if (my === tvTry) { tvState("ok"); report(c, 0, true); return; }
+      } catch (e2) {}
     }
   }
   if (my === tvTry) { stopVideo(); tvState("err", "Bu kanal hozir efirda emas"); haptic("err"); }
