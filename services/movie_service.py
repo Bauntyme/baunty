@@ -1172,36 +1172,37 @@ class MovieService:
 
         resolved_source = None
         if not cat_item and not db_movie:
-            try:
-                sync_res = await MovieService.sync_movie_from_asilmedia(
-                    code=clean_code,
-                    title=title,
-                    session=session
-                )
-                if sync_res.get("success"):
-                    cat_item = MovieService.get_catalog_item(clean_code)
-                    db_movie = await crud.get_movie_by_code(session, clean_code)
-                    if not title and sync_res.get("title"):
-                        title = sync_res["title"]
-                    if not total_parts or total_parts <= 1:
-                        total_parts = len(sync_res.get("synced_parts", [])) or 1
-                    if not db_movie and session:
-                        try:
-                            db_movie, _ = await crud.upsert_movie(
-                                session=session,
-                                code=clean_code,
-                                title=title or f"Kino #{clean_code}",
-                                views_count=1500
-                            )
-                        except Exception:
-                            pass
-            except Exception as se:
-                logger.debug(f"Dynamic Asilmedia sync error: {se}")
+            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+            if not resolved_source:
+                try:
+                    sync_res = await MovieService.sync_movie_from_asilmedia(
+                        code=clean_code,
+                        title=title,
+                        session=session
+                    )
+                    if sync_res.get("success"):
+                        cat_item = MovieService.get_catalog_item(clean_code)
+                        db_movie = await crud.get_movie_by_code(session, clean_code)
+                        if not title and sync_res.get("title"):
+                            title = sync_res["title"]
+                        if not total_parts or total_parts <= 1:
+                            total_parts = len(sync_res.get("synced_parts", [])) or 1
+                        if not db_movie and session:
+                            try:
+                                db_movie, _ = await crud.upsert_movie(
+                                    session=session,
+                                    code=clean_code,
+                                    title=title or f"Kino #{clean_code}",
+                                    views_count=1500
+                                )
+                            except Exception:
+                                pass
+                        resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+                except Exception as se:
+                    logger.debug(f"Dynamic Asilmedia sync error: {se}")
 
-            if not cat_item and not db_movie:
-                resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
-                if not resolved_source:
-                    return False
+            if not cat_item and not db_movie and not resolved_source:
+                return False
 
         if part > 1 and total_parts < part:
             has_part_source = (

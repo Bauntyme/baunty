@@ -449,24 +449,24 @@ const App = {
                 abrEwmaDefaultEstimateMax: 40000000,
                 capLevelToPlayerSize: false,
                 enableWorker: true,
-                liveSyncDurationCount: 2,
-                liveMaxLatencyDurationCount: 5,
-                maxBufferLength: 20,
-                maxMaxBufferLength: 45,
-                maxBufferSize: 30 * 1024 * 1024,
+                liveSyncDurationCount: 3,
+                liveMaxLatencyDurationCount: 8,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+                maxBufferSize: 60 * 1000 * 1000,
                 maxBufferHole: 0.5,
                 highBufferWatchdogPeriod: 2,
                 nudgeOffset: 0.1,
                 nudgeMaxRetry: 5,
-                manifestLoadingTimeOut: 2000,
+                manifestLoadingTimeOut: 5000,
                 manifestLoadingMaxRetry: 2,
                 manifestLoadingRetryDelay: 500,
-                levelLoadingTimeOut: 2000,
+                levelLoadingTimeOut: 5000,
                 levelLoadingMaxRetry: 2,
                 levelLoadingRetryDelay: 500,
                 fragLoadingTimeOut: 12000,
                 fragLoadingMaxRetry: 3,
-                backBufferLength: 4,
+                backBufferLength: 10,
                 startFragPrefetch: true
             });
             this.hls.loadSource(targetUrl);
@@ -502,6 +502,15 @@ const App = {
                     } else if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR) {
                         try { this.hls.recoverMediaError(); } catch (err) {}
                     }
+                } else if (data && data.details === window.Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
+                    try {
+                        if (this.hls) {
+                            try { this.hls.startLoad(); } catch (err) {}
+                            if (this.hls.currentLevel !== -1) this.hls.currentLevel = -1;
+                        }
+                        if (video.currentTime > 0) video.currentTime += 0.15;
+                        if (video.paused) video.play().catch(() => {});
+                    } catch (err) {}
                 }
             });
             this.hls.on(window.Hls.Events.MANIFEST_LOADED, (e, data) => {

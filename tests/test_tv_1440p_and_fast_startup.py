@@ -63,16 +63,16 @@ def test_webapp_hls_instant_startup_and_adaptive_bitrate():
     assert "hls.currentLevel = -1;" in app_js
     assert "this.hls.currentLevel = -1;" in js_app
 
-    # 3. Past internetda ham zudlik bilan ochilish va kam kechikish sozlamalari (20s/45s)
+    # 3. Past internetda ham zudlik bilan ochilish va xavfsiz bufer sozlamalari (30s/60s)
     assert "startFragPrefetch: true" in index_html
-    assert "liveSyncDurationCount: 2" in index_html
-    assert "liveMaxLatencyDurationCount: 5" in index_html
-    assert "maxBufferLength: 20" in index_html
-    assert "maxMaxBufferLength: 45" in index_html
+    assert "liveSyncDurationCount: 3" in index_html
+    assert "liveMaxLatencyDurationCount: 8" in index_html
+    assert "maxBufferLength: 30" in index_html
+    assert "maxMaxBufferLength: 60" in index_html
     assert "startFragPrefetch: true" in app_js
-    assert "liveSyncDurationCount: 2" in app_js
-    assert "maxBufferLength: 20" in app_js
-    assert "maxMaxBufferLength: 45" in app_js
+    assert "liveSyncDurationCount: 3" in app_js
+    assert "maxBufferLength: 30" in app_js
+    assert "maxMaxBufferLength: 60" in app_js
 
     # 4. Cinerama da playlist.m3u8 orqali ko'p darajali adaptiv oqim
     assert 'tracks-v1a1/mono.ts.m3u8", "playlist.m3u8"' in index_html

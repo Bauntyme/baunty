@@ -198,11 +198,11 @@ def test_tv_hls_high_res_and_smooth():
     assert "hls.currentLevel = -1;" in index_html
 
     # 4. Fast & smooth buffering sozlamalari
-    assert "liveSyncDurationCount: 2" in index_html
-    assert "liveMaxLatencyDurationCount: 5" in index_html
-    assert "maxBufferLength: 20" in index_html
-    assert "maxMaxBufferLength: 45" in index_html
-    assert "liveSyncDurationCount: 2" in app_js
-    assert "maxBufferLength: 20" in app_js
-    assert "maxMaxBufferLength: 45" in app_js
+    assert "liveSyncDurationCount: 3" in index_html
+    assert "liveMaxLatencyDurationCount: 8" in index_html
+    assert "maxBufferLength: 30" in index_html
+    assert "maxMaxBufferLength: 60" in index_html
+    assert "liveSyncDurationCount: 3" in app_js
+    assert "maxBufferLength: 30" in app_js
+    assert "maxMaxBufferLength: 60" in app_js
 

@@ -104,13 +104,13 @@ def test_frontend_instant_connect_and_resilient_failover():
     tvroom_js = (BASE_DIR / "webapp" / "tvroom.js").read_text(encoding="utf-8")
     js_app = (BASE_DIR / "webapp" / "js" / "app.js").read_text(encoding="utf-8")
 
-    # 1. Tezkor ochilish: qisqa timeoutlar (2s / 3.5s va 2000ms manifest timeout)
-    assert "_isSlow ? 3500 : 2000" in index_html
-    assert "_isSlow ? 3500 : 2000" in app_js
-    assert "manifestLoadingTimeOut: 2000" in index_html
-    assert "manifestLoadingTimeOut: 2000" in app_js
-    assert "manifestLoadingTimeOut: 2000" in tvroom_js
-    assert "manifestLoadingTimeOut: 2000" in js_app
+    # 1. Tezkor va to'liq ulanish: qulay timeoutlar (5s / 7s va 5000ms manifest timeout)
+    assert "_isSlow ? 7000 : 5000" in index_html
+    assert "_isSlow ? 7000 : 5000" in app_js
+    assert "manifestLoadingTimeOut: 5000" in index_html
+    assert "manifestLoadingTimeOut: 5000" in app_js
+    assert "manifestLoadingTimeOut: 5000" in tvroom_js
+    assert "manifestLoadingTimeOut: 5000" in js_app
 
     # 2. Resilient failover: Proxy zaxira oqimi fallback mavjudligi
     assert "/api/tv/stream?url=" in index_html
@@ -144,4 +144,4 @@ def test_bundle_frontend_compiled_and_has_stream_proxy():
     assert len(js_text) > 800000
     assert len(css_text) > 200000
     assert "/api/tv/stream" in js_text
-    assert "manifestLoadingTimeOut: 2000" in js_text
+    assert "manifestLoadingTimeOut: 5000" in js_text

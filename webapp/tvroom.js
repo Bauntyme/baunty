@@ -600,11 +600,12 @@
             backBufferLength: 30,
             maxBufferLength: 30,
             maxMaxBufferLength: 60,
+            maxBufferSize: 60 * 1000 * 1000,
             liveSyncDurationCount: 3,
-            liveMaxLatencyDurationCount: 5,
-            manifestLoadingTimeOut: 2000,
+            liveMaxLatencyDurationCount: 8,
+            manifestLoadingTimeOut: 5000,
             manifestLoadingMaxRetry: 2,
-            levelLoadingTimeOut: 2000,
+            levelLoadingTimeOut: 5000,
             levelLoadingMaxRetry: 2,
             fragLoadingTimeOut: 12000,
             fragLoadingMaxRetry: 3,
@@ -631,7 +632,18 @@
                   if (hlsInstance) hlsInstance.startLoad();
                 }, 1500);
               }
+            } else if (data && data.details === HlsClass.ErrorDetails.BUFFER_STALLED_ERROR) {
+              try {
+                if (hlsInstance) {
+                  try { hlsInstance.startLoad(); } catch (e) {}
+                }
+                if (video.currentTime > 0) video.currentTime += 0.15;
+                if (video.paused) video.play().catch(() => {});
+              } catch (e) {}
             }
+          });
+          video.addEventListener("waiting", () => {
+            if (hlsInstance) { try { hlsInstance.startLoad(); } catch (e) {} }
           });
         } else {
           video.src = streamUrl;

@@ -497,12 +497,20 @@ function attempt(url) {
       window._tvSpeedWarned = true;
       try { setTimeout(() => { toast("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi.", 3200); }, 600); } catch (e) {}
     }
-    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 3500 : 2000);
-    vid.onplaying = () => fin(ok);
+    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 7000 : 5000);
+    vid.onplaying = () => {
+      if (hls && hls.config) {
+        hls.config.maxBufferLength = 30;
+        hls.config.maxMaxBufferLength = 60;
+        hls.config.maxBufferSize = 60 * 1000 * 1000;
+      }
+      fin(ok);
+    };
     vid.oncanplay = () => fin(ok);
     vid.onloadeddata = () => fin(ok);
     vid.onloadedmetadata = () => fin(ok);
     vid.ontimeupdate = () => { if (vid.currentTime > 0) fin(ok); };
+    vid.onwaiting = () => { if (hls) { try { hls.startLoad(); } catch (e) {} } };
     vid.onerror = () => fin(bad, "media");
 
     let streamTarget = url;
@@ -525,7 +533,7 @@ function attempt(url) {
       else {
         const Hls = await loadHlsLib();
         clearTimeout(tvTimer);
-        tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 5000 : 3500);
+        tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 7000 : 5000);
         if (!Hls.isSupported()) {
           vid.onloadstart = () => {
             clearTimeout(tvTimer);
@@ -539,22 +547,22 @@ function attempt(url) {
             startFragPrefetch: true,
             capLevelToPlayerSize: false,
             lowLatencyMode: false,
-            liveSyncDurationCount: 2,
-            liveMaxLatencyDurationCount: 5,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 45,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 8,
+            maxBufferLength: 30, // legacy maxBufferLength: 45
+            maxMaxBufferLength: 60, // legacy maxMaxBufferLength: 120
             maxBufferHole: 0.5,
-            maxBufferSize: 30 * 1024 * 1024,
-            backBufferLength: 4,
+            maxBufferSize: 60 * 1000 * 1000,
+            backBufferLength: 10,
             abrEwmaDefaultEstimate: _isSlow ? 1800000 : 2500000,
             testBandwidth: true,
             highBufferWatchdogPeriod: 1,
             nudgeOffset: 0.1,
             nudgeMaxRetry: 5,
-            manifestLoadingTimeOut: 2000,
+            manifestLoadingTimeOut: 5000,
             manifestLoadingMaxRetry: 2,
             manifestLoadingRetryDelay: 500,
-            levelLoadingTimeOut: 2000,
+            levelLoadingTimeOut: 5000,
             levelLoadingMaxRetry: 2,
             levelLoadingRetryDelay: 500,
             fragLoadingTimeOut: 12000,
@@ -562,7 +570,7 @@ function attempt(url) {
           });
           hls.on(Hls.Events.MANIFEST_LOADING, () => {
             clearTimeout(tvTimer);
-            tvTimer = setTimeout(() => fin(bad, "manifest_timeout"), _isSlow ? 6000 : 4000);
+            tvTimer = setTimeout(() => fin(bad, "manifest_timeout"), _isSlow ? 8000 : 6000);
           });
           let fallbackTried = false;
           let proxyTried = false;
@@ -609,11 +617,12 @@ function attempt(url) {
               }
             } else if (d.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR) {
               try {
-                if (vid.currentTime > 0) vid.currentTime += 0.1;
-                if (vid.paused) vid.play().catch(() => {});
-                if (hls && hls.currentLevel !== -1) {
-                  hls.currentLevel = -1;
+                if (hls) {
+                  try { hls.startLoad(); } catch (err) {}
+                  if (hls.currentLevel !== -1) hls.currentLevel = -1;
                 }
+                if (vid.currentTime > 0) vid.currentTime += 0.15;
+                if (vid.paused) vid.play().catch(() => {});
               } catch (e) {}
             }
           });
@@ -624,6 +633,11 @@ function attempt(url) {
           hls.on(Hls.Events.FRAG_LOADED, () => {
             clearTimeout(tvTimer);
             tvTimer = setTimeout(() => fin(bad, "buffer_timeout"), 10000);
+            if (hls && hls.config) {
+              hls.config.maxBufferLength = 30;
+              hls.config.maxMaxBufferLength = 60;
+              hls.config.maxBufferSize = 60 * 1024 * 1024;
+            }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
             clearTimeout(tvTimer);
@@ -677,12 +691,12 @@ function attempt(url) {
 let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
-  stopVideo(); tvState("load", "Efirga ulanmoqda…"); $("unmute").hidden = true;
+  stopVideo(); tvState("load", "Kanal ochilmoqda…"); $("unmute").hidden = true;
   const streamList = Array.isArray(c.u) && c.u.length ? c.u : [[0, c.stream || c.u]];
   for (let n = from; n < streamList.length; n++) {
     const [idx, url] = streamList[n];
     tvN = n;
-    if (n) tvState("load", `Zaxira efir sinalmoqda (${n + 1}/${streamList.length})…`);
+    if (n) tvState("load", `Zaxira kanal sinalmoqda (${n + 1}/${streamList.length})…`);
     const emb = ytEmbed(url);
     if (emb) {
       vid.hidden = true; const yt = $("yt"); yt.hidden = false;
