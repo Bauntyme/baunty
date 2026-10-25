@@ -430,7 +430,7 @@ const App = {
             try { this.showToast?.("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi."); } catch(e){}
         }
         let targetUrl = streamUrl;
-        if (targetUrl.includes('cinerama.uz') && targetUrl.includes('tracks-v1a1')) {
+        if (!targetUrl.includes('/api/tv/stream') && targetUrl.includes('cinerama.uz') && targetUrl.includes('tracks-v1a1')) {
             targetUrl = targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
         }
 
@@ -459,13 +459,13 @@ const App = {
                 nudgeOffset: 0.1,
                 nudgeMaxRetry: 5,
                 manifestLoadingTimeOut: 2000,
-                manifestLoadingMaxRetry: 1,
+                manifestLoadingMaxRetry: 2,
                 manifestLoadingRetryDelay: 500,
                 levelLoadingTimeOut: 2000,
-                levelLoadingMaxRetry: 1,
+                levelLoadingMaxRetry: 2,
                 levelLoadingRetryDelay: 500,
-                fragLoadingTimeOut: 4000,
-                fragLoadingMaxRetry: 1,
+                fragLoadingTimeOut: 12000,
+                fragLoadingMaxRetry: 3,
                 backBufferLength: 4,
                 startFragPrefetch: true
             });

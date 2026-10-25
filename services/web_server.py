@@ -3626,6 +3626,27 @@ async def handle_get_tv(request: web.Request) -> web.Response:
     return resp
 
 
+_TV_PROXY_SESSION = None
+
+
+async def _get_tv_proxy_session() -> "aiohttp.ClientSession":
+    global _TV_PROXY_SESSION
+    import aiohttp
+    if _TV_PROXY_SESSION is None or _TV_PROXY_SESSION.closed:
+        connector = aiohttp.TCPConnector(
+            limit=200,
+            ttl_dns_cache=300,
+            keepalive_timeout=60,
+            ssl=False,
+        )
+        timeout = aiohttp.ClientTimeout(total=60.0, connect=5.0, sock_read=25.0)
+        _TV_PROXY_SESSION = aiohttp.ClientSession(
+            connector=connector,
+            timeout=timeout,
+        )
+    return _TV_PROXY_SESSION
+
+
 async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
     """
     Jonli telekanallar uchun yuqori tezlikdagi HLS (m3u8 va ts segmentlar) proxy va CORS relay.
@@ -3687,32 +3708,66 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
     if "Range" in request.headers:
         req_headers["Range"] = request.headers["Range"]
 
+    # Upstream referer va origin headerlari (Cinerama, Mediabay, BizTV va b. uchun)
+    if "cinerama.uz" in host:
+        req_headers["Referer"] = "https://cinerama.uz/"
+        req_headers["Origin"] = "https://cinerama.uz"
+    elif "mediabay" in host:
+        req_headers["Referer"] = "https://mediabay.uz/"
+        req_headers["Origin"] = "https://mediabay.uz"
+    elif "biztv" in host:
+        req_headers["Referer"] = "https://biztv.uz/"
+        req_headers["Origin"] = "https://biztv.uz"
+    elif "famelack" in host:
+        req_headers["Referer"] = "https://famelack.com/"
+        req_headers["Origin"] = "https://famelack.com"
+    elif parsed.scheme and host:
+        req_headers["Referer"] = f"{parsed.scheme}://{host}/"
+        req_headers["Origin"] = f"{parsed.scheme}://{host}"
+
+    stream_resp = None
     try:
-        import aiohttp
-        timeout = aiohttp.ClientTimeout(total=12.0, connect=3.0)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.request(
-                method=request.method,
-                url=target_url,
-                headers=req_headers,
-                allow_redirects=True,
-            ) as upstream_resp:
-                parsed_upstream = urlparse(target_url)
-                path_lower = (parsed_upstream.path or "").lower()
-                raw_ct = upstream_resp.headers.get("Content-Type", "").lower()
-                is_m3u8 = (
-                    path_lower.endswith(".m3u8")
-                    or ".m3u8" in target_url.lower()
-                    or "mpegurl" in raw_ct
-                    or "application/x-mpegurl" in raw_ct
-                    or "vnd.apple.mpegurl" in raw_ct
+        session = await _get_tv_proxy_session()
+        async with session.request(
+            method=request.method,
+            url=target_url,
+            headers=req_headers,
+            allow_redirects=True,
+        ) as upstream_resp:
+            if upstream_resp.status >= 400:
+                err_body = await upstream_resp.read()
+                return web.Response(
+                    body=err_body,
+                    status=upstream_resp.status,
+                    content_type=upstream_resp.headers.get("Content-Type") or "text/plain",
+                    headers={"Access-Control-Allow-Origin": "*"}
                 )
 
-                if is_m3u8:
-                    content_bytes = await upstream_resp.read()
+            parsed_upstream = urlparse(target_url)
+            path_lower = (parsed_upstream.path or "").lower()
+            raw_ct = upstream_resp.headers.get("Content-Type", "").lower()
+            is_m3u8 = (
+                path_lower.endswith(".m3u8")
+                or ".m3u8" in target_url.lower()
+                or "mpegurl" in raw_ct
+                or "application/x-mpegurl" in raw_ct
+                or "vnd.apple.mpegurl" in raw_ct
+            )
+
+            if is_m3u8:
+                content_bytes = await upstream_resp.read()
+                if content_bytes.startswith(b"\x1f\x8b"):
+                    import gzip
+                    try:
+                        content_bytes = gzip.decompress(content_bytes)
+                    except Exception:
+                        pass
+                if content_bytes.lstrip().startswith(b"#EXTM3U"):
                     try:
                         text = content_bytes.decode("utf-8", errors="replace")
                         base_url = str(upstream_resp.url)
+                        parsed_base = urlparse(base_url)
+                        base_query = parsed_base.query
                         lines = text.splitlines()
                         rewritten_lines = []
                         for line in lines:
@@ -3721,16 +3776,21 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
                                 rewritten_lines.append(line)
                                 continue
                             if s.startswith("#"):
-                                if 'URI="' in s:
+                                if "URI=" in s:
                                     def _repl_uri(m):
-                                        sub_uri = m.group(1)
+                                        q_char = m.group(1) or '"'
+                                        sub_uri = m.group(2)
                                         abs_sub = urljoin(base_url, sub_uri)
+                                        if base_query and "?" not in abs_sub:
+                                            abs_sub = f"{abs_sub}?{base_query}"
                                         proxy_sub = f"/api/tv/stream?url={quote(abs_sub, safe='')}"
-                                        return f'URI="{proxy_sub}"'
-                                    s = re.sub(r'URI="([^"]+)"', _repl_uri, s)
+                                        return f'URI={q_char}{proxy_sub}{q_char}'
+                                    s = re.sub(r'URI=(["\']?)([^"\'\s,]+)\1', _repl_uri, s)
                                 rewritten_lines.append(s)
                             else:
                                 abs_seg = urljoin(base_url, s)
+                                if base_query and "?" not in abs_seg:
+                                    abs_seg = f"{abs_seg}?{base_query}"
                                 proxy_seg = f"/api/tv/stream?url={quote(abs_seg, safe='')}"
                                 rewritten_lines.append(proxy_seg)
 
@@ -3756,37 +3816,57 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
                                 "Cache-Control": "no-cache, no-store, must-revalidate",
                             }
                         )
-
-                # Media segmenti (ts / m4s) -> streaming response
-                resp_headers = {
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                    "Access-Control-Allow-Headers": "*",
-                    "Cache-Control": "public, max-age=3600",
-                }
-                if "Content-Type" in upstream_resp.headers:
-                    resp_headers["Content-Type"] = upstream_resp.headers["Content-Type"]
                 else:
-                    resp_headers["Content-Type"] = "video/mp2t"
-                if "Content-Length" in upstream_resp.headers:
-                    resp_headers["Content-Length"] = upstream_resp.headers["Content-Length"]
-                if "Content-Range" in upstream_resp.headers:
-                    resp_headers["Content-Range"] = upstream_resp.headers["Content-Range"]
-                if "Accept-Ranges" in upstream_resp.headers:
-                    resp_headers["Accept-Ranges"] = upstream_resp.headers["Accept-Ranges"]
+                    # Target URL da .m3u8 bo'lsa-da, kontent binar TS segmenti bo'lgan holat
+                    resp_headers = {
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                        "Access-Control-Allow-Headers": "*",
+                        "Cache-Control": "public, max-age=3600",
+                        "Content-Type": upstream_resp.headers.get("Content-Type") or "video/mp2t",
+                    }
+                    return web.Response(
+                        body=content_bytes,
+                        status=upstream_resp.status,
+                        headers=resp_headers
+                    )
 
-                stream_resp = web.StreamResponse(
-                    status=upstream_resp.status,
-                    headers=resp_headers
-                )
-                await stream_resp.prepare(request)
-                async for chunk in upstream_resp.content.iter_chunked(64 * 1024):
-                    await stream_resp.write(chunk)
-                await stream_resp.write_eof()
-                return stream_resp
+            # Media segmenti (ts / m4s) -> streaming response
+            resp_headers = {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Cache-Control": "public, max-age=3600",
+            }
+            if "Content-Type" in upstream_resp.headers:
+                resp_headers["Content-Type"] = upstream_resp.headers["Content-Type"]
+            else:
+                resp_headers["Content-Type"] = "video/mp2t"
+            if "Content-Length" in upstream_resp.headers:
+                resp_headers["Content-Length"] = upstream_resp.headers["Content-Length"]
+            if "Content-Range" in upstream_resp.headers:
+                resp_headers["Content-Range"] = upstream_resp.headers["Content-Range"]
+            if "Accept-Ranges" in upstream_resp.headers:
+                resp_headers["Accept-Ranges"] = upstream_resp.headers["Accept-Ranges"]
+
+            stream_resp = web.StreamResponse(
+                status=upstream_resp.status,
+                headers=resp_headers
+            )
+            await stream_resp.prepare(request)
+            async for chunk in upstream_resp.content.iter_chunked(64 * 1024):
+                await stream_resp.write(chunk)
+            await stream_resp.write_eof()
+            return stream_resp
 
     except Exception as e:
-        logger.warning(f"TV Stream Proxy xatosi ({target_url}): {e}")
+        logger.warning(f"TV Stream Proxy xatosi ({target_url}): {repr(e)}")
+        if stream_resp is not None and stream_resp.prepared:
+            try:
+                await stream_resp.write_eof()
+            except Exception:
+                pass
+            return stream_resp
         return web.Response(
             status=502,
             text=f"Stream proxy xatosi: {str(e)}",

@@ -564,8 +564,11 @@
     const loader = $("tvr-loading");
     if (!video || !currentRoom || !currentRoom.channel) return;
 
-    const streamUrl = currentRoom.channel.stream;
+    let streamUrl = currentRoom.channel.stream;
     if (!streamUrl) return;
+    if (!streamUrl.includes("/api/tv/stream") && streamUrl.includes("cinerama.uz") && streamUrl.includes("tracks-v1a1")) {
+      streamUrl = streamUrl.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
+    }
 
     const backups = Array.isArray(currentRoom.channel.backups) ? currentRoom.channel.backups : [];
     let backupIdx = 0;
@@ -600,11 +603,11 @@
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 5,
             manifestLoadingTimeOut: 2000,
-            manifestLoadingMaxRetry: 1,
+            manifestLoadingMaxRetry: 2,
             levelLoadingTimeOut: 2000,
-            levelLoadingMaxRetry: 1,
-            fragLoadingTimeOut: 4000,
-            fragLoadingMaxRetry: 1,
+            levelLoadingMaxRetry: 2,
+            fragLoadingTimeOut: 12000,
+            fragLoadingMaxRetry: 3,
           });
           hlsInstance.loadSource(streamUrl);
           hlsInstance.attachMedia(video);

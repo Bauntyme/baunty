@@ -426,6 +426,7 @@ function setMode(m) {
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
   $("chips2").hidden = m !== "tv";
+  if (m === "tv") { try { loadHlsLib(); } catch (e) {} }
   if (m === "tv" && tvSoon) {
     $("chips2").hidden = true; $("chips").innerHTML = ""; $("count").textContent = "Jonli efir · tez kunda";
     $("main").innerHTML = `<div class="soon"><div class="soon-tv"><span></span><i>📺</i></div>
@@ -505,15 +506,33 @@ function attempt(url) {
     vid.onerror = () => fin(bad, "media");
 
     let streamTarget = url;
-    if (streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
+    if (!streamTarget.includes("/api/tv/stream") && streamTarget.includes("cinerama.uz") && streamTarget.includes("tracks-v1a1")) {
       streamTarget = streamTarget.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
     }
 
     try {
-      if (nativeHls()) { vid.src = streamTarget; }
+      if (nativeHls()) {
+        vid.onloadstart = () => {
+          clearTimeout(tvTimer);
+          tvTimer = setTimeout(() => fin(bad, "timeout"), 12000);
+        };
+        vid.onloadedmetadata = () => {
+          clearTimeout(tvTimer);
+          fin(ok);
+        };
+        vid.src = streamTarget;
+      }
       else {
         const Hls = await loadHlsLib();
-        if (!Hls.isSupported()) { vid.src = streamTarget; }
+        clearTimeout(tvTimer);
+        tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 5000 : 3500);
+        if (!Hls.isSupported()) {
+          vid.onloadstart = () => {
+            clearTimeout(tvTimer);
+            tvTimer = setTimeout(() => fin(bad, "timeout"), 12000);
+          };
+          vid.src = streamTarget;
+        }
         else {
           hls = new Hls({
             enableWorker: true,
@@ -533,13 +552,17 @@ function attempt(url) {
             nudgeOffset: 0.1,
             nudgeMaxRetry: 5,
             manifestLoadingTimeOut: 2000,
-            manifestLoadingMaxRetry: 1,
+            manifestLoadingMaxRetry: 2,
             manifestLoadingRetryDelay: 500,
             levelLoadingTimeOut: 2000,
-            levelLoadingMaxRetry: 1,
+            levelLoadingMaxRetry: 2,
             levelLoadingRetryDelay: 500,
-            fragLoadingTimeOut: 4000,
-            fragLoadingMaxRetry: 1,
+            fragLoadingTimeOut: 12000,
+            fragLoadingMaxRetry: 3,
+          });
+          hls.on(Hls.Events.MANIFEST_LOADING, () => {
+            clearTimeout(tvTimer);
+            tvTimer = setTimeout(() => fin(bad, "manifest_timeout"), _isSlow ? 6000 : 4000);
           });
           let fallbackTried = false;
           let proxyTried = false;
@@ -554,6 +577,8 @@ function attempt(url) {
                 if (nextUrl !== streamTarget) {
                   streamTarget = nextUrl;
                   try {
+                    clearTimeout(tvTimer);
+                    tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 4500 : 3500);
                     hls.loadSource(streamTarget);
                     hls.startLoad();
                     return;
@@ -564,6 +589,8 @@ function attempt(url) {
                 proxyTried = true;
                 streamTarget = `/api/tv/stream?url=${encodeURIComponent(streamTarget)}`;
                 try {
+                  clearTimeout(tvTimer);
+                  tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 5000 : 4000);
                   hls.loadSource(streamTarget);
                   hls.startLoad();
                   return;
@@ -590,7 +617,17 @@ function attempt(url) {
               } catch (e) {}
             }
           });
+          hls.on(Hls.Events.MANIFEST_LOADED, () => {
+            clearTimeout(tvTimer);
+            tvTimer = setTimeout(() => fin(bad, "buffer_timeout"), 12000);
+          });
+          hls.on(Hls.Events.FRAG_LOADED, () => {
+            clearTimeout(tvTimer);
+            tvTimer = setTimeout(() => fin(bad, "buffer_timeout"), 10000);
+          });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+            clearTimeout(tvTimer);
+            tvTimer = setTimeout(() => fin(bad, "buffer_timeout"), 12000);
             if (data && data.levels && data.levels.length > 0) {
               let targetIdx = data.levels.length - 1;
               let slowIdx = 0;
@@ -604,7 +641,7 @@ function attempt(url) {
                 }
               }
               hls.autoLevelCapping = -1;
-              hls.startLevel = _isSlow ? slowIdx : targetIdx;
+              hls.startLevel = _isSlow ? slowIdx : slowIdx;
               hls.currentLevel = -1; // Adaptive, never lock!
               hls.minAutoLevel = 0;
             }
