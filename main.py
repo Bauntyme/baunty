@@ -50,7 +50,7 @@ async def set_default_commands(bot: Bot) -> None:
 
 async def set_webapp_menu_button(bot: Bot) -> None:
     """Pastki '📱 Ilova' menyu tugmasini (MenuButtonWebApp) sozlash."""
-    app_url = config.webapp_url_resolved
+    app_url = config.webapp_url_resolved or "https://baunty-cinema.onrender.com/"
     logger = logging.getLogger("main")
     try:
         if app_url and app_url.startswith("https://"):
@@ -125,6 +125,8 @@ async def main() -> None:
         from services.movie_service import start_periodic_catalog_sync, start_background_movie_preloader
         start_periodic_catalog_sync()
         start_background_movie_preloader()
+        from services.keepalive_service import start_keepalive_service
+        start_keepalive_service()
         from services.downloader import media_downloader
         asyncio.create_task(media_downloader.update_from_git())
         logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{config.BOT_USERNAME}")
@@ -134,6 +136,8 @@ async def main() -> None:
         from services.movie_service import stop_periodic_catalog_sync, stop_background_movie_preloader
         stop_periodic_catalog_sync()
         stop_background_movie_preloader()
+        from services.keepalive_service import stop_keepalive_service
+        stop_keepalive_service()
         await notify_admins_on_shutdown(bot)
         await runner.cleanup()
         await close_db()
@@ -143,9 +147,19 @@ async def main() -> None:
     dp.startup.register(on_startup)
     dp.shutdown.register(on_shutdown)
 
-    # Pollingni boshlash (eskirgan yangilanishlarni o'tkazib yuborish)
+    # Pollingni boshlash (uzilishlarda avtomatik qayta ulanish bilan)
     try:
-        await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+        retry_delay = 3
+        while True:
+            try:
+                await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+                break
+            except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
+                break
+            except Exception as e:
+                logger.error(f"Telegram polling kutilmaganda uzildi: {e}. {retry_delay} soniyadan so'ng qayta ulanmoqda...")
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 30)
     finally:
         await runner.cleanup()
         await bot.session.close()

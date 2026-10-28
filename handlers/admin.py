@@ -1419,7 +1419,8 @@ async def cb_admin_server_health(callback: CallbackQuery) -> None:
     maint_status = "🔴 Profilaktika" if maintenance_service.is_global_maintenance() else "🟢 Faol (Normal)"
 
     app_url = config.webapp_url_resolved
-    flow_url = f"{app_url}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty.onrender.com/admin/flow"
+    app_url_clean = app_url.rstrip("/") if app_url else ""
+    flow_url = f"{app_url_clean}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty-cinema.onrender.com/admin/flow"
 
     text = (
         "🖥️ <b>Server va Tizim Salomatligi:</b>\n\n"
@@ -1648,7 +1649,8 @@ async def cmd_admin_flow(message: Message) -> None:
         return
 
     app_url = config.webapp_url_resolved
-    flow_url = f"{app_url}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty.onrender.com/admin/flow"
+    app_url_clean = app_url.rstrip("/") if app_url else ""
+    flow_url = f"{app_url_clean}/admin/flow" if app_url and app_url.startswith("https://") else "https://baunty-cinema.onrender.com/admin/flow"
 
     from aiogram.types import InlineKeyboardButton, WebAppInfo
     builder = InlineKeyboardBuilder()

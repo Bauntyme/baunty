@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     # Web Server & Mini App (Render.com mosligi)
     PORT: int = Field(default=8080)
     HOST: str = Field(default="0.0.0.0")
-    WEBAPP_URL: str = Field(default="https://baunty.onrender.com")
+    WEBAPP_URL: str = Field(default="https://baunty-cinema.onrender.com/")
 
     model_config = SettingsConfigDict(
         env_file=str(BASE_DIR / ".env"),
@@ -44,7 +44,11 @@ class Settings(BaseSettings):
     @property
     def webapp_url_resolved(self) -> str:
         """Render.com yoki muhit o'zgaruvchilaridan WebApp HTTPS URLini aniqlaydi."""
-        url = self.WEBAPP_URL.strip() if self.WEBAPP_URL else os.getenv("RENDER_EXTERNAL_URL", "").strip()
+        url = self.WEBAPP_URL.strip() if self.WEBAPP_URL else ""
+        if not url:
+            url = os.getenv("RENDER_EXTERNAL_URL", "").strip()
+        if not url:
+            url = "https://baunty-cinema.onrender.com/"
         if url:
             if not url.startswith("http://") and not url.startswith("https://"):
                 url = f"https://{url}"
