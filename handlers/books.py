@@ -2,7 +2,7 @@
 
 Foydalanuvchilarga kitoblar katalogini ko'rsatish, kitob qidirish,
 va kitobni to'liq PDF formatida yuklab berish.
-To'liq oq brendlangan: Baunty Films, @Bauntyfilmsbot.
+To'liq oq brendlangan: Baunty Films, @BauntyCinemabot.
 """
 
 from __future__ import annotations

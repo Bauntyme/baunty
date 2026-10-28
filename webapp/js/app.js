@@ -201,7 +201,7 @@ const App = {
     async sendMovieToChat(code) {
         window.soundEngine?.playCoin();
         const tgUser = this.tg?.initDataUnsafe?.user?.id;
-        const targetBot = "Bauntyfilmsbot";
+        const targetBot = (window.BOT_USERNAME || "BauntyCinemabot").replace(/^@/, "");
         if (!tgUser) {
             const targetUrl = `https://t.me/${targetBot}?start=m_${code}`;
             if (this.tg?.openTelegramLink) {

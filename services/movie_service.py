@@ -78,7 +78,7 @@ CUSTOM_CATALOG_ITEMS = [
         "t": "Taksi (Taxi)",
         "p": 5,
         "v": 85000,
-        "d": "🎬 Taksi (Taxi) ❤️\n\n📖 Film haqida: Marsellik tezkor taksichi Daniel va unga yordamga muhtoj omadsiz politsiyachi Emilien sarguzashtlari.\n\n🎭 Janr: Komediya, jangari, kriminal\n🌍 Davlat: Fransiya\n📅 Yil: 1998–2018\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
+        "d": "🎬 Taksi (Taxi) ❤️\n\n📖 Film haqida: Marsellik tezkor taksichi Daniel va unga yordamga muhtoj omadsiz politsiyachi Emilien sarguzashtlari.\n\n🎭 Janr: Komediya, jangari, kriminal\n🌍 Davlat: Fransiya\n📅 Yil: 1998–2018\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @BauntyCinemabot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
         "a": 1792657000,
         "i": 1792657000,
     },
@@ -87,7 +87,7 @@ CUSTOM_CATALOG_ITEMS = [
         "t": "Attack on Titan",
         "p": 54,
         "v": 92000,
-        "d": "🎬 Titans hujumi (Attack on Titan / Shingeki no Kyojin) ❤️\n\n📖 Film haqida: Insoniyat ulkan, odamxo‘r Maxluqlar (Titanlar) paydo bo‘lishi sababli uchta baland devor ortida yashashga majbur bo‘ladi. Onasining fojiali o‘limiga guvoh bo‘lgan Eren Yeger do‘stlari Mikasa va Armin bilan birga barcha Titanlarni yo‘q qilishga qasam ichadi.\n\n🎭 Janr: Anime, fantastika, jangari, drama, triller\n🌍 Davlat: Yaponiya\n📅 Yil: 2013–2023\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko‘rish uchun tugmani bosing!",
+        "d": "🎬 Titans hujumi (Attack on Titan / Shingeki no Kyojin) ❤️\n\n📖 Film haqida: Insoniyat ulkan, odamxo‘r Maxluqlar (Titanlar) paydo bo‘lishi sababli uchta baland devor ortida yashashga majbur bo‘ladi. Onasining fojiali o‘limiga guvoh bo‘lgan Eren Yeger do‘stlari Mikasa va Armin bilan birga barcha Titanlarni yo‘q qilishga qasam ichadi.\n\n🎭 Janr: Anime, fantastika, jangari, drama, triller\n🌍 Davlat: Yaponiya\n📅 Yil: 2013–2023\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @BauntyCinemabot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko‘rish uchun tugmani bosing!",
         "a": 1792512339,
         "i": 1792512517,
     },
@@ -96,7 +96,7 @@ CUSTOM_CATALOG_ITEMS = [
         "t": "Chuqur (Çukur)",
         "p": 131,
         "v": 120000,
-        "d": "🎬 Chuqur (Çukur) ❤️\n\n📖 Serial haqida: Istanbulning eng nufuzli mahallalaridan biri Chuqur va Ko'chovoli oilasi hayoti.\n\n🎭 Janr: Serial, drama, kriminal, jangari\n🌍 Davlat: Turkiya\n📅 Yil: 2017–2021\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
+        "d": "🎬 Chuqur (Çukur) ❤️\n\n📖 Serial haqida: Istanbulning eng nufuzli mahallalaridan biri Chuqur va Ko'chovoli oilasi hayoti.\n\n🎭 Janr: Serial, drama, kriminal, jangari\n🌍 Davlat: Turkiya\n📅 Yil: 2017–2021\n📺 Sifati: 1080p | WEB-DL\n🤖 Tomosha qilish: @BauntyCinemabot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun tugmani bosing!",
         "a": 1792512000,
         "i": 1792512000,
     },
@@ -105,7 +105,7 @@ CUSTOM_CATALOG_ITEMS = [
         "t": "Forsaj (Fast & Furious)",
         "p": 11,
         "v": 110000,
-        "d": "🎬 Forsaj (Fast & Furious) — Barcha qismlari ❤️\n\n📖 Film haqida: Dominik Toretto va uning tezkor jamoasi haqidagi afsonaviy kinofranshiza. 1-qismdan to 11-qismgacha barcha premyerlar!\n\n🎭 Janr: Jangari, kriminal, triller\n🌍 Davlat: AQSh\n📅 Yil: 2001–2023\n📺 Sifati: 1080p | Full HD\n🤖 Tomosha qilish: @Bauntyfilmsbot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
+        "d": "🎬 Forsaj (Fast & Furious) — Barcha qismlari ❤️\n\n📖 Film haqida: Dominik Toretto va uning tezkor jamoasi haqidagi afsonaviy kinofranshiza. 1-qismdan to 11-qismgacha barcha premyerlar!\n\n🎭 Janr: Jangari, kriminal, triller\n🌍 Davlat: AQSh\n📅 Yil: 2001–2023\n📺 Sifati: 1080p | Full HD\n🤖 Tomosha qilish: @BauntyCinemabot\n📢 Kino kanalimiz: @BauntyFilms\n\n👇 Ko'rish uchun quyidagi tugmani bosing!",
         "a": 1792658000,
         "i": 1792658000,
     },
@@ -153,6 +153,11 @@ class MovieService:
         text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
         text = re.sub(r'Zakirova\b', 'Baunty', text, flags=re.I)
         text = re.sub(r'zakirova\b', 'baunty', text, flags=re.I)
+        # Legacy bot username migration (@Bauntyfilmsbot -> current BOT_USERNAME)
+        text = re.sub(r'https?://t\.me/Bauntyfilmsbot\b', f'https://t.me/{bot_clean}', text, flags=re.I)
+        text = re.sub(r't\.me/Bauntyfilmsbot\b', f't.me/{bot_clean}', text, flags=re.I)
+        text = re.sub(r'@Bauntyfilmsbot\b', f'@{bot_clean}', text, flags=re.I)
+        text = re.sub(r'\bBauntyfilmsbot\b', bot_clean, text, flags=re.I)
         return text
 
     @staticmethod
@@ -160,7 +165,7 @@ class MovieService:
         """
         Upstream kino katalogi (https://161-97-96-58.sslip.io/api/catalog)
         bilan to'liq avtomatik integratsiya va sinxronizatsiya.
-        Barcha ma'lumotlar @Bauntyfilmsbot va @BauntyFilms brendiga tozalangan holda
+        Barcha ma'lumotlar @BauntyCinemabot va @BauntyFilms brendiga tozalangan holda
         bizning 'movies' jadvalimizga va data/catalog.json ga kiritiladi.
         """
         global _CATALOG_CACHE, _LAST_SYNC_TS
@@ -817,7 +822,7 @@ class MovieService:
     ) -> bool:
         """
         Foydalanuvchiga kinoni yuborish (Video, HD Poster yoki tafsilotlar bilan).
-        100% oq brend: @Bauntyfilmsbot va @BauntyFilms.
+        100% oq brend: @BauntyCinemabot va @BauntyFilms.
         """
         if session is not None:
             return await MovieService._deliver_movie_impl(
@@ -901,7 +906,8 @@ class MovieService:
                                 caption=caption,
                                 parse_mode="HTML",
                                 reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
                             )
                         else:
                             return await bot.send_video(
@@ -912,7 +918,8 @@ class MovieService:
                                 duration=cached_mf.duration or duration,
                                 supports_streaming=True,
                                 reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
                             )
 
                     p_code = f"{code}_{part}" if part > 1 else code
@@ -926,7 +933,8 @@ class MovieService:
                                 caption=caption,
                                 parse_mode="HTML",
                                 reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
                             )
                         else:
                             return await bot.send_video(
@@ -937,7 +945,8 @@ class MovieService:
                                 duration=cached_m.duration or duration,
                                 supports_streaming=True,
                                 reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
                             )
                 except Exception as ce:
                     logger.debug(f"Double-check cache error: {ce}")
@@ -980,7 +989,8 @@ class MovieService:
                         duration=duration,
                         supports_streaming=True,
                         reply_markup=reply_markup,
-                        reply_to_message_id=reply_to_message_id
+                        reply_to_message_id=reply_to_message_id,
+                        protect_content=True
                     )
                 except Exception as ve:
                     logger.warning(f"send_video with FSInputFile failed ({ve}), attempting send_document fallback")
@@ -992,7 +1002,8 @@ class MovieService:
                             caption=caption,
                             parse_mode="HTML",
                             reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id
+                            reply_to_message_id=reply_to_message_id,
+                            protect_content=True
                         )
                     except Exception as de:
                         logger.error(f"send_document fallback failed: {de}")
@@ -1304,7 +1315,7 @@ class MovieService:
                 except Exception as se:
                     logger.debug(f"On-demand Asilmedia sync error: {se}")
 
-        # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
+        # Sarlavha va klaviatura (@BauntyCinemabot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
         channel_user = config.CHANNEL_USERNAME
 
@@ -1464,7 +1475,8 @@ class MovieService:
                 card_lines.append(f"\n📝 <b>Tavsif:</b>\n<i>{desc_body}</i>")
 
         card_lines.append(f"\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}")
-        card_lines.append(f"🤖 Bot: {bot_user}")
+        card_lines.append(f"🤖 Bot: {bot_user}\n")
+        card_lines.append("ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi.")
 
         caption = "\n".join(card_lines)
 
@@ -1519,7 +1531,8 @@ class MovieService:
                             caption=caption,
                             parse_mode="HTML",
                             reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id
+                            reply_to_message_id=reply_to_message_id,
+                            protect_content=True
                         )
                     else:
                         await bot.send_video(
@@ -1530,7 +1543,8 @@ class MovieService:
                             duration=target_duration,
                             supports_streaming=True,
                             reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id
+                            reply_to_message_id=reply_to_message_id,
+                            protect_content=True
                         )
                     if db_movie:
                         await crud.increment_movie_views(session, db_movie.id)
@@ -1622,7 +1636,8 @@ class MovieService:
                                 duration=cand.get("duration"),
                                 supports_streaming=True,
                                 reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
                             )
                         except Exception as direct_err:
                             logger.info(f"Direct send_video via URL failed ({direct_err}), using on-demand stream downloader...")
@@ -1648,7 +1663,8 @@ class MovieService:
                             duration=cand.get("duration"),
                             supports_streaming=True,
                             reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id
+                            reply_to_message_id=reply_to_message_id,
+                            protect_content=True
                         )
 
                     if sent_msg:

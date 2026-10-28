@@ -118,7 +118,8 @@ def format_movie_caption(movie) -> str:
 
     caption += (
         f"\n🍿 <b>Barcha sara kinolar:</b> {config.CHANNEL_USERNAME}\n"
-        f"🤖 <b>Botimiz:</b> @{config.BOT_USERNAME.lstrip('@')}"
+        f"🤖 <b>Botimiz:</b> @{config.BOT_USERNAME.lstrip('@')}\n\n"
+        "ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi."
     )
     return caption
 

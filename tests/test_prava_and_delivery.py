@@ -1,6 +1,6 @@
 """
 🚗 Prava (Haydovchilik guvohnomasi imtihoni), SubGate, Donat va Kinolarni video sifatida yetkazish testlari.
-To'liq oq brendlangan: Bauntys (@Bauntyfilmsbot va @BauntyFilms).
+To'liq oq brendlangan: Bauntys (@BauntyCinemabot va @BauntyFilms).
 """
 import pytest
 import json

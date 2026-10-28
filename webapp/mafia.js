@@ -670,7 +670,7 @@ function onClick(e) {
   else if (a === "copy") { try { navigator.clipboard.writeText(R.code); } catch (er) {} haptic("ok"); toast(T("Kod nusxalandi", "Код скопирован", "Code copied")); }
   else if (a === "share") {
     const txt = T(`🔪 Men bilan Mafia o'ynang! Xona kodi: ${R.code}`, `🔪 Сыграем в Мафию! Код: ${R.code}`, `🔪 Play Mafia with me! Code: ${R.code}`);
-    const rawBot = window.ZK_BOT || (H && H.bot) || (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.bot_username) || "Bauntyfilmsbot";
+    const rawBot = window.ZK_BOT || (H && H.bot) || (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.bot_username) || "BauntyCinemabot";
     const cleanBot = rawBot.replace(/^@/, "");
     const link = cleanBot ? `https://t.me/${cleanBot}?start=mafia_${R.code}` : location.origin;
     try { tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(txt)}`); } catch (er) { try { navigator.clipboard.writeText(txt + " " + link); toast(T("Havola nusxalandi", "Ссылка скопирована", "Link copied")); } catch (e2) {} }

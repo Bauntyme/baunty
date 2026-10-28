@@ -12,8 +12,8 @@ BASE_DIR = Path(__file__).resolve().parent
 
 class Settings(BaseSettings):
     # Telegram Bot
-    BOT_TOKEN: str = Field(default="YOUR_BOT_TOKEN_HERE")
-    BOT_USERNAME: str = Field(default="Bauntyfilmsbot")
+    BOT_TOKEN: str = Field(default="9047244772:AAHevPLbK9Uz_NQ0AtcemQqpA0C5OgXtkgw")
+    BOT_USERNAME: str = Field(default="BauntyCinemabot")
     CHANNEL_USERNAME: str = Field(default="@BauntyFilms")
 
     # Adminlar

@@ -27,7 +27,7 @@ class MusicService:
 
     async def search_tracks(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
         """
-        Tarona, Deezer, iTunes, Soundcloud, Invidious va Upstream (@Bauntyfilmsbot) API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
+        Tarona, Deezer, iTunes, Soundcloud, Invidious va Upstream (@BauntyCinemabot) API lari orqali qo'shiqlarni keng va juda tez qidiradi (<1-2 soniyada).
         Phonk, EDM, ruscha, xorijiy va o'zbek musiqalari uchun eng mos manbalarni birlashtiradi (kamida 15-30 ta natija).
         In-memory kesh bilan maksimal tezlikda (<0.1s) javob beradi.
         """
@@ -99,7 +99,7 @@ class MusicService:
         return yt_results
 
     async def _search_upstream(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
-        """Upstream (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) dan qo'shiqlarni qidirish."""
+        """Upstream (@BauntyCinemabot / https://161-97-96-58.sslip.io) dan qo'shiqlarni qidirish."""
         clean_q = str(query or "").strip()
         if not clean_q:
             return []

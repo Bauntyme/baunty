@@ -182,7 +182,7 @@ async def test_movie_card_formatting_structure(tmp_path, monkeypatch):
     assert "Sifati:" in caption
     assert "Yil:" in caption or "Yili:" in caption
     assert "1998" in caption
-    assert "@Bauntyfilmsbot" in caption
+    assert "@BauntyCinemabot" in caption
     assert "@BauntyFilms" in caption
     assert "Zakirov" not in caption
     assert "dilbarzakirova" not in caption

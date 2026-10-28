@@ -618,7 +618,7 @@ async def test_handle_channel_movie_post(in_memory_session: AsyncSession, monkey
     ch_msg.video.duration = 848
     ch_msg.video.file_size = 418 * 1024 * 1024
     ch_msg.document = None
-    ch_msg.caption = "🎬 Zo'raki Folbin\n\nKodi: #284\n🍿 @Bauntyfilmsbot"
+    ch_msg.caption = "🎬 Zo'raki Folbin\n\nKodi: #284\n🍿 @BauntyCinemabot"
 
     await handle_channel_movie_post(ch_msg)
 

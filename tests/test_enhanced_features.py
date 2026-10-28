@@ -430,7 +430,7 @@ async def test_upstream_music_home_proxy_and_sanitization(tmp_path, monkeypatch)
     clean_payload = sanitize_catalog_text(raw_upstream_payload)
     assert "Zakirov" not in clean_payload
     assert "dilbar" not in clean_payload.lower()
-    assert "@Bauntyfilmsbot" in clean_payload or "Baunty" in clean_payload
+    assert "@BauntyCinemabot" in clean_payload
 
     mock_resp = AsyncMock()
     mock_resp.status = 200

@@ -1,9 +1,8 @@
 """
 Asilmedia.org integratsiya xizmati.
 Kinolar, seriallar, animelar va multfilmlarni qidirish,
-sahifalarini tahlil qilish (parser), qismlarini (1..N) ajratish
 va to'g'ridan-to'g'ri video manbalarini olish.
-100% Bauntys brendi (@Bauntyfilmsbot, @BauntyFilms).
+100% Bauntys brendi (@BauntyCinemabot, @BauntyFilms).
 """
 import os
 import re

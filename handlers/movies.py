@@ -616,7 +616,7 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     if not text:
         return None
     clean = text.strip()
-    # Guruhlarda @bot_username ni tozalash (masalan: @Bauntyfilmsbot 101 -> 101)
+    # Guruhlarda @bot_username ni tozalash (masalan: @BauntyCinemabot 101 -> 101)
     clean = re.sub(r'^@\w+\s*', '', clean).strip()
     # /kino 101, /kod 101 kabi buyruq prefikslarini tozalash
     clean = re.sub(r'^/(?:kino|kod|film|movie|code)(?:@\w+)?\s*', '', clean, flags=re.IGNORECASE).strip()
@@ -1093,7 +1093,7 @@ async def cmd_browser(message: Message) -> None:
     """
     /browser komandasi: Bauntys Web App brauzerini ochish va upstream katalog kinolari,
     telekanallari (1440p QHD) va o'yinlariga tezkor ulanish.
-    Foydalanuvchi /browser @Bauntyfilmsbot, /browser asilmedia.org yoki /browser <kino> yozganda ham to'g'ri bog'lanadi.
+    Foydalanuvchi /browser @BauntyCinemabot, /browser asilmedia.org yoki /browser <kino> yozganda ham to'g'ri bog'lanadi.
     """
     import asyncio
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -1153,7 +1153,7 @@ async def cmd_browser(message: Message) -> None:
             "• ☁️ <b>Gibrid Telegram Cloud Pool:</b> Videolarni Render diskiga (5 GB cheklov) yuklab o'tirmasdan, "
             "Telegram Cloud <code>file_id</code> lari orqali 0 MB disk sarfi bilan 0.5 soniyada chaqmoqdek yetkazish tizimi joriy etildi.\n"
             "• ⚡ <b>Web App LCP:</b> <code>fetchpriority=\"high\"</code>, <code>preconnect</code> va <code>loading=\"lazy\"</code> orqali LCP &lt; 1.2s ga tushirildi.\n"
-            "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@Bauntyfilmsbot, @BauntyFilms).\n\n"
+            "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@BauntyCinemabot, @BauntyFilms).\n\n"
             "🍿 <b>Boshlash uchun kinoni tanlang yoki Web App brauzerni oching:</b>"
         )
         await message.reply(analysis_text, parse_mode="HTML", reply_markup=analysis_kb)
@@ -1430,7 +1430,7 @@ async def cmd_sync_movies(message: Message) -> None:
 async def cmd_plan(message: Message) -> None:
     """/plan komandasi: Bauntys Rivojlanish Rejasi va Premium Imkoniyatlar."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
@@ -1464,7 +1464,7 @@ async def cmd_plan(message: Message) -> None:
 async def cmd_goal(message: Message) -> None:
     """/goal komandasi: Bauntys Maqsadi va Missiyasi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
@@ -1493,7 +1493,7 @@ async def cmd_goal(message: Message) -> None:
 async def cmd_boost(message: Message) -> None:
     """/boost komandasi: Bauntys Turbo Boost va Server Tezlatgichi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1520,7 +1520,7 @@ async def cmd_boost(message: Message) -> None:
 async def cmd_chrome_devtools(message: Message) -> None:
     """/chrome-devtools komandasi: Web App DevTools va Diagnostika holati."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1545,7 +1545,7 @@ async def cmd_chrome_devtools(message: Message) -> None:
 async def cmd_debug_optimize_lcp(message: Message) -> None:
     """/debug-optimize-lcp komandasi: Web App LCP holati va diagnostikasi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -1561,7 +1561,7 @@ async def cmd_debug_optimize_lcp(message: Message) -> None:
         "  — <code>https://161-97-96-58.sslip.io</code> (SSL ulanish keshlandi)\n"
         "  — <code>https://asilmedia.org</code> (Preconnect faol)\n"
         "• ☁️ <b>Telegram Cloud File ID Pool:</b> 0 bayt Render disk sarfi, 0.5s playback\n"
-        "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@Bauntyfilmsbot, @BauntyFilms)\n\n"
+        "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@BauntyCinemabot, @BauntyFilms)\n\n"
         f"🤖 <b>Bot:</b> @{bot_name}"
     )
     await message.reply(text, parse_mode="HTML", reply_markup=kb)
@@ -1571,7 +1571,7 @@ async def cmd_debug_optimize_lcp(message: Message) -> None:
 async def cmd_teamwork_preview(message: Message) -> None:
     """/teamwork-preview komandasi: Jamoaviy oldindan ko'rish va test qilish."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(

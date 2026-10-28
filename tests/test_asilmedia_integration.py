@@ -1,6 +1,6 @@
 """
 Asilmedia.org integratsiyasi, video manbalari, qismlar va deliver_movie testlari.
-100% Bauntys oq brendi: @Bauntyfilmsbot va @BauntyFilms.
+100% Bauntys oq brendi: @BauntyCinemabot va @BauntyFilms.
 """
 import json
 import asyncio
@@ -354,7 +354,7 @@ async def test_deliver_movie_with_asilmedia_source(in_memory_session, tmp_path, 
     bot.send_video.assert_called_once()
     _, kwargs = bot.send_video.call_args
     assert kwargs.get("supports_streaming") is True
-    assert "@Bauntyfilmsbot" in kwargs.get("caption")
+    assert "@BauntyCinemabot" in kwargs.get("caption")
     assert "@BauntyFilms" in kwargs.get("caption")
 
     # DB ga yangi file_id saqlanganligini tekshirish
@@ -395,13 +395,13 @@ async def test_white_label_branding_asilmedia():
     bot_clean = config.BOT_USERNAME.lstrip("@")
     channel_clean = config.CHANNEL_USERNAME.lstrip("@")
 
-    assert bot_clean == "Bauntyfilmsbot"
+    assert bot_clean == "BauntyCinemabot"
     assert channel_clean == "BauntyFilms"
 
     # sanitize_branding testi
     raw_desc = "Kino @Zakirovsfilms_bot va @ZakirovsKino tomonidan tayyorlandi"
     cleaned = MovieService.sanitize_branding(raw_desc)
-    assert "@Bauntyfilmsbot" in cleaned
+    assert f"@{bot_clean}" in cleaned
     assert "@BauntyFilms" in cleaned
     assert "Zakirov" not in cleaned
 
@@ -549,7 +549,7 @@ async def test_cmd_browser_asilmedia_portal_and_search():
     reply_args = msg_mock.reply.call_args
     portal_text = reply_args.args[0] if reply_args.args else reply_args.kwargs.get("text", "")
     assert "Bauntys — Asilmedia Kinolar Portali" in portal_text
-    assert "@Bauntyfilmsbot" in portal_text
+    assert "@BauntyCinemabot" in portal_text
     assert "@BauntyFilms" in portal_text
     kb = reply_args.kwargs.get("reply_markup")
     assert kb is not None

@@ -736,7 +736,7 @@ function setBusy(on, part) {
   document.querySelectorAll(".pbtn").forEach((b) => b.classList.toggle("busy", on && +b.dataset.p === part));
 }
 function showOpenBotSheet(it, targetUrl, errorMsg) {
-  const targetBot = botName || "Bauntyfilmsbot";
+  const targetBot = botName || "BauntyCinemabot";
   const url = targetUrl || `https://t.me/${targetBot}?start=m_${it.c}`;
   $("sheet").innerHTML = `<h3>🤖 Bot chatini ochish</h3>
     <p>${esc(errorMsg || "Kinoni bot chatida to'liq sifatda tomosha qilish uchun quyidagi tugmani bosing:")}</p>
@@ -756,7 +756,7 @@ function showOpenBotSheet(it, targetUrl, errorMsg) {
 
 async function watch(it, part, recheck = false) {
   if (busy) return;
-  const targetBot = botName || "Bauntyfilmsbot";
+  const targetBot = botName || "BauntyCinemabot";
   const uid = (inTg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id)
     || (new URLSearchParams(window.location.search).get("user_id"))
     || "";

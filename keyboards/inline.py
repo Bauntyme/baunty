@@ -95,46 +95,43 @@ def movie_item_keyboard(
     share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
-    if watch_url and watch_url.startswith("http"):
-        app_url = config.webapp_url_resolved
-        if app_url and app_url.startswith("https://"):
-            from aiogram.types import WebAppInfo
-            builder.row(
-                InlineKeyboardButton(
-                    text="▶️ Kinoni tomosha qilish (Full HD)",
-                    web_app=WebAppInfo(url=f"{app_url}?c={movie_code}")
-                )
+    # 1. Asosiy va birinchi tugma: Web App orqali onlayn tomosha qilish (Anti-Ban / DMCA-Safe HLS)
+    app_url = config.webapp_url_resolved
+    if app_url and app_url.startswith("https://"):
+        from aiogram.types import WebAppInfo
+        builder.row(
+            InlineKeyboardButton(
+                text="▶️ Onlayn tomosha qilish",
+                web_app=WebAppInfo(url=f"{app_url}?c={movie_code}")
             )
-        else:
-            builder.row(
-                InlineKeyboardButton(
-                    text="▶️ Kinoni tomosha qilish (Full HD)",
-                    callback_data=f"watch_part:{movie_code}:1"
-                )
-            )
+        )
     else:
         builder.row(
             InlineKeyboardButton(
-                text="▶️ Kinoni tomosha qilish",
+                text="▶️ Onlayn tomosha qilish",
                 callback_data=f"watch_part:{movie_code}:1"
             )
         )
+
+    # 2. Telegram ichida ko'rish (Bot orqali ijro)
+    builder.row(
+        InlineKeyboardButton(
+            text="🎬 Kinoni tomosha qilish",
+            callback_data=f"watch_part:{movie_code}:1"
+        )
+    )
+    # 3. Yuklab olish
     builder.row(
         InlineKeyboardButton(
             text="📥 Yuklab olish",
             callback_data=f"download_movie:{movie_code}:1"
         )
     )
+    # 4. Ulashish va rasmiy kanal
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),
     )
-    app_url = config.webapp_url_resolved
-    if app_url and app_url.startswith("https://"):
-        from aiogram.types import WebAppInfo
-        builder.row(
-            InlineKeyboardButton(text="▶️ Web App orqali tomosha qilish", web_app=WebAppInfo(url=app_url))
-        )
     return builder.as_markup()
 
 
@@ -192,14 +189,14 @@ def movie_parts_keyboard(
         from aiogram.types import WebAppInfo
         builder.row(
             InlineKeyboardButton(
-                text=f"▶️ {current_part}-qism onlayn (Full HD)",
+                text="▶️ Onlayn tomosha qilish",
                 web_app=WebAppInfo(url=f"{app_url}?c={movie_code}&part={current_part}")
             )
         )
     else:
         builder.row(
             InlineKeyboardButton(
-                text=f"▶️ {current_part}-qism onlayn (Full HD)",
+                text="▶️ Onlayn tomosha qilish",
                 callback_data=f"watch_part:{movie_code}:{current_part}"
             )
         )
@@ -217,12 +214,6 @@ def movie_parts_keyboard(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),
     )
-    app_url = config.webapp_url_resolved
-    if app_url and app_url.startswith("https://"):
-        from aiogram.types import WebAppInfo
-        builder.row(
-            InlineKeyboardButton(text="▶️ Web App orqali tomosha qilish", web_app=WebAppInfo(url=app_url))
-        )
     return builder.as_markup()
 
 

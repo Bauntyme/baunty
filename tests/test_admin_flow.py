@@ -42,7 +42,7 @@ async def test_admin_flow_html_page_delivery():
 
             # Branding va muhim elementlar tekshiruvi
             assert "BAUNTYS FLOW" in text
-            assert "@Bauntyfilmsbot" in text
+            assert "@BauntyCinemabot" in text
             assert "@BauntyFilms" in text
             assert "movies" in text
             assert "users" in text
@@ -75,7 +75,7 @@ async def test_admin_flow_telemetry_data_endpoint():
             # Server bo'limi
             server_info = data["server"]
             assert "Bauntys" in server_info["name"]
-            assert server_info["bot_username"] == "@Bauntyfilmsbot"
+            assert server_info["bot_username"] == "@BauntyCinemabot"
             assert server_info["channel_username"] == "@BauntyFilms"
             assert server_info["uptime_seconds"] >= 0
             assert "memory_mb" in server_info

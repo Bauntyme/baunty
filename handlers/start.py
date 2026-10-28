@@ -422,7 +422,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         "👀 <b>Anonim story:</b> Instagram hikoyalarini sezdirmasdan ko'rish\n"
         "📺 <b>Jonli TV:</b> 1440p QHD / 1080p milliy va jahon telekanallari\n\n"
         f"🍿 <b>Barcha sara kinolar va yangi premyeralar:</b> {config.CHANNEL_USERNAME}\n\n"
-        "Quyidagi tugmalardan birini tanlang yoki to'g'ridan-to'g'ri kino kodi/nomini yuboring! 👇"
+        "Quyidagi tugmalardan birini tanlang yoki to'g'ridan-to'g'ri kino kodi/nomini yuboring! 👇\n\n"
+        "ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi."
     )
 
     await message.answer(
@@ -520,7 +521,8 @@ async def cmd_help(message: Message) -> None:
         "• <b>«🎵 Qo'shiq topish»</b> tugmasini bosing va qo'shiq nomi yoki ijrochini yozing.\n\n"
         "4️⃣ <b>Anonim Instagram story:</b>\n"
         "• <b>«👀 Anonim story»</b> tugmasini bosing va Instagram username kiriting.\n\n"
-        f"🤝 Hamkorlik va savollar uchun: {config.CHANNEL_USERNAME}"
+        f"🤝 Hamkorlik va savollar uchun: {config.CHANNEL_USERNAME}\n\n"
+        "ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi."
     )
     await message.answer(help_text, parse_mode="HTML")
 

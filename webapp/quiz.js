@@ -43,7 +43,7 @@ function segHtml() {
   return `<div class="qz-seg">${segs.map(([m, l]) => `<button data-mode="${m}" class="${m === "quiz" ? "on" : ""}">${esc(l)}</button>`).join("")}</div>`;
 }
 const roomLink = (pin) => {
-  const cleanBot = (bot || (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.bot_username) || "Bauntyfilmsbot").replace(/^@/, "");
+  const cleanBot = (bot || (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.bot_username) || "BauntyCinemabot").replace(/^@/, "");
   return `https://t.me/${cleanBot}?start=quiz_${pin}`;
 };
 function stopLoops() { clearTimeout(poll); poll = null; clearInterval(tick); tick = null; }

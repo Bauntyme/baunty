@@ -1,7 +1,7 @@
 """
 Prava Service — Haydovchilik guvohnomasi nazariy imtihoni (1235 savol, 125 bilet, 12 mavzu)
 Rasmiy O'zbekiston YHQ (Yo'l Harakati Qoidalari) qoidalari va imtihon tizimi.
-To'liq oq brendlangan: Bauntys (@Bauntyfilmsbot va @BauntyFilms).
+To'liq oq brendlangan: Bauntys (@BauntyCinemabot va @BauntyFilms).
 """
 import os
 import json

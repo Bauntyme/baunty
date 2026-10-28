@@ -549,7 +549,7 @@ TRUSTED_PROXY_NETWORKS = [
     ipaddress.ip_network("::1/128"),
     ipaddress.ip_network("fc00::/7"),
     ipaddress.ip_network("fe80::/10"),
-    # Upstream server (@Bauntyfilmsbot backend / catalog / streaming)
+    # Upstream server (@BauntyCinemabot backend / catalog / streaming)
     ipaddress.ip_network("161.97.96.58/32"),
 ]
 

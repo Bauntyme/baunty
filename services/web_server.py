@@ -421,10 +421,10 @@ _CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0, "bytes": None, "m_hash"
 
 
 def sanitize_catalog_text(text: str) -> str:
-    """Barcha tashqi bot/kanal havolalarini @Bauntyfilmsbot va @BauntyFilms ga almashtirish."""
+    """Barcha tashqi bot/kanal havolalarini @BauntyCinemabot va @BauntyFilms ga almashtirish."""
     if not text:
         return ""
-    bot_clean = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_clean = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     channel_clean = (config.CHANNEL_USERNAME or "BauntyFilms").lstrip("@")
 
     text = re.sub(r'https?://t\.me/(?:Zakirovs?(?:films_bot|film_bot|Kino|_bot)?|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
@@ -439,6 +439,11 @@ def sanitize_catalog_text(text: str) -> str:
     text = re.sub(r'zakirova?\b', 'baunty', text, flags=re.I)
     text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
     text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
+    # Legacy bot username migration (@Bauntyfilmsbot -> current BOT_USERNAME)
+    text = re.sub(r'https?://t\.me/Bauntyfilmsbot\b', f'https://t.me/{bot_clean}', text, flags=re.I)
+    text = re.sub(r't\.me/Bauntyfilmsbot\b', f't.me/{bot_clean}', text, flags=re.I)
+    text = re.sub(r'@Bauntyfilmsbot\b', f'@{bot_clean}', text, flags=re.I)
+    text = re.sub(r'\bBauntyfilmsbot\b', bot_clean, text, flags=re.I)
     return text
 
 
@@ -851,7 +856,7 @@ async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
 
 async def handle_watch_get(request: web.Request) -> web.Response:
     """Watch GET so'rovi (holat va yo'naltirish ma'lumoti)."""
-    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     return web.json_response({
         "ok": True,
         "service": "watch",
@@ -868,7 +873,7 @@ async def handle_send_api(request: web.Request) -> web.Response:
         "ok": True,
         "service": "send",
         "methods": ["POST"],
-        "bot": (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+        "bot": (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     })
 
 
@@ -880,7 +885,7 @@ async def handle_doc_config(request: web.Request) -> web.Response:
         "max_mb": 50,
         "translate": True,
         "max_images": 50,
-        "bot": (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+        "bot": (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     })
 
 
@@ -920,7 +925,7 @@ async def handle_api_overview(request: web.Request) -> web.Response:
     return web.json_response({
         "ok": True,
         "service": "Bauntys API",
-        "bot": (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@"),
+        "bot": (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@"),
         "channel": config.CHANNEL_USERNAME,
         "status": "online"
     })
@@ -2638,7 +2643,7 @@ async def handle_asil_send(request: web.Request) -> web.Response:
         elif err in ("invalid_signature", "fake_init_data"):
             return web.json_response({"ok": False, "error": "auth"}, status=401)
 
-    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     bot_url = f"https://t.me/{bot_username}?start=kino_{item_id}"
 
     if not item_id:
@@ -2807,7 +2812,7 @@ async def handle_watch(request: web.Request) -> web.Response:
     except (ValueError, TypeError):
         part = 1
 
-    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     clean_code = code.lstrip("#№").strip()
     bot_url = f"https://t.me/{bot_username}?start=m_{clean_code}"
 
@@ -2951,7 +2956,7 @@ async def get_cached_music_home(force_refresh: bool = False) -> Dict[str, Any]:
     if not force_refresh and _MUSIC_HOME_CACHE is not None and (now - _MUSIC_HOME_TS < 300):
         return _MUSIC_HOME_CACHE
 
-    # 1. Upstream serverdan (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) to'g'ridan-to'g'ri yangilash
+    # 1. Upstream serverdan (@BauntyCinemabot / https://161-97-96-58.sslip.io) to'g'ridan-to'g'ri yangilash
     try:
         import aiohttp
         upstream_url = "https://161-97-96-58.sslip.io/api/music/home"
@@ -3261,7 +3266,7 @@ async def handle_music_search(request: web.Request) -> web.Response:
 
     init_data = request.headers.get("X-Init-Data", "")
 
-    # 1. Upstream (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) dan qidirishga urinish
+    # 1. Upstream (@BauntyCinemabot / https://161-97-96-58.sslip.io) dan qidirishga urinish
     try:
         import aiohttp
         import urllib.parse
@@ -3312,7 +3317,7 @@ async def handle_music_play(request: web.Request) -> web.Response:
 
     init_data = request.headers.get("X-Init-Data", "")
 
-    # 1. Upstream (@Bauntyfilmsbot / https://161-97-96-58.sslip.io) dan oqim havolasini olish
+    # 1. Upstream (@BauntyCinemabot / https://161-97-96-58.sslip.io) dan oqim havolasini olish
     try:
         import aiohttp
         upstream_url = "https://161-97-96-58.sslip.io/api/music/play"
@@ -4395,7 +4400,7 @@ async def handle_book_send(request: web.Request) -> web.Response:
     if not book:
         return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
-    bot_username = (config.BOT_USERNAME or "Bauntyfilmsbot").lstrip("@")
+    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
     target_url = f"https://t.me/{bot_username}?start=b_{book_id}"
 
     if not user_id:

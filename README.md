@@ -1,11 +1,11 @@
-# 🎬 Bauntys Bot (@Bauntyfilmsbot)
+# 🎬 Bauntys Bot (@BauntyCinemabot)
 
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![Aiogram](https://img.shields.io/badge/Aiogram-3.x-blue.svg)](https://docs.aiogram.dev/)
 [![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.0-red.svg)](https://www.sqlalchemy.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Bauntys Bot (@Bauntyfilmsbot)** — Telegram uchun professional, yuqori tezlikda ishlovchi, ko'p funksiyali universal media yuklovchi va kino boti.
+**Bauntys Bot (@BauntyCinemabot)** — Telegram uchun professional, yuqori tezlikda ishlovchi, ko'p funksiyali universal media yuklovchi va kino boti.
 
 > 📥 **Insta, TikTok, YouTube, Snapchat yuklash**  
 > 🎵 **Qo'shiq topish** • 🎬 **Kino** • 👀 **Anonim story** • 📚 **Kitoblar**  
@@ -139,7 +139,7 @@ baunty_bot/
    `.env` faylini ochib, o'z Telegram bot tokeningizni va admin ID laringizni yozing:
    ```env
    BOT_TOKEN=1234567890:ABCdefGHIjklMNOpqrSTUvwxYZ
-   BOT_USERNAME=Bauntyfilmsbot
+   BOT_USERNAME=BauntyCinemabot
    CHANNEL_USERNAME=@BauntyFilms
    ADMIN_IDS=123456789
    DB_TYPE=sqlite
@@ -237,4 +237,4 @@ Mini App `webapp/` papkasida Single Page Application (HTML5, CSS3, JavaScript) k
 
 ## 👨‍💻 Muallif
 
-Loyiha **Bauntys Bot (@Bauntyfilmsbot)** va **@BauntyFilms** uchun 100% oq brendlangan to'liq funktsional ilova sifatida ishlab chiqilgan.
+Loyiha **Bauntys Bot (@BauntyCinemabot)** va **@BauntyFilms** uchun 100% oq brendlangan to'liq funktsional ilova sifatida ishlab chiqilgan.

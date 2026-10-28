@@ -2,7 +2,7 @@
 
 O'zbek va jahon adabiyoti, biznes, psixologiya va diniy kitoblarni qidirish,
 katalogini taqdim etish hamda foydalanuvchi chatiga PDF shaklida yuborish.
-To'liq oq brendlangan: Baunty, Baunty Films, @Bauntyfilmsbot.
+To'liq oq brendlangan: Baunty, Baunty Films, @BauntyCinemabot.
 """
 
 from __future__ import annotations

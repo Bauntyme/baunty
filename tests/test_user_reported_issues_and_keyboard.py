@@ -66,17 +66,24 @@ def test_movie_code_extraction_for_groups():
     # Commands with bot username in supergroups
     assert extract_movie_code_and_part("/kino@Bauntyfilmsbot 101") == ("101", 1)
     assert extract_movie_code_and_part("/kod@Bauntyfilmsbot 101 2") == ("101", 2)
+    assert extract_movie_code_and_part("/kino@BauntyCinemabot 101") == ("101", 1)
+    assert extract_movie_code_and_part("/kod@BauntyCinemabot 101 2") == ("101", 2)
 
     # Mentions in groups
     assert extract_movie_code_and_part("@Bauntyfilmsbot 101") == ("101", 1)
     assert extract_movie_code_and_part("@Bauntyfilmsbot kino 101") == ("101", 1)
     assert extract_movie_code_and_part("@Bauntyfilmsbot /kino 101") == ("101", 1)
     assert extract_movie_code_and_part("@Bauntyfilmsbot kod 101") == ("101", 1)
+    assert extract_movie_code_and_part("@BauntyCinemabot 101") == ("101", 1)
+    assert extract_movie_code_and_part("@BauntyCinemabot kino 101") == ("101", 1)
+    assert extract_movie_code_and_part("@BauntyCinemabot /kino 101") == ("101", 1)
+    assert extract_movie_code_and_part("@BauntyCinemabot kod 101") == ("101", 1)
 
     # extract_movie_code standalone
     assert extract_movie_code("/kino 101") == "101"
     assert extract_movie_code("/kod 101") == "101"
     assert extract_movie_code("@Bauntyfilmsbot 101") == "101"
+    assert extract_movie_code("@BauntyCinemabot 101") == "101"
 
 
 @pytest.mark.asyncio

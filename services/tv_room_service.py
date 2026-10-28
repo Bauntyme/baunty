@@ -365,7 +365,7 @@ class TvRoomService:
             host_id=7777777,
             host_name="Bauntys TV",
             channel_id=DEFAULT_CHANNEL_ID,
-            username="Bauntyfilmsbot",
+            username="BauntyCinemabot",
             photo_url="https://i.imgur.com/NuzyhVM.png",
             pub=True,
         )

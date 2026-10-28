@@ -2,7 +2,7 @@
 Bauntys Production Flow Dashboard HTML Generator
 =================================================
 Ultra-Zamonaviy Dark Glassmorphism Admin Flow & Database Monitor UI
-100% Bauntys Branding (@Bauntyfilmsbot, @BauntyFilms)
+100% Bauntys Branding (@BauntyCinemabot, @BauntyFilms)
 Hech qanday tashqi CDN yoki kutubxonalarsiz — 100% mustaqil (Self-contained).
 """
 
@@ -11,7 +11,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Bauntys Flow & Database Monitor • @Bauntyfilmsbot</title>
+  <title>Bauntys Flow & Database Monitor • @BauntyCinemabot</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <style>
     :root {
@@ -661,7 +661,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
           <h1>BAUNTYS FLOW <span class="badge badge-yellow">LIVE MONITOR</span></h1>
           <p>
             Real-time Production Database & Request Telemetry • 
-            <a href="https://t.me/Bauntyfilmsbot" target="_blank" rel="noopener">@Bauntyfilmsbot</a>
+            <a href="https://t.me/BauntyCinemabot" target="_blank" rel="noopener">@BauntyCinemabot</a>
           </p>
         </div>
       </div>
@@ -923,7 +923,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
     <footer class="flow-footer">
       <p>
         Bauntys Cinema Ecosystem • Powered by 
-        <a href="https://t.me/Bauntyfilmsbot" target="_blank" rel="noopener">@Bauntyfilmsbot</a> &amp; 
+        <a href="https://t.me/BauntyCinemabot" target="_blank" rel="noopener">@BauntyCinemabot</a> &amp; 
         <a href="https://t.me/BauntyFilms" target="_blank" rel="noopener">@BauntyFilms</a>
       </p>
       <p style="margin-top: 4px; color: var(--text-sub);">
