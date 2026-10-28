@@ -2404,26 +2404,23 @@ def stop_periodic_catalog_sync() -> None:
 async def _background_movie_preloader_loop(limit: int = 15) -> None:
     """
     Foydalanuvchining katalogdagi kinolarini (Taksi 1..5, Attack on Titan, Chuqur, Forsaj va boshqalar)
-    orqa fonda Asilmedia.org orqali qismlari bilan birga yuklab olib, tayyorlab qo'yuvchi sikl.
+    orqa fonda Asilmedia.org orqali qismlari va video oqim havolalarini xotiraga tayyorlab qo'yuvchi engil sikl.
+    Katta hajmli video fayllarni diskka yuklab olish (Render 512MB OOM/Disk xatari) qilinmaydi.
     """
     # Bot va web server tezkor ishga tushishi uchun orqa fon jarayonini biroz kechiktirib boshlaymiz
     await asyncio.sleep(15)
-    logger.info("Asilmedia.org kinolarni orqa fonda yuklab tayyorlash jarayoni boshlandi...")
+    logger.info("Asilmedia.org kinolar metama'lumotlari va video oqimlarini orqa fonda tayyorlash boshlandi...")
     try:
         for it in CUSTOM_CATALOG_ITEMS:
             c = str(it.get("c"))
             t = it.get("t", "")
-            total_p = int(it.get("p", 1))
             try:
                 await MovieService.sync_movie_from_asilmedia(code=c, title=t, download_files=False)
-                parts_to_download = min(total_p, 3)
-                for p in range(1, parts_to_download + 1):
-                    await MovieService.download_movie_from_asilmedia(code=c, part=p)
-                    await asyncio.sleep(1.0)
+                await asyncio.sleep(0.5)
             except Exception as e:
                 logger.debug(f"Preloader for #{c} error: {e}")
 
-        await MovieService.sync_catalog_from_asilmedia(limit=limit, download_files=True)
+        await MovieService.sync_catalog_from_asilmedia(limit=limit, download_files=False)
         logger.info("Asilmedia.org kinolarni orqa fonda tayyorlash muvaffaqiyatli yakunlandi!")
     except asyncio.CancelledError:
         logger.info("Kinolarni orqa fonda tayyorlash to'xtatildi.")

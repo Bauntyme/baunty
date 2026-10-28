@@ -252,6 +252,17 @@ def get_production_index_html(cache_bust: bool = False, version: Optional[str] =
 
 async def handle_index(request: web.Request) -> web.Response:
     """Asosiy Mini App sahifasi (index.html) - production bundle, ETag va nol kechikish bilan."""
+    if request.method == "HEAD":
+        return web.Response(
+            status=200,
+            content_type="text/html",
+            charset="utf-8",
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+                "X-Robots-Tag": "noindex, nofollow"
+            }
+        )
+
     index_file = BASE_DIR / "webapp" / "index.html"
     if not index_file.exists():
         return web.Response(text="<h1>Kinolar katalogi Mini App ishga tushirilmoqda...</h1>", content_type="text/html")
@@ -4624,6 +4635,12 @@ def create_web_app() -> web.Application:
     # API va sahifa marshrutlari (UptimeRobot, healthcheck, Admin Flow va Telegram WebApp)
     app.router.add_get("/ping", handle_ping)
     app.router.add_get("/health", handle_health)
+    app.router.add_get("/status", handle_health)
+    app.router.add_get("/healthz", handle_health)
+    app.router.add_route("HEAD", "/ping", handle_ping)
+    app.router.add_route("HEAD", "/health", handle_health)
+    app.router.add_route("HEAD", "/status", handle_health)
+    app.router.add_route("HEAD", "/healthz", handle_health)
     app.router.add_get("/favicon.ico", handle_favicon)
     app.router.add_get("/webapp/favicon.ico", handle_favicon)
     app.router.add_get("/admin/flow", handle_admin_flow)
@@ -4633,6 +4650,11 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp", handle_index)
     app.router.add_get("/webapp/", handle_index)
     app.router.add_get("/webapp/index.html", handle_index)
+    app.router.add_route("HEAD", "/", handle_index)
+    app.router.add_route("HEAD", "/index.html", handle_index)
+    app.router.add_route("HEAD", "/webapp", handle_index)
+    app.router.add_route("HEAD", "/webapp/", handle_index)
+    app.router.add_route("HEAD", "/webapp/index.html", handle_index)
 
     api_routes = [
         ("GET", "/api/admin/flow/data", handle_admin_flow_data),

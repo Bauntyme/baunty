@@ -127,8 +127,6 @@ async def main() -> None:
         start_background_movie_preloader()
         from services.keepalive_service import start_keepalive_service
         start_keepalive_service()
-        from services.downloader import media_downloader
-        asyncio.create_task(media_downloader.update_from_git())
         logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{config.BOT_USERNAME}")
 
     async def on_shutdown():
@@ -153,7 +151,8 @@ async def main() -> None:
         while True:
             try:
                 await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
-                break
+                logger.warning("Telegram polling yakunlandi, 3 soniyadan so'ng qayta ulanmoqda...")
+                await asyncio.sleep(3)
             except (KeyboardInterrupt, SystemExit, asyncio.CancelledError):
                 break
             except Exception as e:

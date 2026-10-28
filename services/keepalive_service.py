@@ -16,7 +16,7 @@ _keepalive_task: Optional[asyncio.Task] = None
 # Default target endpoints to keep active on Render
 TARGET_HEALTH_URLS: List[str] = [
     "https://baunty-cinema.onrender.com/health",
-    "https://baunty.onrender.com/health",
+    "https://baunty-cinema.onrender.com/ping",
 ]
 
 # Keep-alive headers mimicking UptimeRobot monitoring probe to pass all WAF / security middleware cleanly
@@ -46,12 +46,12 @@ async def ping_endpoint(session: aiohttp.ClientSession, url: str) -> bool:
         return False
 
 
-async def _keepalive_loop(interval_seconds: int = 300) -> None:
+async def _keepalive_loop(interval_seconds: int = 180) -> None:
     """
     Davriy tarzda Render healthcheck endpointlarini chaqirib,
     botning spin-down bo'lishi (o'chib qolishi)ni oldini oluvchi asinxron fon sikli.
     Render bepul tarifida 15 daqiqa (900s) harakatsizlikdan so'ng serverni uxlatadi.
-    300s (5 daqiqa) oraliqdagi ping botni 24/7 faol ushlab turadi.
+    180s (3 daqiqa) oraliqdagi ping botni 24/7 faol ushlab turadi.
     """
     # Bot va web server to'liq ishga tushib olishi uchun dastlabki 10 soniya kutish
     await asyncio.sleep(10)
@@ -74,6 +74,12 @@ async def _keepalive_loop(interval_seconds: int = 300) -> None:
                 if r_health not in urls:
                     urls.insert(0, r_health)
 
+            # Ichki loopback ping (event loop to'xtab qolmasligi uchun)
+            local_port = getattr(config, "PORT", 8080)
+            local_ping = f"http://127.0.0.1:{local_port}/ping"
+            if local_ping not in urls:
+                urls.append(local_ping)
+
             async with aiohttp.ClientSession() as session:
                 for url in urls:
                     try:
@@ -82,7 +88,7 @@ async def _keepalive_loop(interval_seconds: int = 300) -> None:
                         raise
                     except Exception as pe:
                         logger.debug(f"Pinger cycle error for {url}: {pe}")
-                    await asyncio.sleep(2.0)
+                    await asyncio.sleep(1.0)
 
         except asyncio.CancelledError:
             logger.info("Keep-alive monitoring xizmati to'xtatildi.")
@@ -93,7 +99,7 @@ async def _keepalive_loop(interval_seconds: int = 300) -> None:
         await asyncio.sleep(interval_seconds)
 
 
-def start_keepalive_service(interval_seconds: int = 300) -> asyncio.Task:
+def start_keepalive_service(interval_seconds: int = 180) -> asyncio.Task:
     """Keep-alive xizmatini ishga tushirish."""
     global _keepalive_task
     if _keepalive_task and not _keepalive_task.done():

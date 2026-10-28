@@ -426,10 +426,13 @@ def is_malicious_request(
     ua_raw = user_agent or ""
     ua_clean = ua_raw.strip().lower()
 
-    if "uptimerobot" in ua_clean or "uptime" in ua_clean or clean_path in (
+    # Agar so'rov toza monitoring probe bo'lsa (query va body bo'sh)
+    is_probe_path = clean_path in (
         "/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status",
         "/", "", "/webapp", "webapp", "/webapp/", "/favicon.ico", "favicon.ico"
-    ):
+    )
+    is_probe_ua = "uptimerobot" in ua_clean or "uptime" in ua_clean or "probe" in ua_clean or "monitor" in ua_clean or "ping" in ua_clean
+    if (is_probe_ua or is_probe_path) and not query_string and not body:
         return False, None
 
     if not ua_clean:
@@ -1095,10 +1098,42 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
         ) or (
             path in ("/", "", "/webapp", "/webapp/", "/webapp/index.html", "/index.html")
             and request.method in ("GET", "HEAD")
-            and ("uptimerobot" in ua or "uptime" in ua or not ua or "bot" in ua or "monitor" in ua or "ping" in ua)
+            and (
+                request.method == "HEAD"
+                or "uptimerobot" in ua
+                or "uptime" in ua
+                or not ua
+                or "bot" in ua
+                or "monitor" in ua
+                or "ping" in ua
+                or "probe" in ua
+                or "health" in ua
+                or "render" in ua
+                or "betteruptime" in ua
+                or "cron-job" in ua
+                or "freshping" in ua
+                or "pingdom" in ua
+            )
         )
     )
-    is_uptimerobot = "uptimerobot" in ua or "uptime" in ua
+    # Xavfsizlik: agar kimdir /health yoki / ga SQLi/XSS/exploit query yuborsa, oq ro'yxatdan chiqarish
+    if is_health_or_ping and request.query_string:
+        clean_qs = urllib.parse.unquote_plus(request.query_string)
+        if FAST_MASTER_THREAT_REGEX.search(request.query_string) or FAST_MASTER_THREAT_REGEX.search(clean_qs):
+            is_health_or_ping = False
+
+    is_uptimerobot = (
+        ("uptimerobot" in ua or "uptime" in ua)
+        and path in (
+            "/", "", "/webapp", "/webapp/", "/index.html", "/webapp/index.html",
+            "/health", "/health/", "/ping", "/ping/", "/status", "/status/", "/healthz", "/healthz/",
+            "/favicon.ico", "/webapp/favicon.ico"
+        )
+    )
+    if is_uptimerobot and request.query_string:
+        clean_qs_ur = urllib.parse.unquote_plus(request.query_string)
+        if FAST_MASTER_THREAT_REGEX.search(request.query_string) or FAST_MASTER_THREAT_REGEX.search(clean_qs_ur):
+            is_uptimerobot = False
 
     if is_health_or_ping or is_uptimerobot or is_admin_flow:
         # Agar admin yoki UptimeRobot IP manzili adashib jail ga olingan bo'lsa, avtomatik ravishda unban qilinadi
