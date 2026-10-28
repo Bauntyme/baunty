@@ -162,18 +162,30 @@ async def cb_movie_random(callback: CallbackQuery) -> None:
     await callback.answer("🎲 Tasodifiy kino tanlanmoqda...")
     async with get_session() as session:
         movie = await movie_service.get_random(session)
-        if not movie:
-            await callback.message.answer(
-                f"😔 Bazada hali kinolar mavjud emas.\n🍿 Yangi filmlar kanalimizda: {config.CHANNEL_USERNAME}",
-                parse_mode="HTML"
+        if movie:
+            await movie_service.send_movie_to_user(
+                bot=callback.bot,
+                chat_id=callback.message.chat.id,
+                movie=movie,
+                session=session
             )
             return
 
-        await movie_service.send_movie_to_user(
-            bot=callback.bot,
-            chat_id=callback.message.chat.id,
-            movie=movie,
-            session=session
+        cat_rnd = movie_service.get_catalog_random()
+        if cat_rnd and cat_rnd.get("c"):
+            delivered = await movie_service.deliver_movie(
+                bot=callback.bot,
+                chat_id=callback.message.chat.id,
+                code=str(cat_rnd["c"]),
+                part=1,
+                session=session
+            )
+            if delivered:
+                return
+
+        await callback.message.answer(
+            f"😔 Bazada hali kinolar mavjud emas.\n🍿 Yangi filmlar kanalimizda: {config.CHANNEL_USERNAME}",
+            parse_mode="HTML"
         )
 
 
@@ -241,6 +253,28 @@ async def cb_movie_top(callback: CallbackQuery) -> None:
     await callback.answer("🔥 Eng ommabop kinolar...")
     async with get_session() as session:
         movies = await movie_service.get_top(session, limit=10)
+        if not movies:
+            cat_top = movie_service.get_catalog_top(limit=10)
+            if cat_top:
+                upserted = []
+                for it in cat_top:
+                    c_str = str(it.get("c"))
+                    t_str = it.get("t", f"Kino #{c_str}").strip()
+                    d_str = it.get("d", "").strip() or None
+                    v_str = int(it.get("v", 150))
+                    y_val = int(it.get("y")) if str(it.get("y", "")).isdigit() else None
+                    db_m, _ = await crud.upsert_movie(
+                        session=session,
+                        code=c_str,
+                        title=t_str,
+                        description=d_str,
+                        year=y_val,
+                        views_count=v_str
+                    )
+                    upserted.append(db_m)
+                await session.commit()
+                movies = upserted
+
         if not movies:
             await callback.message.answer(
                 f"😔 Hozircha kinolar mavjud emas.\n🍿 Kanalimiz: {config.CHANNEL_USERNAME}",

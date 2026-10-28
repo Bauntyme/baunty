@@ -549,6 +549,52 @@ class MovieService:
         return matched
 
     @staticmethod
+    def get_catalog_top(limit: int = 10) -> List[Dict[str, Any]]:
+        """Katalogdan eng ko'p ko'rilgan (views_count / 'v') top kinolarni olish."""
+        global _CATALOG_CACHE
+        catalog_path = BASE_DIR / "data" / "catalog.json"
+        if _CATALOG_CACHE is None and catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    _CATALOG_CACHE = json.load(f)
+            except Exception:
+                pass
+
+        items = list(CUSTOM_CATALOG_ITEMS)
+        seen_codes = {str(it.get("c")) for it in items}
+        if _CATALOG_CACHE and "items" in _CATALOG_CACHE:
+            for it in _CATALOG_CACHE["items"]:
+                if str(it.get("c")) not in seen_codes:
+                    items.append(it)
+
+        items.sort(key=lambda x: int(x.get("v", 0)), reverse=True)
+        return items[:limit]
+
+    @staticmethod
+    def get_catalog_random() -> Optional[Dict[str, Any]]:
+        """Katalogdan tasodifiy kinoni olish."""
+        import random
+        global _CATALOG_CACHE
+        catalog_path = BASE_DIR / "data" / "catalog.json"
+        if _CATALOG_CACHE is None and catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    _CATALOG_CACHE = json.load(f)
+            except Exception:
+                pass
+
+        items = list(CUSTOM_CATALOG_ITEMS)
+        seen_codes = {str(it.get("c")) for it in items}
+        if _CATALOG_CACHE and "items" in _CATALOG_CACHE:
+            for it in _CATALOG_CACHE["items"]:
+                if str(it.get("c")) not in seen_codes:
+                    items.append(it)
+
+        if not items:
+            return None
+        return random.choice(items)
+
+    @staticmethod
     async def find_by_code(session: AsyncSession, code: str) -> Optional[Movie]:
         """Kino kodi orqali kinoni topish."""
         return await crud.get_movie_by_code(session, code)
@@ -1261,11 +1307,6 @@ class MovieService:
         # Sarlavha va klaviatura (@Bauntyfilmsbot va @BauntyFilms brendi)
         bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
         channel_user = config.CHANNEL_USERNAME
-        desc_text = ""
-        if description:
-            clean_d = MovieService.sanitize_branding(description)[:350].strip()
-            if clean_d:
-                desc_text = f"\n\n📝 <b>Tavsif:</b>\n<i>{clean_d}</i>"
 
         # Qism sarlavhasini tozalash va to'g'ri shakllantirish (takrorlanishlarni bartaraf etish)
         clean_base_title = re.sub(
@@ -1303,11 +1344,129 @@ class MovieService:
                 except Exception as e:
                     logger.debug(f"set_movie_video error: {e}")
 
-        caption = (
-            f"🎬 <b>{display_title}</b> (4K Ultra HD){desc_text}\n\n"
-            f"📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}\n"
-            f"🤖 Bot: {bot_user}"
-        )
+        clean_d = MovieService.sanitize_branding(description or "").strip()
+
+        # 1. Original nomini aniqlash (cat_item, tavsif yoki sarlavhadan)
+        orig_name = None
+        if cat_item and cat_item.get("orig_title"):
+            orig_name = str(cat_item["orig_title"]).strip()
+        if not orig_name and clean_d:
+            m_orig = re.search(r'(?:🇺🇸|Original\s*nomi:|Asl\s*nomi:)\s*([^\n\r]+)', clean_d, re.I)
+            if m_orig:
+                orig_name = m_orig.group(1).strip()
+        if not orig_name:
+            m_paren = re.search(r'\(([^)]+)\)', clean_base_title)
+            if m_paren:
+                cand_orig = m_paren.group(1).strip()
+                if not re.match(r'^\d{4}(?:[-–—]\d{4})?$', cand_orig):
+                    orig_name = cand_orig
+        if not orig_name:
+            clean_title_no_yr = re.sub(r'\s*\(\d{4}(?:[-–—]\d{4})?\)', '', clean_base_title).strip()
+            if "/" in clean_title_no_yr:
+                parts_t = clean_title_no_yr.split("/", 1)
+                orig_name = parts_t[1].strip()
+            else:
+                orig_name = clean_title_no_yr
+
+        # 2. Chiqqan yilini aniqlash
+        year_val = None
+        if cat_item and cat_item.get("y"):
+            year_val = str(cat_item["y"]).strip()
+        elif db_movie and getattr(db_movie, "year", None):
+            year_val = str(db_movie.year).strip()
+        if not year_val and clean_d:
+            m_y = re.search(r'(?:📅\s*Yil(?:i)?:\s*|chiqqan\s*yili:\s*#?|Yil:\s*)(\d{4}(?:\s*[-–—]\s*\d{4})?)', clean_d, re.I)
+            if m_y:
+                year_val = m_y.group(1).strip()
+        if not year_val:
+            m_y2 = re.search(r'\b(19\d{2}|20\d{2})\b', clean_base_title)
+            if m_y2:
+                year_val = m_y2.group(1).strip()
+        if not year_val:
+            year_val = "2024"
+
+        # 3. Janrini aniqlash
+        genres_val = None
+        if cat_item and cat_item.get("g"):
+            genres_val = cat_item["g"] if isinstance(cat_item["g"], str) else ", ".join(cat_item["g"])
+        elif db_movie and getattr(db_movie, "genres", None) and db_movie.genres != "Barcha":
+            genres_val = db_movie.genres
+        if not genres_val and clean_d:
+            m_g = re.search(r'(?:🎭\s*Janr(?:i)?:\s*|Janr:\s*)([^\n\r]+)', clean_d, re.I)
+            if m_g:
+                genres_val = m_g.group(1).strip().replace("#", "").strip()
+        if not genres_val:
+            genres_val = "Jangari, Sarguzasht"
+
+        # 4. Davlatini aniqlash
+        country_val = None
+        if clean_d:
+            m_c = re.search(r'(?:🌍\s*(?:Davlat|Mamlakat):\s*|Davlat:\s*#?|Mamlakat:\s*)([^\n\r,]+)', clean_d, re.I)
+            if m_c:
+                cand_c = m_c.group(1).strip().replace("#", "").strip()
+                if len(cand_c) >= 3 and not cand_c.startswith("http"):
+                    country_val = cand_c
+        if not country_val:
+            combined_txt = (display_title + " " + clean_d).lower()
+            if "turkiya" in combined_txt:
+                country_val = "Turkiya"
+            elif "fransiya" in combined_txt:
+                country_val = "Fransiya"
+            elif "yaponiya" in combined_txt:
+                country_val = "Yaponiya"
+            elif "koreya" in combined_txt:
+                country_val = "Janubiy Koreya"
+            elif "xitoy" in combined_txt:
+                country_val = "Xitoy"
+            elif "rossiya" in combined_txt:
+                country_val = "Rossiya"
+            elif "o'zbek" in combined_txt or "uzbek" in combined_txt:
+                country_val = "O'zbekiston"
+            elif "hindiston" in combined_txt or "india" in combined_txt:
+                country_val = "Hindiston"
+            elif "angliya" in combined_txt or "britaniya" in combined_txt:
+                country_val = "Buyuk Britaniya"
+            else:
+                country_val = "AQSh / Jahon"
+
+        # 5. Sifatini aniqlash
+        quality_val = None
+        if clean_d:
+            m_q = re.search(r'(?:📺\s*Sifat(?:i)?:\s*|Sifat(?:i)?:\s*|Video:\s*)([^\n\r]+)', clean_d, re.I)
+            if m_q:
+                quality_val = m_q.group(1).strip().replace("#", "").strip()
+        if not quality_val:
+            quality_val = "1080p | Full HD (4K Ultra HD)"
+
+        card_lines = [
+            f"🎬 <b>{display_title}</b> (4K Ultra HD)",
+            f"🌐 <b>Original nomi:</b> {orig_name}",
+            f"📅 <b>Yili:</b> {year_val}",
+            f"🎭 <b>Janr:</b> {genres_val}",
+            f"🌍 <b>Davlat:</b> {country_val}",
+            f"📺 <b>Sifati:</b> {quality_val}",
+        ]
+
+        if clean_d:
+            desc_body = re.sub(r'📢\s*Homiy kanal:.*$', '', clean_d, flags=re.DOTALL | re.IGNORECASE).strip()
+            desc_body = re.sub(r'🤖\s*Bot:.*$', '', desc_body, flags=re.DOTALL | re.IGNORECASE).strip()
+            desc_body = re.sub(r'^(?:📖\s*)?Film haqida:\s*', '', desc_body, flags=re.IGNORECASE).strip()
+            desc_body = re.sub(r'^(?:📖\s*)?Serial haqida:\s*', '', desc_body, flags=re.IGNORECASE).strip()
+            desc_body = re.sub(r'🎭\s*Janr:.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
+            desc_body = re.sub(r'🌍\s*(?:Davlat|Mamlakat):.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
+            desc_body = re.sub(r'📅\s*Yil:.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
+            desc_body = re.sub(r'📺\s*Sifati?:.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
+            desc_body = re.sub(r'👇.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
+            desc_body = re.sub(r'\n{3,}', '\n\n', desc_body).strip()
+            if desc_body:
+                if len(desc_body) > 350:
+                    desc_body = desc_body[:350].strip() + "..."
+                card_lines.append(f"\n📝 <b>Tavsif:</b>\n<i>{desc_body}</i>")
+
+        card_lines.append(f"\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}")
+        card_lines.append(f"🤖 Bot: {bot_user}")
+
+        caption = "\n".join(card_lines)
 
         watch_online_url = None
         download_online_url = None

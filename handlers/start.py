@@ -2,6 +2,7 @@
 Boshlang'ich komandalar va umumiy tugmalar (/start, /help, obuna tekshiruvi)
 """
 import logging
+import re
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
@@ -81,15 +82,27 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     args = message.text.split(maxsplit=1)
     if len(args) > 1:
         param = args[1].strip()
-        if param in ("kino", "movie", "film") or param.startswith("kino_") or param.startswith("movie_") or param.startswith("k_"):
+        if (
+            param in ("kino", "movie", "film")
+            or param.startswith("kino_")
+            or param.startswith("movie_")
+            or param.startswith("k_")
+            or param.isdigit()
+            or (param.startswith("#") and param[1:].isdigit())
+            or bool(re.match(r"^#?\d+[\s_\-pP]+\d+$", param))
+        ):
             if param in ("kino", "movie", "film"):
                 from handlers.movies import cmd_movies_menu
                 await cmd_movies_menu(message, state)
                 return
-            raw_param = param.replace("kino_", "").replace("movie_", "").replace("k_", "").strip()
+            raw_param = param.replace("kino_", "").replace("movie_", "").replace("k_", "").lstrip("#№").strip()
             movie_code = raw_param
             part = 1
-            if "_" in raw_param:
+            m_code_part = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", raw_param, re.IGNORECASE)
+            if m_code_part:
+                movie_code = m_code_part.group(1)
+                part = int(m_code_part.group(2))
+            elif "_" in raw_param:
                 parts_k = raw_param.rsplit("_", 1)
                 if parts_k[1].isdigit():
                     movie_code = parts_k[0]
@@ -102,7 +115,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 reply_to_message_id=message.message_id
             )
             if not delivered:
-                await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
+                code_disp = f"{movie_code} ({part}-qism)" if part > 1 else movie_code
+                await message.answer(format_movie_not_found(code_disp), parse_mode="HTML")
             return
 
         elif param.startswith("b_") or param.startswith("book_") or param == "books":
@@ -397,14 +411,18 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
 
     welcome_text = (
         f"👋 <b>Assalomu alaykum, {user.first_name or 'qadrdon'}!</b>\n\n"
-        f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')}</b> ga xush kelibsiz!\n\n"
-        "Men quyidagi imkoniyatlarga egaman:\n"
+        f"🍿 <b>Baunty Cinema</b> rasmiy botiga xush kelibsiz!\n\n"
+        "🎬 <b>Kinolarni topish bo'yicha ko'rsatma:</b>\n"
+        "• 🔢 <b>Kod orqali:</b> Shunchaki kino kodini yuboring (masalan: <code>101</code> yoki <code>718</code>)\n"
+        "• 🔍 <b>Nomi bo'yicha:</b> Qiziqtirgan filmingiz nomini yozing (masalan: <i>Forsaj</i>, <i>Taksi</i>, <i>Avatar</i>)\n"
+        "• 📺 <b>Serial qismlari:</b> Kod va qism raqamini yozing (masalan: <code>718 2</code> yoki <code>Taksi 2</code>)\n\n"
+        "⚡ <b>Boshqa imkoniyatlar:</b>\n"
         "📥 <b>Media yuklash:</b> Instagram, TikTok, YouTube, Snapchat (suv belgisiz)\n"
-        "🎬 <b>Kino:</b> Kod orqali tezkor topish va yuklab olish\n"
         "🎵 <b>Qo'shiq topish:</b> Nom yoki ijrochi bo'yicha MP3 yuklash\n"
-        "👀 <b>Anonim story:</b> Instagram hikoyalarini sezdirmasdan ko'rish\n\n"
-        f"🍿 <b>Barcha sara kinolar:</b> {config.CHANNEL_USERNAME}\n\n"
-        "Quyidagi tugmalardan birini tanlang yoki to'g'ridan-to'g'ri havola/kino kodini yuboring! 👇"
+        "👀 <b>Anonim story:</b> Instagram hikoyalarini sezdirmasdan ko'rish\n"
+        "📺 <b>Jonli TV:</b> 1440p QHD / 1080p milliy va jahon telekanallari\n\n"
+        f"🍿 <b>Barcha sara kinolar va yangi premyeralar:</b> {config.CHANNEL_USERNAME}\n\n"
+        "Quyidagi tugmalardan birini tanlang yoki to'g'ridan-to'g'ri kino kodi/nomini yuboring! 👇"
     )
 
     await message.answer(

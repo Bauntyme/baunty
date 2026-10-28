@@ -119,13 +119,12 @@ def movie_item_keyboard(
                 callback_data=f"watch_part:{movie_code}:1"
             )
         )
-    if download_url:
-        builder.row(
-            InlineKeyboardButton(
-                text="📥 Yuklab olish",
-                callback_data=f"download_movie:{movie_code}:1"
-            )
+    builder.row(
+        InlineKeyboardButton(
+            text="📥 Yuklab olish",
+            callback_data=f"download_movie:{movie_code}:1"
         )
+    )
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text=f"🍿 {config.CHANNEL_USERNAME}", url=channel_url),
@@ -204,7 +203,7 @@ def movie_parts_keyboard(
                 callback_data=f"watch_part:{movie_code}:{current_part}"
             )
         )
-    if download_url:
+    if download_url or total_parts <= 20:
         builder.row(
             InlineKeyboardButton(
                 text="📥 Yuklab olish",
