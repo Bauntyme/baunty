@@ -244,12 +244,18 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await cmd_story_prompt(message, state)
             return
 
+        elif param in ("anon", "savol", "savollar", "ask") or param.startswith("anon_"):
+            from handlers.anon_questions import cmd_anon_questions_link
+            await cmd_anon_questions_link(message, state)
+            return
+
         elif param.startswith("q_"):
             target_id_str = param.replace("q_", "").strip()
             if target_id_str.isdigit():
                 target_id = int(target_id_str)
                 if target_id == user.id:
                     await message.answer("⚠️ <b>Siz o'zingizga anonim savol yubora olmaysiz!</b>", parse_mode="HTML")
+                    return
                 else:
                     from utils.states import AnonQuestionStates
                     from keyboards.default import cancel_keyboard

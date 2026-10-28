@@ -251,7 +251,11 @@ main{padding:6px 16px calc(28px + env(safe-area-inset-bottom))}
 body.seg4 .chan{display:none}
 body.seg4 .seg button{padding:7px 12px;font-size:14px}
 .seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
-.brand small{margin-top:6px}
+.brand small{margin-top:0}
+.zk-top-subbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.zk-lang-btn{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:3px 9px;color:var(--text);font-size:11px;font-weight:750;letter-spacing:.3px;cursor:pointer;touch-action:manipulation;transition:all .18s ease;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1}
+.zk-lang-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3)}
+.zk-lang-btn:active{transform:scale(.92);background:rgba(229,72,77,.35)}
 #chips2{margin-top:8px}
 .chip.s{padding:6px 12px;font-size:13px}
 
@@ -391,7 +395,7 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
   <div class="brand">
     <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="prava">🚗 Prava</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="mafia">🕵️ Mafia</button><button data-m="tvroom">📺 Tv Xona</button><button data-m="rasxod">💰 Rasxod</button><button data-m="kal">🥗 Kaloriya</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
-      <small id="count">Yuklanmoqda…</small></div>
+      <div class="zk-top-subbar"><small id="count">Yuklanmoqda…</small><button class="zk-lang-btn" id="zkLangBtn" type="button" aria-label="Tilni tanlash / Сменить язык" title="Tilni tanlash / Сменить язык">🌐 <span id="zkLangText">UZ</span></button></div></div>
     <button class="chan" id="chan" hidden>📢 Kanal</button>
   </div>
   <label class="search" id="sbox">
@@ -852,7 +856,35 @@ function hideSheet() { $("sbg").classList.remove("open"); $("sheet").classList.r
 $("sbg").onclick = hideSheet;
 
 // ---------- hodisalar ----------
+function syncLangBtn() {
+  const txt = document.getElementById("zkLangText");
+  if (txt) {
+    const cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toUpperCase();
+    txt.textContent = cur === "RU" ? "RU" : "UZ";
+  }
+}
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", syncLangBtn);
+} else {
+  syncLangBtn();
+}
+
 document.addEventListener("click", (e) => {
+  const langBtn = e.target.closest("#zkLangBtn");
+  if (langBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    haptic();
+    const curLang = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
+    const nextLang = curLang === "ru" ? "uz" : "ru";
+    if (typeof window.ZK_setLang === "function") {
+      window.ZK_setLang(nextLang);
+    } else {
+      try { localStorage.setItem("zk_lang", nextLang); } catch (err) {}
+      location.reload();
+    }
+    return;
+  }
   const card = e.target.closest(".card[data-c]");
   if (card) { const it = byCode.get(+card.dataset.c); if (it) openDetail(it); return; }
   const pb = e.target.closest(".pbtn");

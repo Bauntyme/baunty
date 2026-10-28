@@ -49,6 +49,12 @@ class SubscriptionMiddleware(BaseMiddleware):
 
         bot = data["bot"]
 
+        # Guruhlar va superguruhlardagi so'rovlarda obunani majburlamaymiz (guruhda to'liq erkin ishlashi uchun)
+        if isinstance(event, Message) and getattr(event, "chat", None) and getattr(event.chat, "type", None) in ("group", "supergroup"):
+            return await handler(event, data)
+        if isinstance(event, CallbackQuery) and getattr(getattr(event, "message", None), "chat", None) and getattr(event.message.chat, "type", None) in ("group", "supergroup"):
+            return await handler(event, data)
+
         # /start komandasi va obunani tekshirish callback_data uchun ruxsat berish
         if isinstance(event, Message) and event.text:
             text = event.text.strip()

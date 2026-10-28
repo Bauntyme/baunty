@@ -6,7 +6,7 @@ import math
 import re
 from typing import Optional, Tuple
 from aiogram import Router, F
-from aiogram.filters import StateFilter, Command
+from aiogram.filters import StateFilter, Command, CommandObject
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from config import config
@@ -28,14 +28,14 @@ logger = logging.getLogger(__name__)
 router = Router(name="movies_router")
 
 
-@router.message(Command("kino", "movie", "film"))
+@router.message(Command("kino", "movie", "film", "kod", "code"))
 @router.message(F.text.in_([
     "🎬 Kino", "🎬 Кино", "🎬 Фильмы",
     "🎬 K I N O — kod orqali qidirish",
     "🎬 К И Н О — код орқали қидириш",
     "🎬 К И Н О — поиск по коду",
 ]))
-async def cmd_movies_menu(message: Message, state: FSMContext) -> None:
+async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional[CommandObject] = None) -> None:
     await state.clear()
     from services.maintenance_service import maintenance_service
     from keyboards.default import maintenance_menu_keyboard
@@ -47,6 +47,40 @@ async def cmd_movies_menu(message: Message, state: FSMContext) -> None:
             reply_markup=maintenance_menu_keyboard(is_admin=False)
         )
         return
+
+    # Agar buyruq bilan birga kod yuborilgan bo'lsa (masalan: /kino 101, /kod 101 2, /kino taksi)
+    if command and command.args:
+        args_text = command.args.strip()
+        parsed = extract_movie_code_and_part(args_text)
+        if parsed:
+            code, part = parsed
+        else:
+            extracted_code = extract_movie_code(args_text)
+            code, part = (extracted_code, 1) if extracted_code else (None, 1)
+
+        if code:
+            delivered = await movie_service.deliver_movie(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=code,
+                part=part,
+                reply_to_message_id=message.message_id
+            )
+            if not delivered:
+                code_disp = f"{code} ({part}-qism)" if part > 1 else code
+                await message.reply(format_movie_not_found(code_disp), parse_mode="HTML")
+            return
+
+    # Guruhlarda parametrsiz /kino yoki /kod yozilsa, qisqa ko'rsatma beramiz
+    if message.chat and message.chat.type in ("group", "supergroup"):
+        await message.reply(
+            "🎬 <b>Kino kodini yuboring:</b>\n"
+            "Masalan: <code>/kino 101</code> yoki <code>101</code>\n\n"
+            f"🍿 Rasmiy kinolar kanali: {config.CHANNEL_USERNAME}",
+            parse_mode="HTML"
+        )
+        return
+
     text = (
         "🎬 <b>Kino olamiga xush kelibsiz!</b>\n\n"
         "Quyidagi imkoniyatlardan foydalanishingiz mumkin:\n"
@@ -548,6 +582,11 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     if not text:
         return None
     clean = text.strip()
+    # Guruhlarda @bot_username ni tozalash (masalan: @Bauntyfilmsbot 101 -> 101)
+    clean = re.sub(r'^@\w+\s*', '', clean).strip()
+    # /kino 101, /kod 101 kabi buyruq prefikslarini tozalash
+    clean = re.sub(r'^/(?:kino|kod|film|movie|code)(?:@\w+)?\s*', '', clean, flags=re.IGNORECASE).strip()
+
     if "kino — kod orqali qidirish" in clean.lower() or clean.startswith("http") or clean.startswith("/"):
         return None
     if len(clean) > 60:
@@ -625,6 +664,8 @@ def extract_movie_code(text: str) -> Optional[str]:
     if not text:
         return None
     clean = text.strip()
+    clean = re.sub(r'^@\w+\s*', '', clean).strip()
+    clean = re.sub(r'^/(?:kino|kod|film|movie|code)(?:@\w+)?\s*', '', clean, flags=re.IGNORECASE).strip()
     if re.search(r'^\d{1,8}[\s\-—–]*(?:qism|seriya|серия|fasl|sezon|part|ep|episode)', clean, re.IGNORECASE):
         return None
     cleaned = clean.lstrip("#№").strip()

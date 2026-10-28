@@ -120,12 +120,6 @@ def main_menu_keyboard(is_admin: bool = False, lang: str = "uz") -> ReplyKeyboar
             KeyboardButton(text=t["books"]),
         ],
         [
-            KeyboardButton(text=t["mafia"]),
-            KeyboardButton(text=t["tvroom"]),
-            KeyboardButton(text=t["rasxod"]),
-            KeyboardButton(text=t["kaloriya"]),
-        ],
-        [
             KeyboardButton(text=t["media"]),
             KeyboardButton(text=t["story"]),
         ],

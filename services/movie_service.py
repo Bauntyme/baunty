@@ -1699,20 +1699,32 @@ class MovieService:
                                         if fl.get("parts", 1) > total_p:
                                             total_p = int(fl["parts"])
 
-                                asil_movie = AsilmediaMovie(
-                                    id=clean_code,
-                                    title=it_title or target_title or f"Kino #{clean_code}",
-                                    url=it_watch or f"https://asilmedia.org/{clean_code}-kino.html",
-                                    orig_title=it_data.get("alt"),
-                                    year=it_year,
-                                    genres=it_genres,
-                                    description=it_desc,
-                                    poster=it_poster,
-                                    is_series=is_ser,
-                                    total_parts=total_p,
-                                    episodes=eps_dict,
-                                    video_sources={"primary": it_watch} if it_watch else {}
-                                )
+                                # Agar target_title berilgan bo'lsa, olingan film nomi unga mos kelishi kerak
+                                matches_target = True
+                                if target_title and not target_title.lower().startswith("kino #"):
+                                    t_words = [w for w in re.sub(r"[^\w\s]", " ", target_title.lower()).split() if len(w) >= 3]
+                                    it_words = [w for w in re.sub(r"[^\w\s]", " ", it_title.lower()).split() if len(w) >= 3]
+                                    matches_target = (
+                                        (target_title.lower() in it_title.lower())
+                                        or (it_title.lower() in target_title.lower())
+                                        or any(w in it_words for w in t_words)
+                                    )
+
+                                if matches_target:
+                                    asil_movie = AsilmediaMovie(
+                                        id=clean_code,
+                                        title=it_title or target_title or f"Kino #{clean_code}",
+                                        url=it_watch or f"https://asilmedia.org/{clean_code}-kino.html",
+                                        orig_title=it_data.get("alt"),
+                                        year=it_year,
+                                        genres=it_genres,
+                                        description=it_desc,
+                                        poster=it_poster,
+                                        is_series=is_ser,
+                                        total_parts=total_p,
+                                        episodes=eps_dict,
+                                        video_sources={"primary": it_watch} if it_watch else {}
+                                    )
             except Exception as ue:
                 logger.debug(f"Upstream api/asil/item sync failed for {clean_code}: {ue}")
 
