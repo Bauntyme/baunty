@@ -64,9 +64,19 @@ def test_create_book_pdf_sample():
     assert pdf_bytes.startswith(b"%PDF")
 
 
+def test_create_book_epub_sample():
+    """Kitob EPUB mutolaa nusxasi generatsiyasini tekshirish."""
+    b = book_service.get_book_by_id("1")
+    assert b is not None
+    epub_bytes = book_service.create_book_epub_sample(b)
+    assert isinstance(epub_bytes, bytes)
+    assert len(epub_bytes) > 100
+    assert epub_bytes.startswith(b"PK")  # ZIP container
+
+
 @pytest.mark.asyncio
 async def test_deliver_book():
-    """Kitobni Telegram chatga yetkazishni tekshirish."""
+    """Kitobni Telegram chatga yetkazishni tekshirish (PDF)."""
     mock_bot = MagicMock()
     mock_bot.send_document = AsyncMock()
     mock_bot.send_message = AsyncMock()
@@ -74,11 +84,34 @@ async def test_deliver_book():
     res = await book_service.deliver_book(
         bot=mock_bot,
         chat_id=123456789,
-        book_id="1"
+        book_id="1",
+        fmt="pdf"
     )
     assert res["ok"] is True
     assert res["delivered"] is True
     assert mock_bot.send_document.called or mock_bot.send_message.called
+
+
+@pytest.mark.asyncio
+async def test_deliver_book_epub():
+    """Kitobni Telegram chatga EPUB formatida yetkazishni tekshirish."""
+    mock_bot = MagicMock()
+    mock_bot.send_document = AsyncMock()
+    mock_bot.send_message = AsyncMock()
+
+    res = await book_service.deliver_book(
+        bot=mock_bot,
+        chat_id=123456789,
+        book_id="1",
+        fmt="epub"
+    )
+    assert res["ok"] is True
+    assert res["delivered"] is True
+    assert mock_bot.send_document.called
+    args, kwargs = mock_bot.send_document.call_args
+    doc = kwargs.get("document")
+    assert doc is not None
+    assert doc.filename.endswith(".epub")
 
 
 def test_no_branding_leaks_in_books():
@@ -178,6 +211,76 @@ class TestBooksWebServerAPI(AioHTTPTestCase):
         for b in data_ru["items"]:
             assert b["lang"] == "ru"
 
+    @unittest_run_loop
+    async def test_api_catalog_type_book(self):
+        """GET /api/catalog?type=book kitoblar katalogini qaytarishi kerak."""
+        resp = await self.client.request("GET", "/api/catalog?type=book")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data.get("type") == "book"
+        assert "items" in data
+        assert len(data["items"]) >= 15
+
+    @unittest_run_loop
+    async def test_api_books_home(self):
+        """GET /api/books/home to'liq javonlar va toifalar sxemasini qaytarishi kerak."""
+        resp = await self.client.request("GET", "/api/books/home")
+        assert resp.status == 200
+        data = await resp.json()
+        assert "shelves" in data
+        assert "genres" in data
+        assert "collections" in data
+        assert "total" in data
+        assert data["total"] >= 15
+        assert len(data["shelves"]) >= 2
+        # featured va top javonlari mavjud bo'lishi kerak
+        shelf_keys = [s["k"] for s in data["shelves"]]
+        assert "featured" in shelf_keys
+        assert "top" in shelf_keys
+
+    @unittest_run_loop
+    async def test_api_books_b_id(self):
+        """GET /api/books/b/{id} dual-schema formatida kitobni qaytarishi kerak."""
+        resp = await self.client.request("GET", "/api/books/b/1")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data["ok"] is True
+        book = data["book"]
+        assert book["id"] == "1"
+        assert book["i"] == 1
+        assert "t" in book
+        assert "a" in book
+        assert "f" in book
+        assert "pdf" in book["f"]
+        assert "epub" in book["f"]
+
+    @unittest_run_loop
+    async def test_api_books_me(self):
+        """GET /api/books/me foydalanuvchi ma'lumotlarini qaytarishi kerak."""
+        resp = await self.client.request("GET", "/api/books/me")
+        assert resp.status == 200
+        data = await resp.json()
+        assert data["ok"] is True
+        assert "shelf" in data
+        assert "stats" in data
+
+    @unittest_run_loop
+    async def test_bk_toc_and_chapter_dynamic_generation(self):
+        """GET /bk/{id}/toc.json va c1.json dinamik ravishda yaratilishi kerak."""
+        resp_toc = await self.client.request("GET", "/bk/1/toc.json")
+        assert resp_toc.status == 200
+        toc_data = await resp_toc.json()
+        assert toc_data.get("ok") is True
+        assert "toc" in toc_data
+        assert len(toc_data["toc"]) >= 1
+
+        resp_ch = await self.client.request("GET", "/bk/1/c1.json")
+        assert resp_ch.status == 200
+        ch_data = await resp_ch.json()
+        assert "h" in ch_data
+        assert "p" in ch_data
+        assert len(ch_data["p"]) >= 2
+
 
 def test_books_languages_catalog():
     """3 tilda kitoblar (uz, en, ru) mavjudligini tekshirish."""
@@ -263,4 +366,155 @@ def test_main_reply_keyboard_has_books():
     kb = main_menu_keyboard(is_admin=False)
     button_texts = [btn.text for row in kb.keyboard for btn in row]
     assert "📚 Kitoblar" in button_texts
+
+
+def test_webapp_books_tab_attributes():
+    """index.html da '📚 Kitoblar' tugmasi data-tab='books' va id='tab-books' ga ega bo'lishini tekshirish."""
+    html_path = book_service.BASE_DIR / "webapp" / "index.html"
+    content = html_path.read_text(encoding="utf-8")
+    assert 'data-tab="books"' in content
+    assert 'id="tab-books"' in content
+    assert '/#(?:tab-)?(?:books|kitob)/i' in content
+
+
+@pytest.mark.asyncio
+async def test_bot_cmd_books_flow():
+    """Telegram bot /books va /kitob buyruqlarini tekshirish."""
+    from handlers import books as books_handler
+    from aiogram.filters import CommandObject
+
+    # 1. Argumentsiz /books buyrug'i (asosiy menyu)
+    msg_main = AsyncMock()
+    msg_main.text = "/books"
+    msg_main.answer = AsyncMock()
+    await books_handler.cmd_books(msg_main, command=CommandObject(prefix="/", command="books", args=None))
+    assert msg_main.answer.called
+    args, kwargs = msg_main.answer.call_args
+    assert "Baunty Kutubxonasi" in args[0]
+    assert kwargs.get("reply_markup") is not None
+
+    # 2. Argumentli /books qidiruvi (Alkimyogar)
+    msg_search = AsyncMock()
+    msg_search.text = "/books Alkimyogar"
+    msg_search.answer = AsyncMock()
+    await books_handler.cmd_books(msg_search, command=CommandObject(prefix="/", command="books", args="Alkimyogar"))
+    assert msg_search.answer.called
+    args, kwargs = msg_search.answer.call_args
+    assert "Alkimyogar" in args[0]
+
+    # 3. Kirill yozuvidagi /kitob qidiruvi (Ўткан кунлар)
+    msg_cyr = AsyncMock()
+    msg_cyr.text = "/kitob Ўткан кунлар"
+    msg_cyr.answer = AsyncMock()
+    await books_handler.cmd_books(msg_cyr, command=CommandObject(prefix="/", command="kitob", args="Ўткан кунлар"))
+    assert msg_cyr.answer.called
+    args, kwargs = msg_cyr.answer.call_args
+    assert "O'tkan kunlar" in args[0]
+
+
+@pytest.mark.asyncio
+async def test_bot_msg_book_search():
+    """Foydalanuvchi matnli 'kitob ...' yoki 'китоб ...' yozganda qidiruv ishlashini tekshirish."""
+    from handlers import books as books_handler
+
+    # 1. 'kitob Alkimyogar'
+    msg_lat = AsyncMock()
+    msg_lat.text = "kitob Alkimyogar"
+    msg_lat.answer = AsyncMock()
+    await books_handler.msg_book_search(msg_lat)
+    assert msg_lat.answer.called
+    args, kwargs = msg_lat.answer.call_args
+    assert "Alkimyogar" in args[0]
+
+    # 2. 'китоб Ўткан кунлар'
+    msg_cyr = AsyncMock()
+    msg_cyr.text = "китоб Ўткан кунлар"
+    msg_cyr.answer = AsyncMock()
+    await books_handler.msg_book_search(msg_cyr)
+    assert msg_cyr.answer.called
+    args, kwargs = msg_cyr.answer.call_args
+    assert "O'tkan kunlar" in args[0]
+
+
+@pytest.mark.asyncio
+async def test_bot_callbacks():
+    """Bot callback_query tugmalarini tekshirish (main, category, item, read, dl)."""
+    from handlers import books as books_handler
+
+    # 1. books:main
+    call_main = AsyncMock()
+    call_main.data = "books:main"
+    call_main.message = AsyncMock()
+    call_main.message.edit_text = AsyncMock()
+    call_main.answer = AsyncMock()
+    await books_handler.cb_books_main(call_main)
+    assert call_main.message.edit_text.called
+    assert "Baunty Kutubxonasi" in call_main.message.edit_text.call_args[0][0]
+
+    # 2. book:cat:badiiy:1 (1-sahifa)
+    call_cat1 = AsyncMock()
+    call_cat1.data = "book:cat:badiiy:1"
+    call_cat1.message = AsyncMock()
+    call_cat1.message.edit_text = AsyncMock()
+    call_cat1.answer = AsyncMock()
+    await books_handler.cb_books_category(call_cat1)
+    assert call_cat1.message.edit_text.called
+    assert "Badiiy adabiyot" in call_cat1.message.edit_text.call_args[0][0]
+
+    # 3. book:cat:badiiy:2 (2-sahifa)
+    call_cat2 = AsyncMock()
+    call_cat2.data = "book:cat:badiiy:2"
+    call_cat2.message = AsyncMock()
+    call_cat2.message.edit_text = AsyncMock()
+    call_cat2.answer = AsyncMock()
+    await books_handler.cb_books_category(call_cat2)
+    assert call_cat2.message.edit_text.called
+
+    # 4. book:item:1 (kitob kartasi)
+    call_item = AsyncMock()
+    call_item.data = "book:item:1"
+    call_item.message = AsyncMock()
+    call_item.message.edit_text = AsyncMock()
+    call_item.answer = AsyncMock()
+    await books_handler.cb_book_item(call_item)
+    assert call_item.message.edit_text.called
+    assert "O'tkan kunlar" in call_item.message.edit_text.call_args[0][0]
+
+    # 5. book:read:1 (mutolaa parchasi)
+    call_read = AsyncMock()
+    call_read.data = "book:read:1"
+    call_read.message = AsyncMock()
+    call_read.message.edit_text = AsyncMock()
+    call_read.answer = AsyncMock()
+    await books_handler.cb_book_read(call_read)
+    assert call_read.message.edit_text.called
+    assert "Mutolaa parchasi" in call_read.message.edit_text.call_args[0][0]
+
+    # 6. book:pdf:1 (PDF yuklab berish)
+    call_pdf = AsyncMock()
+    call_pdf.data = "book:pdf:1"
+    call_pdf.bot = MagicMock()
+    call_pdf.bot.send_document = AsyncMock()
+    call_pdf.message = AsyncMock()
+    call_pdf.message.chat = MagicMock()
+    call_pdf.message.chat.id = 123456
+    call_pdf.answer = AsyncMock()
+    await books_handler.cb_book_download(call_pdf)
+    assert call_pdf.bot.send_document.called
+    doc_pdf = call_pdf.bot.send_document.call_args[1].get("document")
+    assert doc_pdf.filename.endswith(".pdf")
+
+    # 7. book:epub:1 (EPUB yuklab berish)
+    call_epub = AsyncMock()
+    call_epub.data = "book:epub:1"
+    call_epub.bot = MagicMock()
+    call_epub.bot.send_document = AsyncMock()
+    call_epub.message = AsyncMock()
+    call_epub.message.chat = MagicMock()
+    call_epub.message.chat.id = 123456
+    call_epub.answer = AsyncMock()
+    await books_handler.cb_book_download(call_epub)
+    assert call_epub.bot.send_document.called
+    doc_epub = call_epub.bot.send_document.call_args[1].get("document")
+    assert doc_epub.filename.endswith(".epub")
 

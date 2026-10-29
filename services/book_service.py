@@ -136,9 +136,40 @@ def load_books() -> List[Dict[str, Any]]:
         item["description"] = desc
         if "sample_text" in item:
             item["sample_text"] = sanitize_book_text(item["sample_text"])
+
+        # WebApp va upstream dual-schema maydonlari (i, t, a, y, g, l, p, r, rn, desc, c, f, s, m, me, lic)
+        cat_code = item.get("category", "badiiy")
+        meta = next((c for c in CATEGORIES_META if c["id"] == cat_code), None)
+        category_name = meta["name"] if meta else item.get("category_name", "Badiiy adabiyot")
+        item["category_name"] = category_name
+
+        pages = item.get("pages", 120)
+        size_mb = item.get("size_mb", 2.5)
+        size_bytes = int(size_mb * 1048576)
+        rating = item.get("rating", 4.9)
+        views = item.get("views", 10000)
+
+        num_id = int(bid) if bid.isdigit() else 0
+        item["i"] = num_id or bid
+        item["t"] = title
+        item["a"] = author
+        item["y"] = item.get("year", 2020)
+        item["g"] = cat_code
+        item["l"] = item.get("lang", "uz")
+        item["p"] = pages
+        item["r"] = rating
+        item["rn"] = max(10, views // 200)
+        item["desc"] = desc
+        item["c"] = 1 if item.get("cover") else 0
+        item["f"] = ["pdf", "epub"]
+        item["s"] = {"pdf": size_bytes, "epub": int(size_bytes * 0.55)}
+        item["m"] = "text"
+        item["me"] = {"pct": 0, "done": False, "saved": False, "stars": 0, "ch": 0}
+        item["lic"] = f"Baunty Kutubxonasi — @{config.BOT_USERNAME.lstrip('@')}"
+
         norm_lat = f"{_normalize(title)} {_normalize(author)} {_normalize(desc)}"
         raw_lower = f"{title} {author} {desc}".lower()
-        from utils.translit import latin_to_cyrillic
+        from utils.translit import latin_to_cyrillic, cyrillic_to_latin
         cyr = latin_to_cyrillic(f"{title} {author}").lower()
         cyr_ru = cyr.replace("қ", "к").replace("ў", "у").replace("ғ", "г").replace("ҳ", "х")
         clean_no_apos = re.sub(r"['`ʻʼ’´]", "", f"{title} {author}").lower()
@@ -179,13 +210,22 @@ def get_catalog(
         clean_words = clean_q.split()
         cyr_ru_q = query.lower().replace("қ", "к").replace("ў", "у").replace("ғ", "г").replace("ҳ", "х")
         cyr_ru_words = cyr_ru_q.split()
+
+        from utils.translit import cyrillic_to_latin, latin_to_cyrillic
+        cyr_to_lat = cyrillic_to_latin(query).lower()
+        cyr_to_lat_words = _normalize(cyr_to_lat).split()
+        lat_to_cyr = latin_to_cyrillic(query).lower()
+        lat_to_cyr_words = lat_to_cyr.split()
+
         filtered = [
             b for b in filtered
             if (clean_q and clean_q in b.get("_search", "")) or
                (clean_words and all(w in b.get("_search", "") for w in clean_words)) or
                (words and all(w in b.get("_search", "") for w in words)) or
                (raw_words and all(w in b.get("_search", "") for w in raw_words)) or
-               (cyr_ru_words and all(w in b.get("_search", "") for w in cyr_ru_words))
+               (cyr_ru_words and all(w in b.get("_search", "") for w in cyr_ru_words)) or
+               (cyr_to_lat_words and all(w in b.get("_search", "") for w in cyr_to_lat_words)) or
+               (lat_to_cyr_words and all(w in b.get("_search", "") for w in lat_to_cyr_words))
         ]
 
     total = len(filtered)
@@ -289,7 +329,7 @@ def search_books(query: str, limit: int = 25) -> List[Dict[str, Any]]:
 
 
 def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
-    """Kitob uchun chiroyli PDF mutolaa nusxasini yaratish (Pillow/ReportLab yordamida)."""
+    """Kitob uchun chiroyli PDF mutolaa nusxasini yaratish (ReportLab yoki Pillow yordamida)."""
     title = book.get("title", "Kitob")
     author = book.get("author", "Noma'lum muallif")
     desc = book.get("description", "")
@@ -299,6 +339,7 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
 
     # 1. Agar ReportLab mavjud bo'lsa
     try:
+        import html
         from reportlab.lib.pagesizes import letter
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
@@ -353,17 +394,17 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
         )
 
         elements = [
-            Paragraph(f"<b>{title}</b>", title_style),
-            Paragraph(f"✍️ Muallif: <b>{author}</b>", author_style),
-            Paragraph(f"📂 Janr: {category_name} | 📄 {pages} sahifa | ⭐ Reyting: {book.get('rating', 4.9)}", meta_style),
+            Paragraph(f"<b>{html.escape(title)}</b>", title_style),
+            Paragraph(f"✍️ Muallif: <b>{html.escape(author)}</b>", author_style),
+            Paragraph(f"📂 Janr: {html.escape(category_name)} | 📄 {pages} sahifa | ⭐ Reyting: {book.get('rating', 4.9)}", meta_style),
             HRFlowable(width="100%", thickness=1, color=colors.HexColor("#E2E8F0"), spaceAfter=20),
             Paragraph("<b>Qisqacha mazmuni:</b>", ParagraphStyle("H2", parent=styles["Heading2"], fontSize=14, textColor=colors.HexColor("#1A1D20"))),
             Spacer(1, 6),
-            Paragraph(desc, body_style),
+            Paragraph(html.escape(desc), body_style),
             Spacer(1, 14),
             Paragraph("<b>Kitobdan parcha (Mutolaa):</b>", ParagraphStyle("H2", parent=styles["Heading2"], fontSize=14, textColor=colors.HexColor("#1A1D20"))),
             Spacer(1, 6),
-            Paragraph(sample, body_style),
+            Paragraph(html.escape(sample), body_style),
             Spacer(1, 30),
             HRFlowable(width="100%", thickness=1, color=colors.HexColor("#E2E8F0"), spaceAfter=14),
             Paragraph(f"📚 Baunty Kutubxonasi — @{config.BOT_USERNAME.lstrip('@')} | {config.CHANNEL_USERNAME}", footer_style)
@@ -373,9 +414,54 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
         buf.seek(0)
         return buf.getvalue()
     except Exception as e:
-        logger.info(f"ReportLab orqali PDF generatsiyasida xatolik ({e}), matnli PDF nusxa tayyorlanadi.")
+        logger.debug(f"ReportLab orqali PDF generatsiyasida xatolik ({e}), Pillow yordamida yaratiladi.")
 
-    # 2. Oddiy zaxira matnli PDF
+    # 2. Pillow (PIL) yordamida to'liq, sifatli va o'qiladigan 2 sahifali PDF
+    try:
+        import textwrap
+        from PIL import Image, ImageDraw
+
+        W, H = 1200, 1600
+        p1 = Image.new("RGB", (W, H), color=(253, 251, 247))
+        d1 = ImageDraw.Draw(p1)
+        d1.rectangle([(0, 0), (W, 110)], fill=(26, 29, 32))
+        d1.text((50, 40), f"BAUNTY KUTUBXONASI — @{config.BOT_USERNAME.lstrip('@')}", fill=(255, 255, 255))
+        d1.text((50, 160), title[:45], fill=(26, 29, 32))
+        d1.text((50, 220), f"Muallif: {author[:50]}", fill=(229, 72, 77))
+        d1.text((50, 270), f"Janr: {category_name}  |  {pages} bet  |  Reyting: {book.get('rating', 4.9)}/5.0", fill=(108, 117, 125))
+        d1.line([(50, 315), (W - 50, 315)], fill=(226, 232, 240), width=2)
+        d1.text((50, 340), "QISQACHA MAZMUNI:", fill=(26, 29, 32))
+        y = 390
+        for line in textwrap.wrap(desc, width=68):
+            d1.text((50, y), line, fill=(43, 45, 66))
+            y += 34
+            if y > H - 100:
+                break
+        d1.line([(50, H - 70), (W - 50, H - 70)], fill=(226, 232, 240), width=1)
+        d1.text((50, H - 50), f"Baunty Books • {config.CHANNEL_USERNAME} • 1-sahifa", fill=(141, 153, 174))
+
+        p2 = Image.new("RGB", (W, H), color=(253, 251, 247))
+        d2 = ImageDraw.Draw(p2)
+        d2.rectangle([(0, 0), (W, 110)], fill=(26, 29, 32))
+        d2.text((50, 40), f"«{title[:40]}» — MUTOLAA PARCHASI", fill=(255, 255, 255))
+        y = 150
+        d2.text((50, y), "KITOBDAN PARCHA:", fill=(26, 29, 32))
+        y += 45
+        for line in textwrap.wrap(sample, width=68):
+            d2.text((50, y), line, fill=(43, 45, 66))
+            y += 34
+            if y > H - 100:
+                break
+        d2.line([(50, H - 70), (W - 50, H - 70)], fill=(226, 232, 240), width=1)
+        d2.text((50, H - 50), f"Baunty Books • @{config.BOT_USERNAME.lstrip('@')} • 2-sahifa", fill=(141, 153, 174))
+
+        buf = io.BytesIO()
+        p1.save(buf, format="PDF", save_all=True, append_images=[p2])
+        return buf.getvalue()
+    except Exception as e:
+        logger.warning(f"Pillow orqali PDF generatsiyasida xatolik ({e}), zaxira matnli PDF yaratiladi.")
+
+    # 3. Zaxira sodda PDF
     pdf_content = (
         f"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n"
         f"2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n"
@@ -386,10 +472,98 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
     return pdf_content.encode("utf-8")
 
 
+def create_book_epub_sample(book: Dict[str, Any]) -> bytes:
+    """Kitob uchun standart EPUB mutolaa faylini yaratish."""
+    import html
+    import zipfile
+
+    title = book.get("title", "Kitob")
+    author = book.get("author", "Noma'lum muallif")
+    desc = book.get("description", "")
+    sample = book.get("sample_text", desc)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("mimetype", b"application/epub+zip", compress_type=zipfile.ZIP_STORED)
+        container_xml = (
+            '<?xml version="1.0"?>\n'
+            '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n'
+            '  <rootfiles>\n'
+            '    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>\n'
+            '  </rootfiles>\n'
+            '</container>'
+        )
+        z.writestr("META-INF/container.xml", container_xml.encode("utf-8"))
+
+        content_opf = (
+            '<?xml version="1.0" encoding="utf-8"?>\n'
+            '<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">\n'
+            '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n'
+            f'    <dc:title>{html.escape(title)}</dc:title>\n'
+            f'    <dc:creator>{html.escape(author)}</dc:creator>\n'
+            f'    <dc:description>{html.escape(desc)}</dc:description>\n'
+            '    <dc:language>uz</dc:language>\n'
+            f'    <dc:publisher>Baunty Books (@{config.BOT_USERNAME.lstrip("@")})</dc:publisher>\n'
+            '  </metadata>\n'
+            '  <manifest>\n'
+            '    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>\n'
+            '    <item id="c1" href="chapter1.xhtml" media-type="application/xhtml+xml"/>\n'
+            '  </manifest>\n'
+            '  <spine toc="ncx">\n'
+            '    <itemref idref="c1"/>\n'
+            '  </spine>\n'
+            '</package>'
+        )
+        z.writestr("OEBPS/content.opf", content_opf.encode("utf-8"))
+
+        toc_ncx = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">\n'
+            '  <head><meta name="dtb:uid" content="1"/></head>\n'
+            f'  <docTitle><text>{html.escape(title)}</text></docTitle>\n'
+            '  <navMap>\n'
+            '    <navPoint id="navpoint-1" playOrder="1">\n'
+            '      <navLabel><text>1-bob. Mutolaa</text></navLabel>\n'
+            '      <content src="chapter1.xhtml"/>\n'
+            '    </navPoint>\n'
+            '  </navMap>\n'
+            '</ncx>'
+        )
+        z.writestr("OEBPS/toc.ncx", toc_ncx.encode("utf-8"))
+
+        p_tags = "".join(f"<p>{html.escape(line)}</p>" for line in sample.split("\n") if line.strip())
+        chapter_xhtml = (
+            '<?xml version="1.0" encoding="utf-8"?>\n'
+            '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">\n'
+            '<html xmlns="http://www.w3.org/1999/xhtml">\n'
+            '<head>\n'
+            f'  <title>{html.escape(title)}</title>\n'
+            '  <style>body { font-family: sans-serif; margin: 4%; line-height: 1.6; } h1 { color: #1a1d20; } h2 { color: #e5484d; }</style>\n'
+            '</head>\n'
+            '<body>\n'
+            f'  <h1>{html.escape(title)}</h1>\n'
+            f'  <h2>{html.escape(author)}</h2>\n'
+            '  <hr/>\n'
+            '  <h3>Qisqacha mazmuni</h3>\n'
+            f'  <p>{html.escape(desc)}</p>\n'
+            '  <hr/>\n'
+            '  <h3>Kitobdan parcha</h3>\n'
+            f'  {p_tags}\n'
+            '  <hr/>\n'
+            f'  <p><small>Baunty Kutubxonasi — @{config.BOT_USERNAME.lstrip("@")} | {config.CHANNEL_USERNAME}</small></p>\n'
+            '</body>\n'
+            '</html>'
+        )
+        z.writestr("OEBPS/chapter1.xhtml", chapter_xhtml.encode("utf-8"))
+
+    return buf.getvalue()
+
+
 async def deliver_book(
     bot: Any,
     chat_id: int | str,
-    book_id: str | int
+    book_id: str | int,
+    fmt: str = "pdf"
 ) -> Dict[str, Any]:
     """Kitobni foydalanuvchining Telegram chatiga yetkazish."""
     book = get_book_by_id(book_id)
@@ -403,12 +577,13 @@ async def deliver_book(
     rating = book.get("rating", 4.9)
     desc = book.get("description", "")
     short_desc = (desc[:280] + "…") if len(desc) > 280 else desc
+    format_label = fmt.upper()
 
     caption = (
         f"📚 <b>{title}</b>\n\n"
         f"✍️ <b>Muallif:</b> {author}\n"
         f"📂 <b>Toifa:</b> {category_name}\n"
-        f"📄 <b>Sahifalar:</b> {pages} ta | 💾 <b>Format:</b> PDF ({book.get('size_mb', 2.5)} MB)\n"
+        f"📄 <b>Sahifalar:</b> {pages} ta | 💾 <b>Format:</b> {format_label} ({book.get('size_mb', 2.5)} MB)\n"
         f"⭐ <b>Reyting:</b> {rating} / 5.0\n\n"
         f"📖 <i>{short_desc}</i>\n\n"
         f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} • {config.CHANNEL_USERNAME}</b>"
@@ -431,11 +606,16 @@ async def deliver_book(
     ])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    # PDF faylni generatsiya qilib yoki yuklab yuborish
+    # Faylni formatga qarab generatsiya qilish (PDF yoki EPUB)
     try:
-        pdf_bytes = create_book_pdf_sample(book)
-        safe_filename = re.sub(r'[^\w\s-]', '', f"{title} - {author}").strip() + ".pdf"
-        input_file = BufferedInputFile(pdf_bytes, filename=safe_filename)
+        clean_ext = "epub" if str(fmt).lower() == "epub" else "pdf"
+        if clean_ext == "epub":
+            doc_bytes = create_book_epub_sample(book)
+        else:
+            doc_bytes = create_book_pdf_sample(book)
+
+        safe_filename = re.sub(r'[^\w\s-]', '', f"{title} - {author}").strip() + f".{clean_ext}"
+        input_file = BufferedInputFile(doc_bytes, filename=safe_filename)
 
         await bot.send_document(
             chat_id=chat_id,
@@ -445,7 +625,7 @@ async def deliver_book(
             reply_markup=kb,
             protect_content=True
         )
-        return {"ok": True, "delivered": True, "book": book}
+        return {"ok": True, "delivered": True, "book": book, "format": clean_ext}
     except Exception as e:
         logger.warning(f"Kitob hujjatini yuborishda xatolik ({e}), xabar sifatida yuboriladi.")
         try:
@@ -456,7 +636,7 @@ async def deliver_book(
                 reply_markup=kb,
                 protect_content=True
             )
-            return {"ok": True, "delivered": True, "book": book}
+            return {"ok": True, "delivered": True, "book": book, "format": "text"}
         except Exception as e2:
             logger.error(f"Kitobni chatga yetkazib bo'lmadi: {e2}")
             return {"ok": False, "error": str(e2)}

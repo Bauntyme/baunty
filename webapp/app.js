@@ -503,7 +503,18 @@ function setMode(m) {
   window.scrollTo({top: 0});
 }
 const KINO_CHIPS = $("chips").innerHTML;
-$("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m]"); if (b) setMode(b.dataset.m); });
+$("seg").addEventListener("click", (e) => { const b = e.target.closest("button[data-m], button[data-tab]"); if (b) setMode(b.dataset.m || b.dataset.tab); });
+document.addEventListener("click", (e) => {
+  const b = e.target && e.target.closest && e.target.closest('[data-tab="books"]');
+  if (b && typeof setMode === "function") setMode("books");
+});
+window.addEventListener("hashchange", () => {
+  if (/#(?:tab-)?(?:books|kitob)/i.test(location.hash)) {
+    if (typeof setMode === "function") setMode("books");
+    const bid = location.hash.replace(/\D/g, "");
+    if (bid && window.ZBooks) ZBooks.open(bid);
+  }
+});
 window.ZK_setMode = setMode;
 window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZTvRoom && ZTvRoom.busy()) && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
@@ -943,8 +954,10 @@ async function load() {
   if (document.querySelector('#seg [data-m="story"]') && (/^st(ory)?(_|$)/i.test(sp) || stq !== null)) {
     setMode("story"); const spec = stq || sp.replace(/^st(ory)?_?/i, ""); if (spec && window.ZStory) ZStory.open(spec); return; }
   const bkq = new URLSearchParams(location.search).get("books");
-  if (document.querySelector('#seg [data-m="books"]') && (/^(books|kitob)/i.test(sp) || bkq !== null)) {
-    setMode("books"); const bid = (bkq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (bid && window.ZBooks) ZBooks.open(bid); return; }
+  const tabParam = new URLSearchParams(location.search).get("tab");
+  const isHashBooks = /#(?:tab-)?(?:books|kitob)/i.test(location.hash);
+  if (document.querySelector('#seg [data-m="books"]') && (/^(books|kitob)/i.test(sp) || bkq !== null || tabParam === "books" || isHashBooks)) {
+    setMode("books"); const bid = (bkq || (isHashBooks ? location.hash.replace(/\D/g, "") : "") || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (bid && window.ZBooks) ZBooks.open(bid); return; }
   const qzq = new URLSearchParams(location.search).get("quiz") || new URLSearchParams(location.search).get("qz");
   if (document.querySelector('#seg [data-m="quiz"]') && (/^(q\d{6}|qz\d+|quiz)/i.test(sp) || qzq !== null)) {
     setMode("quiz");

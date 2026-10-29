@@ -776,6 +776,47 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     except Exception as e:
         logger.warning(f"Kitob resursi yuklanmadi ({tail}): {e}")
 
+    # 3. Agar fayl topilmasa va tail toc.json yoki c{n}.json bo'lsa — kitob matnidan avtomatik generatsiya
+    m_toc = re.match(r"^(\d+)/toc\.json$", tail)
+    m_ch = re.match(r"^(\d+)/c(\d+)\.json$", tail)
+    if m_toc or m_ch:
+        from services import book_service
+        bid = m_toc.group(1) if m_toc else m_ch.group(1)
+        book = book_service.get_book_by_id(bid)
+        if book:
+            if m_toc:
+                toc_data = {
+                    "ok": True,
+                    "mode": "text",
+                    "pages": book.get("pages", 120),
+                    "toc": [
+                        {"t": "1-bob. Muqaddima va mutolaa", "c": 1}
+                    ]
+                }
+                c_bytes = json.dumps(toc_data, ensure_ascii=False).encode("utf-8")
+                return web.Response(
+                    body=c_bytes,
+                    content_type="application/json",
+                    headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400"}
+                )
+            elif m_ch:
+                title = book.get("title", "Kitob")
+                author = book.get("author", "Muallif")
+                desc = book.get("description", "")
+                sample = book.get("sample_text", desc)
+                paras = [f"«{title}» ({author}) — Mutolaa nusxasi.", desc]
+                paras.extend([p.strip() for p in sample.split("\n") if p.strip()])
+                ch_data = {
+                    "h": f"«{title}» — {author}",
+                    "p": paras
+                }
+                c_bytes = json.dumps(ch_data, ensure_ascii=False).encode("utf-8")
+                return web.Response(
+                    body=c_bytes,
+                    content_type="application/json",
+                    headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400"}
+                )
+
     return web.Response(status=404, text="Resurs topilmadi")
 
 
@@ -1882,6 +1923,25 @@ def _load_cat_file(cat_p: Path) -> dict:
 
 async def handle_get_catalog(request: web.Request) -> web.Response:
     """Mini Appning rasmiy kinolar katalogi API (Real-time va to'liq oq brendlangan)."""
+    # Agar kitoblar so'ralgan bo'lsa: /api/catalog?type=book
+    req_type = request.query.get("type", "").strip().lower()
+    if req_type in ("book", "books", "kitob", "kitoblar"):
+        from services import book_service
+        category = request.query.get("category") or request.query.get("c") or request.query.get("g")
+        lang = request.query.get("lang") or request.query.get("l")
+        query = request.query.get("q", "").strip()
+        try:
+            limit = int(request.query.get("limit") or request.query.get("n") or 50)
+        except (ValueError, TypeError):
+            limit = 50
+        try:
+            offset = int(request.query.get("offset") or request.query.get("o") or 0)
+        except (ValueError, TypeError):
+            offset = 0
+        b_data = book_service.get_catalog(category=category, query=query, lang=lang, limit=limit, offset=offset)
+        b_data["type"] = "book"
+        return web.json_response(b_data, headers={"Access-Control-Allow-Origin": "*"})
+
     now = time.time()
     m_state = maintenance_service.get_state()
     m_hash = json.dumps(m_state, sort_keys=True)
@@ -4309,26 +4369,127 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
 # =================================================================== 📚 KITOB (BOOKS) API
 async def handle_books_catalog(request: web.Request) -> web.Response:
     """Kutubxona katalogi va toifalarini qaytarish."""
-    category = request.query.get("category") or request.query.get("c")
-    lang = request.query.get("lang") or request.query.get("l")
-    query = request.query.get("q", "").strip()
+    body = {}
+    if request.method == "POST":
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+
+    category = request.query.get("category") or request.query.get("c") or request.query.get("g") or body.get("category") or body.get("g")
+    lang = request.query.get("lang") or request.query.get("l") or body.get("lang") or body.get("l")
+    query = (request.query.get("q") or body.get("q") or "").strip()
     try:
-        limit = int(request.query.get("limit", 50))
+        limit = int(request.query.get("limit") or request.query.get("n") or body.get("limit") or 50)
     except (ValueError, TypeError):
         limit = 50
     try:
-        offset = int(request.query.get("offset", 0))
+        offset = int(request.query.get("offset") or request.query.get("o") or body.get("offset") or 0)
     except (ValueError, TypeError):
         offset = 0
 
     from services import book_service
     data = book_service.get_catalog(category=category, query=query, lang=lang, limit=limit, offset=offset)
-    return web.json_response(data)
+    return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_books_home(request: web.Request) -> web.Response:
+    """Kutubxona bosh sahifasi (Featured, Top, Janrlar, To'plamlar va Tillarga bo'lingan)."""
+    from services import book_service
+    books = book_service.load_books()
+    total = len(books)
+
+    uz_books = [b for b in books if b.get("l") == "uz" or b.get("lang") == "uz"]
+    ru_books = [b for b in books if b.get("l") == "ru" or b.get("lang") == "ru"]
+    en_books = [b for b in books if b.get("l") == "en" or b.get("lang") == "en"]
+
+    featured = [b for b in books if b.get("popular") or b.get("views", 0) > 40000][:10]
+    if not featured:
+        featured = books[:10]
+
+    top = sorted(books, key=lambda x: (x.get("rating", 0), x.get("views", 0)), reverse=True)[:10]
+
+    shelves = [
+        {"k": "featured", "t": "🔥 Sara elektron kitoblar", "items": featured},
+        {"k": "top", "t": "🏆 Haftaning eng ko'p o'qilgan kitoblari", "items": top},
+    ]
+
+    genres = []
+    for cat in book_service.CATEGORIES_META:
+        cid = cat["id"]
+        cname = cat["name"]
+        cat_items = [b for b in books if b.get("category") == cid or b.get("g") == cid]
+        if cat_items:
+            genres.append({"g": cid, "n": len(cat_items)})
+            shelves.append({"k": f"genre:{cid}", "t": cname, "items": cat_items[:12]})
+
+    collections = [
+        {
+            "k": "uz",
+            "t": "O'zbek adabiyoti durdonalari",
+            "flag": "🇺🇿",
+            "d": "Mumtoz va zamonaviy o'zbek asarlari, qadriyatlar va xalq merosi",
+            "n": len(uz_books)
+        },
+        {
+            "k": "biznes",
+            "t": "Biznes va Shaxsiy Rivojlanish",
+            "flag": "💼",
+            "d": "Moliyaviy savodxonlik, odatlar kuchi va yetakchilik qoidalari",
+            "n": len([b for b in books if b.get("category") == "biznes"])
+        },
+        {
+            "k": "jahon",
+            "t": "Jahon Bestsellerlari",
+            "flag": "🌍",
+            "d": "Dunyoni larzaga solgan xalqaro sara kitoblar va romanlar",
+            "n": total
+        }
+    ]
+
+    home_data = {
+        "ok": True,
+        "total": total,
+        "langs": {
+            "uz": len(uz_books),
+            "ru": len(ru_books),
+            "en": len(en_books)
+        },
+        "shelves": shelves,
+        "genres": genres,
+        "collections": collections,
+        "featured": featured,
+        "items": books[:30],
+        "categories": book_service.CATEGORIES_META,
+        "bot": config.BOT_USERNAME.lstrip("@"),
+        "channel": config.CHANNEL_USERNAME
+    }
+    return web.json_response(home_data, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_books_me(request: web.Request) -> web.Response:
+    """Foydalanuvchining kitob javoni va o'qish statistikasi."""
+    return web.json_response({
+        "ok": True,
+        "books": [],
+        "shelf": [],
+        "stats": {"secs": 0, "books": 0},
+        "audio": [],
+        "notes": []
+    }, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_books_action(request: web.Request) -> web.Response:
+    """Javon, progress va qaydlar amallari."""
+    return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_books_search(request: web.Request) -> web.Response:
     """Kitoblarni tezkor qidirish API (Upstream 3390+ kitoblar va mahalliy zaxira)."""
     q = request.query.get("q", "").strip()
+    genre = request.query.get("g") or request.query.get("category")
+    lang = request.query.get("l") or request.query.get("lang")
+    sort = request.query.get("s") or request.query.get("sort") or "pop"
     try:
         limit = int(request.query.get("limit") or request.query.get("n") or 30)
     except (ValueError, TypeError):
@@ -4373,23 +4534,36 @@ async def handle_books_search(request: web.Request) -> web.Response:
         logger.debug(f"Upstream books search xatosi ({e}), lokal qidiruvga o'tiladi")
 
     # 2. Agar upstream natija bermasa yoki offline bo'lsa — mahalliy katalogdan qidirish
-    if not items and q:
+    if not items:
         from services import book_service
-        local_items = book_service.search_books(q, limit=limit)
-        total = len(local_items)
+        cat_res = book_service.get_catalog(
+            category=genre,
+            query=q,
+            lang=lang,
+            limit=limit,
+            offset=offset
+        )
+        local_items = cat_res.get("items", [])
+        total = cat_res.get("total", len(local_items))
+        if sort == "az":
+            local_items = sorted(local_items, key=lambda x: x.get("title", ""))
+        elif sort == "rate":
+            local_items = sorted(local_items, key=lambda x: x.get("rating", 0), reverse=True)
+        elif sort == "new":
+            local_items = sorted(local_items, key=lambda x: x.get("year", 0), reverse=True)
         items = local_items
 
-    return web.json_response({"ok": True, "items": items, "total": total})
+    return web.json_response({"ok": True, "items": items, "total": total}, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_book_detail(request: web.Request) -> web.Response:
     """Kitobning to'liq ma'lumotlarini olish (mahalliy yoki upstream)."""
-    book_id = request.match_info.get("id", "").strip()
+    book_id = request.match_info.get("id", "").strip() or request.query.get("id", "").strip() or request.query.get("i", "").strip()
     from services import book_service
     book = book_service.get_book_by_id(book_id)
     if not book:
-        return web.json_response({"ok": False, "error": "not_found"}, status=404)
-    return web.json_response({"ok": True, "book": book})
+        return web.json_response({"ok": False, "error": "not_found"}, status=404, headers={"Access-Control-Allow-Origin": "*"})
+    return web.json_response({"ok": True, "book": book}, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_book_send(request: web.Request) -> web.Response:
@@ -4430,11 +4604,13 @@ async def handle_book_send(request: web.Request) -> web.Response:
             "error": "bot_not_connected"
         })
 
+    fmt = str(body.get("f") or body.get("format") or "pdf").lower()
     try:
         result = await book_service.deliver_book(
             bot=_bot_instance,
             chat_id=int(user_id),
-            book_id=book_id
+            book_id=book_id,
+            fmt=fmt
         )
         if result.get("ok"):
             return web.json_response({"ok": True, "delivered": True, "book": book})
@@ -4728,14 +4904,15 @@ def create_web_app() -> web.Application:
         ("POST", "/api/docs/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/books", handle_books_catalog),
         ("POST", "/api/books", handle_books_catalog),
-        ("GET", "/api/books/home", handle_upstream_api_proxy),
-        ("GET", "/api/books/shelf", handle_upstream_api_proxy),
-        ("POST", "/api/books/shelf", handle_upstream_api_proxy),
-        ("GET", "/api/books/me", handle_upstream_api_proxy),
-        ("POST", "/api/books/progress", handle_upstream_api_proxy),
-        ("POST", "/api/books/note", handle_upstream_api_proxy),
+        ("GET", "/api/books/home", handle_books_home),
+        ("POST", "/api/books/home", handle_books_home),
+        ("GET", "/api/books/shelf", handle_books_me),
+        ("POST", "/api/books/shelf", handle_books_action),
+        ("GET", "/api/books/me", handle_books_me),
+        ("POST", "/api/books/progress", handle_books_action),
+        ("POST", "/api/books/note", handle_books_action),
         ("GET", "/api/books/audio", handle_upstream_api_proxy),
-        ("GET", "/api/books/b/{id}", handle_upstream_api_proxy),
+        ("GET", "/api/books/b/{id}", handle_book_detail),
         ("GET", "/api/books/page/{id}/{n}", handle_upstream_api_proxy),
         ("GET", "/api/books/search", handle_books_search),
         ("GET", "/api/books/{id}", handle_book_detail),

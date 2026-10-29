@@ -688,7 +688,10 @@ def extract_movie_code_and_part(text: str) -> Optional[Tuple[str, int]]:
     if title_cand.isdigit() and len(title_cand) <= 10:
         return title_cand, part
 
-    NON_TITLE_WORDS = {"admin", "salom", "qalesan", "start", "stop", "help", "yordam", "kino", "film", "menyu", "menu", "sozlamalar", "balans", "profile"}
+    NON_TITLE_WORDS = {
+        "admin", "salom", "qalesan", "start", "stop", "help", "yordam", "kino", "film", "menyu", "menu",
+        "sozlamalar", "balans", "profile", "kitob", "kitoblar", "kutubxona", "books", "book", "китоб", "китоблар"
+    }
     if title_cand and title_cand.lower() not in NON_TITLE_WORDS and not title_cand.isdigit() and len(title_cand) >= 2:
         cat_match = MovieService.search_catalog_by_title(title_cand)
         if cat_match and cat_match.get("c"):

@@ -33,14 +33,14 @@ def setup_routers() -> Router:
 
     _root_router = Router(name="root_router")
 
-    # Tartib: admin -> language -> start -> downloader -> movies -> music -> books -> mafia -> rasxod -> kaloriya -> story -> docs -> round_video -> anon -> referral -> groups -> feedback
+    # Tartib: admin -> language -> start -> downloader -> books -> movies -> music -> mafia -> rasxod -> kaloriya -> story -> docs -> round_video -> anon -> referral -> groups -> feedback
     _root_router.include_router(admin_router)
     _root_router.include_router(language_router)
     _root_router.include_router(start_router)
     _root_router.include_router(downloader_router)
+    _root_router.include_router(books_router)
     _root_router.include_router(movies_router)
     _root_router.include_router(music_router)
-    _root_router.include_router(books_router)
     _root_router.include_router(mafia_router)
     _root_router.include_router(rasxod_router)
     _root_router.include_router(kaloriya_router)
