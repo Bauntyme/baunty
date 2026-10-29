@@ -553,6 +553,29 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
 <div class="m-sheet" id="msheet"></div>
 <div class="sheet-bg" id="sbg"></div>
 <div class="sheet" id="sheet"></div>
+<div class="zk-lang-modal-bg" id="zkLangModalBg" aria-hidden="true"></div>
+<div class="zk-lang-modal" id="zkLangModal" role="dialog" aria-modal="true" aria-labelledby="zkLangModalTitle" aria-hidden="true">
+  <div class="zk-lang-modal-bar" aria-hidden="true"></div>
+  <div class="zk-lang-modal-head">
+    <div class="zk-lang-modal-title" id="zkLangModalTitle">🌐 Til · Язык · Language</div>
+    <button type="button" class="zk-lang-modal-close" id="zkLangModalClose" aria-label="Yopish">✕</button>
+  </div>
+  <div class="zk-lang-modal-sub">Tilni tanlang · Выберите язык · Choose language</div>
+  <div class="zk-lang-modal-list" id="zkLangModalList" role="radiogroup" aria-label="Til tanlash / Choose language">
+    <button type="button" class="zk-lang-modal-opt on" data-lang="uz" role="radio" aria-checked="true">
+      <span class="zk-lang-opt-name">🇺🇿 O'zbekcha</span>
+      <span class="zk-lang-opt-check">✓</span>
+    </button>
+    <button type="button" class="zk-lang-modal-opt" data-lang="ru" role="radio" aria-checked="false">
+      <span class="zk-lang-opt-name">🇷🇺 Русский</span>
+      <span class="zk-lang-opt-check">✓</span>
+    </button>
+    <button type="button" class="zk-lang-modal-opt" data-lang="en" role="radio" aria-checked="false">
+      <span class="zk-lang-opt-name">🇬🇧 English</span>
+      <span class="zk-lang-opt-check">✓</span>
+    </button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <div id="zkSlot" class="zk-slot" style="display:none"><div id="zkSlotReel"></div><button id="zkSlotClose"></button><button id="zkSlotSpinBtn"></button></div>
 
@@ -906,11 +929,37 @@ document.addEventListener("click", (e) => {
     }
     return;
   }
+  const modalOpt = e.target.closest(".zk-lang-modal-opt");
+  if (modalOpt) {
+    e.preventDefault();
+    e.stopPropagation();
+    haptic();
+    const targetLang = (modalOpt.getAttribute("data-lang") || "uz").toLowerCase();
+    if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
+    if (typeof window.ZK_setLang === "function") {
+      window.ZK_setLang(targetLang);
+    } else {
+      try { localStorage.setItem("zk_lang", targetLang); } catch (err) {}
+      location.reload();
+    }
+    return;
+  }
+  const modalClose = e.target.closest("#zkLangModalClose, #zkLangModalBg");
+  if (modalClose) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
+    return;
+  }
   const langBtn = e.target.closest("#zkLangBtn");
   if (langBtn) {
     e.preventDefault();
     e.stopPropagation();
     haptic();
+    if (typeof window.ZK_openLangModal === "function") {
+      window.ZK_openLangModal();
+      return;
+    }
     const curLang = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
     const nextLang = curLang === "uz" ? "ru" : curLang === "ru" ? "en" : "uz";
     if (typeof window.ZK_setLang === "function") {

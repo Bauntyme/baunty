@@ -51,6 +51,21 @@
     try { localStorage.setItem("zk_lang", l); } catch (e) {}
     window.ZK_LANG = l;
     document.documentElement.lang = l;
+    try {
+      var btnText = document.getElementById("zkLangText");
+      if (btnText) btnText.textContent = l.toUpperCase();
+      var pills = document.querySelectorAll(".zk-lang-pill, .zk-lang-modal-opt");
+      for (var i = 0; i < pills.length; i++) {
+        var isCur = (pills[i].getAttribute("data-lang") || "").toLowerCase() === l;
+        if (isCur) {
+          pills[i].classList.add("on");
+          pills[i].setAttribute("aria-checked", "true");
+        } else {
+          pills[i].classList.remove("on");
+          pills[i].setAttribute("aria-checked", "false");
+        }
+      }
+    } catch (e) {}
     var done = function () { if (!noReload && l !== lang) location.reload(); };
     var init = "";
     try { init = window.Telegram.WebApp.initData || ""; } catch (e) {}
@@ -60,6 +75,54 @@
         body: JSON.stringify({lang: l})}).then(done, done);
     } catch (e) { done(); }
   };
+
+  window.ZK_openLangModal = function () {
+    var bg = document.getElementById("zkLangModalBg");
+    var m = document.getElementById("zkLangModal");
+    var cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
+    var opts = document.querySelectorAll(".zk-lang-modal-opt");
+    for (var i = 0; i < opts.length; i++) {
+      var isCur = (opts[i].getAttribute("data-lang") || "").toLowerCase() === cur;
+      if (isCur) {
+        opts[i].classList.add("on");
+        opts[i].setAttribute("aria-checked", "true");
+      } else {
+        opts[i].classList.remove("on");
+        opts[i].setAttribute("aria-checked", "false");
+      }
+    }
+    if (bg) bg.classList.add("open");
+    if (m) m.classList.add("open");
+  };
+
+  window.ZK_closeLangModal = function () {
+    var bg = document.getElementById("zkLangModalBg");
+    var m = document.getElementById("zkLangModal");
+    if (bg) bg.classList.remove("open");
+    if (m) m.classList.remove("open");
+  };
+
+  function syncLangUI() {
+    var cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
+    var btnText = document.getElementById("zkLangText");
+    if (btnText) btnText.textContent = cur.toUpperCase();
+    var pills = document.querySelectorAll(".zk-lang-pill, .zk-lang-modal-opt");
+    for (var i = 0; i < pills.length; i++) {
+      var isCur = (pills[i].getAttribute("data-lang") || "").toLowerCase() === cur;
+      if (isCur) {
+        pills[i].classList.add("on");
+        pills[i].setAttribute("aria-checked", "true");
+      } else {
+        pills[i].classList.remove("on");
+        pills[i].setAttribute("aria-checked", "false");
+      }
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncLangUI);
+  } else {
+    syncLangUI();
+  }
 
   var DICT_RU = {
     // Navigatsiya & Bo'limlar

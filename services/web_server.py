@@ -702,6 +702,12 @@ def _process_and_save_book_cover(raw_bytes: bytes, tail: str, local_path: Path, 
 async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     """Kitob muqovalari, rasmlari va sahifalarini (bk/...) keshlab uzatish."""
     tail = request.match_info.get("tail", "").lstrip("/")
+    if not tail:
+        p = request.path.lstrip("/")
+        if p.startswith("webapp/bk/"):
+            tail = p[10:]
+        elif p.startswith("bk/"):
+            tail = p[3:]
     if not tail or ".." in tail:
         return web.Response(status=404, text="Topilmadi")
 
@@ -775,44 +781,16 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         from services import book_service
         book = book_service.get_book_by_id(book_id) if book_id else None
 
-        # 3.1. Kitobning o'z muqova URL manzilidan yuklab olish (Unsplash va h.k.)
-        if book:
-            cover_url = (book.get("cover") or book.get("poster") or book.get("image") or "").strip()
-            if cover_url.startswith("http"):
-                try:
-                    import aiohttp
-                    async with aiohttp.ClientSession() as session:
-                        async with session.get(cover_url, timeout=aiohttp.ClientTimeout(total=2.5, connect=1.0)) as resp:
-                            if resp.status == 200:
-                                raw_bytes = await resp.read()
-                                content = await asyncio.to_thread(_process_and_save_book_cover, raw_bytes, tail, local_path, ext)
-                                if content:
-                                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                                    if len(_BOOK_CACHE) > 500:
-                                        _BOOK_CACHE.clear()
-                                    _BOOK_CACHE[tail] = (content, content_type, etag)
-                                    return web.Response(
-                                        body=content,
-                                        content_type=content_type,
-                                        headers={
-                                            "Cache-Control": "public, max-age=604800, immutable",
-                                            "Access-Control-Allow-Origin": "*",
-                                            "ETag": etag,
-                                        }
-                                    )
-                except Exception as e:
-                    logger.debug(f"Masofaviy muqovani yuklab bo'lmadi ({tail}): {e}")
-
-        # 3.2. Upstream sslip.io serveridan olishga urinish
+        # 3.1. Upstream @Zakirovs_ai sslip.io serveridan tezkor olishga urinish (0.4s limit)
         upstream_url = f"https://161-97-96-58.sslip.io/bk/{tail}"
         try:
             import aiohttp
             async with aiohttp.ClientSession() as session:
-                async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
+                async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=0.45, connect=0.25)) as resp:
                     if resp.status == 200:
                         content = await resp.read()
                         etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                        if len(_BOOK_CACHE) > 500:
+                        if len(_BOOK_CACHE) > 1000:
                             _BOOK_CACHE.clear()
                         _BOOK_CACHE[tail] = (content, content_type, etag)
                         def _save_bk(lp, c):
@@ -826,15 +804,31 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
                             body=content,
                             content_type=content_type,
                             headers={
-                                "Cache-Control": "public, max-age=604800, immutable",
+                                "Cache-Control": "public, max-age=31536000, immutable",
                                 "Access-Control-Allow-Origin": "*",
                                 "ETag": etag,
                             }
                         )
-        except Exception as e:
-            logger.debug(f"Upstream muqova yuklanmadi ({tail}): {e}")
+        except Exception:
+            pass
 
-        # 3.3. Dinamik sifatli muqova yaratish (Pillow yoki SVG) - 100% muvaffaqiyat
+        # 3.2. Asinxron fonda Unsplash dan yuklab olish (javobni kutmasdan, bloklamaydi)
+        if book:
+            cover_url = (book.get("cover") or book.get("poster") or book.get("image") or "").strip()
+            if cover_url.startswith("http"):
+                async def _bg_fetch_cover(u: str, t: str, lp: Path, e: str):
+                    try:
+                        import aiohttp
+                        async with aiohttp.ClientSession() as s:
+                            async with s.get(u, timeout=aiohttp.ClientTimeout(total=4.0, connect=2.0)) as r:
+                                if r.status == 200:
+                                    rb = await r.read()
+                                    await asyncio.to_thread(_process_and_save_book_cover, rb, t, lp, e)
+                    except Exception:
+                        pass
+                asyncio.create_task(_bg_fetch_cover(cover_url, tail, local_path, ext))
+
+        # 3.3. Dinamik sifatli ultra-tezkor WebP muqova yaratish (Pillow yoki SVG) - <5ms javob
         size = "s" if ("cover_s" in tail or "thumb" in tail or "small" in tail) else "l"
         fmt = "JPEG" if ext in (".jpg", ".jpeg") else "PNG" if ext == ".png" else "WEBP"
         target_book = book or {"id": book_id or "0", "title": f"Kitob #{book_id or 0}", "author": "Baunty Kutubxonasi", "category_name": "Kutubxona"}
@@ -845,7 +839,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
             content = book_service.generate_dynamic_book_cover(target_book, size=size, fmt=fmt)
 
         etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-        if len(_BOOK_CACHE) > 500:
+        if len(_BOOK_CACHE) > 1000:
             _BOOK_CACHE.clear()
         _BOOK_CACHE[tail] = (content, content_type, etag)
 
@@ -861,7 +855,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
             body=content,
             content_type=content_type,
             headers={
-                "Cache-Control": "public, max-age=604800, immutable",
+                "Cache-Control": "public, max-age=31536000, immutable",
                 "Access-Control-Allow-Origin": "*",
                 "ETag": etag,
             }

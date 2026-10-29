@@ -122,6 +122,7 @@ const ERR = () => ({auth: T("Ilovani bot ichida oching", "Откройте пр�
   banned: T("Siz botdan bloklangansiz", "Вы заблокированы в боте", "You are blocked in the bot"),
   too_big: T("Rasm juda katta", "Фото слишком большое", "The photo is too large"), bad: T("Ma'lumot noto'g'ri", "Неверные данные", "Invalid data"),
   pro: T("Bu Pro funksiya", "Это функция Pro", "This is a Pro feature"), ai_off: T("Hisoblash hozircha ulanmagan", "Подсчёт пока не подключён", "Counting isn't connected yet"),
+  not_food: T("Faqat taom, shirinlik yoki ichimlik nomini kiriting", "Введите название еды, сладостей или напитка", "Enter the name of food, sweets, or drink"),
   ai_busy: T("Hozir band — birozdan keyin urinib ko'ring", "Сейчас занято — попробуйте позже", "Busy right now — try again shortly"),
   bad_img: T("Bu rasm formati o'qilmadi — oddiy JPG/PNG surat yuboring", "Формат фото не распознан — отправьте JPG/PNG", "Photo format not supported — send a JPG/PNG"),
   ai_fail: T("Tahlil qilib bo'lmadi — qayta urinib ko'ring", "Не удалось проанализировать — попробуйте ещё раз", "Couldn't analyse — try again"),

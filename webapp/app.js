@@ -272,11 +272,37 @@ document.addEventListener("click", (e) => {
     }
     return;
   }
+  const modalOpt = e.target.closest(".zk-lang-modal-opt");
+  if (modalOpt) {
+    e.preventDefault();
+    e.stopPropagation();
+    haptic();
+    const targetLang = (modalOpt.getAttribute("data-lang") || "uz").toLowerCase();
+    if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
+    if (typeof window.ZK_setLang === "function") {
+      window.ZK_setLang(targetLang);
+    } else {
+      try { localStorage.setItem("zk_lang", targetLang); } catch (err) {}
+      location.reload();
+    }
+    return;
+  }
+  const modalClose = e.target.closest("#zkLangModalClose, #zkLangModalBg");
+  if (modalClose) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
+    return;
+  }
   const langBtn = e.target.closest("#zkLangBtn");
   if (langBtn) {
     e.preventDefault();
     e.stopPropagation();
     haptic();
+    if (typeof window.ZK_openLangModal === "function") {
+      window.ZK_openLangModal();
+      return;
+    }
     const curLang = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
     const nextLang = curLang === "uz" ? "ru" : curLang === "ru" ? "en" : "uz";
     if (typeof window.ZK_setLang === "function") {
