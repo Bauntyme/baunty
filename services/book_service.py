@@ -49,8 +49,10 @@ def _normalize(text: str) -> str:
     t = t.replace("o‘", "o'").replace("g‘", "g'").replace("oʻ", "o'").replace("gʻ", "g'")
     t = t.replace("ў", "o'").replace("ғ", "g'").replace("ш", "sh").replace("ч", "ch")
     t = t.replace("ё", "yo").replace("ю", "yu").replace("я", "ya").replace("ц", "ts")
-    t = re.sub(r"[^\w\s]", " ", t)
-    return " ".join(t.split())
+    t_clean = re.sub(r"['`ʻʼ’´]", "", t)
+    t_punct = re.sub(r"[^\w\s]", " ", t)
+    return " ".join((t_punct + " " + t_clean).split())
+
 
 
 def sanitize_book_text(text: str) -> str:
@@ -167,9 +169,13 @@ def get_catalog(
         norm_q = _normalize(query)
         words = norm_q.split()
         raw_words = query.lower().split()
+        clean_q = re.sub(r"['`ʻʼ’´]", "", query).lower().strip()
+        clean_words = clean_q.split()
         filtered = [
             b for b in filtered
-            if (words and all(w in b.get("_search", "") for w in words)) or
+            if (clean_q and clean_q in b.get("_search", "")) or
+               (clean_words and all(w in b.get("_search", "") for w in clean_words)) or
+               (words and all(w in b.get("_search", "") for w in words)) or
                (raw_words and all(w in b.get("_search", "") for w in raw_words))
         ]
 

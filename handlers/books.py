@@ -12,7 +12,7 @@ from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
-import config
+from config import config
 from services import book_service
 
 logger = logging.getLogger(__name__)

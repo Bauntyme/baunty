@@ -1167,6 +1167,268 @@ async def cmd_browser(message: Message) -> None:
         await message.reply(analysis_text, parse_mode="HTML", reply_markup=analysis_kb, protect_content=True)
         return
 
+    # 0.5. @Zakirovs_ai bridge: Kinolar va Kitoblar integratsiyasi (/browser @Zakirovs_ai ...)
+    is_zakirovs_ai = bool(re.search(r"zakirovs?_ai\b", arg, re.IGNORECASE))
+    if is_zakirovs_ai:
+        clean_ai_query = re.sub(r"^@?zakirovs?_ai\s*", "", arg, flags=re.IGNORECASE).strip()
+        clean_ai_query = re.sub(r"^@\w+\s*", "", clean_ai_query).strip()
+
+        # Agar qidiruv yoki aniq so'rov berilmagan bo'lsa: /browser @Zakirovs_ai
+        if not clean_ai_query:
+            asyncio.create_task(movie_service.sync_catalog_from_upstream())
+            ai_kb = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text="🍿 Kinolar Web App",
+                            web_app=WebAppInfo(url=webapp_url)
+                        ),
+                        InlineKeyboardButton(
+                            text="📚 Kitoblar Web App",
+                            web_app=WebAppInfo(url=f"{webapp_url}?books")
+                        )
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="🚕 Taksi (1-5)",
+                            callback_data="watch_part:718:1"
+                        ),
+                        InlineKeyboardButton(
+                            text="🏎️ Forsaj (1-11)",
+                            callback_data="watch_part:1500:1"
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="📖 O'tkan kunlar (PDF)",
+                            callback_data="book:dl:1"
+                        ),
+                        InlineKeyboardButton(
+                            text="💼 Boy ota, kambag'al ota",
+                            callback_data="book:dl:4"
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="🎬 Sara Kinolar",
+                            callback_data="movie:top"
+                        ),
+                        InlineKeyboardButton(
+                            text="📚 Sara Kitoblar",
+                            callback_data="books:pop"
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="🔍 Qidiruv (Kino va Kitob)",
+                            switch_inline_query_current_chat=""
+                        ),
+                        InlineKeyboardButton(
+                            text="📢 Rasmiy Kanal",
+                            url=f"https://t.me/{channel_name}"
+                        )
+                    ]
+                ]
+            )
+            ai_text = (
+                "🍿 <b>Bauntys — Kinolar va Kitoblar Portali</b>\n\n"
+                "🌐 <b>@Zakirovs_ai integratsiyasi:</b> barcha sara kinolar va elektron kitoblar "
+                "yagona ekotizimda to'liq ulandi! Endi istalgan filmni tomosha qilishingiz yoki "
+                "kitobni to'liq PDF formatida yuklab olishingiz mumkin.\n\n"
+                "🎬 <b>Kinolar Portali:</b>\n"
+                "• 18,500+ kino va seriallar (Taksi 1-5, Titanlar, Chuqur, Forsaj)\n"
+                "• 150+ telekanallar (1440p QHD / 1080p)\n\n"
+                "📚 <b>Kutubxona Portali:</b>\n"
+                "• O'zbek va jahon adabiyoti durdonalari\n"
+                "• Biznes, shaxsiy rivojlanish, psixologiya va audio kitoblar\n"
+                "• To'liq PDF formatida yuklab olish va zamonaviy o'quvchi ilovasi\n\n"
+                f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
+                f"🍿 <b>Kino kanalimiz:</b> @{channel_name}\n\n"
+                "<i>Kerakli bo'limni tanlang yoki qidiruv uchun kino kodi / kitob nomini yozing:</i>"
+            )
+            await message.reply(ai_text, parse_mode="HTML", reply_markup=ai_kb, protect_content=True)
+            return
+
+        # Agar kitoblar bo'limi so'ralsa: /browser @Zakirovs_ai kitob
+        if clean_ai_query.lower() in ("kitob", "kitoblar", "books", "kutubxona"):
+            from handlers.books import get_books_main_keyboard
+            from services import book_service
+            cat = book_service.get_catalog(limit=6)
+            total = cat.get("total", 32)
+            kb = get_books_main_keyboard()
+            text = (
+                f"📚 <b>Baunty Kutubxonasi — {total}+ Sara Elektron Kitoblar!</b>\n\n"
+                f"Har bir kitobni to'g'ridan-to'g'ri qulay ilovada o'qishingiz "
+                f"yoki PDF formatida chatga yuklab olishingiz mumkin!\n\n"
+                f"<i>Quyidagi toifalardan birini tanlang:</i>"
+            )
+            await message.reply(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+            return
+
+        # Agar kino kodi berilgan bo'lsa: /browser @Zakirovs_ai 718 yoki 718_2
+        code_match = re.match(
+            r'^(?:#|№|kod:?\s*|kino:?\s*)?(\d{1,8})(?:[\s_\-pP]+(\d{1,4}))?$',
+            clean_ai_query,
+            re.IGNORECASE
+        )
+        if code_match:
+            c_code = code_match.group(1)
+            c_part = int(code_match.group(2)) if code_match.group(2) else 1
+            delivered = await movie_service.deliver_movie(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=c_code,
+                part=c_part,
+                reply_to_message_id=getattr(message, "message_id", None)
+            )
+            if delivered:
+                return
+
+        # Qidiruv so'rovini tozalash (kitob yoki kino prefikslarini olib tashlash)
+        from services import book_service
+        book_query = re.sub(r'^(?:kitob|kitoblar|books?)\s*:?\s*', '', clean_ai_query, flags=re.IGNORECASE).strip() or clean_ai_query
+        movie_query = re.sub(r'^(?:kino|film|serial|multfilm|movie)\s*:?\s*', '', clean_ai_query, flags=re.IGNORECASE).strip() or clean_ai_query
+
+        # 1. Kitoblardan qidirish
+        matched_books = book_service.search_books(book_query, limit=5)
+
+        # 2. Kinolardan qidirish (avval lokal katalog, keyin Asilmedia)
+        matched_movie = None
+        if not matched_books or bool(re.search(r'^(?:kino|film|serial|movie)\b', clean_ai_query, re.IGNORECASE)):
+            matched_movie = movie_service.search_catalog_by_title(movie_query)
+            if not matched_movie:
+                try:
+                    from services.asilmedia_service import asilmedia_service
+                    matched_movie = await asilmedia_service.find_best_match(movie_query)
+                except Exception:
+                    pass
+
+        # 1. Agar kitob topilgan bo'lsa va kino so'ralmagan bo'lsa
+        if matched_books and not matched_movie:
+            if len(matched_books) == 1:
+                deliv_res = await book_service.deliver_book(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    book_id=matched_books[0]["id"]
+                )
+                if deliv_res.get("ok"):
+                    return
+
+            b_rows = []
+            b_text = f"📚 <b>Topilgan kitoblar ({len(matched_books)} ta):</b>\n\n"
+            for b in matched_books:
+                b_title = b.get("title", "Kitob")
+                b_author = b.get("author", "Muallif")
+                b_fmt = b.get("format", "PDF")
+                b_text += f"• <b>{b_title}</b> — {b_author} ({b_fmt})\n"
+                b_rows.append([
+                    InlineKeyboardButton(
+                        text=f"📥 {b_title[:28]} ({b_fmt})",
+                        callback_data=f"book:dl:{b['id']}"
+                    )
+                ])
+            b_rows.append([
+                InlineKeyboardButton(
+                    text="📚 Kutubxona Web App",
+                    web_app=WebAppInfo(url=f"{webapp_url}?books")
+                )
+            ])
+            await message.reply(
+                b_text,
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=b_rows),
+                protect_content=True
+            )
+            return
+
+        # 2. Agar kino topilgan bo'lsa va kitob topilmagan bo'lsa
+        if matched_movie and not matched_books:
+            m_code = str(
+                getattr(matched_movie, "id", None)
+                or (matched_movie.get("c") if isinstance(matched_movie, dict) else None)
+                or (matched_movie.get("id") if isinstance(matched_movie, dict) else None)
+            )
+            delivered = await movie_service.deliver_movie(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=m_code,
+                part=1,
+                reply_to_message_id=getattr(message, "message_id", None)
+            )
+            if delivered:
+                return
+
+        # 3. Agar ham kino, ham kitob topilsa (kombinatsiyalangan natija)
+        if matched_movie and matched_books:
+            m_title = getattr(matched_movie, "title", None) or (matched_movie.get("t") if isinstance(matched_movie, dict) else None) or "Kino"
+            m_code = str(
+                getattr(matched_movie, "id", None)
+                or (matched_movie.get("c") if isinstance(matched_movie, dict) else None)
+                or (matched_movie.get("id") if isinstance(matched_movie, dict) else None)
+            )
+            comb_rows = [
+                [
+                    InlineKeyboardButton(
+                        text=f"🎬 Kinoni ko'rish: {m_title[:25]}",
+                        callback_data=f"watch_part:{m_code}:1"
+                    )
+                ]
+            ]
+            for b in matched_books[:2]:
+                comb_rows.append([
+                    InlineKeyboardButton(
+                        text=f"📥 Kitobni yuklash: {b['title'][:25]}",
+                        callback_data=f"book:dl:{b['id']}"
+                    )
+                ])
+            comb_rows.append([
+                InlineKeyboardButton(
+                    text="🍿 Kinolar",
+                    web_app=WebAppInfo(url=webapp_url)
+                ),
+                InlineKeyboardButton(
+                    text="📚 Kitoblar",
+                    web_app=WebAppInfo(url=f"{webapp_url}?books")
+                )
+            ])
+            comb_text = (
+                f"🍿 <b>Bauntys — Qidiruv Natijasi: «{clean_ai_query}»</b>\n\n"
+                f"🎬 <b>Kino:</b> {m_title} (kod: <code>{m_code}</code>)\n"
+                f"📚 <b>Kitob:</b> {matched_books[0]['title']} — {matched_books[0]['author']}\n\n"
+                f"<i>Tomosha qilish yoki kitobni yuklab olish uchun tanlang:</i>"
+            )
+            await message.reply(
+                comb_text,
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=comb_rows),
+                protect_content=True
+            )
+            return
+
+        # 4. Agar hech narsa topilmasa
+        not_found_kb = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text="🍿 Kinolar katalogi",
+                        web_app=WebAppInfo(url=webapp_url)
+                    ),
+                    InlineKeyboardButton(
+                        text="📚 Kitoblar katalogi",
+                        web_app=WebAppInfo(url=f"{webapp_url}?books")
+                    )
+                ]
+            ]
+        )
+        await message.reply(
+            f"🔍 «<b>{clean_ai_query}</b>» bo'yicha kino yoki kitob topilmadi.\n\n"
+            f"Iltimos, nomini to'g'ri yozing yoki Web App katalogidan qidiring:",
+            parse_mode="HTML",
+            reply_markup=not_found_kb,
+            protect_content=True
+        )
+        return
+
     # 1. Asilmedia portali yoki Asilmedia qidiruvi (/browser asilmedia.org ...)
     if "asilmedia" in clean_arg.lower():
         clean_query = re.sub(

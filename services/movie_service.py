@@ -444,7 +444,8 @@ class MovieService:
                         return it
                     if q in t_norm or q in t_s:
                         return it
-                    if t_norm in q or t_s in q:
+                    if (re.search(r'\b' + re.escape(t_norm) + r'\b', q) or
+                            (t_s and re.search(r'\b' + re.escape(t_s) + r'\b', q))):
                         return it
                 elif q and (q == t_norm or q == t_s):
                     return it
