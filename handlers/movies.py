@@ -1,6 +1,7 @@
 """
 Kino bo'limi qayta ishlovchisi (Kino kodi, qidiruv, janrlar, tasodifiy kino)
 """
+import html
 import logging
 import math
 import re
@@ -1254,7 +1255,7 @@ async def cmd_browser(message: Message) -> None:
             return
 
         # Agar kitoblar bo'limi so'ralsa: /browser @Zakirovs_ai kitob
-        if clean_ai_query.lower() in ("kitob", "kitoblar", "books", "kutubxona", "kniga", "knigi"):
+        if clean_ai_query.lower() in ("kitob", "kitoblar", "books", "book", "kutubxona", "kniga", "knigi", "китоб", "китоблар", "книга", "книги", "кутубхона"):
             from handlers.books import get_books_main_keyboard
             from services import book_service
             cat = book_service.get_catalog(limit=6)
@@ -1304,8 +1305,8 @@ async def cmd_browser(message: Message) -> None:
 
         # Qidiruv so'rovini tozalash (kitob yoki kino prefikslarini olib tashlash)
         from services import book_service
-        book_query = re.sub(r'^(?:kitob|kitoblar|books?)\s*:?\s*', '', clean_ai_query, flags=re.IGNORECASE).strip() or clean_ai_query
-        movie_query = re.sub(r'^(?:kino|film|serial|multfilm|movie)\s*:?\s*', '', clean_ai_query, flags=re.IGNORECASE).strip() or clean_ai_query
+        book_query = re.sub(r'^(?:kitob(?:lar)?|books?|китоб(?:лар)?|книг[аи]|кутубхона)\s*:?\s*', '', clean_ai_query, flags=re.IGNORECASE).strip() or clean_ai_query
+        movie_query = re.sub(r'^(?:kino(?:lar)?|film(?:lar)?|serial(?:lar)?|multfilm|movie(?:s)?|кино(?:лар)?|фильм(?:ы)?|сериал(?:ы)?)\s*:?\s*', '', clean_ai_query, flags=re.IGNORECASE).strip() or clean_ai_query
 
         # 1. Kitoblardan qidirish
         matched_books = book_service.search_books(book_query, limit=5)
@@ -1338,7 +1339,9 @@ async def cmd_browser(message: Message) -> None:
                 b_title = b.get("title", "Kitob")
                 b_author = b.get("author", "Muallif")
                 b_fmt = b.get("format", "PDF")
-                b_text += f"• <b>{b_title}</b> — {b_author} ({b_fmt})\n"
+                safe_bt = html.escape(str(b_title), quote=False)
+                safe_ba = html.escape(str(b_author), quote=False)
+                b_text += f"• <b>{safe_bt}</b> — {safe_ba} ({b_fmt})\n"
                 b_rows.append([
                     InlineKeyboardButton(
                         text=f"📥 {b_title[:28]} ({b_fmt})",
@@ -1730,7 +1733,10 @@ async def cmd_plan(message: Message) -> None:
                 InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
             ],
             [
+                InlineKeyboardButton(text="📚 Kitoblar Portali", web_app=WebAppInfo(url=f"{webapp_url}?books")),
                 InlineKeyboardButton(text="🎭 Janrlar", callback_data="movie:genres"),
+            ],
+            [
                 InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}"),
             ]
         ]
@@ -1740,7 +1746,8 @@ async def cmd_plan(message: Message) -> None:
         "• 🚀 <b>Tezkor MP4 Video Streaming:</b> Barcha kinolarni (Taksi, Forsaj, Titanlar, Chuqur va yangi premyeralar) "
         "bevosita Telegram chatida 1080p sifatda tomosha qilish.\n"
         "• 📺 <b>1440p QHD / 1080p 60fps Jonli Telekanallar:</b> 208 ta milliy va jahon telekanallari (Zo'r TV, Sevimli, Milliy, MY5, UFC, Futbol) qotmasdan va uzilmasdan tezkor efir uzatish.\n"
-        "• 🌐 <b>Mini App Integratsiyasi:</b> 1500+ kinolar katalogi, 208 ta telekanal (1440p QHD) va 50+ o'yinlar bitta portalda.\n"
+        "• 📚 <b>Kutubxona Portali:</b> 3,390+ sara kitoblar (PDF/EPUB), zamonaviy mini-ilova mutolaasi va tezkor yuklab olish.\n"
+        "• 🌐 <b>Mini App Integratsiyasi:</b> 1500+ kinolar katalogi, 208 ta telekanal (1440p QHD), kitoblar va 50+ o'yinlar bitta portalda.\n"
         "• ⚡ <b>Telegram Global CDN & Proxy Relay:</b> Barcha video fayllar va TV oqimlari avtomatik keshlanadi va 0.1-1.0 soniyada ulanadi.\n"
         "• 💎 <b>100% Bauntys Oq Brendi:</b> Begona reklamasiz, qulay va xavfsiz tizim.\n\n"
         f"🤖 <b>Bizning bot:</b> @{bot_name}\n"
@@ -1761,14 +1768,18 @@ async def cmd_goal(message: Message) -> None:
             [InlineKeyboardButton(text="🌐 Web App Brauzer", web_app=WebAppInfo(url=webapp_url))],
             [
                 InlineKeyboardButton(text="📺 Jonli TV (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
-                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="movie:by_title"),
+                InlineKeyboardButton(text="📚 Kitoblar Portali", callback_data="books:main"),
             ],
-            [InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top")]
+            [
+                InlineKeyboardButton(text="🔍 Kino qidirish", callback_data="movie:by_title"),
+                InlineKeyboardButton(text="🎬 Sara Kinolar", callback_data="movie:top"),
+            ]
         ]
     )
     text = (
         "🎯 <b>Bauntys Bosh Maqsadi va Missiyasi (Goal)</b>\n\n"
         "• 🍿 <b>Mukammal Kino Portali:</b> O'zbekistondagi eng qulay, tezyurar va sifatli kino platformasini taqdim etish.\n"
+        "• 📚 <b>Boy Kutubxona:</b> O'zbek va jahon adabiyoti durdonalarini PDF/EPUB formatida qulay yetkazish.\n"
         "• 📺 <b>1440p QHD Uzluksiz Jonli Telekanallar:</b> Barcha 208 ta telekanalni (Milliy, Sevimli, Zo'r TV, UFC, Futbol) 1 soniyada ochiladigan, qotmaydigan va uzilmaydigan efirda uzatish.\n"
         "• 📼 <b>100% Kafolatlangan Video Yetkazish:</b> Har bir film va serial qismini to'liq video fayl (MP4) ko'rinishida foydalanuvchiga taqdim etish.\n"
         "• 🌍 <b>Barcha Premyeralar:</b> Franshizalar (Taksi 1-5, Forsaj 1-11, Titanlar hujumi, Chuqur va b.) hamda yangi jahon kinolarini o'zbek tilida yagona tizimga jamlash.\n\n"
@@ -1789,6 +1800,9 @@ async def cmd_boost(message: Message) -> None:
             [InlineKeyboardButton(text="🌐 Web Appni ochish", web_app=WebAppInfo(url=webapp_url))],
             [
                 InlineKeyboardButton(text="⚡ TV FastTrack (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
+                InlineKeyboardButton(text="📚 Kitoblar", web_app=WebAppInfo(url=f"{webapp_url}?books")),
+            ],
+            [
                 InlineKeyboardButton(text="🎲 Tasodifiy kino", callback_data="movie:random"),
             ]
         ]
@@ -1798,6 +1812,7 @@ async def cmd_boost(message: Message) -> None:
         "• 🚀 <b>Server Holati:</b> 100% Faol va optimallashtirilgan!\n"
         "• 📺 <b>TV Oqimlari:</b> 1440p QHD adaptiv HLS, 208 ta kanal, CORS Relay Proxy va zaxira oqimlar faol.\n"
         "• 🏎️ <b>Video Oqimlari:</b> Telegram Bot API to'g'ridan-to'g'ri MP4 FastStart formatiga ulandi.\n"
+        "• 📚 <b>Kutubxona:</b> 3,390+ kitoblar tezkor keshi va o'quvchi ilovasi faol.\n"
         "• 💾 <b>Kesh Tizimi:</b> Real-time AsilMedia katalogi va TV kanallar keshlandi.\n"
         "• 📶 <b>Yuklash Tezligi:</b> 0.1–0.5 soniya (Telegram CDN & Fast-Track proxy orqali).\n\n"
         f"🤖 <b>Bot:</b> @{bot_name}"
@@ -1814,13 +1829,17 @@ async def cmd_chrome_devtools(message: Message) -> None:
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="🌐 Web Appni tekshirish", web_app=WebAppInfo(url=webapp_url))],
-            [InlineKeyboardButton(text="📺 TV Diagnostika (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv"))]
+            [
+                InlineKeyboardButton(text="📺 TV Diagnostika (1440p)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
+                InlineKeyboardButton(text="📚 Kitoblar API", web_app=WebAppInfo(url=f"{webapp_url}?books")),
+            ]
         ]
     )
     text = (
         "🛠 <b>Bauntys Web App DevTools & Diagnostika</b>\n\n"
         "• 🌐 <b>Mini App API:</b> 200 OK (Render.com Python 3.11)\n"
         "• 📺 <b>Jonli TV Drayveri:</b> 208 kanal, 1440p QHD / 1080p 60fps, CORS Proxy (/api/tv/stream) 100% faol\n"
+        "• 📚 <b>Kutubxona (Books API):</b> 3,390+ kitoblar indeksi, PDF/EPUB drayveri va Reader faol\n"
         "• 🔌 <b>Upstream AsilMedia:</b> Ulangan (https://161-97-96-58.sslip.io)\n"
         "• 🎥 <b>Video Drayveri:</b> H.264 / AAC 720p/1080p FastStart\n"
         "• 🛡️ <b>Xavfsizlik (WAF):</b> 100% Bauntys Oq Brendi, Telegram InitData himoyalangan\n"
@@ -1868,14 +1887,17 @@ async def cmd_teamwork_preview(message: Message) -> None:
             [InlineKeyboardButton(text="🌐 Web App Preview", web_app=WebAppInfo(url=webapp_url))],
             [
                 InlineKeyboardButton(text="📺 Jonli TV (1440p QHD)", web_app=WebAppInfo(url=f"{webapp_url}#tv")),
+                InlineKeyboardButton(text="📚 Kitoblar", web_app=WebAppInfo(url=f"{webapp_url}?books")),
+            ],
+            [
                 InlineKeyboardButton(text="🚕 Taksi (1-5)", callback_data="watch_part:718:1"),
-            ],
-            [
                 InlineKeyboardButton(text="⚔️ Titanlar", callback_data="watch_part:717:1"),
-                InlineKeyboardButton(text="🔫 Chuqur", callback_data="watch_part:287:1"),
             ],
             [
+                InlineKeyboardButton(text="🔫 Chuqur", callback_data="watch_part:287:1"),
                 InlineKeyboardButton(text="🏎️ Forsaj", callback_data="watch_part:1500:1"),
+            ],
+            [
                 InlineKeyboardButton(text="📢 Rasmiy Kanal", url=f"https://t.me/{channel_name}"),
             ]
         ]
@@ -1884,6 +1906,7 @@ async def cmd_teamwork_preview(message: Message) -> None:
         "👥 <b>Bauntys Jamoaviy Oldindan Ko'rish (Teamwork Preview)</b>\n\n"
         "Barcha yangilangan funksiyalar va katalog to'plamlarini sinab ko'rishingiz mumkin:\n"
         "📺 <b>Jonli TV (1440p QHD):</b> 208 ta kanal, sub-second start, zaxira oqimlar va proxy relay\n"
+        "📚 <b>Kutubxona:</b> 3,390+ sara kitoblar, PDF/EPUB to'liq yuklash va mini ilova mutolaasi\n"
         "🚕 <b>Taksi 1-5:</b> Barcha qismlari MP4 video oqimi bilan (kod: <code>718</code> / <code>9165</code>)\n"
         "⚔️ <b>Titanlar hujumi:</b> 54 qism (kod: <code>717</code> / <code>16913</code>)\n"
         "🔫 <b>Chuqur (Çukur):</b> 131 qism (kod: <code>287</code> / <code>18281</code>)\n"

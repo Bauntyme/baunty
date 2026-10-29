@@ -7,11 +7,13 @@ To'liq oq brendlangan: Baunty, Baunty Films, @BauntyCinemabot.
 
 from __future__ import annotations
 
+import html
 import io
 import json
 import logging
 import os
 import re
+import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -244,61 +246,65 @@ def get_catalog(
 def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
     """Kitobni ID orqali olish (mahalliy yoki upstream katalogidan)."""
     load_books()
-    bid = str(book_id).strip()
-    book = _BOOKS_BY_ID.get(bid)
+    raw = str(book_id).strip()
+    bid = re.sub(r'^(?:book_|books_|b_|kitob_)', '', raw).strip()
+    book = _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
     if book:
         return book
 
-    # Agar lokal bazada bo'lmasa, upstream katalogidan olishga urinish
-    try:
-        import urllib.request
-        url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
-        req = urllib.request.Request(url, headers={"User-Agent": "BauntyBot/2.0"})
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
-            if resp.status == 200:
-                data = json.loads(resp.read().decode("utf-8"))
-                if data.get("ok") and data.get("book"):
-                    ub = data["book"]
-                    title = ub.get("t") or f"Kitob #{bid}"
-                    author = ub.get("a") or "Noma'lum muallif"
-                    category_code = ub.get("g") or "badiiy"
-                    meta = next((c for c in CATEGORIES_META if c["id"] == category_code), None)
-                    category_name = meta["name"] if meta else "Badiiy adabiyot"
-                    desc = ub.get("desc") or f"{title} — {author} asari."
-                    size_bytes = (ub.get("s") or {}).get("pdf") or 2500000
-                    size_mb = round(size_bytes / 1048576, 1) if size_bytes else 2.5
+    # Faqat raqamli bo'lsa va lokal bazada bo'lmasa, upstream katalogidan olishga urinish
+    if bid.isdigit():
+        try:
+            import urllib.request
+            url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
+            req = urllib.request.Request(url, headers={"User-Agent": "BauntyBot/2.0"})
+            with urllib.request.urlopen(req, timeout=0.8) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if data.get("ok") and data.get("book"):
+                        ub = data["book"]
+                        title = ub.get("t") or f"Kitob #{bid}"
+                        author = ub.get("a") or "Noma'lum muallif"
+                        category_code = ub.get("g") or "badiiy"
+                        meta = next((c for c in CATEGORIES_META if c["id"] == category_code), None)
+                        category_name = meta["name"] if meta else "Badiiy adabiyot"
+                        desc = ub.get("desc") or f"{title} — {author} asari."
+                        size_bytes = (ub.get("s") or {}).get("pdf") or 2500000
+                        size_mb = round(size_bytes / 1048576, 1) if size_bytes else 2.5
 
-                    book_obj = {
-                        "id": str(ub.get("i", bid)),
-                        "title": title,
-                        "author": author,
-                        "category": category_code,
-                        "category_name": category_name,
-                        "pages": ub.get("p") or 120,
-                        "lang": ub.get("l") or "uz",
-                        "year": ub.get("y"),
-                        "rating": ub.get("r") or 4.9,
-                        "views": (ub.get("rd") or 10) * 150,
-                        "format": "PDF",
-                        "size_mb": size_mb,
-                        "popular": True,
-                        "description": desc,
-                        "sample_text": f"«{title}» ({author}) kitobining mutolaa va tanishuv nusxasi.",
-                        "cover": f"https://161-97-96-58.sslip.io/bk/{ub.get('i', bid)}/cover_l.webp" if ub.get("c") else "",
-                        # Upstream mosligi (i, t, a, c, p, l, g, f)
-                        "i": ub.get("i", int(bid) if bid.isdigit() else 0),
-                        "t": title,
-                        "a": author,
-                        "c": ub.get("c", 0),
-                        "p": ub.get("p", 120),
-                        "l": ub.get("l", "uz"),
-                        "g": category_code,
-                        "f": ub.get("f", ["pdf"]),
-                    }
-                    _BOOKS_BY_ID[bid] = book_obj
-                    return book_obj
-    except Exception as e:
-        logger.debug(f"Upstreamdan kitob #{book_id} yuklab bo'lmadi: {e}")
+                        book_obj = {
+                            "id": str(ub.get("i", bid)),
+                            "title": title,
+                            "author": author,
+                            "category": category_code,
+                            "category_name": category_name,
+                            "pages": ub.get("p") or 120,
+                            "lang": ub.get("l") or "uz",
+                            "year": ub.get("y"),
+                            "rating": ub.get("r") or 4.9,
+                            "views": (ub.get("rd") or 10) * 150,
+                            "format": "PDF",
+                            "size_mb": size_mb,
+                            "popular": True,
+                            "description": desc,
+                            "sample_text": f"«{title}» ({author}) kitobining mutolaa va tanishuv nusxasi.",
+                            "cover": f"https://161-97-96-58.sslip.io/bk/{ub.get('i', bid)}/cover_l.webp" if ub.get("c") else "",
+                            # Upstream mosligi (i, t, a, c, p, l, g, f, s)
+                            "i": ub.get("i", int(bid) if bid.isdigit() else 0),
+                            "t": title,
+                            "a": author,
+                            "c": ub.get("c", 0),
+                            "p": ub.get("p", 120),
+                            "l": ub.get("l", "uz"),
+                            "g": category_code,
+                            "f": ["pdf", "epub"],
+                            "s": {"pdf": size_bytes, "epub": int(size_bytes * 0.55)},
+                        }
+                        _BOOKS_BY_ID[bid] = book_obj
+                        _BOOKS_BY_ID[raw] = book_obj
+                        return book_obj
+        except Exception as e:
+            logger.debug(f"Upstreamdan kitob #{book_id} yuklab bo'lmadi: {e}")
 
     return None
 
@@ -579,13 +585,18 @@ async def deliver_book(
     short_desc = (desc[:280] + "…") if len(desc) > 280 else desc
     format_label = fmt.upper()
 
+    safe_title = html.escape(str(title), quote=False)
+    safe_author = html.escape(str(author), quote=False)
+    safe_cat_name = html.escape(str(category_name), quote=False)
+    safe_short_desc = html.escape(str(short_desc), quote=False)
+
     caption = (
-        f"📚 <b>{title}</b>\n\n"
-        f"✍️ <b>Muallif:</b> {author}\n"
-        f"📂 <b>Toifa:</b> {category_name}\n"
+        f"📚 <b>{safe_title}</b>\n\n"
+        f"✍️ <b>Muallif:</b> {safe_author}\n"
+        f"📂 <b>Toifa:</b> {safe_cat_name}\n"
         f"📄 <b>Sahifalar:</b> {pages} ta | 💾 <b>Format:</b> {format_label} ({book.get('size_mb', 2.5)} MB)\n"
         f"⭐ <b>Reyting:</b> {rating} / 5.0\n\n"
-        f"📖 <i>{short_desc}</i>\n\n"
+        f"📖 <i>{safe_short_desc}</i>\n\n"
         f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} • {config.CHANNEL_USERNAME}</b>"
     )
 
@@ -599,7 +610,8 @@ async def deliver_book(
         from aiogram.types import WebAppInfo
         buttons.append([InlineKeyboardButton(text="📖 Ilovada o'qish (Mutolaa)", web_app=WebAppInfo(url=webapp_url))])
 
-    share_url = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=b_{book['id']}&text={title}%20kitobini%20o'qish"
+    quoted_text = urllib.parse.quote(f"{title} kitobini o'qish")
+    share_url = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=b_{book['id']}&text={quoted_text}"
     buttons.append([
         InlineKeyboardButton(text="🔗 Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text="📚 Barcha kitoblar", url=f"https://t.me/{bot_user}?start=books")

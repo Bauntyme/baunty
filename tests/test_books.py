@@ -518,3 +518,134 @@ async def test_bot_callbacks():
     doc_epub = call_epub.bot.send_document.call_args[1].get("document")
     assert doc_epub.filename.endswith(".epub")
 
+
+@pytest.mark.asyncio
+async def test_start_command_book_deep_links():
+    """Start buyrug'i orqali kitob deep linklarini ochish (b_1, book_1, kitob_1, books)."""
+    from handlers.start import cmd_start
+
+    # 1. /start b_1
+    msg1 = AsyncMock()
+    msg1.text = "/start b_1"
+    msg1.from_user = MagicMock(id=12345, is_bot=False, username="test", first_name="Test", last_name="")
+    msg1.chat.id = 12345
+    msg1.bot.send_document = AsyncMock()
+    msg1.bot.send_message = AsyncMock()
+    state1 = AsyncMock()
+    await cmd_start(msg1, state=state1)
+    assert msg1.bot.send_document.called or msg1.bot.send_message.called
+
+    # 2. /start kitob_1
+    msg2 = AsyncMock()
+    msg2.text = "/start kitob_1"
+    msg2.from_user = MagicMock(id=12345, is_bot=False, username="test", first_name="Test", last_name="")
+    msg2.chat.id = 12345
+    msg2.bot.send_document = AsyncMock()
+    msg2.bot.send_message = AsyncMock()
+    state2 = AsyncMock()
+    await cmd_start(msg2, state=state2)
+    assert msg2.bot.send_document.called or msg2.bot.send_message.called
+
+    # 3. /start kitob (katalog ochish)
+    msg3 = AsyncMock()
+    msg3.text = "/start kitob"
+    msg3.from_user = MagicMock(id=12345, is_bot=False, username="test", first_name="Test", last_name="")
+    msg3.chat.id = 12345
+    msg3.answer = AsyncMock()
+    state3 = AsyncMock()
+    await cmd_start(msg3, state=state3)
+    assert msg3.answer.called
+
+
+@pytest.mark.asyncio
+async def test_book_states_search_fsm():
+    """Qidiruv tugmasi bosilganda FSM holati va qidiruv xabari qabul qilinishini tekshirish."""
+    from handlers import books as books_handler
+    from utils.states import BookStates
+
+    state = AsyncMock()
+    state.set_state = AsyncMock()
+    state.clear = AsyncMock()
+
+    call = AsyncMock()
+    call.message = AsyncMock()
+    call.message.edit_text = AsyncMock()
+    call.answer = AsyncMock()
+
+    # Tugma bosilganda
+    await books_handler.cb_books_search_prompt(call, state=state)
+    state.set_state.assert_called_with(BookStates.waiting_for_query)
+    assert call.message.edit_text.called
+
+    # Foydalanuvchi qidiruv yozganda
+    msg = AsyncMock()
+    msg.text = "Atom odatlar"
+    msg.answer = AsyncMock()
+    await books_handler.state_process_book_query(msg, state=state)
+    state.clear.assert_called()
+    assert msg.answer.called
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_cyrillic_books():
+    """Browser komandasi orqali kirillcha kitob so'rovlarini tekshirish."""
+    from handlers.movies import cmd_browser
+
+    # 1. /browser @Zakirovs_ai китоб
+    msg = AsyncMock()
+    msg.text = "/browser @Zakirovs_ai китоб"
+    msg.reply = AsyncMock()
+    msg.bot.send_document = AsyncMock()
+    msg.bot.send_message = AsyncMock()
+    await cmd_browser(msg)
+    assert msg.reply.called
+    assert "Kutubxonasi" in msg.reply.call_args[0][0]
+
+    # 2. /browser @Zakirovs_ai китоб уткан кунлар
+    from unittest.mock import patch
+    msg2 = AsyncMock()
+    msg2.text = "/browser @Zakirovs_ai китоб уткан кунlar".replace("lar", "лар")
+    msg2.chat = MagicMock(id=12345)
+    msg2.reply = AsyncMock()
+    msg2.bot = AsyncMock()
+    with patch.object(book_service, "deliver_book", new_callable=AsyncMock) as mock_book_deliv:
+        mock_book_deliv.return_value = {"ok": True, "delivered": True}
+        await cmd_browser(msg2)
+        mock_book_deliv.assert_called_once()
+        assert mock_book_deliv.call_args[1].get("book_id") == "1"
+
+
+@pytest.mark.asyncio
+async def test_deliver_book_escaping_and_entities():
+    """HTML belgilari (&, <, >) bo'lgan kitoblar xavfsiz va xatosiz uzatilishini tekshirish."""
+    mock_bot = MagicMock()
+    mock_bot.send_document = AsyncMock()
+
+    fake_book = {
+        "id": "99988",
+        "title": "Biznes & Moliya <Asoslari>",
+        "author": "Muallif & Hammuallif",
+        "category": "biznes",
+        "category_name": "Biznes & Moliya",
+        "pages": 150,
+        "rating": 5.0,
+        "description": "Test tavsifi & <izoh>",
+        "sample_text": "Mutolaa & sinov.",
+    }
+    book_service._BOOKS_BY_ID["99988"] = fake_book
+
+    res = await book_service.deliver_book(
+        bot=mock_bot,
+        chat_id=123,
+        book_id="99988",
+        fmt="pdf"
+    )
+    assert res["ok"] is True
+    assert mock_bot.send_document.called
+    kwargs = mock_bot.send_document.call_args[1]
+    caption = kwargs.get("caption", "")
+    assert "&amp;" in caption
+    assert "&lt;" in caption
+    assert "&gt;" in caption
+    assert "<Asoslari>" not in caption
+

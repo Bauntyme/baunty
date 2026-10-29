@@ -953,11 +953,17 @@ async function load() {
   const stq = new URLSearchParams(location.search).get("story");
   if (document.querySelector('#seg [data-m="story"]') && (/^st(ory)?(_|$)/i.test(sp) || stq !== null)) {
     setMode("story"); const spec = stq || sp.replace(/^st(ory)?_?/i, ""); if (spec && window.ZStory) ZStory.open(spec); return; }
-  const bkq = new URLSearchParams(location.search).get("books");
-  const tabParam = new URLSearchParams(location.search).get("tab");
-  const isHashBooks = /#(?:tab-)?(?:books|kitob)/i.test(location.hash);
-  if (document.querySelector('#seg [data-m="books"]') && (/^(books|kitob)/i.test(sp) || bkq !== null || tabParam === "books" || isHashBooks)) {
-    setMode("books"); const bid = (bkq || (isHashBooks ? location.hash.replace(/\D/g, "") : "") || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (bid && window.ZBooks) ZBooks.open(bid); return; }
+  const bkq = _urlParams.get("books");
+  const bParam = _urlParams.get("b") || _urlParams.get("book") || _urlParams.get("book_id") || _urlParams.get("id");
+  const tabParam = _urlParams.get("tab") || _urlParams.get("m");
+  const isBooksHash = /#(?:tab-)?(?:books?|kitob(lar)?)/i.test(location.hash);
+  const isBooksSp = /^(?:books?|kitob(lar)?|b_\d+|book_\d+)/i.test(sp);
+  if (document.querySelector('#seg [data-m="books"]') && (isBooksSp || bkq !== null || tabParam === "books" || isBooksHash || bParam !== null)) {
+    setMode("books");
+    const bid = (bParam || bkq || (isBooksHash ? location.hash.replace(/\D/g, "") : "") || (isBooksSp ? sp.replace(/^\D+_?/, "") : "")).replace(/\D/g, "");
+    if (bid && window.ZBooks) ZBooks.open(bid);
+    return;
+  }
   const qzq = new URLSearchParams(location.search).get("quiz") || new URLSearchParams(location.search).get("qz");
   if (document.querySelector('#seg [data-m="quiz"]') && (/^(q\d{6}|qz\d+|quiz)/i.test(sp) || qzq !== null)) {
     setMode("quiz");

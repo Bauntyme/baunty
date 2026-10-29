@@ -38,6 +38,10 @@ class MovieAsilmediaSyncStates(StatesGroup):
     waiting_for_input = State()
 
 
+class BookStates(StatesGroup):
+    waiting_for_query = State()
+
+
 class MusicStates(StatesGroup):
     waiting_for_query = State()
 

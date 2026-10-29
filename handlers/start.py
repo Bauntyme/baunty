@@ -1,6 +1,7 @@
 """
 Boshlang'ich komandalar va umumiy tugmalar (/start, /help, obuna tekshiruvi)
 """
+import html
 import logging
 import re
 from aiogram import Router, F
@@ -59,8 +60,12 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     if not is_admin and maintenance_service.is_global_maintenance():
         args = message.text.split(maxsplit=1)
         param = args[1].strip() if len(args) > 1 else ""
-        is_music_link = bool(param and (param.startswith("m_") or param.startswith("music_") or param.startswith("song_")))
-        if not is_music_link:
+        is_allowed_link = bool(param and (
+            param.startswith(("m_", "music_", "song_"))
+            or param.startswith(("b_", "book_", "kitob_", "books_"))
+            or param in ("books", "book", "kitob", "kitoblar", "kutubxona")
+        ))
+        if not is_allowed_link:
             m_msg = maintenance_service.get_global_message()
             maint_text = (
                 f"<b>{m_msg}</b>\n\n"
@@ -120,13 +125,13 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 await message.answer(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
             return
 
-        elif param.startswith("b_") or param.startswith("book_") or param == "books":
+        elif param in ("books", "book", "kitob", "kitoblar", "kutubxona") or param.startswith(("b_", "book_", "kitob_", "books_")):
             from services import book_service
-            if param == "books":
+            if param in ("books", "book", "kitob", "kitoblar", "kutubxona"):
                 from handlers.books import cmd_books
                 await cmd_books(message)
                 return
-            book_id = param.replace("book_", "").replace("b_", "").strip()
+            book_id = re.sub(r'^(?:book_|books_|b_|kitob_)', '', param).strip()
             delivered = await book_service.deliver_book(
                 bot=message.bot,
                 chat_id=message.chat.id,
@@ -134,7 +139,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             )
             if delivered and delivered.get("ok"):
                 return
-            await message.answer(f"⚠️ #{book_id} raqamli kitob topilmadi.", parse_mode="HTML", protect_content=True)
+            safe_bid = html.escape(str(book_id))
+            await message.answer(f"⚠️ #{safe_bid} raqamli kitob topilmadi.", parse_mode="HTML", protect_content=True)
             return
 
         elif param in ("prava", "exam") or param.startswith("prava_"):

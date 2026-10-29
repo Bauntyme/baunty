@@ -518,6 +518,7 @@ def sanitize_book_text(text: str) -> str:
 _POSTER_CACHE: Dict[str, Tuple[bytes, str]] = {}
 _PRAVA_CACHE: Dict[str, Tuple[bytes, str]] = {}
 _BOOK_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
+_BOOK_404_CACHE: Dict[str, float] = {}
 _RC_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
 
 
@@ -686,6 +687,10 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     if not tail or ".." in tail:
         return web.Response(status=404, text="Topilmadi")
 
+    now = time.time()
+    if tail in _BOOK_404_CACHE and (now - _BOOK_404_CACHE[tail]) < 60:
+        return web.Response(status=404, text="Topilmadi")
+
     ext = os.path.splitext(tail)[1].lower()
     ct_map = {
         ".webp": "image/webp",
@@ -807,6 +812,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
                 paras = [f"«{title}» ({author}) — Mutolaa nusxasi.", desc]
                 paras.extend([p.strip() for p in sample.split("\n") if p.strip()])
                 ch_data = {
+                    "t": f"{title} — {author}",
                     "h": f"«{title}» — {author}",
                     "p": paras
                 }
@@ -817,6 +823,9 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
                     headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400"}
                 )
 
+    if len(_BOOK_404_CACHE) > 500:
+        _BOOK_404_CACHE.clear()
+    _BOOK_404_CACHE[tail] = time.time()
     return web.Response(status=404, text="Resurs topilmadi")
 
 
@@ -4529,6 +4538,8 @@ async def handle_books_search(request: web.Request) -> web.Response:
                             b["c"] = b.get("c", 0)
                             b["p"] = b.get("p", 0)
                             b["l"] = b.get("l", "uz")
+                            b["f"] = b.get("f") or ["pdf", "epub"]
+                            b["s"] = b.get("s") or {"pdf": 2500000, "epub": 1375000}
                             items.append(b)
     except Exception as e:
         logger.debug(f"Upstream books search xatosi ({e}), lokal qidiruvga o'tiladi")
