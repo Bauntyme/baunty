@@ -143,3 +143,58 @@ async def test_cmd_browser_zakirovs_ai_not_found():
     assert "topilmadi" in text
     kwargs = reply_args.kwargs
     assert kwargs.get("protect_content") is True
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_zakirovs_ai_full_url_and_post_code():
+    """https://t.me/Zakirovs_ai portalni ochishi va https://t.me/Zakirovs_ai/718 kinoni yetkazishi testi."""
+    # 1. Full URL opens portal
+    msg_url = _create_mock_msg("/browser https://t.me/Zakirovs_ai")
+    await cmd_browser(msg_url)
+    assert msg_url.reply.called
+    text = msg_url.reply.call_args.args[0] if msg_url.reply.call_args.args else msg_url.reply.call_args.kwargs.get("text", "")
+    assert "Bauntys — Kinolar va Kitoblar Portali" in text
+
+    # 2. Link with post code delivers movie
+    msg_code = _create_mock_msg("/browser https://t.me/Zakirovs_ai/718")
+    with patch.object(movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliv:
+        mock_deliv.return_value = True
+        await cmd_browser(msg_code)
+        mock_deliv.assert_called_once()
+        _, kwargs = mock_deliv.call_args
+        assert kwargs.get("code") == "718"
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_zakirovs_ai_kino_section():
+    """/browser @Zakirovs_ai kino buyrug'i kino menyusini ochishi testi."""
+    msg = _create_mock_msg("/browser @Zakirovs_ai kino")
+    await cmd_browser(msg)
+    assert msg.reply.called
+    text = msg.reply.call_args.args[0] if msg.reply.call_args.args else msg.reply.call_args.kwargs.get("text", "")
+    assert "Baunty Kinolar Portali" in text
+    assert msg.reply.call_args.kwargs.get("protect_content") is True
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_zakirovs_ai_cyrillic_russian_keyboard():
+    """/browser @Zakirovs_ai Кодирий rus klaviaturasi bilan yozilganda kitoblarni topishi testi."""
+    msg = _create_mock_msg("/browser @Zakirovs_ai Кодирий")
+    await cmd_browser(msg)
+    assert msg.reply.called
+    text = msg.reply.call_args.args[0] if msg.reply.call_args.args else msg.reply.call_args.kwargs.get("text", "")
+    assert "Topilgan kitoblar" in text
+    assert msg.reply.call_args.kwargs.get("protect_content") is True
+
+
+@pytest.mark.asyncio
+async def test_cmd_browser_zakirovsfilms_bot_routing():
+    """/browser @Zakirovsfilms_bot va /browser @Zakirovsfilms_bot web app Baunty 1-to-1 veb ilovasini ochishi testi."""
+    msg = _create_mock_msg("/browser @Zakirovsfilms_bot toliq organ")
+    await cmd_browser(msg)
+    assert msg.reply.called
+    text = msg.reply.call_args.args[0] if msg.reply.call_args.args else msg.reply.call_args.kwargs.get("text", "")
+    assert "Bauntys vs Upstream Arxitektura Tahlili" in text
+    assert "dilbarzakirova" not in text.lower()
+    assert msg.reply.call_args.kwargs.get("protect_content") is True
+

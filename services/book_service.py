@@ -138,7 +138,13 @@ def load_books() -> List[Dict[str, Any]]:
             item["sample_text"] = sanitize_book_text(item["sample_text"])
         norm_lat = f"{_normalize(title)} {_normalize(author)} {_normalize(desc)}"
         raw_lower = f"{title} {author} {desc}".lower()
-        item["_search"] = f"{norm_lat} {raw_lower} {bid}"
+        from utils.translit import latin_to_cyrillic
+        cyr = latin_to_cyrillic(f"{title} {author}").lower()
+        cyr_ru = cyr.replace("қ", "к").replace("ў", "у").replace("ғ", "г").replace("ҳ", "х")
+        clean_no_apos = re.sub(r"['`ʻʼ’´]", "", f"{title} {author}").lower()
+        norm_k = clean_no_apos.replace("q", "k").replace("o'", "u").replace("g'", "g")
+        norm_o = clean_no_apos.replace("o'", "o")
+        item["_search"] = f"{norm_lat} {raw_lower} {cyr} {cyr_ru} {clean_no_apos} {norm_k} {norm_o} {bid}"
         _BOOKS_BY_ID[bid] = item
 
     _BOOKS_CACHE = items
@@ -171,12 +177,15 @@ def get_catalog(
         raw_words = query.lower().split()
         clean_q = re.sub(r"['`ʻʼ’´]", "", query).lower().strip()
         clean_words = clean_q.split()
+        cyr_ru_q = query.lower().replace("қ", "к").replace("ў", "у").replace("ғ", "г").replace("ҳ", "х")
+        cyr_ru_words = cyr_ru_q.split()
         filtered = [
             b for b in filtered
             if (clean_q and clean_q in b.get("_search", "")) or
                (clean_words and all(w in b.get("_search", "") for w in clean_words)) or
                (words and all(w in b.get("_search", "") for w in words)) or
-               (raw_words and all(w in b.get("_search", "") for w in raw_words))
+               (raw_words and all(w in b.get("_search", "") for w in raw_words)) or
+               (cyr_ru_words and all(w in b.get("_search", "") for w in cyr_ru_words))
         ]
 
     total = len(filtered)

@@ -1114,7 +1114,8 @@ async def cmd_browser(message: Message) -> None:
     clean_arg = re.sub(r"^@\w+\s*", "", arg).strip()
 
     # 0. @Zakirovsfilms_bot yoki arxitektura tahlili so'ralganda (/browser @Zakirovsfilms_bot ni toliq organ)
-    if clean_arg and bool(re.search(r"toliq\s*o['`]?rgan|organ", clean_arg, re.IGNORECASE)):
+    is_zakirovsfilms = bool(re.search(r"zakirovs?films?(?:_bot)?\b", arg, re.IGNORECASE))
+    if is_zakirovsfilms and clean_arg and bool(re.search(r"toliq\s*o['`]?rgan|organ|tahlil", clean_arg, re.IGNORECASE)):
         analysis_kb = InlineKeyboardMarkup(
             inline_keyboard=[
                 [
@@ -1170,8 +1171,8 @@ async def cmd_browser(message: Message) -> None:
     # 0.5. @Zakirovs_ai bridge: Kinolar va Kitoblar integratsiyasi (/browser @Zakirovs_ai ...)
     is_zakirovs_ai = bool(re.search(r"zakirovs?_ai\b", arg, re.IGNORECASE))
     if is_zakirovs_ai:
-        clean_ai_query = re.sub(r"^@?zakirovs?_ai\s*", "", arg, flags=re.IGNORECASE).strip()
-        clean_ai_query = re.sub(r"^@\w+\s*", "", clean_ai_query).strip()
+        clean_ai_query = re.sub(r"^(?:https?://)?(?:t\.me/)?@?zakirovs?_ai/?\s*", "", arg, flags=re.IGNORECASE).strip()
+        clean_ai_query = re.sub(r"^@\w+\s*", "", clean_ai_query).strip().lstrip("/")
 
         # Agar qidiruv yoki aniq so'rov berilmagan bo'lsa: /browser @Zakirovs_ai
         if not clean_ai_query:
@@ -1250,7 +1251,7 @@ async def cmd_browser(message: Message) -> None:
             return
 
         # Agar kitoblar bo'limi so'ralsa: /browser @Zakirovs_ai kitob
-        if clean_ai_query.lower() in ("kitob", "kitoblar", "books", "kutubxona"):
+        if clean_ai_query.lower() in ("kitob", "kitoblar", "books", "kutubxona", "kniga", "knigi"):
             from handlers.books import get_books_main_keyboard
             from services import book_service
             cat = book_service.get_catalog(limit=6)
@@ -1263,6 +1264,20 @@ async def cmd_browser(message: Message) -> None:
                 f"<i>Quyidagi toifalardan birini tanlang:</i>"
             )
             await message.reply(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+            return
+
+        # Agar kinolar bo'limi so'ralsa: /browser @Zakirovs_ai kino / kinolar
+        if clean_ai_query.lower() in ("kino", "kinolar", "film", "filmlar", "serial", "seriallar", "movie", "movies", "cinema"):
+            text = (
+                "🎬 <b>Baunty Kinolar Portali — 18,500+ Kino va Seriallar!</b>\n\n"
+                "Quyidagi imkoniyatlardan foydalanishingiz mumkin:\n"
+                "• <b>Kino kodi:</b> Shunchaki kodni (masalan, <code>101</code>) yozing\n"
+                "• <b>Nomi bo'yicha qidiruv:</b> Qiziqtirgan filmingiz nomini yozing\n"
+                "• <b>Tasodifiy kino:</b> Nima ko'rishni bilmayotgan bo'lsangiz\n"
+                "• <b>Janrlar:</b> Sevimli yo'nalishingizdagi filmlar\n\n"
+                f"🍿 <b>Barcha premyerlar:</b> {config.CHANNEL_USERNAME}"
+            )
+            await message.reply(text, parse_mode="HTML", reply_markup=movie_menu_keyboard(), protect_content=True)
             return
 
         # Agar kino kodi berilgan bo'lsa: /browser @Zakirovs_ai 718 yoki 718_2
