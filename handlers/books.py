@@ -60,7 +60,8 @@ async def cmd_books(message: Message) -> None:
         await message.answer(
             f"📚 <b>{msg}</b>\n\n<i>Kitoblar bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
             parse_mode="HTML",
-            reply_markup=maintenance_menu_keyboard(is_admin=False)
+            reply_markup=maintenance_menu_keyboard(is_admin=False),
+            protect_content=True
         )
         return
     cat = book_service.get_catalog(limit=6)
@@ -74,7 +75,7 @@ async def cmd_books(message: Message) -> None:
         f"yoki PDF formatida chatga yuklab olishingiz mumkin!\n\n"
         f"<i>Quyidagi toifalardan birini tanlang yoki kitob nomini yozing:</i>"
     )
-    await message.answer(text, parse_mode="HTML", reply_markup=get_books_main_keyboard())
+    await message.answer(text, parse_mode="HTML", reply_markup=get_books_main_keyboard(), protect_content=True)
 
 
 @router.callback_query(F.data == "books:main")
@@ -156,4 +157,4 @@ async def cb_book_download(call: CallbackQuery) -> None:
         )
     except Exception as e:
         logger.error(f"Kitob yetkazishda xatolik: {e}")
-        await call.message.answer(f"⚠️ Kitobni yuborishda xatolik yuz berdi: {e}")
+        await call.message.answer(f"⚠️ Kitobni yuborishda xatolik yuz berdi: {e}", protect_content=True)

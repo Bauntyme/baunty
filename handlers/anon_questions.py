@@ -135,17 +135,19 @@ async def state_process_anon_reply(message: Message, state: FSMContext) -> None:
             chat_id=target_user_id,
             text=reply_msg_text,
             parse_mode="HTML",
-            reply_markup=builder.as_markup()
+            reply_markup=builder.as_markup(),
+            protect_content=True
         )
         if has_media and hasattr(message, "copy_to"):
             try:
-                await message.copy_to(chat_id=target_user_id)
+                await message.copy_to(chat_id=target_user_id, protect_content=True)
             except Exception as media_err:
                 logger.debug(f"Anonim javob mediasini nusxalashda xatolik: {media_err}")
         await message.reply(
             "✅ <b>Javobingiz anonim tarzda muvaffaqiyatli yetkazildi!</b>",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id)),
+            protect_content=True
         )
     except Exception as e:
         logger.error(f"Anonim javobni yuborishda xatolik: {e}")
@@ -230,17 +232,19 @@ async def state_process_anon_message(message: Message, state: FSMContext) -> Non
             chat_id=target_user_id,
             text=alert_text,
             parse_mode="HTML",
-            reply_markup=builder.as_markup()
+            reply_markup=builder.as_markup(),
+            protect_content=True
         )
         if has_media and hasattr(message, "copy_to"):
             try:
-                await message.copy_to(chat_id=target_user_id)
+                await message.copy_to(chat_id=target_user_id, protect_content=True)
             except Exception as media_err:
                 logger.debug(f"Anonim savol mediasini nusxalashda xatolik: {media_err}")
         await message.reply(
             "🎉 <b>Xabaringiz anonim tarzda muvaffaqiyatli yetkazildi!</b>",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(sender_id))
+            reply_markup=main_menu_keyboard(is_admin=config.is_admin(sender_id)),
+            protect_content=True
         )
     except Exception as e:
         logger.error(f"Anonim xabarni yetkazishda xatolik: {e}")

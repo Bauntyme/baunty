@@ -253,6 +253,12 @@ body.seg4 .seg button{padding:7px 12px;font-size:14px}
 .seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .brand small{margin-top:0}
 .zk-top-subbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.zk-lang-wrap{display:inline-flex;align-items:center;gap:6px}
+.zk-lang-pills{display:inline-flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(246,238,220,.14);border-radius:999px;padding:2px;gap:2px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:inset 0 1px 2px rgba(0,0,0,.25)}
+.zk-lang-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:transparent;border:0;color:var(--hint);font-size:11px;font-weight:750;line-height:1;cursor:pointer;touch-action:manipulation;transition:all .18s cubic-bezier(.2,.8,.2,1);user-select:none;-webkit-tap-highlight-color:transparent}
+.zk-lang-pill:hover{color:var(--text);background:rgba(255,255,255,.08)}
+.zk-lang-pill.on{background:var(--accent,#F2B84B);color:var(--accent-text,#2A1500);box-shadow:0 2px 8px rgba(242,184,75,.4)}
+.zk-lang-pill:active{transform:scale(.92)}
 .zk-lang-btn{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:999px;padding:3px 9px;color:var(--text);font-size:11px;font-weight:750;letter-spacing:.3px;cursor:pointer;touch-action:manipulation;transition:all .18s ease;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1}
 .zk-lang-btn:hover{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.3)}
 .zk-lang-btn:active{transform:scale(.92);background:rgba(229,72,77,.35)}
@@ -395,7 +401,7 @@ setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("cli
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
   <div class="brand">
     <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="prava">🚗 Prava</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="mafia">🕵️ Mafia</button><button data-m="tvroom">📺 Tv Xona</button><button data-m="rasxod">💰 Rasxod</button><button data-m="kal">🥗 Kaloriya</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
-      <div class="zk-top-subbar"><small id="count">Yuklanmoqda…</small><button class="zk-lang-btn" id="zkLangBtn" type="button" aria-label="Tilni tanlash / Сменить язык" title="Tilni tanlash / Сменить язык">🌐 <span id="zkLangText">UZ</span></button></div></div>
+      <div class="zk-top-subbar"><small id="count">Yuklanmoqda…</small><div class="zk-lang-wrap"><div class="zk-lang-pills" id="zkLangPills" role="radiogroup" aria-label="Til tanlash / Choose language"><button type="button" class="zk-lang-pill on" data-lang="uz" role="radio" aria-checked="true" title="O'zbekcha">🇺🇿 <span>UZ</span></button><button type="button" class="zk-lang-pill" data-lang="ru" role="radio" aria-checked="false" title="Русский">🇷🇺 <span>RU</span></button><button type="button" class="zk-lang-pill" data-lang="en" role="radio" aria-checked="false" title="English">🇬🇧 <span>EN</span></button></div><button class="zk-lang-btn" id="zkLangBtn" type="button" aria-label="Tilni tanlash / Сменить язык" title="Tilni tanlash / Сменить язык">🌐 <span id="zkLangText">UZ</span></button></div></div></div>
     <button class="chan" id="chan" hidden>📢 Kanal</button>
   </div>
   <label class="search" id="sbox">
@@ -857,11 +863,17 @@ $("sbg").onclick = hideSheet;
 
 // ---------- hodisalar ----------
 function syncLangBtn() {
+  const cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
   const txt = document.getElementById("zkLangText");
   if (txt) {
-    const cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toUpperCase();
-    txt.textContent = cur === "RU" ? "RU" : "UZ";
+    txt.textContent = cur.toUpperCase();
   }
+  const pills = document.querySelectorAll(".zk-lang-pill");
+  pills.forEach((p) => {
+    const isCur = (p.getAttribute("data-lang") || "").toLowerCase() === cur;
+    p.classList.toggle("on", isCur);
+    p.setAttribute("aria-checked", isCur ? "true" : "false");
+  });
 }
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", syncLangBtn);
@@ -870,13 +882,27 @@ if (document.readyState === "loading") {
 }
 
 document.addEventListener("click", (e) => {
+  const langPill = e.target.closest(".zk-lang-pill");
+  if (langPill) {
+    e.preventDefault();
+    e.stopPropagation();
+    haptic();
+    const targetLang = (langPill.getAttribute("data-lang") || "uz").toLowerCase();
+    if (typeof window.ZK_setLang === "function") {
+      window.ZK_setLang(targetLang);
+    } else {
+      try { localStorage.setItem("zk_lang", targetLang); } catch (err) {}
+      location.reload();
+    }
+    return;
+  }
   const langBtn = e.target.closest("#zkLangBtn");
   if (langBtn) {
     e.preventDefault();
     e.stopPropagation();
     haptic();
     const curLang = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
-    const nextLang = curLang === "ru" ? "uz" : "ru";
+    const nextLang = curLang === "uz" ? "ru" : curLang === "ru" ? "en" : "uz";
     if (typeof window.ZK_setLang === "function") {
       window.ZK_setLang(nextLang);
     } else {

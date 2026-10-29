@@ -61,7 +61,7 @@ async def cmd_music_menu(message: Message, state: FSMContext) -> None:
         "⚡️ <i>Har qanday qo'shiq, phonk, remiks va xitlar 1 soniyada topiladi!</i>\n"
         "🎙️ Yoki ovozli xabar (voice) yuboring — Shazam orqali aniqlaymiz!"
     )
-    await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard())
+    await message.answer(text, parse_mode="HTML", reply_markup=cancel_keyboard(), protect_content=True)
 
 
 @router.message(
@@ -78,7 +78,7 @@ async def cmd_quick_music_search(message: Message, state: FSMContext) -> None:
 
 async def _execute_music_search(message: Message, query: str, state: FSMContext) -> None:
     """Kengaytirilgan musiqa qidiruvi (kamida 15-30 ta natija) va sahifalash bilan."""
-    status_msg = await message.reply("🔍 <b>Qo'shiqlar qidirilmoqda...</b>", parse_mode="HTML")
+    status_msg = await message.reply("🔍 <b>Qo'shiqlar qidirilmoqda...</b>", parse_mode="HTML", protect_content=True)
 
     try:
         # Kamida 15-30 ta natija qidirish (Deezer, Tarona, Soundcloud, iTunes parallel)
@@ -195,7 +195,8 @@ async def process_voice_or_audio(message: Message, state: FSMContext) -> None:
     await state.clear()
     status_msg = await message.reply(
         "🎧 <b>Ovozli xabar eshitilmoqda va qo'shiq aniqlanmoqda...</b>\n<i>Iltimos, kuting...</i>",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        protect_content=True
     )
 
     media_obj = message.voice or message.audio or message.video_note
@@ -265,13 +266,14 @@ async def process_voice_or_audio(message: Message, state: FSMContext) -> None:
                     photo=cover_url,
                     caption=caption,
                     parse_mode="HTML",
-                    reply_markup=builder.as_markup()
+                    reply_markup=builder.as_markup(),
+                    protect_content=True
                 )
                 return
             except Exception:
                 pass
 
-        await message.reply(caption, parse_mode="HTML", reply_markup=builder.as_markup())
+        await message.reply(caption, parse_mode="HTML", reply_markup=builder.as_markup(), protect_content=True)
 
     except Exception as e:
         logger.exception(f"Audio aniqlashda kutilmagan xatolik: {e}")
@@ -348,7 +350,8 @@ async def cb_download_track(callback: CallbackQuery) -> None:
     await callback.answer("⏳ MP3 tayyorlanmoqda...")
     status_msg = await callback.message.reply(
         f"⏳ <b>«{safe_query}» yuklanmoqda...</b>\n<i>Iltimos, kuting...</i>",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        protect_content=True
     )
 
     try:
@@ -377,7 +380,8 @@ async def cb_download_track(callback: CallbackQuery) -> None:
                         title=title,
                         performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
                         caption=caption,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        protect_content=True
                     )
                     try:
                         await status_msg.delete()
@@ -405,7 +409,8 @@ async def cb_download_track(callback: CallbackQuery) -> None:
             performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
             duration=res.duration,
             caption=caption,
-            parse_mode="HTML"
+            parse_mode="HTML",
+            protect_content=True
         )
 
         try:

@@ -1003,7 +1003,7 @@ async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
                 except Exception:
                     pass
 
-                if resp.status >= 500:
+                if resp.status >= 400:
                     raise aiohttp.ClientError(f"Upstream returned {resp.status}")
 
                 if request.method == "GET" and resp.status == 200:

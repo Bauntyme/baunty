@@ -58,9 +58,9 @@ def test_admin_dashboard_flow_url_clean():
 
 
 def test_keepalive_target_urls_contains_both_endpoints():
-    """Keepalive xizmati baunty-cinema va baunty endpointlarini o'z ichiga olishi."""
+    """Keepalive xizmati baunty-cinema health va ping endpointlarini o'z ichiga olishi."""
     assert "https://baunty-cinema.onrender.com/health" in TARGET_HEALTH_URLS
-    assert "https://baunty.onrender.com/health" in TARGET_HEALTH_URLS
+    assert "https://baunty-cinema.onrender.com/ping" in TARGET_HEALTH_URLS
     assert "UptimeRobot" in KEEPALIVE_HEADERS["User-Agent"]
 
 

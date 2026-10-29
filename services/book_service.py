@@ -427,7 +427,8 @@ async def deliver_book(
             document=input_file,
             caption=caption,
             parse_mode="HTML",
-            reply_markup=kb
+            reply_markup=kb,
+            protect_content=True
         )
         return {"ok": True, "delivered": True, "book": book}
     except Exception as e:
@@ -437,7 +438,8 @@ async def deliver_book(
                 chat_id=chat_id,
                 text=caption,
                 parse_mode="HTML",
-                reply_markup=kb
+                reply_markup=kb,
+                protect_content=True
             )
             return {"ok": True, "delivered": True, "book": book}
         except Exception as e2:

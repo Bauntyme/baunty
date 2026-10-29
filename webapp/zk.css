@@ -171,6 +171,16 @@ body.zk>main{position:relative;z-index:2}
 .zk .brand > div:first-child{overflow:visible;flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 
 .zk .brand small{color:var(--zk-mute);font-weight:600;margin-top:8px}
+.zk .zk-top-subbar, .zk-top-subbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
+.zk .zk-lang-wrap, .zk-lang-wrap{display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
+.zk .zk-lang-pills, .zk-lang-pills{display:inline-flex;align-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(246,238,220,.14);border-radius:999px;padding:2px;gap:2px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:inset 0 1px 2px rgba(0,0,0,.25);flex-shrink:0}
+.zk .zk-lang-pill, .zk-lang-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:transparent;border:0;color:var(--zk-mute);font:750 11px/1 var(--zk-fb);cursor:pointer;touch-action:manipulation;transition:all .18s cubic-bezier(.2,.8,.2,1);user-select:none;-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.zk .zk-lang-pill:hover, .zk-lang-pill:hover{color:var(--zk-cream);background:rgba(255,255,255,.08)}
+.zk .zk-lang-pill.on, .zk-lang-pill.on{background:var(--zk-acc)!important;color:var(--zk-ink)!important;font-weight:800!important;box-shadow:0 2px 10px rgba(242,184,75,.45)!important}
+.zk .zk-lang-pill:active, .zk-lang-pill:active{transform:scale(.92)}
+.zk .zk-lang-btn, .zk-lang-btn{display:inline-flex;align-items:center;gap:4px;background:rgba(246,238,220,.08);border:1px solid rgba(246,238,220,.16);border-radius:999px;padding:3px 9px;color:var(--zk-cream);font-size:11px;font-weight:750;letter-spacing:.3px;cursor:pointer;touch-action:manipulation;transition:all .18s ease;user-select:none;-webkit-tap-highlight-color:transparent;line-height:1;flex-shrink:0}
+.zk .zk-lang-btn:hover, .zk-lang-btn:hover{background:rgba(246,238,220,.16);border-color:rgba(246,238,220,.3)}
+.zk .zk-lang-btn:active, .zk-lang-btn:active{transform:scale(.92);background:rgba(242,184,75,.35)}
 .zk .chan{background:var(--zk-glass);box-shadow:inset 0 0 0 1px var(--zk-line);color:var(--zk-cream)}
 .zk .search input{height:48px;border-radius:17px;background:rgba(246,238,220,.09);box-shadow:inset 0 0 0 1.5px var(--zk-line);color:var(--zk-cream);
   padding:0 96px 0 44px;font:700 16px var(--zk-fb);transition:box-shadow .3s}

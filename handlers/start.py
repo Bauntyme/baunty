@@ -45,7 +45,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             )
 
             if db_user and db_user.is_banned:
-                await message.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
+                await message.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML", protect_content=True)
                 return
             if db_user and db_user.language:
                 user_lang = db_user.language
@@ -74,7 +74,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await message.answer(
                 maint_text,
                 parse_mode="HTML",
-                reply_markup=maintenance_menu_keyboard(is_admin=False, lang=user_lang)
+                reply_markup=maintenance_menu_keyboard(is_admin=False, lang=user_lang),
+                protect_content=True
             )
             return
 
@@ -116,7 +117,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             )
             if not delivered:
                 code_disp = f"{movie_code} ({part}-qism)" if part > 1 else movie_code
-                await message.answer(format_movie_not_found(code_disp), parse_mode="HTML")
+                await message.answer(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
             return
 
         elif param.startswith("b_") or param.startswith("book_") or param == "books":
@@ -133,7 +134,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             )
             if delivered and delivered.get("ok"):
                 return
-            await message.answer(f"⚠️ #{book_id} raqamli kitob topilmadi.", parse_mode="HTML")
+            await message.answer(f"⚠️ #{book_id} raqamli kitob topilmadi.", parse_mode="HTML", protect_content=True)
             return
 
         elif param in ("prava", "exam") or param.startswith("prava_"):
@@ -374,7 +375,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                         performer=track_artist or f"@{config.BOT_USERNAME.lstrip('@')}",
                         duration=res.duration,
                         caption=caption,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        protect_content=True
                     )
                     safe_remove_file(res.file_path)
                     sent = True
@@ -384,7 +386,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                         title=track_title,
                         performer=track_artist or f"@{config.BOT_USERNAME.lstrip('@')}",
                         caption=caption,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
+                        protect_content=True
                     )
                     sent = True
 
@@ -429,7 +432,8 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     await message.answer(
         welcome_text,
         parse_mode="HTML",
-        reply_markup=main_menu_keyboard(is_admin=is_admin, lang=user_lang)
+        reply_markup=main_menu_keyboard(is_admin=is_admin, lang=user_lang),
+        protect_content=True
     )
 
 
@@ -450,7 +454,7 @@ async def cmd_prava(message: Message) -> None:
         "• ⏱ Rasmiy 20 talik imtihon simulyatori\n\n"
         "Imtihonga tayyorgarlikni boshlash uchun quyidagi tugmani bosing:"
     )
-    await message.answer(text, parse_mode="HTML", reply_markup=kb)
+    await message.answer(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
 
 
 
@@ -472,7 +476,8 @@ async def callback_check_subscription(callback: CallbackQuery, state: FSMContext
         await callback.message.answer(
             "🎉 <b>Rahmat! Endi botdan to'liq foydalanishingiz mumkin.</b>",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(user.id))
+            reply_markup=main_menu_keyboard(is_admin=config.is_admin(user.id)),
+            protect_content=True
         )
         return
 
@@ -501,7 +506,8 @@ async def callback_check_subscription(callback: CallbackQuery, state: FSMContext
         await callback.message.answer(
             "🎉 <b>Ajoyib! Obunangiz tasdiqlandi.</b>\nMarhamat, bot imkoniyatlaridan to'liq foydalanishingiz mumkin!",
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(user.id))
+            reply_markup=main_menu_keyboard(is_admin=config.is_admin(user.id)),
+            protect_content=True
         )
 
 

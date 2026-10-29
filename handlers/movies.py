@@ -44,7 +44,8 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
         await message.answer(
             f"🎬 <b>{msg}</b>\n\n<i>Kinolar bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
             parse_mode="HTML",
-            reply_markup=maintenance_menu_keyboard(is_admin=False)
+            reply_markup=maintenance_menu_keyboard(is_admin=False),
+            protect_content=True
         )
         return
 
@@ -68,7 +69,7 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
             )
             if not delivered:
                 code_disp = f"{code} ({part}-qism)" if part > 1 else code
-                await message.reply(format_movie_not_found(code_disp), parse_mode="HTML")
+                await message.reply(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
             return
 
     # Guruhlarda parametrsiz /kino yoki /kod yozilsa, qisqa ko'rsatma beramiz
@@ -77,7 +78,8 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
             "🎬 <b>Kino kodini yuboring:</b>\n"
             "Masalan: <code>/kino 101</code> yoki <code>101</code>\n\n"
             f"🍿 Rasmiy kinolar kanali: {config.CHANNEL_USERNAME}",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            protect_content=True
         )
         return
 
@@ -90,7 +92,7 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
         "• <b>Janrlar:</b> Sevimli yo'nalishingizdagi filmlar\n\n"
         f"🍿 <b>Barcha premyerlar:</b> {config.CHANNEL_USERNAME}"
     )
-    await message.answer(text, parse_mode="HTML", reply_markup=movie_menu_keyboard())
+    await message.answer(text, parse_mode="HTML", reply_markup=movie_menu_keyboard(), protect_content=True)
 
 
 @router.callback_query(F.data == "movie:menu")
@@ -314,7 +316,7 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
         part=1
     )
     if not delivered:
-        await callback.message.answer(format_movie_not_found(code), parse_mode="HTML")
+        await callback.message.answer(format_movie_not_found(code), parse_mode="HTML", protect_content=True)
 
 
 @router.callback_query(
@@ -338,7 +340,8 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
         await callback.message.answer(
             f"❌ <b>#{code}</b> serialining <b>{part}-qismi</b> topilmadi.\n"
             f"🍿 Barcha premyerlar kanalimizda: {config.CHANNEL_USERNAME}",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            protect_content=True
         )
 
 
@@ -386,7 +389,8 @@ async def state_process_code(message: Message, state: FSMContext) -> None:
         await message.reply(
             format_movie_not_found(code_disp),
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id)),
+            protect_content=True
         )
 
 
@@ -404,7 +408,8 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
             await message.answer(
                 text,
                 parse_mode="HTML",
-                reply_markup=markup
+                reply_markup=markup,
+                protect_content=True
             )
         else:
             cat_match = MovieService.search_catalog_by_title(title)
@@ -425,7 +430,8 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
                 await message.answer(
                     f"🔍 <b>«{title}» bo'yicha topilgan kino:</b>\nKeraklisini tanlang:",
                     parse_mode="HTML",
-                    reply_markup=markup
+                    reply_markup=markup,
+                    protect_content=True
                 )
                 return
 
@@ -437,7 +443,8 @@ async def state_process_title(message: Message, state: FSMContext) -> None:
             await message.answer(
                 text,
                 parse_mode="HTML",
-                reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id))
+                reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id)),
+                protect_content=True
             )
 
 
@@ -729,7 +736,8 @@ async def process_numeric_movie_code(message: Message) -> None:
         await message.reply(
             f"🎬 <b>{msg}</b>\n\n<i>Kinolar bo'limida texnik yangilanish olib borilmoqda. Tez orada qaytamiz!</i>",
             parse_mode="HTML",
-            reply_markup=maintenance_menu_keyboard(is_admin=False)
+            reply_markup=maintenance_menu_keyboard(is_admin=False),
+            protect_content=True
         )
         return
     delivered = await movie_service.deliver_movie(
@@ -741,7 +749,7 @@ async def process_numeric_movie_code(message: Message) -> None:
     )
     if not delivered:
         code_disp = f"{code} ({part}-qism)" if part > 1 else code
-        await message.reply(format_movie_not_found(code_disp), parse_mode="HTML")
+        await message.reply(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
 
 
 @router.message(StateFilter(None), lambda msg: msg.reply_to_message and msg.text and re.match(r'^(?:kino\s*)?(\d{1,4})\s*(?:-?\s*(?:ci|chi))?\s*(?:-?\s*(?:qism(?:i|ni|ini)?|part|seriya(?:si)?|ep|episode))?(?:\s*(?:ko[\'‘`]?r(?:moqchiman|mochiman|moqchi|ishni|ish)?|tomosha|yuklash))?$', msg.text.strip(), re.IGNORECASE))
@@ -763,7 +771,7 @@ async def process_reply_part_request(message: Message) -> None:
         reply_to_message_id=message.message_id
     )
     if not delivered:
-        await message.reply(format_movie_not_found(f"{code} ({part}-qism)"), parse_mode="HTML")
+        await message.reply(format_movie_not_found(f"{code} ({part}-qism)"), parse_mode="HTML", protect_content=True)
 
 
 def extract_code_from_caption(text: Optional[str]) -> Optional[str]:
@@ -1156,7 +1164,7 @@ async def cmd_browser(message: Message) -> None:
             "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@BauntyCinemabot, @BauntyFilms).\n\n"
             "🍿 <b>Boshlash uchun kinoni tanlang yoki Web App brauzerni oching:</b>"
         )
-        await message.reply(analysis_text, parse_mode="HTML", reply_markup=analysis_kb)
+        await message.reply(analysis_text, parse_mode="HTML", reply_markup=analysis_kb, protect_content=True)
         return
 
     # 1. Asilmedia portali yoki Asilmedia qidiruvi (/browser asilmedia.org ...)
@@ -1250,7 +1258,8 @@ async def cmd_browser(message: Message) -> None:
                     await message.reply(
                         asil_card_text,
                         parse_mode="HTML",
-                        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows)
+                        reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_rows),
+                        protect_content=True
                     )
                     return
             except Exception as ae:
@@ -1311,7 +1320,7 @@ async def cmd_browser(message: Message) -> None:
             f"🍿 <b>Kino kanalimiz:</b> @{channel_name}\n\n"
             "<i>Kinoni tanlash yoki qidirish uchun quyidagi tugmalardan foydalaning:</i>"
         )
-        await message.reply(asil_text, parse_mode="HTML", reply_markup=asil_kb)
+        await message.reply(asil_text, parse_mode="HTML", reply_markup=asil_kb, protect_content=True)
         return
 
     # 2. Umumiy kino kodi / nomi berilgan bo'lsa
@@ -1404,7 +1413,7 @@ async def cmd_browser(message: Message) -> None:
         f"🍿 <b>Kino kanalimiz:</b> @{channel_name}\n\n"
         "Quyidagi tugmalar orqali tomosha qiling yoki Web App brauzerni oching:"
     )
-    await message.reply(text, parse_mode="HTML", reply_markup=kb)
+    await message.reply(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
 
 
 @router.message(Command("synckino", "syncmovies"))

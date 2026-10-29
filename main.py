@@ -83,10 +83,10 @@ async def main() -> None:
     logger = logging.getLogger("main")
     logger.info("Bauntyfilms_bot va Mini App ishga tushirilmoqda...")
 
-    # Bot ob'ekti
+    # Bot ob'ekti (protect_content=True orqali barcha media va xabarlar forwardi to'liq yopiladi)
     bot = Bot(
         token=config.BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML, protect_content=True)
     )
 
     # Dispatcher

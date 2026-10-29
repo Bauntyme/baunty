@@ -1017,7 +1017,8 @@ class MovieService:
                             video=media_input,
                             caption=f"🎬 #{code} - {display_title or code} (Part {part})",
                             duration=duration,
-                            supports_streaming=True
+                            supports_streaming=True,
+                            protect_content=True
                         )
                     except Exception as se_vid:
                         logger.debug(f"Direct storage channel send_video error: {se_vid}")
@@ -1026,7 +1027,8 @@ class MovieService:
                             sent_msg = await bot.send_document(
                                 chat_id=storage_id,
                                 document=media_input,
-                                caption=f"🎬 #{code} - {display_title or code} (Part {part})"
+                                caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                protect_content=True
                             )
                         except Exception as se_doc:
                             logger.debug(f"Direct storage channel send_document error: {se_doc}")
@@ -1079,7 +1081,8 @@ class MovieService:
                                             await bot.send_document(
                                                 chat_id=storage_id,
                                                 document=new_fid,
-                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})"
+                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                                protect_content=True
                                             )
                                         else:
                                             await bot.send_video(
@@ -1087,7 +1090,8 @@ class MovieService:
                                                 video=new_fid,
                                                 caption=f"🎬 #{code} - {display_title or code} (Part {part})",
                                                 duration=dur_val,
-                                                supports_streaming=True
+                                                supports_streaming=True,
+                                                protect_content=True
                                             )
                                 except Exception as sce:
                                     logger.debug(f"Storage channel backup error: {sce}")
@@ -1751,7 +1755,8 @@ class MovieService:
                     caption=caption,
                     parse_mode="HTML",
                     reply_markup=reply_markup,
-                    reply_to_message_id=reply_to_message_id
+                    reply_to_message_id=reply_to_message_id,
+                    protect_content=True
                 )
                 if db_movie:
                     await crud.increment_movie_views(session, db_movie.id)
@@ -1767,7 +1772,8 @@ class MovieService:
                 text=caption,
                 parse_mode="HTML",
                 reply_markup=reply_markup,
-                reply_to_message_id=reply_to_message_id
+                reply_to_message_id=reply_to_message_id,
+                protect_content=True
             )
             if db_movie:
                 await crud.increment_movie_views(session, db_movie.id)

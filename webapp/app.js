@@ -229,11 +229,17 @@ $("sbg").onclick = hideSheet;
 
 // ---------- hodisalar ----------
 function syncLangBtn() {
+  const cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
   const txt = document.getElementById("zkLangText");
   if (txt) {
-    const cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toUpperCase();
-    txt.textContent = cur === "RU" ? "RU" : "UZ";
+    txt.textContent = cur.toUpperCase();
   }
+  const pills = document.querySelectorAll(".zk-lang-pill");
+  pills.forEach((p) => {
+    const isCur = (p.getAttribute("data-lang") || "").toLowerCase() === cur;
+    p.classList.toggle("on", isCur);
+    p.setAttribute("aria-checked", isCur ? "true" : "false");
+  });
 }
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", syncLangBtn);
@@ -242,13 +248,27 @@ if (document.readyState === "loading") {
 }
 
 document.addEventListener("click", (e) => {
+  const langPill = e.target.closest(".zk-lang-pill");
+  if (langPill) {
+    e.preventDefault();
+    e.stopPropagation();
+    haptic();
+    const targetLang = (langPill.getAttribute("data-lang") || "uz").toLowerCase();
+    if (typeof window.ZK_setLang === "function") {
+      window.ZK_setLang(targetLang);
+    } else {
+      try { localStorage.setItem("zk_lang", targetLang); } catch (err) {}
+      location.reload();
+    }
+    return;
+  }
   const langBtn = e.target.closest("#zkLangBtn");
   if (langBtn) {
     e.preventDefault();
     e.stopPropagation();
     haptic();
     const curLang = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
-    const nextLang = curLang === "ru" ? "uz" : "ru";
+    const nextLang = curLang === "uz" ? "ru" : curLang === "ru" ? "en" : "uz";
     if (typeof window.ZK_setLang === "function") {
       window.ZK_setLang(nextLang);
     } else {
