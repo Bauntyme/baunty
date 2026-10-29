@@ -16,7 +16,7 @@ from typing import Optional
 from aiogram import Router, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, LinkPreviewOptions
 
 from config import config
 from services import book_service
@@ -35,6 +35,18 @@ CAT_NAMES = {
     "bolalar": "🧸 Bolalar uchun",
     "pop": "🔥 Ommabop kitoblar",
 }
+
+CAT_BANNERS = {
+    "badiiy": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80",
+    "biznes": "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=600&q=80",
+    "psixologiya": "https://images.unsplash.com/photo-1532012164546-f432f2e3edd4?w=600&q=80",
+    "diniy": "https://images.unsplash.com/photo-1542816417-0983c9c9ad53?w=600&q=80",
+    "tarix": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&q=80",
+    "bolalar": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&q=80",
+    "pop": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600&q=80",
+}
+
+MAIN_BOOKS_BANNER = "https://images.unsplash.com/photo-1507842229452-78809e66ff51?w=800&q=80"
 
 PAGE_SIZE = 5
 
@@ -90,8 +102,11 @@ def format_book_item_card(book: dict) -> tuple[str, InlineKeyboardMarkup]:
     safe_cat_name = safe_html(cat_name)
     safe_desc = safe_html(short_desc)
 
+    cover_url = book_service.get_book_cover_url(book)
+    prefix = f'<a href="{cover_url}">&#8205;</a>' if cover_url else ""
+
     text = (
-        f"📚 <b>{safe_title}</b>\n\n"
+        f"{prefix}📚 <b>{safe_title}</b>\n\n"
         f"✍️ <b>Muallif:</b> {safe_author}\n"
         f"📂 <b>Toifa:</b> {safe_cat_name}\n"
         f"📄 <b>Sahifalar:</b> {pages} bet | 💾 <b>Format:</b> PDF & EPUB ({size_mb} MB)\n"
@@ -139,7 +154,10 @@ def format_category_page(category: str, page: int = 1) -> tuple[str, InlineKeybo
     start_idx = (page - 1) * PAGE_SIZE
     page_items = all_items[start_idx : start_idx + PAGE_SIZE]
 
-    text = f"<b>{safe_cat_title}</b> ({total_items} ta kitob):\n\n"
+    cat_banner = CAT_BANNERS.get(category) or (book_service.get_book_cover_url(page_items[0]) if page_items else "")
+    prefix = f'<a href="{cat_banner}">&#8205;</a>' if cat_banner else ""
+
+    text = f"{prefix}<b>{safe_cat_title}</b> ({total_items} ta kitob):\n\n"
     buttons = []
 
     for b in page_items:
@@ -188,7 +206,10 @@ def format_search_results(query: str, items: list) -> tuple[str, InlineKeyboardM
     if len(items) == 1:
         return format_book_item_card(items[0])
 
-    text = f"📚 <b>«{safe_query}» bo'yicha topilgan kitoblar ({len(items)} ta):</b>\n\n"
+    first_cover = book_service.get_book_cover_url(items[0]) if items else ""
+    prefix = f'<a href="{first_cover}">&#8205;</a>' if first_cover else ""
+
+    text = f"{prefix}📚 <b>«{safe_query}» bo'yicha topilgan kitoblar ({len(items)} ta):</b>\n\n"
     buttons = []
     for b in items[:8]:
         bid = str(b.get("id") or b.get("i"))
@@ -233,7 +254,7 @@ async def cmd_books(message: Message, command: Optional[CommandObject] = None, s
     query = ""
     if command and command.args:
         query = command.args.strip()
-    elif message.text:
+    elif isinstance(message.text, str):
         m = re.match(r"^/(?:books|book|kitob|kutubxona|library)(?:@\w+)?\s+(.+)$", message.text, re.IGNORECASE)
         if m:
             query = m.group(1).strip()
@@ -241,13 +262,20 @@ async def cmd_books(message: Message, command: Optional[CommandObject] = None, s
     if query:
         matched = book_service.search_books(query, limit=10)
         text, kb = format_search_results(query, matched)
-        await message.answer(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+        lpo = None
+        if len(matched) == 1:
+            cov = book_service.get_book_cover_url(matched[0])
+            if cov:
+                lpo = LinkPreviewOptions(is_disabled=False, url=cov, prefer_large_media=True, show_above_text=True)
+        await message.answer(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo, protect_content=True)
         return
 
     cat = book_service.get_catalog(limit=6)
     total = cat.get("total", 32)
+    lpo = LinkPreviewOptions(is_disabled=False, url=MAIN_BOOKS_BANNER, prefer_large_media=True, show_above_text=True)
 
     text = (
+        f'<a href="{MAIN_BOOKS_BANNER}">&#8205;</a>'
         f"📚 <b>Baunty Kutubxonasi — {total}+ Sara Elektron Kitoblar!</b>\n\n"
         f"Kutubxonamizda o'zbek va jahon adabiyoti durdonalari, shaxsiy rivojlanish, "
         f"biznes, psixologiya, diniy-ma'rifiy va bolalar uchun sara asarlar to'plangan.\n\n"
@@ -255,7 +283,7 @@ async def cmd_books(message: Message, command: Optional[CommandObject] = None, s
         f"yoki to'liq PDF va EPUB formatida chatga yuklab olishingiz mumkin!\n\n"
         f"<i>Quyidagi toifalardan birini tanlang yoki kitob nomini yozing:</i>"
     )
-    await message.answer(text, parse_mode="HTML", reply_markup=get_books_main_keyboard(), protect_content=True)
+    await message.answer(text, parse_mode="HTML", reply_markup=get_books_main_keyboard(), link_preview_options=lpo, protect_content=True)
 
 
 @router.message(BookStates.waiting_for_query, F.text)
@@ -267,10 +295,15 @@ async def state_process_book_query(message: Message, state: FSMContext) -> None:
         return
     matched = book_service.search_books(query, limit=10)
     text, kb = format_search_results(query, matched)
-    await message.answer(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+    lpo = None
+    if len(matched) == 1:
+        cov = book_service.get_book_cover_url(matched[0])
+        if cov:
+            lpo = LinkPreviewOptions(is_disabled=False, url=cov, prefer_large_media=True, show_above_text=True)
+    await message.answer(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo, protect_content=True)
 
 
-@router.message(F.text.regexp(r'^(?:kitob|kitoblar|китоб|китоблар|kutubxona|кутубхона|books?|книг[аи])\s*[:\-—]?\s*(.+)$', flags=re.IGNORECASE))
+@router.message(F.text.regexp(r'^(?:kitob|kitoblar|китоб|китобlar|kutubxona|кутубхона|books?|книг[аи])\s*[:\-—]?\s*(.+)$', flags=re.IGNORECASE))
 async def msg_book_search(message: Message) -> None:
     """Matn orqali kitob qidirish (masalan: 'kitob O'tkan kunlar', 'китоб сариқ дев')."""
     m = re.match(r'^(?:kitob|kitoblar|китоб|китобlar|kutubxona|кутубхона|books?|книг[аи])\s*[:\-—]?\s*(.+)$', message.text, re.IGNORECASE)
@@ -281,7 +314,12 @@ async def msg_book_search(message: Message) -> None:
         return
     matched = book_service.search_books(query, limit=10)
     text, kb = format_search_results(query, matched)
-    await message.answer(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+    lpo = None
+    if len(matched) == 1:
+        cov = book_service.get_book_cover_url(matched[0])
+        if cov:
+            lpo = LinkPreviewOptions(is_disabled=False, url=cov, prefer_large_media=True, show_above_text=True)
+    await message.answer(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo, protect_content=True)
 
 
 @router.callback_query(F.data == "noop")
@@ -297,15 +335,17 @@ async def cb_books_main(call: CallbackQuery, state: Optional[FSMContext] = None)
         await state.clear()
     cat = book_service.get_catalog(limit=6)
     total = cat.get("total", 32)
+    lpo = LinkPreviewOptions(is_disabled=False, url=MAIN_BOOKS_BANNER, prefer_large_media=True, show_above_text=True)
 
     text = (
+        f'<a href="{MAIN_BOOKS_BANNER}">&#8205;</a>'
         f"📚 <b>Baunty Kutubxonasi — {total}+ Sara Elektron Kitoblar!</b>\n\n"
         f"Har bir kitobni to'g'ridan-to'g'ri qulay ilovada o'qishingiz "
         f"yoki PDF va EPUB formatida chatga yuklab olishingiz mumkin!\n\n"
         f"<i>Quyidagi toifalardan birini tanlang yoki kitob nomini yozing:</i>"
     )
     try:
-        await call.message.edit_text(text, parse_mode="HTML", reply_markup=get_books_main_keyboard())
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=get_books_main_keyboard(), link_preview_options=lpo)
     except Exception as e:
         if "message is not modified" not in str(e).lower():
             logger.debug(f"edit_text error: {e}")
@@ -354,8 +394,10 @@ async def cb_books_category(call: CallbackQuery) -> None:
         page = int(parts[3]) if len(parts) >= 4 and parts[3].isdigit() else 1
 
     text, kb = format_category_page(category, page)
+    cat_banner = CAT_BANNERS.get(category)
+    lpo = LinkPreviewOptions(is_disabled=False, url=cat_banner, prefer_large_media=True, show_above_text=True) if cat_banner else None
     try:
-        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo)
     except Exception as e:
         if "message is not modified" not in str(e).lower():
             logger.debug(f"edit_text error: {e}")
@@ -372,8 +414,10 @@ async def cb_book_item(call: CallbackQuery) -> None:
         return
 
     text, kb = format_book_item_card(book)
+    cover_url = book_service.get_book_cover_url(book)
+    lpo = LinkPreviewOptions(is_disabled=False, url=cover_url, prefer_large_media=True, show_above_text=True) if cover_url else None
     try:
-        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+        await call.message.edit_text(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo)
     except Exception as e:
         if "message is not modified" not in str(e).lower():
             logger.debug(f"edit_text error: {e}")

@@ -281,6 +281,40 @@ class TestBooksWebServerAPI(AioHTTPTestCase):
         assert "p" in ch_data
         assert len(ch_data["p"]) >= 2
 
+    @unittest_run_loop
+    async def test_bk_cover_assets_serving(self):
+        """GET /bk/{id}/cover_s.webp va cover_l.webp to'g'ri qaytarilishi kerak."""
+        resp = await self.client.request("GET", "/bk/1/cover_s.webp")
+        assert resp.status == 200
+        assert resp.headers["Content-Type"] == "image/webp"
+        data = await resp.read()
+        assert len(data) > 100
+
+        resp_l = await self.client.request("GET", "/bk/1/cover_l.webp")
+        assert resp_l.status == 200
+        assert resp_l.headers["Content-Type"] == "image/webp"
+        assert len(await resp_l.read()) > 100
+
+    @unittest_run_loop
+    async def test_api_book_cover_endpoint(self):
+        """GET /api/book_cover/{id} API endpointi to'g'ri ishlashi kerak."""
+        resp = await self.client.request("GET", "/api/book_cover/1")
+        assert resp.status == 200
+        assert resp.headers["Content-Type"] == "image/webp"
+
+        resp_jpg = await self.client.request("GET", "/api/book_cover/1.jpg")
+        assert resp_jpg.status == 200
+        assert resp_jpg.headers["Content-Type"] == "image/jpeg"
+
+    @unittest_run_loop
+    async def test_bk_nonexistent_cover_dynamic_fallback(self):
+        """Mavjud bo'lmagan kitob muqovasi so'ralganda 404 emas, dinamik muqova qaytishi kerak."""
+        resp = await self.client.request("GET", "/bk/999999/cover_s.webp")
+        assert resp.status == 200
+        assert resp.headers["Content-Type"] == "image/webp"
+        assert len(await resp.read()) > 100
+
+
 
 def test_books_languages_catalog():
     """3 tilda kitoblar (uz, en, ru) mavjudligini tekshirish."""
@@ -648,4 +682,102 @@ async def test_deliver_book_escaping_and_entities():
     assert "&lt;" in caption
     assert "&gt;" in caption
     assert "<Asoslari>" not in caption
+
+
+def test_dynamic_cover_generator_formats():
+    """Dinamik muqovalar WEBP, JPEG va PNG formatlarida to'g'ri yaratilishini tekshirish."""
+    b = book_service.get_book_by_id("1")
+    assert b is not None
+
+    webp_bytes = book_service.generate_dynamic_book_cover(b, size="s", fmt="WEBP")
+    assert isinstance(webp_bytes, bytes)
+    assert len(webp_bytes) > 200
+    assert webp_bytes[:4] == b"RIFF"
+
+    jpeg_bytes = book_service.generate_dynamic_book_cover(b, size="l", fmt="JPEG")
+    assert isinstance(jpeg_bytes, bytes)
+    assert len(jpeg_bytes) > 500
+    assert jpeg_bytes[:2] == b"\xff\xd8"
+
+    png_bytes = book_service.generate_dynamic_book_cover(b, size="s", fmt="PNG")
+    assert isinstance(png_bytes, bytes)
+    assert len(png_bytes) > 500
+    assert png_bytes[:4] == b"\x89PNG"
+
+
+def test_svg_cover_generator():
+    """SVG muqova generatsiyasini tekshirish."""
+    import html
+    b = book_service.get_book_by_id("1")
+    svg_str = book_service.generate_svg_book_cover(b)
+    assert "<svg" in svg_str
+    assert "</svg>" in svg_str
+    assert b["title"] in html.unescape(svg_str)
+
+
+def test_get_book_thumbnail_bytes():
+    """Telegram hujjati uchun thumbnail generatsiyasini tekshirish (<=320x320 JPEG)."""
+    b = book_service.get_book_by_id("1")
+    thumb = book_service.get_book_thumbnail_bytes(b)
+    assert isinstance(thumb, bytes)
+    assert len(thumb) > 100
+    assert len(thumb) <= 200 * 1024
+    assert thumb[:2] == b"\xff\xd8"
+
+    from PIL import Image
+    import io
+    im = Image.open(io.BytesIO(thumb))
+    assert im.width <= 320
+    assert im.height <= 320
+
+
+@pytest.mark.asyncio
+async def test_deliver_book_with_thumbnail_attachment():
+    """deliver_book Telegramga hujjat yuborganda thumbnail ilova qilishini tekshirish."""
+    mock_bot = MagicMock()
+    mock_bot.send_document = AsyncMock()
+
+    res = await book_service.deliver_book(
+        bot=mock_bot,
+        chat_id=123,
+        book_id="1",
+        fmt="pdf"
+    )
+    assert res["ok"] is True
+    assert mock_bot.send_document.called
+    kwargs = mock_bot.send_document.call_args[1]
+    assert "thumbnail" in kwargs
+    thumb = kwargs["thumbnail"]
+    assert thumb is not None
+
+
+@pytest.mark.asyncio
+async def test_bot_link_preview_options_in_handlers():
+    """Bot /books va cb_book_item chaqirilganda link_preview_options uzatilishini tekshirish."""
+    from handlers.books import cmd_books, cb_book_item
+    msg = AsyncMock()
+    msg.text = "/books"
+    msg.from_user = MagicMock(id=123)
+    msg.answer = AsyncMock()
+    await cmd_books(msg)
+    assert msg.answer.called
+    kwargs = msg.answer.call_args[1]
+    assert "link_preview_options" in kwargs
+    lpo = kwargs["link_preview_options"]
+    assert lpo.is_disabled is not True
+    assert lpo.prefer_large_media is True
+
+    call = AsyncMock()
+    call.from_user = MagicMock(id=123)
+    call.data = "book:item:1"
+    call.message = AsyncMock()
+    call.message.edit_text = AsyncMock()
+    call.answer = AsyncMock()
+    await cb_book_item(call)
+    assert call.message.edit_text.called
+    call_kwargs = call.message.edit_text.call_args[1]
+    assert "link_preview_options" in call_kwargs
+    call_lpo = call_kwargs["link_preview_options"]
+    assert "1" in call_lpo.url or "cover" in call_lpo.url
+
 

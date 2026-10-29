@@ -12,7 +12,9 @@ venv/
 logs/
 scratch/
 data/posters/*.webp
-data/bk/
+# data/bk/ covers are included for instant rendering
+data/bk/*/*.mp3
+data/bk/*/*.pdf
 data/videos/*.mp4
 !data/videos/default.mp4
 !data/videos/718_*.mp4

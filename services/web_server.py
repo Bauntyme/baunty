@@ -681,14 +681,28 @@ async def handle_prava_image_proxy(request: web.Request) -> web.Response:
     return web.Response(status=404, text="Prava rasmi topilmadi")
 
 
+def _process_and_save_book_cover(raw_bytes: bytes, tail: str, local_path: Path, ext: str) -> bytes:
+    from PIL import Image
+    im = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
+    is_s = "cover_s" in tail or "thumb" in tail
+    target_size = (240, 360) if is_s else (600, 900)
+    im.thumbnail(target_size, Image.Resampling.LANCZOS)
+    buf = io.BytesIO()
+    fmt = "JPEG" if ext in (".jpg", ".jpeg") else "PNG" if ext == ".png" else "WEBP"
+    im.save(buf, format=fmt, quality=85)
+    content = buf.getvalue()
+    try:
+        local_path.parent.mkdir(parents=True, exist_ok=True)
+        local_path.write_bytes(content)
+    except Exception:
+        pass
+    return content
+
+
 async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     """Kitob muqovalari, rasmlari va sahifalarini (bk/...) keshlab uzatish."""
     tail = request.match_info.get("tail", "").lstrip("/")
     if not tail or ".." in tail:
-        return web.Response(status=404, text="Topilmadi")
-
-    now = time.time()
-    if tail in _BOOK_404_CACHE and (now - _BOOK_404_CACHE[tail]) < 60:
         return web.Response(status=404, text="Topilmadi")
 
     ext = os.path.splitext(tail)[1].lower()
@@ -697,11 +711,13 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         ".png": "image/png",
         ".jpg": "image/jpeg",
         ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
         ".json": "application/json",
         ".pdf": "application/pdf",
         ".epub": "application/epub+zip",
     }
     content_type = ct_map.get(ext, "application/octet-stream")
+    is_image = ext in (".webp", ".png", ".jpg", ".jpeg", ".svg")
 
     # 1. Xotira keshidan uzatish
     if tail in _BOOK_CACHE:
@@ -718,6 +734,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
             }
         )
 
+    # 2. Diskdagi lokal keshdan tekshirish
     bk_dir = BASE_DIR / "data" / "bk"
     local_path = bk_dir / tail
     if local_path.exists():
@@ -746,42 +763,111 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         except Exception:
             pass
 
-    upstream_url = f"https://161-97-96-58.sslip.io/bk/{tail}"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    if ext == ".json":
-                        try:
-                            content = sanitize_book_text(content.decode("utf-8")).encode("utf-8")
-                        except Exception:
-                            pass
-                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                    if len(_BOOK_CACHE) > 500:
-                        _BOOK_CACHE.clear()
-                    _BOOK_CACHE[tail] = (content, content_type, etag)
-                    def _save_bk(lp, c):
-                        try:
-                            lp.parent.mkdir(parents=True, exist_ok=True)
-                            lp.write_bytes(c)
-                        except Exception:
-                            pass
-                    asyncio.create_task(asyncio.to_thread(_save_bk, local_path, content))
-                    return web.Response(
-                        body=content,
-                        content_type=content_type,
-                        headers={
-                            "Cache-Control": "public, max-age=604800, immutable",
-                            "Access-Control-Allow-Origin": "*",
-                            "ETag": etag,
-                        }
-                    )
-    except Exception as e:
-        logger.warning(f"Kitob resursi yuklanmadi ({tail}): {e}")
+    # 3. Agar rasm so'ralgan bo'lsa (muqova, thumbnail)
+    if is_image:
+        m_bid = re.match(r"^(\d+)/", tail) or re.match(r"^(?:cover|thumb|bk)_?(\d+)", tail)
+        book_id = m_bid.group(1) if m_bid else None
+        if not book_id:
+            parts = tail.split("/")
+            if parts[0].isdigit():
+                book_id = parts[0]
 
-    # 3. Agar fayl topilmasa va tail toc.json yoki c{n}.json bo'lsa — kitob matnidan avtomatik generatsiya
+        from services import book_service
+        book = book_service.get_book_by_id(book_id) if book_id else None
+
+        # 3.1. Kitobning o'z muqova URL manzilidan yuklab olish (Unsplash va h.k.)
+        if book:
+            cover_url = (book.get("cover") or book.get("poster") or book.get("image") or "").strip()
+            if cover_url.startswith("http"):
+                try:
+                    import aiohttp
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(cover_url, timeout=aiohttp.ClientTimeout(total=2.5, connect=1.0)) as resp:
+                            if resp.status == 200:
+                                raw_bytes = await resp.read()
+                                content = await asyncio.to_thread(_process_and_save_book_cover, raw_bytes, tail, local_path, ext)
+                                if content:
+                                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                                    if len(_BOOK_CACHE) > 500:
+                                        _BOOK_CACHE.clear()
+                                    _BOOK_CACHE[tail] = (content, content_type, etag)
+                                    return web.Response(
+                                        body=content,
+                                        content_type=content_type,
+                                        headers={
+                                            "Cache-Control": "public, max-age=604800, immutable",
+                                            "Access-Control-Allow-Origin": "*",
+                                            "ETag": etag,
+                                        }
+                                    )
+                except Exception as e:
+                    logger.debug(f"Masofaviy muqovani yuklab bo'lmadi ({tail}): {e}")
+
+        # 3.2. Upstream sslip.io serveridan olishga urinish
+        upstream_url = f"https://161-97-96-58.sslip.io/bk/{tail}"
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
+                    if resp.status == 200:
+                        content = await resp.read()
+                        etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                        if len(_BOOK_CACHE) > 500:
+                            _BOOK_CACHE.clear()
+                        _BOOK_CACHE[tail] = (content, content_type, etag)
+                        def _save_bk(lp, c):
+                            try:
+                                lp.parent.mkdir(parents=True, exist_ok=True)
+                                lp.write_bytes(c)
+                            except Exception:
+                                pass
+                        asyncio.create_task(asyncio.to_thread(_save_bk, local_path, content))
+                        return web.Response(
+                            body=content,
+                            content_type=content_type,
+                            headers={
+                                "Cache-Control": "public, max-age=604800, immutable",
+                                "Access-Control-Allow-Origin": "*",
+                                "ETag": etag,
+                            }
+                        )
+        except Exception as e:
+            logger.debug(f"Upstream muqova yuklanmadi ({tail}): {e}")
+
+        # 3.3. Dinamik sifatli muqova yaratish (Pillow yoki SVG) - 100% muvaffaqiyat
+        size = "s" if ("cover_s" in tail or "thumb" in tail or "small" in tail) else "l"
+        fmt = "JPEG" if ext in (".jpg", ".jpeg") else "PNG" if ext == ".png" else "WEBP"
+        target_book = book or {"id": book_id or "0", "title": f"Kitob #{book_id or 0}", "author": "Baunty Kutubxonasi", "category_name": "Kutubxona"}
+
+        if ext == ".svg":
+            content = book_service.generate_svg_book_cover(target_book).encode("utf-8")
+        else:
+            content = book_service.generate_dynamic_book_cover(target_book, size=size, fmt=fmt)
+
+        etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+        if len(_BOOK_CACHE) > 500:
+            _BOOK_CACHE.clear()
+        _BOOK_CACHE[tail] = (content, content_type, etag)
+
+        def _save_fallback(lp, c):
+            try:
+                lp.parent.mkdir(parents=True, exist_ok=True)
+                lp.write_bytes(c)
+            except Exception:
+                pass
+        asyncio.create_task(asyncio.to_thread(_save_fallback, local_path, content))
+
+        return web.Response(
+            body=content,
+            content_type=content_type,
+            headers={
+                "Cache-Control": "public, max-age=604800, immutable",
+                "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
+            }
+        )
+
+    # 4. Agar fayl topilmasa va tail toc.json yoki c{n}.json bo'lsa — kitob matnidan avtomatik generatsiya
     m_toc = re.match(r"^(\d+)/toc\.json$", tail)
     m_ch = re.match(r"^(\d+)/c(\d+)\.json$", tail)
     if m_toc or m_ch:
@@ -827,6 +913,26 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         _BOOK_404_CACHE.clear()
     _BOOK_404_CACHE[tail] = time.time()
     return web.Response(status=404, text="Resurs topilmadi")
+
+
+async def handle_book_cover_api(request: web.Request) -> web.Response:
+    """Kitob muqovasi API endpointi (/api/book_cover/{id})."""
+    raw_id = request.match_info.get("id", "").strip() or request.query.get("id", "").strip()
+    if not raw_id:
+        return web.Response(status=400, text="Kitob ID ko'rsatilmadi")
+
+    size = request.query.get("size", "s").lower()
+    fmt = request.query.get("format", "webp").lower()
+
+    bid = re.sub(r"\.(webp|jpg|jpeg|png|svg)$", "", raw_id)
+    ext = os.path.splitext(raw_id)[1].lower() or f".{fmt}"
+    if ext not in (".webp", ".jpg", ".jpeg", ".png", ".svg"):
+        ext = ".webp"
+
+    size_code = "s" if size in ("s", "small", "thumb") else "l"
+    tail = f"{bid}/cover_{size_code}{ext}"
+    request.match_info["tail"] = tail
+    return await handle_book_asset_proxy(request)
 
 
 async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
@@ -5020,6 +5126,10 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/p/tv/{id}", handle_tv_icon)
     app.router.add_get("/bk/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/webapp/bk/{tail:.*}", handle_book_asset_proxy)
+    app.router.add_get("/api/book_cover/{id}", handle_book_cover_api)
+    app.router.add_get("/webapp/api/book_cover/{id}", handle_book_cover_api)
+    app.router.add_get("/api/book_asset/{tail:.*}", handle_book_asset_proxy)
+    app.router.add_get("/webapp/api/book_asset/{tail:.*}", handle_book_asset_proxy)
     app.router.add_get("/rc/{tail:.*}", handle_rc_asset_proxy)
     app.router.add_get("/webapp/rc/{tail:.*}", handle_rc_asset_proxy)
     app.router.add_route("OPTIONS", "/api/tv/stream", handle_tv_stream_proxy)

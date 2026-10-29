@@ -162,7 +162,14 @@ def load_books() -> List[Dict[str, Any]]:
         item["r"] = rating
         item["rn"] = max(10, views // 200)
         item["desc"] = desc
-        item["c"] = 1 if item.get("cover") else 0
+        cover_val = (item.get("cover") or item.get("poster") or item.get("image") or item.get("img") or "").strip()
+        item["cover"] = cover_val
+        item["poster"] = cover_val
+        item["image"] = cover_val
+        item["img"] = cover_val
+        item["c"] = 1  # Barcha kitoblarda muqova mavjud (lokal, masofaviy yoki dinamik)
+        item["cover_url"] = cover_val or f"/bk/{bid}/cover_l.webp"
+        item["cover_thumb"] = f"/bk/{bid}/cover_s.webp"
         item["f"] = ["pdf", "epub"]
         item["s"] = {"pdf": size_bytes, "epub": int(size_bytes * 0.55)}
         item["m"] = "text"
@@ -326,12 +333,249 @@ def search_books(query: str, limit: int = 25) -> List[Dict[str, Any]]:
         b["t"] = b["title"]
         b["a"] = b["author"]
         b["g"] = b["category"]
-        b["c"] = b.get("c") or (1 if b.get("cover") else 0)
+        cover_val = (b.get("cover") or b.get("poster") or b.get("image") or b.get("img") or "").strip()
+        b["cover"] = cover_val
+        b["poster"] = cover_val
+        b["image"] = cover_val
+        b["img"] = cover_val
+        b["c"] = 1
+        b["cover_url"] = cover_val or f"/bk/{b['id']}/cover_l.webp"
+        b["cover_thumb"] = f"/bk/{b['id']}/cover_s.webp"
         b["p"] = b.get("p") or b.get("pages", 100)
         b["l"] = b.get("l") or b.get("lang", "uz")
         b["f"] = b.get("f") or [b.get("format", "pdf").lower()]
         normalized.append(b)
     return normalized
+
+
+BOOK_PALETTES = [
+    {"bg": (123, 30, 43), "accent": (233, 180, 76), "text": (255, 255, 255)},   # k0: Deep Crimson & Gold
+    {"bg": (31, 42, 92), "accent": (243, 238, 226), "text": (255, 255, 255)},   # k1: Midnight Navy & Cream
+    {"bg": (47, 93, 58), "accent": (217, 164, 65), "text": (255, 255, 255)},   # k2: Emerald Forest & Gold
+    {"bg": (91, 44, 111), "accent": (240, 180, 60), "text": (255, 255, 255)},  # k3: Royal Purple & Amber
+    {"bg": (45, 52, 54), "accent": (225, 177, 44), "text": (255, 255, 255)},   # k4: Charcoal & Topaz
+    {"bg": (26, 26, 26), "accent": (229, 72, 77), "text": (255, 255, 255)},    # k5: Jet Black & Ruby
+    {"bg": (43, 78, 110), "accent": (168, 197, 218), "text": (255, 255, 255)}, # k6: Slate Ocean & Ice
+    {"bg": (90, 35, 48), "accent": (242, 198, 194), "text": (255, 255, 255)},  # k7: Burgundy & Rose
+    {"bg": (15, 30, 46), "accent": (212, 175, 55), "text": (255, 255, 255)},  # k8: Dark Sapphire & Gold
+    {"bg": (61, 51, 38), "accent": (224, 197, 143), "text": (255, 255, 255)}, # k9: Warm Umber & Parchment
+    {"bg": (30, 77, 68), "accent": (247, 211, 90), "text": (255, 255, 255)},  # k10: Deep Teal & Amber
+    {"bg": (181, 86, 43), "accent": (255, 235, 175), "text": (255, 255, 255)},# k11: Burnt Sienna & Cream
+    {"bg": (74, 90, 42), "accent": (230, 217, 168), "text": (255, 255, 255)}, # k12: Olive Moss & Sand
+    {"bg": (14, 85, 96), "accent": (240, 180, 60), "text": (255, 255, 255)},  # k13: Deep Cyan & Gold
+]
+
+
+def _get_cover_font(size: int, bold: bool = False):
+    """Platformaga mos TrueType yoki Default shriftni olish."""
+    from PIL import ImageFont
+    candidates = [
+        "C:/Windows/Fonts/segoeuib.ttf" if bold else "C:/Windows/Fonts/segoeui.ttf",
+        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            try:
+                return ImageFont.truetype(c, size=size)
+            except Exception:
+                pass
+    try:
+        return ImageFont.load_default(size=size)
+    except Exception:
+        return ImageFont.load_default()
+
+
+def generate_dynamic_book_cover(
+    book: Dict[str, Any],
+    size: str = "l",
+    fmt: str = "WEBP"
+) -> bytes:
+    """Kitob uchun yuqori sifatli va zamonaviy muqova rasmini generatsiya qilish (Pillow)."""
+    import textwrap
+    from PIL import Image, ImageDraw
+
+    title = str(book.get("title") or book.get("t") or "Kitob").strip()
+    author = str(book.get("author") or book.get("a") or "Noma'lum muallif").strip()
+    cat_name = str(book.get("category_name") or "Badiiy adabiyot").strip()
+    rating = str(book.get("rating") or "4.9")
+    bid = str(book.get("id") or book.get("i") or "1")
+
+    is_thumb = size in ("thumb", "thumbnail")
+    is_large = size in ("l", "large", "big", "feat")
+    if is_thumb:
+        w, h = (300, 300)
+    elif is_large:
+        w, h = (600, 900)
+    else:
+        w, h = (240, 360)
+
+    num_id = int(bid) if bid.isdigit() else len(title)
+    k_idx = (num_id * 7 + len(title)) % len(BOOK_PALETTES)
+    pal = BOOK_PALETTES[k_idx]
+    bg = pal["bg"]
+    accent = pal["accent"]
+    text_color = pal["text"]
+
+    img = Image.new("RGB", (w, h), color=bg)
+    draw = ImageDraw.Draw(img)
+
+    pad = 18 if is_large else 8
+    bw = 3 if is_large else 2
+    draw.rectangle([(pad, pad), (w - pad - 1, h - pad - 1)], outline=accent, width=bw)
+
+    # Kitob jildi chizig'i (spine crease)
+    if not is_thumb:
+        spine_x = int(w * 0.065)
+        draw.line([(spine_x, pad), (spine_x, h - pad - 1)], fill=(0, 0, 0), width=2)
+        draw.line([(spine_x + 2, pad), (spine_x + 2, h - pad - 1)], fill=(255, 255, 255), width=1)
+
+    # Sarlavha ribboni
+    f_head = _get_cover_font(max(10, int(h * 0.024)), bold=True)
+    draw.text((w // 2, int(h * 0.08)), "BAUNTY KUTUBXONASI", fill=accent, font=f_head, anchor="mm")
+
+    f_cat = _get_cover_font(max(9, int(h * 0.02)), bold=False)
+    draw.text((w // 2, int(h * 0.12)), cat_name.upper(), fill=(200, 215, 230), font=f_cat, anchor="mm")
+
+    # Ajratuvchi chiziq
+    div_w = int(w * 0.3)
+    draw.line([(w // 2 - div_w, int(h * 0.155)), (w // 2 + div_w, int(h * 0.155))], fill=accent, width=1)
+
+    # Kitob nomi
+    f_title = _get_cover_font(max(13, int(h * 0.042)), bold=True)
+    wrap_len = 16 if is_large else 13
+    lines = textwrap.wrap(title, width=wrap_len)
+    start_y = int(h * 0.38) - (len(lines) * int(h * 0.025))
+    line_h = int(h * 0.055)
+    for line in lines[:4]:
+        draw.text((w // 2, start_y), line, fill=text_color, font=f_title, anchor="mm")
+        start_y += line_h
+
+    draw.line([(w // 2 - div_w, start_y + 8), (w // 2 + div_w, start_y + 8)], fill=accent, width=1)
+
+    # Muallif nomi
+    f_author = _get_cover_font(max(11, int(h * 0.03)), bold=True)
+    draw.text((w // 2, start_y + int(h * 0.06)), author[:32], fill=accent, font=f_author, anchor="mm")
+
+    # Quyi ma'lumotlar
+    if not is_thumb:
+        f_foot = _get_cover_font(max(9, int(h * 0.02)), bold=False)
+        draw.text((w // 2, h - int(h * 0.08)), f"★ {rating} • Oltin To'plam", fill=(180, 195, 210), font=f_foot, anchor="mm")
+        draw.text((w // 2, h - int(h * 0.045)), f"@{config.BOT_USERNAME.lstrip('@')}", fill=accent, font=f_foot, anchor="mm")
+
+    buf = io.BytesIO()
+    fmt_clean = "JPEG" if fmt.upper() in ("JPG", "JPEG") else "PNG" if fmt.upper() == "PNG" else "WEBP"
+    img.save(buf, format=fmt_clean, quality=88)
+    return buf.getvalue()
+
+
+def generate_svg_book_cover(book: Dict[str, Any]) -> str:
+    """Kitob uchun vektorli SVG muqovasi yaratish."""
+    title = html.escape(str(book.get("title") or book.get("t") or "Kitob"))
+    author = html.escape(str(book.get("author") or book.get("a") or "Noma'lum muallif"))
+    category = html.escape(str(book.get("category_name") or "Badiiy adabiyot"))
+    bid = str(book.get("id") or book.get("i") or "1")
+
+    num_id = int(bid) if bid.isdigit() else len(title)
+    k_idx = (num_id * 7 + len(title)) % len(BOOK_PALETTES)
+    pal = BOOK_PALETTES[k_idx]
+    bg_rgb = f"rgb{pal['bg']}"
+    accent_rgb = f"rgb{pal['accent']}"
+
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" width="400" height="600">'
+        f'<rect width="400" height="600" fill="{bg_rgb}"/>'
+        f'<rect x="12" y="12" width="376" height="576" fill="none" stroke="{accent_rgb}" stroke-width="2"/>'
+        '<line x1="26" y1="12" x2="26" y2="588" stroke="rgba(0,0,0,0.4)" stroke-width="2"/>'
+        f'<text x="200" y="55" fill="{accent_rgb}" font-family="sans-serif" font-size="11" font-weight="bold" text-anchor="middle" letter-spacing="2">BAUNTY KUTUBXONASI</text>'
+        f'<text x="200" y="80" fill="#E2E8F0" font-family="sans-serif" font-size="10" text-anchor="middle">{category.upper()}</text>'
+        f'<line x1="140" y1="95" x2="260" y2="95" stroke="{accent_rgb}" stroke-width="1"/>'
+        f'<text x="200" y="260" fill="#FFFFFF" font-family="Georgia,serif" font-size="22" font-weight="bold" text-anchor="middle">{title[:28]}</text>'
+        f'<line x1="150" y1="300" x2="250" y2="300" stroke="{accent_rgb}" stroke-width="1"/>'
+        f'<text x="200" y="340" fill="{accent_rgb}" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle">{author[:30]}</text>'
+        f'<text x="200" y="550" fill="{accent_rgb}" font-family="sans-serif" font-size="11" text-anchor="middle">@{config.BOT_USERNAME.lstrip("@")}</text>'
+        '</svg>'
+    )
+
+
+def get_book_thumbnail_bytes(book: Dict[str, Any]) -> Optional[bytes]:
+    """Kitob uchun Telegram hujjat thumbnaili (JPEG, max 320x320)."""
+    bid = str(book.get("id") or book.get("i") or "")
+    local_thumb = BASE_DIR / "data" / "bk" / bid / "thumb.jpg"
+    if local_thumb.exists():
+        try:
+            return local_thumb.read_bytes()
+        except Exception:
+            pass
+
+    local_cover = BASE_DIR / "data" / "bk" / bid / "cover_s.webp"
+    if not local_cover.exists():
+        local_cover = BASE_DIR / "data" / "bk" / bid / "cover_l.webp"
+
+    try:
+        from PIL import Image
+        if local_cover.exists():
+            with Image.open(local_cover) as im:
+                im = im.convert("RGB")
+                im.thumbnail((320, 320), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                im.save(buf, format="JPEG", quality=85)
+                thumb_bytes = buf.getvalue()
+                try:
+                    local_thumb.parent.mkdir(parents=True, exist_ok=True)
+                    local_thumb.write_bytes(thumb_bytes)
+                except Exception:
+                    pass
+                return thumb_bytes
+    except Exception as e:
+        logger.debug(f"Thumbnail yaratishda xato: {e}")
+
+    try:
+        return generate_dynamic_book_cover(book, size="thumb", fmt="JPEG")
+    except Exception as e:
+        logger.warning(f"Zaxira thumbnail generatsiyasida xato: {e}")
+        return None
+
+
+def get_book_cover_bytes(book_or_id: Any, size: str = "l", fmt: str = "WEBP") -> bytes:
+    """Kitob muqovasi baytlarini olish (keshdan yoki dinamik generatsiyadan)."""
+    if isinstance(book_or_id, dict):
+        book = book_or_id
+        bid = str(book.get("id") or book.get("i") or "")
+    else:
+        bid = str(book_or_id)
+        book = get_book_by_id(bid) or {"id": bid, "title": f"Kitob #{bid}", "author": "Baunty Kutubxonasi"}
+
+    clean_size = "s" if size in ("s", "small", "thumb") else "l"
+    ext = "jpg" if fmt.upper() in ("JPG", "JPEG") else "webp"
+    local_path = BASE_DIR / "data" / "bk" / bid / f"cover_{clean_size}.{ext}"
+    if local_path.exists():
+        try:
+            return local_path.read_bytes()
+        except Exception:
+            pass
+
+    local_webp = BASE_DIR / "data" / "bk" / bid / f"cover_{clean_size}.webp"
+    if local_webp.exists() and ext == "webp":
+        try:
+            return local_webp.read_bytes()
+        except Exception:
+            pass
+
+    return generate_dynamic_book_cover(book, size=clean_size, fmt=fmt)
+
+
+def get_book_cover_url(book: Dict[str, Any]) -> str:
+    """Telegram va WebApp uchun kitob muqovasi to'liq URL manzilini olish."""
+    cover_val = (book.get("cover") or book.get("poster") or book.get("image") or book.get("img") or "").strip()
+    bid = str(book.get("id") or book.get("i") or "")
+    if cover_val.startswith("http"):
+        return cover_val
+    webapp_url = (config.webapp_url_resolved or "https://baunty-cinema.onrender.com/").rstrip("/")
+    if bid:
+        return f"{webapp_url}/bk/{bid}/cover.jpg"
+    return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80"
 
 
 def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
@@ -629,14 +873,29 @@ async def deliver_book(
         safe_filename = re.sub(r'[^\w\s-]', '', f"{title} - {author}").strip() + f".{clean_ext}"
         input_file = BufferedInputFile(doc_bytes, filename=safe_filename)
 
-        await bot.send_document(
-            chat_id=chat_id,
-            document=input_file,
-            caption=caption,
-            parse_mode="HTML",
-            reply_markup=kb,
-            protect_content=True
-        )
+        thumb_bytes = get_book_thumbnail_bytes(book)
+        thumb_file = BufferedInputFile(thumb_bytes, filename="thumb.jpg") if thumb_bytes else None
+
+        try:
+            await bot.send_document(
+                chat_id=chat_id,
+                document=input_file,
+                thumbnail=thumb_file,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=kb,
+                protect_content=True
+            )
+        except Exception as e_thumb:
+            logger.debug(f"Thumbnail bilan yuborishda xatolik ({e_thumb}), oddiy yuboriladi.")
+            await bot.send_document(
+                chat_id=chat_id,
+                document=input_file,
+                caption=caption,
+                parse_mode="HTML",
+                reply_markup=kb,
+                protect_content=True
+            )
         return {"ok": True, "delivered": True, "book": book, "format": clean_ext}
     except Exception as e:
         logger.warning(f"Kitob hujjatini yuborishda xatolik ({e}), xabar sifatida yuboriladi.")

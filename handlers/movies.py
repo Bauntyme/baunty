@@ -1256,18 +1256,21 @@ async def cmd_browser(message: Message) -> None:
 
         # Agar kitoblar bo'limi so'ralsa: /browser @Zakirovs_ai kitob
         if clean_ai_query.lower() in ("kitob", "kitoblar", "books", "book", "kutubxona", "kniga", "knigi", "китоб", "китоблар", "книга", "книги", "кутубхона"):
-            from handlers.books import get_books_main_keyboard
+            from handlers.books import get_books_main_keyboard, MAIN_BOOKS_BANNER
             from services import book_service
+            from aiogram.types import LinkPreviewOptions
             cat = book_service.get_catalog(limit=6)
             total = cat.get("total", 32)
             kb = get_books_main_keyboard()
+            lpo = LinkPreviewOptions(is_disabled=False, url=MAIN_BOOKS_BANNER, prefer_large_media=True, show_above_text=True)
             text = (
+                f'<a href="{MAIN_BOOKS_BANNER}">&#8205;</a>'
                 f"📚 <b>Baunty Kutubxonasi — {total}+ Sara Elektron Kitoblar!</b>\n\n"
                 f"Har bir kitobni to'g'ridan-to'g'ri qulay ilovada o'qishingiz "
                 f"yoki PDF formatida chatga yuklab olishingiz mumkin!\n\n"
                 f"<i>Quyidagi toifalardan birini tanlang:</i>"
             )
-            await message.reply(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+            await message.reply(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo, protect_content=True)
             return
 
         # Agar kinolar bo'limi so'ralsa: /browser @Zakirovs_ai kino / kinolar
