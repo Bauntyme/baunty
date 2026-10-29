@@ -499,9 +499,14 @@ def generate_svg_book_cover(book: Dict[str, Any]) -> str:
     )
 
 
-def get_book_thumbnail_bytes(book: Dict[str, Any]) -> Optional[bytes]:
+def get_book_thumbnail_bytes(book_or_id: Any) -> Optional[bytes]:
     """Kitob uchun Telegram hujjat thumbnaili (JPEG, max 320x320)."""
-    bid = str(book.get("id") or book.get("i") or "")
+    if isinstance(book_or_id, dict):
+        book = book_or_id
+        bid = str(book.get("id") or book.get("i") or "")
+    else:
+        bid = str(book_or_id)
+        book = get_book_by_id(bid) or {"id": bid, "title": f"Kitob #{bid}", "author": "Baunty Kutubxonasi"}
     local_thumb = BASE_DIR / "data" / "bk" / bid / "thumb.jpg"
     if local_thumb.exists():
         try:

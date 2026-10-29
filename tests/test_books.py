@@ -781,3 +781,28 @@ async def test_bot_link_preview_options_in_handlers():
     assert "1" in call_lpo.url or "cover" in call_lpo.url
 
 
+def test_full_3390_books_catalog_and_covers():
+    """3390 ta kitoblar to'liq katalogi va barcha kitoblar muqovalari mavjudligini tekshirish."""
+    books = book_service.load_books()
+    assert len(books) == 3390, f"Katalogda aynan 3390 ta kitob bo'lishi kerak, hozir {len(books)} ta"
+
+    # Bir nechta ID larni tekshirish (boshi, o'rtasi, oxiri)
+    for sample_id in [1, 32, 100, 500, 1000, 2000, 3390]:
+        b = book_service.get_book_by_id(sample_id)
+        assert b is not None, f"Kitob #{sample_id} topilmadi"
+        assert b.get("title") or b.get("t")
+        assert b.get("author") or b.get("a")
+        assert b.get("category") or b.get("g")
+        assert b.get("lang") in ("uz", "ru", "en")
+
+        # Muqova va thumbnail tekshiruvi
+        cover_bytes = book_service.get_book_cover_bytes(b, size="s", fmt="WEBP")
+        assert isinstance(cover_bytes, bytes)
+        assert len(cover_bytes) > 100
+
+        thumb_bytes = book_service.get_book_thumbnail_bytes(sample_id)
+        assert isinstance(thumb_bytes, bytes)
+        assert len(thumb_bytes) > 100
+        assert thumb_bytes[:2] == b"\xff\xd8"
+
+
