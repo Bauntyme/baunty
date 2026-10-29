@@ -743,6 +743,16 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
     # 2. Diskdagi lokal keshdan tekshirish
     bk_dir = BASE_DIR / "data" / "bk"
     local_path = bk_dir / tail
+    if not local_path.exists() and is_image:
+        alt_names = ["cover_s.webp", "cover_l.webp", "thumb.jpg"] if ("cover_s" in tail or "small" in tail or "thumb" in tail) else ["cover_l.webp", "cover_s.webp", "thumb.jpg"]
+        for alt in alt_names:
+            alt_p = local_path.parent / alt
+            if alt_p.exists():
+                local_path = alt_p
+                ext = alt_p.suffix.lower()
+                content_type = ct_map.get(ext, content_type)
+                break
+
     if local_path.exists():
         try:
             content = await asyncio.to_thread(local_path.read_bytes)

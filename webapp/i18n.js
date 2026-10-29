@@ -102,6 +102,12 @@
     if (m) m.classList.remove("open");
   };
 
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" || e.keyCode === 27) {
+      if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
+    }
+  });
+
   function syncLangUI() {
     var cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
     var btnText = document.getElementById("zkLangText");

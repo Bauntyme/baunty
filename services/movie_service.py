@@ -1235,7 +1235,14 @@ class MovieService:
         resolved_source = None
         if not cat_item and not db_movie:
             resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
-            if not resolved_source:
+            has_ready_media = bool(
+                resolved_source
+                and (
+                    resolved_source.get("file_path")
+                    or MovieService.is_valid_telegram_file_id(resolved_source.get("file_id"))
+                )
+            )
+            if not has_ready_media:
                 try:
                     sync_res = await MovieService.sync_movie_from_asilmedia(
                         code=clean_code,

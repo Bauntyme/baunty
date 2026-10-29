@@ -12,7 +12,7 @@ import io
 import re
 import logging
 from aiogram import Router, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 from config import config
@@ -235,7 +235,7 @@ def is_food_or_calorie_message(text: Optional[str]) -> bool:
     return has_food or (has_non_food and ("kaloriya" in t or "qancha" in t))
 
 
-@router.message(F.photo)
+@router.message(StateFilter(None), F.photo)
 async def handle_calorie_photo(message: Message) -> None:
     """Taom yoki shirinlik fotosuratini qabul qilib to'liq tahlil qilish."""
     try:
@@ -260,7 +260,7 @@ async def handle_calorie_photo(message: Message) -> None:
         await message.answer("⚠️ Rasmni tahlil qilishda xatolik yuz berdi. Qaytadan urinib ko'ring.")
 
 
-@router.message(F.text, lambda msg: is_food_or_calorie_message(msg.text))
+@router.message(StateFilter(None), F.text, lambda msg: is_food_or_calorie_message(msg.text))
 async def handle_calorie_text(message: Message) -> None:
     """Foydalanuvchi yozgan taom yoki shirinlik matnini tahlil qilish."""
     res = kaloriya_service.scan_food_text_or_image(text=message.text)

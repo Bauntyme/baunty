@@ -668,3 +668,84 @@ async def test_mafia_deep_link_start_flow(in_memory_session: AsyncSession):
         # WebApp tugmasida startapp=maf_7777 bo'lishini tekshirish
         web_app_btn = reply_markup.inline_keyboard[0][0]
         assert "startapp=maf_7777" in web_app_btn.web_app.url
+
+
+def test_kaloriya_multilingual_queries_and_non_food_rejection():
+    """Eda AI: Ruscha, O'zbekcha va Inglizcha taom so'rovlari hamda non-food rasmlarni rad etish testi."""
+    from PIL import Image
+    import io
+
+    # 1. Ruscha so'rovlar
+    res_ru1 = kaloriya_service.scan_food_text_or_image(text="плов 300г")
+    assert res_ru1["ok"] is True
+    assert res_ru1["items"][0]["n"] == "Osh (Palov)"
+    assert res_ru1["items"][0]["g"] == 300
+    assert res_ru1["items"][0]["kcal"] > 500
+
+    res_ru2 = kaloriya_service.scan_food_text_or_image(text="шашлык 200 грамм")
+    assert res_ru2["ok"] is True
+    assert res_ru2["items"][0]["n"] == "Shashlik"
+    assert res_ru2["items"][0]["g"] == 200
+
+    res_ru3 = kaloriya_service.scan_food_text_or_image(text="2 самсы")
+    assert res_ru3["ok"] is True
+    assert res_ru3["items"][0]["n"] == "Somsa"
+    assert res_ru3["items"][0]["g"] == 360
+
+    # 2. Shirinliklar va ichimliklar (Medovik, tort, qahva)
+    res_sweet = kaloriya_service.scan_food_text_or_image(text="1 bo'lak medovik va qora choy")
+    assert res_sweet["ok"] is True
+    assert len(res_sweet["items"]) == 2
+    assert any("Medovik" in it["n"] for it in res_sweet["items"])
+    assert any("Choy" in it["n"] for it in res_sweet["items"])
+
+    # 3. Yeyilmaydigan matn filtri
+    res_non = kaloriya_service.scan_food_text_or_image(text="telefon sotiladi")
+    assert res_non["ok"] is False
+    assert res_non["error"] == "not_food"
+
+    res_non_ru = kaloriya_service.scan_food_text_or_image(text="куплю машину или ноутбук")
+    assert res_non_ru["ok"] is False
+    assert res_non_ru["error"] == "not_food"
+
+    # 4. Yeyilmaydigan rasm filtri (qora ekran, sovuq ko'k ekran, oq qog'oz)
+    img_black = Image.new("RGB", (80, 80), color=(0, 0, 0))
+    buf_black = io.BytesIO()
+    img_black.save(buf_black, format="JPEG")
+    res_img_black = kaloriya_service.scan_food_text_or_image(photo_data=buf_black.getvalue())
+    assert res_img_black["ok"] is False
+    assert res_img_black["error"] == "not_food"
+
+    img_blue = Image.new("RGB", (80, 80), color=(15, 60, 240))
+    buf_blue = io.BytesIO()
+    img_blue.save(buf_blue, format="JPEG")
+    res_img_blue = kaloriya_service.scan_food_text_or_image(photo_data=buf_blue.getvalue())
+    assert res_img_blue["ok"] is False
+    assert res_img_blue["error"] == "not_food"
+
+
+@pytest.mark.asyncio
+async def test_book_covers_webp_url_and_fast_proxy_fallback():
+    """Kitoblar muqovalari uchun WebP formati va asset proxy tekshiruvi."""
+    from services.book_service import get_book_cover_url
+    from services.web_server import handle_book_asset_proxy
+
+    # 1. get_book_cover_url WebP formatini qaytarishi
+    cover_url = get_book_cover_url({"id": "1", "title": "O'tkan kunlar"})
+    assert cover_url.endswith("/bk/1/cover_l.webp")
+
+    # 2. handle_book_asset_proxy diskdagi WebP muqovani ultra-tezkor qaytarishi
+    req = make_mocked_request("GET", "/bk/1/cover_l.webp")
+    req.match_info["tail"] = "1/cover_l.webp"
+    resp = await handle_book_asset_proxy(req)
+    assert resp.status == 200
+    assert resp.content_type == "image/webp"
+    assert len(resp.body) > 1000
+
+    # 3. Agar mijoz cover.jpg so'rasa ham, mavjud cover_l.webp ni zudlik bilan berishi
+    req_jpg = make_mocked_request("GET", "/bk/1/cover.jpg")
+    req_jpg.match_info["tail"] = "1/cover.jpg"
+    resp_jpg = await handle_book_asset_proxy(req_jpg)
+    assert resp_jpg.status == 200
+    assert len(resp_jpg.body) > 1000
+

@@ -579,7 +579,7 @@ def get_book_cover_url(book: Dict[str, Any]) -> str:
         return cover_val
     webapp_url = (config.webapp_url_resolved or "https://baunty-cinema.onrender.com/").rstrip("/")
     if bid:
-        return f"{webapp_url}/bk/{bid}/cover.jpg"
+        return f"{webapp_url}/bk/{bid}/cover_l.webp"
     return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80"
 
 
