@@ -2,58 +2,69 @@
   "global": {
     "enabled": false,
     "message_idx": 0,
-    "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+    "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+    "active": false
   },
   "pages": {
     "kino": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "music": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "books": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "games": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "story": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "docs": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "quiz": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "food": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "fx": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     },
     "tv": {
       "enabled": false,
       "message_idx": 0,
-      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!"
+      "message": "🛠️ Bo'limda texnik yangilanish olib borilmoqda. Tez orada qaytamiz!",
+      "active": false
     }
   }
 }

@@ -43,8 +43,15 @@ const posterHTML = (it, size, extra = "", isHero = false) => {
   return `<div class="pst"${it.i ? "" : ` style="background:linear-gradient(160deg,hsl(${hue} 45% 32%),hsl(${(hue+40)%360} 50% 14%))"`}>
     ${img || `<div class="ph">${esc(it.t)}</div>`}${extra}</div>`;
 };
+const starBadgeHTML = (it, rank) => {
+  if (it.imdb || it.r) {
+    const val = it.imdb || it.r;
+    return `<span class="badge baunty-star-badge"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg><span>${esc(val)}</span></span>`;
+  }
+  return `<span class="badge baunty-code-badge">#${it.c}</span>`;
+};
 const cardHTML = (it, rank, isHero = false) => `<button class="card" data-c="${it.c}">${posterHTML(it, "s",
-  `<span class="badge">#${it.c}</span>${it.p > 1 ? `<span class="parts">${it.p} qism</span>` : ""}` +
+  starBadgeHTML(it, rank) + (it.p > 1 ? `<span class="parts">${it.p} qism</span>` : "") +
   (seen[it.c] ? `<span class="seen">✓</span>` : "") + (rank ? `<span class="rank">${rank}</span>` : ""), isHero || rank === 1)}
   <div class="ttl">${esc(it.t)}</div></button>`;
 
@@ -121,8 +128,11 @@ function openDetail(it, push = true) {
   if (first && norm(first) === it._n) desc = desc.slice(first.length).trim();
   const parts = it.p > 1 ? `<div class="ph-h">📺 Qismlar</div><div class="pgrid">${
     Array.from({length: it.p}, (_, i) => `<button class="pbtn${seen[it.c]?.includes(i + 1) ? " seen" : ""}" data-p="${i + 1}">${i + 1}</button>`).join("")}</div>` : "";
+  const ratingBadge = (it.imdb || it.r)
+    ? `<span class="baunty-star-badge"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg> ${esc(it.imdb || it.r)}</span>`
+    : `<span class="baunty-star-badge"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg> Baunty PRO</span>`;
   $("info").innerHTML = `<h2>${esc(it.t)}</h2>
-    <div class="meta"><span>🔑 Kod: ${it.c}</span>${it.v ? `<span>👁 ${fmt(it.v)}</span>` : ""}${it.p > 1 ? `<span>📺 ${it.p} qism</span>` : ""}</div>
+    <div class="meta"><span>🔑 Kod: ${it.c}</span>${ratingBadge}${it.v ? `<span>👁 ${fmt(it.v)}</span>` : ""}${it.p > 1 ? `<span>📺 ${it.p} qism</span>` : ""}</div>
     ${desc ? `<p class="desc${desc.length > 320 ? " cut" : ""}" id="desc">${esc(desc)}</p>${desc.length > 320 ? `<button class="more" id="more">Ko'proq…</button>` : ""}` : ""}
     ${parts}`;
   $("det").scrollTop = 0;
@@ -352,7 +362,7 @@ function tvInitials(c) {
 const logoHTML = (c) => tvInitials(c).outerHTML +
   (c.l ? `<img class="ico tvl" src="${esc(c.l)}" alt="${esc(c.n)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.onerror=null;this.src='api/tv/icon/${c.i}';this.classList.add('ok');">` : `<img class="ico tvl ok" src="api/tv/icon/${c.i}" alt="${esc(c.n)}" onerror="this.onerror=null;this.src='logo.svg';">`);
 const tileHTML = (c) => `<button class="tv${tvCur && tvCur.i === c.i ? " cur" : ""}" data-tv="${esc(c.i)}"><div class="tvb">${logoHTML(c)}
-  <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav">⭐</span>` : ""}</div><div class="tvn">${c.logo ? `<span class="ch-ico" style="margin-right:2px">${c.logo}</span>` : ""}${esc(c.n)}</div></button>`;
+  <span class="live">LIVE</span><span class="badge" style="top:auto;bottom:4px;right:4px;left:auto;font-size:9px;padding:2px 4px;background:rgba(0,0,0,.7);border:1px solid rgba(242,184,75,.6);color:#F2B84B;font-weight:800;border-radius:4px">1440p QHD</span>${tvFav.includes(c.i) ? `<span class="fav baunty-fav-star"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg></span>` : ""}</div><div class="tvn">${c.logo ? `<span class="ch-ico" style="margin-right:2px">${c.logo}</span>` : ""}${esc(c.n)}</div></button>`;
 
 function tvChips() {
   const cc = [...new Set(tvItems.map((x) => x.c))];
@@ -779,8 +789,11 @@ function openTV(c, push = true) {
   tvCur = c; haptic();
   tvRec = [c.i, ...tvRec.filter((x) => x !== c.i)].slice(0, 20); lsSet("zk_tvrec", tvRec);
   $("tvname").innerHTML = `${esc(c.n)} <span class="badge-res">1440p QHD</span>`;
-  $("tvlogo").innerHTML = logoHTML(c);
-  $("tvfav").textContent = tvFav.includes(c.i) ? "⭐" : "☆";
+  const isTvF = tvFav.includes(c.i);
+  $("tvfav").classList.toggle("active", isTvF);
+  $("tvfav").innerHTML = isTvF
+    ? `<svg class="baunty-star-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg>`
+    : `<svg class="baunty-star-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg>`;
   let same = (tvList.length ? tvList : tvItems).filter((x) => x.i !== c.i);
   if (same.length < 6) same = same.concat(tvItems.filter((x) => x.c === c.c && x.i !== c.i && !same.includes(x)));
   same = same.slice(0, 60);
@@ -843,8 +856,12 @@ $("tvfav").onclick = () => {
   const id = tvCur.i;
   tvFav = tvFav.includes(id) ? tvFav.filter((x) => x !== id) : [id, ...tvFav];
   lsSet("zk_tvfav", tvFav); haptic();
-  $("tvfav").textContent = tvFav.includes(id) ? "⭐" : "☆";
-  toast(tvFav.includes(id) ? "⭐ Sevimlilarga qo'shildi" : "Sevimlilardan olib tashlandi", 1400);
+  const isTvF = tvFav.includes(id);
+  $("tvfav").classList.toggle("active", isTvF);
+  $("tvfav").innerHTML = isTvF
+    ? `<svg class="baunty-star-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg>`
+    : `<svg class="baunty-star-svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg>`;
+  toast(isTvF ? "⭐ Sevimlilarga qo'shildi" : "Sevimlilardan olib tashlandi", 1400);
 };
 $("tvfs").onclick = () => {
   const box = $("vbox");
