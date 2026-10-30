@@ -433,8 +433,7 @@ _CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0, "bytes": None, "m_hash"
 
 def clear_catalog_cache() -> None:
     """Katalog keshini tozalash (maintenance yoki kino qo'shilganda chaqiriladi)."""
-    global _CATALOG_CACHE
-    _CATALOG_CACHE = {"data": None, "ts": 0, "bytes": None, "m_hash": None, "etag": None}
+    _CATALOG_CACHE.update({"data": None, "ts": 0, "bytes": None, "m_hash": None, "etag": None})
 
 
 

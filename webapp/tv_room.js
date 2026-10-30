@@ -657,7 +657,7 @@
             maxBufferSize: 60 * 1000 * 1000,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 8,
-            manifestLoadingTimeOut: 4000,
+            manifestLoadingTimeOut: 5000,
             manifestLoadingMaxRetry: 2,
             levelLoadingTimeOut: 4000,
             levelLoadingMaxRetry: 2,
