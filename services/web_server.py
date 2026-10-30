@@ -431,6 +431,13 @@ def extract_user_id_from_init_data(init_data: str) -> Optional[int]:
 _CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0, "bytes": None, "m_hash": None}
 
 
+def clear_catalog_cache() -> None:
+    """Katalog keshini tozalash (maintenance yoki kino qo'shilganda chaqiriladi)."""
+    global _CATALOG_CACHE
+    _CATALOG_CACHE = {"data": None, "ts": 0, "bytes": None, "m_hash": None, "etag": None}
+
+
+
 def sanitize_catalog_text(text: str) -> str:
     """Barcha tashqi bot/kanal havolalarini @BauntyCinemabot va @BauntyFilms ga almashtirish."""
     if not text:
@@ -1926,19 +1933,35 @@ async def handle_fx_api(request: web.Request) -> web.Response:
     """O'zbekiston Markaziy Banki (CBU.uz) rasmiy real-time kursi va valyutalar."""
     global _FX_CACHE
     now = time.time()
-    if _FX_CACHE["data"] and (now - _FX_CACHE["ts"] < 60):
-        return web.json_response(_FX_CACHE["data"])
+    if _FX_CACHE["data"] and (now - _FX_CACHE["ts"] < 300):
+        return web.json_response(_FX_CACHE["data"], headers={"Access-Control-Allow-Origin": "*"})
 
+    cbu_disk_file = BASE_DIR / "data" / "cbu_rates.json"
     raw_list = None
     try:
         import aiohttp
         cbu_url = "https://cbu.uz/uz/arkhiv-kursov-valyut/json/"
         async with aiohttp.ClientSession() as session:
-            async with session.get(cbu_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
+            async with session.get(cbu_url, timeout=aiohttp.ClientTimeout(total=5.0, connect=3.5)) as resp:
                 if resp.status == 200:
                     raw_list = await resp.json()
+                    # Diskka saqlab qo'yish (fallback uchun)
+                    try:
+                        cbu_disk_file.parent.mkdir(parents=True, exist_ok=True)
+                        with open(cbu_disk_file, "w", encoding="utf-8") as f:
+                            json.dump(raw_list, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
     except Exception as e:
         logger.debug(f"CBU.uz API ulanishida kutilmagan holat ({e})")
+
+    # Agar tarmoqdan olinmagan bo'lsa, diskdagi eng so'nggi real keshlangan kurslarni o'qish
+    if raw_list is None and cbu_disk_file.exists():
+        try:
+            with open(cbu_disk_file, "r", encoding="utf-8") as f:
+                raw_list = json.load(f)
+        except Exception:
+            raw_list = None
 
     today_date = time.strftime("%Y-%m-%d")
     target_currencies = ["USD", "EUR", "RUB", "GBP", "KZT", "CHF", "JPY", "CNY", "TRY", "KRW", "AED", "CAD"]
@@ -2007,7 +2030,7 @@ async def handle_fx_api(request: web.Request) -> web.Response:
         "source": "CBU.uz Markaziy Bank"
     }
     _FX_CACHE = {"data": result, "ts": now}
-    return web.json_response(result)
+    return web.json_response(result, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_fx_alerts(request: web.Request) -> web.Response:
@@ -2015,10 +2038,73 @@ async def handle_fx_alerts(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "items": []})
 
 
-async def handle_maintenance(request: web.Request) -> web.Response:
-    """Mini App profilaktika holati API."""
+async def handle_admin_maintenance(request: web.Request) -> web.Response:
+    """Admin Profilaktika / Maintenance boshqaruvi API (GET va POST)."""
+    from services.maintenance_service import MAINTENANCE_TEMPLATES, PAGE_NAMES, PAGE_EMOJIS
+
+    if request.method == "POST":
+        try:
+            body = await request.json()
+        except Exception:
+            try:
+                body = dict(await request.post())
+            except Exception:
+                body = {}
+
+        action = str(body.get("action", "")).strip().lower()
+        target = str(body.get("target") or body.get("page") or "").strip().lower()
+        msg_idx = int(body.get("message_idx") or 0)
+        custom_msg = body.get("message") or body.get("custom_message")
+
+        # 1. Global boshqaruv
+        if action == "toggle_global":
+            cur = maintenance_service.is_global_maintenance()
+            maintenance_service.set_global_maintenance(not cur, message_idx=msg_idx, custom_message=custom_msg)
+        elif action == "enable_global" or body.get("global") is True or body.get("is_global") is True:
+            maintenance_service.set_global_maintenance(True, message_idx=msg_idx, custom_message=custom_msg)
+        elif action == "disable_global" or body.get("global") is False or body.get("is_global") is False:
+            maintenance_service.set_global_maintenance(False)
+        elif target == "global":
+            enabled = bool(body.get("enabled", True) if "enabled" in body else body.get("active", True))
+            maintenance_service.set_global_maintenance(enabled, message_idx=msg_idx, custom_message=custom_msg)
+        # 2. Alohida sahifani boshqarish
+        elif target and target in PAGE_EMOJIS:
+            if action == "toggle_page":
+                cur = maintenance_service.is_page_maintenance(target)
+                maintenance_service.set_page_maintenance(target, not cur, message_idx=msg_idx, custom_message=custom_msg)
+            else:
+                enabled = bool(body.get("enabled", True) if "enabled" in body else body.get("active", True))
+                maintenance_service.set_page_maintenance(target, enabled, message_idx=msg_idx, custom_message=custom_msg)
+        # 3. Butun pages lug'ati yangilanishi
+        elif "pages" in body and isinstance(body["pages"], dict):
+            for p_id, p_info in body["pages"].items():
+                if p_id in PAGE_EMOJIS and isinstance(p_info, dict):
+                    en = bool(p_info.get("enabled", False) or p_info.get("active", False))
+                    m_idx = int(p_info.get("message_idx", 0))
+                    c_msg = p_info.get("message")
+                    maintenance_service.set_page_maintenance(p_id, en, message_idx=m_idx, custom_message=c_msg)
+
+        clear_catalog_cache()
+
     state = maintenance_service.get_state()
-    return web.json_response({"ok": True, "maintenance": state, **state})
+    return web.json_response({
+        "ok": True,
+        "maintenance": state,
+        "templates": MAINTENANCE_TEMPLATES,
+        "pages": PAGE_NAMES,
+        **state
+    }, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Access-Control-Allow-Origin": "*"
+    })
+
+
+async def handle_maintenance(request: web.Request) -> web.Response:
+    """Mini App profilaktika holati API (GET va POST)."""
+    if request.method == "POST":
+        return await handle_admin_maintenance(request)
+    state = maintenance_service.get_state()
+    return web.json_response({"ok": True, "maintenance": state, **state}, headers={"Access-Control-Allow-Origin": "*"})
 
 
 def _save_cat_file(cat_obj: dict, cat_p: Path) -> None:
@@ -5056,6 +5142,8 @@ def create_web_app() -> web.Application:
         ("POST", "/api/fx/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/maintenance", handle_maintenance),
         ("POST", "/api/maintenance", handle_maintenance),
+        ("GET", "/api/admin/maintenance", handle_admin_maintenance),
+        ("POST", "/api/admin/maintenance", handle_admin_maintenance),
         ("GET", "/api/lang", handle_api_lang),
         ("POST", "/api/lang", handle_api_lang),
         ("GET", "/api/prava", handle_prava_home),

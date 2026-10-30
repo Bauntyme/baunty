@@ -52,8 +52,8 @@
     window.ZK_LANG = l;
     document.documentElement.lang = l;
     try {
-      var btnText = document.getElementById("zkLangText");
-      if (btnText) btnText.textContent = l.toUpperCase();
+      var btnTexts = document.querySelectorAll("#zkLangText, .zk-lang-code");
+      for (var b = 0; b < btnTexts.length; b++) btnTexts[b].textContent = l.toUpperCase();
       var pills = document.querySelectorAll(".zk-lang-pill, .zk-lang-modal-opt");
       for (var i = 0; i < pills.length; i++) {
         var isCur = (pills[i].getAttribute("data-lang") || "").toLowerCase() === l;
@@ -110,8 +110,8 @@
 
   function syncLangUI() {
     var cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
-    var btnText = document.getElementById("zkLangText");
-    if (btnText) btnText.textContent = cur.toUpperCase();
+    var btnTexts = document.querySelectorAll("#zkLangText, .zk-lang-code");
+    for (var b = 0; b < btnTexts.length; b++) btnTexts[b].textContent = cur.toUpperCase();
     var pills = document.querySelectorAll(".zk-lang-pill, .zk-lang-modal-opt");
     for (var i = 0; i < pills.length; i++) {
       var isCur = (pills[i].getAttribute("data-lang") || "").toLowerCase() === cur;

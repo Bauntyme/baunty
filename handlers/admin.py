@@ -1218,7 +1218,10 @@ async def cb_admin_maint_menu(callback: CallbackQuery) -> None:
         await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_main_keyboard(is_global))
     except Exception:
         await callback.message.answer(text, parse_mode="HTML", reply_markup=admin_maintenance_main_keyboard(is_global))
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 
 @router.callback_query(F.data == "admin:maint:global:pick")
@@ -1233,7 +1236,10 @@ async def cb_admin_maint_global_pick(callback: CallbackQuery) -> None:
         "ko'rinishi kerak bo'lgan xabarni tanlang (5 ta tayyor variant):"
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_templates_keyboard("global"))
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 
 @router.callback_query(F.data == "admin:maint:global:off")
@@ -1243,7 +1249,10 @@ async def cb_admin_maint_global_off(callback: CallbackQuery) -> None:
         return
 
     maintenance_service.set_global_maintenance(False)
-    await callback.answer("✅ Profilaktika o'chirildi! Tizim to'liq ishga tushirildi.", show_alert=True)
+    try:
+        await callback.answer("✅ Profilaktika o'chirildi! Tizim to'liq ishga tushirildi.", show_alert=True)
+    except Exception:
+        pass
     await cb_admin_maint_menu(callback)
 
 
@@ -1267,12 +1276,18 @@ async def cb_admin_maint_set_template(callback: CallbackQuery) -> None:
 
     if target == "global":
         maintenance_service.set_global_maintenance(True, message_idx=idx)
-        await callback.answer("✅ Butun bot va Web App profilaktikaga olindi!", show_alert=True)
+        try:
+            await callback.answer("✅ Butun bot va Web App profilaktikaga olindi!", show_alert=True)
+        except Exception:
+            pass
         await cb_admin_maint_menu(callback)
     else:
         maintenance_service.set_page_maintenance(target, True, message_idx=idx)
         page_name = PAGE_NAMES.get(target, target)
-        await callback.answer(f"✅ {page_name} sahifasi profilaktikaga olindi!", show_alert=True)
+        try:
+            await callback.answer(f"✅ {page_name} sahifasi profilaktikaga olindi!", show_alert=True)
+        except Exception:
+            pass
         await cb_admin_maint_page_detail(callback, override_page=target)
 
 
@@ -1294,7 +1309,10 @@ async def cb_admin_maint_pages(callback: CallbackQuery) -> None:
         "Boshqarish uchun sahifani bosing:"
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_pages_keyboard(pages_state))
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 
 @router.callback_query(F.data.startswith("admin:maint:page:"))
@@ -1322,7 +1340,10 @@ async def cb_admin_maint_page_detail(callback: CallbackQuery, override_page: str
         "Ushbu sahifa profilaktikasini o'zgartirish:"
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_page_detail_keyboard(page_id, is_active))
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 
 @router.callback_query(F.data.startswith("admin:maint:page_pick:"))
@@ -1337,7 +1358,10 @@ async def cb_admin_maint_page_pick(callback: CallbackQuery) -> None:
         "Quyidagi 5 ta tayyor xabardan birini bosing:"
     )
     await callback.message.edit_text(text, parse_mode="HTML", reply_markup=admin_maintenance_templates_keyboard(page_id))
-    await callback.answer()
+    try:
+        await callback.answer()
+    except Exception:
+        pass
 
 
 @router.callback_query(F.data.startswith("admin:maint:page_off:"))
@@ -1348,7 +1372,10 @@ async def cb_admin_maint_page_off(callback: CallbackQuery) -> None:
     page_id = callback.data.split("admin:maint:page_off:")[-1]
     maintenance_service.set_page_maintenance(page_id, False)
     nm = PAGE_NAMES.get(page_id, page_id)
-    await callback.answer(f"✅ {nm} sahifasi profilaktikadan chiqarildi!", show_alert=True)
+    try:
+        await callback.answer(f"✅ {nm} sahifasi profilaktikadan chiqarildi!", show_alert=True)
+    except Exception:
+        pass
     await cb_admin_maint_page_detail(callback, override_page=page_id)
 
 

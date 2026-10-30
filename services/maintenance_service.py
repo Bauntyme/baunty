@@ -115,6 +115,11 @@ class MaintenanceService:
                 json.dump(state, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.error(f"maintenance.json saqlashda xatolik: {e}")
+        try:
+            from services.web_server import clear_catalog_cache
+            clear_catalog_cache()
+        except Exception:
+            pass
 
     @classmethod
     def is_global_maintenance(cls) -> bool:

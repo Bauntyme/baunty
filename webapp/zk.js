@@ -121,8 +121,11 @@ addEventListener("pointermove", (e) => { tiltT = {x: (e.clientX / W - .5) * 2, y
 addEventListener("resize", resize);
 resize();
 
-// To'liq ekranli oyna (pleyer, o'quvchi, TV, o'yin) ochiq bo'lsa — fon ko'rinmaydi, chizish to'xtaydi (batareya)
+// To'liq ekranli oyna (pleyer, o'quvchi, TV, o'yin, TV Xona) ochiq bo'lsa — fon ko'rinmaydi, chizish to'xtaydi (batareya)
 const covered = () => document.hidden ||
+  body.classList.contains("tvr-on") ||
+  !!document.querySelector("#tvroom:not([hidden])") ||
+  (window.ZTvRoom && ZTvRoom.busy && ZTvRoom.busy()) ||
   !!document.querySelector("#tvp.open,#det.open,.m-player.open,.m-rec.open") ||
   body.classList.contains("rd-on") || (window.ZGames && body.classList.contains("g-on") && ZGames.busy && ZGames.busy());
 

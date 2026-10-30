@@ -19,11 +19,14 @@ logger = logging.getLogger(__name__)
 DEFAULT_CHANNEL_ID = 4
 
 
-def _find_channel(channel_id: Optional[int]) -> Dict[str, Any]:
+def _find_channel(channel_id: Any) -> Dict[str, Any]:
     """CHANNELS_LIST ichidan kanalni topish yoki standart Zo'r TV ni qaytarish."""
     if channel_id is not None:
+        ch_str = str(channel_id).strip().lower()
         for ch in CHANNELS_LIST:
-            if ch.get("id") == channel_id or ch.get("i") == channel_id:
+            id_val = str(ch.get("id") if ch.get("id") is not None else ch.get("i", "")).strip().lower()
+            name_val = str(ch.get("name") or ch.get("n", "")).strip().lower()
+            if id_val == ch_str or name_val == ch_str:
                 backups = [item[1] for item in ch.get("u", []) if len(item) > 1 and item[1]]
                 return {
                     "id": ch.get("id") or ch.get("i"),
@@ -87,8 +90,8 @@ def normalize_room_code(code: str) -> str:
     c = c.replace("tvroom_", "").replace("tvxona_", "").replace("tv_", "")
     # Harflar va raqamlarni saqlash
     cleaned = "".join(ch for ch in c if ch.isalnum())
-    if not cleaned:
-        cleaned = str(random.randint(1000, 9999))
+    if not cleaned or cleaned in ("tvroom", "tvxona", "main"):
+        cleaned = "main"
     return f"tv_{cleaned}"
 
 
@@ -218,12 +221,16 @@ class TvRoom:
 
         return True
 
-    def change_channel(self, user_id: int, channel_id: int) -> Tuple[bool, str]:
+    def change_channel(self, user_id: int, channel_id: Any) -> Tuple[bool, str]:
         """Kanalni o'zgartirish va hamma uchun sinxronlash."""
         self.last_active = time.time()
-        # Faqat host yoki barcha a'zolar ruxsati bilan
-        if user_id != self.host_id:
-            # Agar host bo'lmasa xatolik
+        # Faqat host yoki ommaviy/asosiy xonada (tv_main) istalgan ishtirokchiga ruxsat beriladi
+        is_allowed = (
+            user_id == self.host_id
+            or self.id == "tv_main"
+            or self.host_id in (7777777, 0)
+        )
+        if not is_allowed:
             return False, "Faqat xona boshqaruvchisi kanalni o'zgartirishi mumkin!"
 
         new_ch = _find_channel(channel_id)

@@ -417,9 +417,16 @@ def is_malicious_request(
     if is_recon:
         return True, recon_threat
 
-    # 2. Admin Flow monitoring endpointlari uchun WAF / Scanner bypass
-    # (Admin brauzerlar, skanerlar, curl, bo'sh UA va Telegram Webviewlar to'siqsiz kirishi uchun)
-    if clean_path in ("/admin/flow", "/webapp/admin/flow") or clean_path.startswith(("/admin/flow/", "/webapp/admin/flow/", "/api/admin/flow", "/webapp/api/admin/flow")):
+    if clean_path in (
+        "/admin/flow", "/webapp/admin/flow",
+        "/api/admin/maintenance", "/webapp/api/admin/maintenance",
+        "/api/maintenance", "/webapp/api/maintenance"
+    ) or clean_path.startswith((
+        "/admin/flow/", "/webapp/admin/flow/",
+        "/api/admin/flow", "/webapp/api/admin/flow",
+        "/api/admin/maintenance", "/webapp/api/admin/maintenance",
+        "/api/maintenance", "/webapp/api/maintenance"
+    )):
         return False, None
 
     # 2. User-Agent va Health/Ping tekshiruvi (UptimeRobot va Render healthcheck oq ro'yxatda)

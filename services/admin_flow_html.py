@@ -861,6 +861,50 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- Maintenance Mode Control Section -->
+    <div class="glass-card" style="margin-bottom: 24px; padding: 20px 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border-card); padding-bottom: 12px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 22px;">🛠️</span>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 700; color: var(--text-main); margin: 0;">Profilaktika & Texnik Ishlar (Maintenance Mode)</h3>
+            <span style="font-size: 12px; color: var(--text-muted);">Bot va Web App bo'limlarini profilaktikaga qo'yish yoki ishga tushirish</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span id="maintGlobalBadge" class="badge badge-green">🟢 NORMAL ISHLAMOQDA</span>
+          <button id="btnToggleGlobalMaint" class="btn btn-outline" onclick="toggleGlobalMaint()" style="font-size: 13px;">
+            🛑 Tizimni to'xtatish
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 12px 14px;">
+          <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">📝 XABAR SHABLONI</label>
+          <select id="maintTemplateSelect" style="width: 100%; background: #0f172a; color: var(--text-main); border: 1px solid var(--border-card); border-radius: 6px; padding: 8px 10px; font-size: 13px;" onchange="updateMaintTemplate()">
+            <option value="0">🛠️ 1. Bo'limda texnik yangilanish olib borilmoqda...</option>
+            <option value="1">🚀 2. Yangi zo'r funksiyalar qo'shilmoqda...</option>
+            <option value="2">⚡ 3. Tezlik va sifatni oshirish bo'yicha profilaktika...</option>
+            <option value="3">✨ 4. Server optimallashtirilmoqda — 15 daqiqadan so'ng...</option>
+            <option value="4">🎯 5. Yangi sara kontentlar yuklanmoqda...</option>
+          </select>
+        </div>
+        <div style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-card); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <span style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block;">FAOL PROFILAKTIKALAR</span>
+            <span id="maintActiveCount" style="font-size: 20px; font-weight: 800; color: var(--primary);">0 ta bo'lim</span>
+          </div>
+          <button class="btn btn-outline" onclick="fetchMaintenance(true)" style="padding: 6px 12px; font-size: 12px;">🔄 Yangilash</button>
+        </div>
+      </div>
+
+      <div style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 10px;">📱 SAHIFALAR BO'YICHA ALOHIDA PROFILAKTIKA:</div>
+      <div id="maintPagesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px;">
+        <!-- Populated via JS -->
+      </div>
+    </div>
+
     <!-- Live Requests Stream Section -->
     <div class="stream-section glass-card">
       <div class="stream-header-toolbar">
@@ -1222,8 +1266,141 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
         .replace(/'/g, '&#039;');
     }
 
+    // ==========================================
+    // 🛠️ MAINTENANCE MODE CONTROLS
+    // ==========================================
+    let maintState = null;
+    const PAGE_NAMES_MAP = {
+      kino: "🎬 Kinolar",
+      music: "🎧 Musiqa",
+      books: "📚 Kitoblar",
+      games: "🧸 O'yinlar",
+      story: "👻 Story",
+      docs: "📄 Hujjatlar",
+      quiz: "🧠 Viktorina",
+      food: "🍲 Taomlar",
+      fx: "💱 Kurs",
+      tv: "📺 TV"
+    };
+
+    async function fetchMaintenance(showMsg = false) {
+      try {
+        const res = await fetch('/api/admin/maintenance');
+        const data = await res.json();
+        if (data.ok && data.maintenance) {
+          maintState = data.maintenance;
+          renderMaintenanceUI();
+          if (showMsg) showToast("Profilaktika holati yangilandi");
+        }
+      } catch (e) {
+        console.error("fetchMaintenance error:", e);
+      }
+    }
+
+    function renderMaintenanceUI() {
+      if (!maintState) return;
+      const isGlobal = !!(maintState.global && (maintState.global.enabled || maintState.global.active));
+      const badge = document.getElementById('maintGlobalBadge');
+      const btn = document.getElementById('btnToggleGlobalMaint');
+      if (badge && btn) {
+        if (isGlobal) {
+          badge.className = 'badge badge-red';
+          badge.innerText = '🔴 PROFILAKTIKADA';
+          btn.className = 'btn btn-primary';
+          btn.innerText = '✅ Normal holatga qaytarish';
+        } else {
+          badge.className = 'badge badge-green';
+          badge.innerText = '🟢 NORMAL ISHLAMOQDA';
+          btn.className = 'btn btn-outline';
+          btn.innerText = '🛑 Tizimni to\'xtatish';
+        }
+      }
+
+      const pages = maintState.pages || {};
+      let activeCount = isGlobal ? 10 : 0;
+      const grid = document.getElementById('maintPagesGrid');
+      if (grid) {
+        let html = '';
+        for (const [pId, label] of Object.entries(PAGE_NAMES_MAP)) {
+          const pInfo = pages[pId] || {};
+          const isPActive = isGlobal || !!(pInfo.enabled || pInfo.active);
+          if (!isGlobal && isPActive) activeCount++;
+          html += `
+            <div style="background: ${isPActive ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.6)'}; border: 1px solid ${isPActive ? 'rgba(239,68,68,0.4)' : 'var(--border-card)'}; border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
+              <span style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</span>
+              <button onclick="togglePageMaint('${pId}')" ${isGlobal ? 'disabled' : ''} style="padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 4px; border: 0; cursor: ${isGlobal ? 'not-allowed' : 'pointer'}; background: ${isPActive ? '#ef4444' : 'rgba(255,255,255,0.1)'}; color: #fff;">
+                ${isPActive ? '🔴 O\'chirish' : '🟢 Yoqish'}
+              </button>
+            </div>
+          `;
+        }
+        grid.innerHTML = html;
+      }
+
+      const countEl = document.getElementById('maintActiveCount');
+      if (countEl) {
+        countEl.innerText = isGlobal ? "Barcha (Global)" : `${activeCount} ta bo'lim`;
+      }
+    }
+
+    async function toggleGlobalMaint() {
+      if (!maintState) return;
+      const isGlobal = !!(maintState.global && (maintState.global.enabled || maintState.global.active));
+      const sel = document.getElementById('maintTemplateSelect');
+      const idx = sel ? parseInt(sel.value) || 0 : 0;
+      try {
+        const res = await fetch('/api/admin/maintenance', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({action: 'toggle_global', message_idx: idx})
+        });
+        const data = await res.json();
+        if (data.ok && data.maintenance) {
+          maintState = data.maintenance;
+          renderMaintenanceUI();
+          showToast(isGlobal ? "Tizim normal holatga qaytarildi!" : "Tizim profilaktikaga olindi!");
+        }
+      } catch (e) {
+        showToast("Xatolik yuz berdi: " + e.message, false);
+      }
+    }
+
+    async function togglePageMaint(pageId) {
+      const sel = document.getElementById('maintTemplateSelect');
+      const idx = sel ? parseInt(sel.value) || 0 : 0;
+      try {
+        const res = await fetch('/api/admin/maintenance', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({target: pageId, action: 'toggle_page', message_idx: idx})
+        });
+        const data = await res.json();
+        if (data.ok && data.maintenance) {
+          maintState = data.maintenance;
+          renderMaintenanceUI();
+          showToast(`${pageId.toUpperCase()} profilaktika holati yangilandi`);
+        }
+      } catch (e) {
+        showToast("Xatolik yuz berdi: " + e.message, false);
+      }
+    }
+
+    async function updateMaintTemplate() {
+      const sel = document.getElementById('maintTemplateSelect');
+      const idx = sel ? parseInt(sel.value) || 0 : 0;
+      if (maintState && maintState.global && (maintState.global.enabled || maintState.global.active)) {
+        await fetch('/api/admin/maintenance', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({target: 'global', enabled: true, message_idx: idx})
+        });
+        showToast("Shablon yangilandi");
+      }
+    }
+
     // Initial fetch and start interval
     fetchTelemetry();
+    fetchMaintenance();
     timerId = setInterval(fetchTelemetry, pollIntervalMs);
   </script>
 </body>

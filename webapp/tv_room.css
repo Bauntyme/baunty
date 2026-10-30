@@ -1,0 +1,1157 @@
+/* 📺 Tv Xona (TV Watch Party) — Bauntys
+   Do'stlar bilan 4K jonli TV tomosha qilish, kanal sinxronlash,
+   haqiqiy vaqtdagi chat va shovqinsiz (Noise & Echo canceled) ovozli chat. */
+
+.tvr, .tvr-modal, .tvr-sheet {
+  --tvr-bg: #0C081A;
+  --tvr-card: #16112E;
+  --tvr-card2: #211A42;
+  --tvr-border: rgba(255, 255, 255, 0.08);
+  --tvr-text: #F8FAFC;
+  --tvr-sub: #94A3B8;
+  --tvr-acc: #8B5CF6;
+  --tvr-acc-glow: rgba(139, 92, 246, 0.35);
+  --tvr-gold: #F59E0B;
+  --tvr-green: #10B981;
+  --tvr-red: #EF4444;
+  --tvr-cyan: #06B6D4;
+  color: var(--tvr-text);
+  font: 500 14.5px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+
+body.tvr-on {
+  background: #0C081A !important;
+  overflow: hidden !important;
+}
+
+body.tvr-on > .top,
+body.tvr-on > main {
+  display: none !important;
+}
+
+/* ---------- Asosiy konteyner ---------- */
+.tvr {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--tvr-bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.tvr[hidden] {
+  display: none !important;
+}
+
+/* ---------- Sarlavha (Header) ---------- */
+.tvr-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(12, 8, 26, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--tvr-border);
+  z-index: 10;
+}
+
+.tvr-h-left, .tvr-h-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tvr-btn-back {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--tvr-card);
+  color: var(--tvr-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  border: 1px solid var(--tvr-border);
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.tvr-btn-back:active {
+  transform: scale(0.92);
+}
+
+.tvr-h-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tvr-h-title {
+  font-size: 14.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.tvr-h-sub {
+  font-size: 11.5px;
+  color: var(--tvr-sub);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tvr-badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #FCA5A5;
+  font-size: 10.5px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.tvr-badge-live i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--tvr-red);
+  box-shadow: 0 0 8px var(--tvr-red);
+  animation: tvrPulse 1.4s infinite;
+}
+
+@keyframes tvrPulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.tvr-room-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tvr-text);
+  cursor: pointer;
+}
+
+.tvr-room-pill:active {
+  background: var(--tvr-acc);
+}
+
+.tvr-btn-share {
+  background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 10px var(--tvr-acc-glow);
+}
+
+.tvr-btn-share:active {
+  transform: scale(0.95);
+}
+
+.tvr-btn-guide {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+  border-radius: 999px;
+  color: #C4B5FD;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tvr-btn-guide:active {
+  background: var(--tvr-acc);
+  color: #fff;
+  transform: scale(0.95);
+}
+
+.tvr-btn-guide-sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  color: #C4B5FD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.tvr-btn-guide-sm:active {
+  transform: scale(0.92);
+  background: var(--tvr-acc);
+  color: #fff;
+}
+
+.tvr-guide-card {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(22, 17, 46, 0.8));
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  border-radius: 16px;
+  margin-bottom: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s, border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.tvr-guide-card:active {
+  transform: scale(0.98);
+  border-color: var(--tvr-acc);
+}
+
+.tvr-guide-card-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex: none;
+}
+
+.tvr-guide-card-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.tvr-guide-card-text b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--tvr-text);
+}
+
+.tvr-guide-card-text small {
+  display: block;
+  font-size: 11.5px;
+  color: var(--tvr-sub);
+  margin-top: 2px;
+}
+
+.tvr-guide-sheet {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 20px 24px;
+  border-radius: 24px 24px 0 0;
+  background: #16112E;
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.tvr-guide-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+  max-height: 68vh;
+  overflow-y: auto;
+}
+
+.tvr-g-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--tvr-border);
+  border-radius: 14px;
+}
+
+.tvr-g-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--tvr-acc);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.tvr-g-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tvr-g-body b {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--tvr-text);
+}
+
+.tvr-g-body p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--tvr-sub);
+}
+
+/* ---------- 4K TV Player (Tepada) ---------- */
+.tvr-player-box {
+  flex: none;
+  width: 100%;
+  background: #000;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  max-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+}
+
+.tvr-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+.tvr-player-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.85) 100%);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.tvr-player-overlay.fade {
+  opacity: 0;
+}
+
+.tvr-player-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+
+.tvr-ch-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.tvr-ch-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.tvr-ch-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.tvr-ch-quality {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--tvr-cyan);
+  background: rgba(6, 182, 212, 0.18);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.tvr-btn-chswitch {
+  background: rgba(139, 92, 246, 0.85);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+}
+
+.tvr-btn-chswitch:active {
+  transform: scale(0.95);
+}
+
+.tvr-player-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+
+.tvr-ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tvr-pbtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.tvr-pbtn:active {
+  transform: scale(0.92);
+}
+
+/* Spinner va yuklanish */
+.tvr-loading {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 13px;
+  z-index: 5;
+}
+
+.tvr-loading[hidden] {
+  display: none !important;
+}
+
+.tvr-spin {
+  width: 38px;
+  height: 38px;
+  border: 3.5px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--tvr-acc);
+  border-radius: 50%;
+  animation: tvrRot 0.8s linear infinite;
+}
+
+@keyframes tvrRot {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Tomoshabinlar qatori (Participants Bar) ---------- */
+.tvr-users-strip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: var(--tvr-card);
+  border-bottom: 1px solid var(--tvr-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tvr-users-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.tvr-user-card {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  position: relative;
+  min-width: 48px;
+}
+
+.tvr-av-wrap {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--tvr-card2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.tvr-user-card.host .tvr-av-wrap {
+  border-color: var(--tvr-gold);
+}
+
+.tvr-user-card.speaking .tvr-av-wrap {
+  border-color: var(--tvr-green);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+  animation: tvrSpeak 1s infinite alternate;
+}
+
+@keyframes tvrSpeak {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
+}
+
+.tvr-av-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.tvr-av-placeholder {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.tvr-crown {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  font-size: 13px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
+}
+
+.tvr-mic-badge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #334155;
+  border: 2px solid var(--tvr-card);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+}
+
+.tvr-mic-badge.active {
+  background: var(--tvr-green);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.8);
+}
+
+.tvr-u-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tvr-text);
+  max-width: 68px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.tvr-u-handle {
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--tvr-cyan);
+  max-width: 68px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.tvr-add-friend {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(139, 92, 246, 0.15);
+  border: 1.5px dashed var(--tvr-acc);
+  color: var(--tvr-acc);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  margin-right: 4px;
+}
+
+.tvr-add-friend:active {
+  transform: scale(0.92);
+}
+
+/* ---------- Chat oqimi (Message Feed) ---------- */
+.tvr-chat-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--tvr-bg);
+}
+
+.tvr-feed {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tvr-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+  max-width: 86%;
+}
+
+.tvr-msg.mine {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.tvr-msg-av {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex: none;
+  object-fit: cover;
+  background: var(--tvr-card2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tvr-msg-bubble {
+  background: var(--tvr-card);
+  padding: 7px 11px;
+  border-radius: 16px 16px 16px 4px;
+  border: 1px solid var(--tvr-border);
+  position: relative;
+  word-break: break-word;
+}
+
+.tvr-msg.mine .tvr-msg-bubble {
+  background: linear-gradient(135deg, #7C3AED, #6D28D9);
+  color: #fff;
+  border-radius: 16px 16px 4px 16px;
+  border: none;
+}
+
+.tvr-msg-sender {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tvr-acc);
+  margin-bottom: 2px;
+}
+
+.tvr-msg.mine .tvr-msg-sender {
+  color: #DDD6FE;
+  text-align: right;
+}
+
+.tvr-msg-text {
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+.tvr-msg-reaction {
+  font-size: 20px;
+  display: inline-block;
+}
+
+.tvr-msg.system {
+  align-self: center;
+  max-width: 90%;
+  margin: 4px 0;
+}
+
+.tvr-msg.system .tvr-msg-bubble {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  color: var(--tvr-sub);
+  text-align: center;
+}
+
+/* ---------- Tezkor Reaksiyalar (Quick Reactions) ---------- */
+.tvr-quick-reacts {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 12px;
+  background: var(--tvr-card);
+  border-top: 1px solid var(--tvr-border);
+  gap: 6px;
+}
+
+.tvr-qbtn {
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.tvr-qbtn:active {
+  transform: scale(1.3);
+}
+
+/* ---------- Chat va Ovoz Kiritish Qatori (Input & Voice controls) ---------- */
+.tvr-input-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(12, 8, 26, 0.98);
+  border-top: 1px solid var(--tvr-border);
+}
+
+.tvr-mic-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--tvr-card2);
+  border: 1.5px solid var(--tvr-border);
+  color: var(--tvr-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tvr-mic-btn.active {
+  background: var(--tvr-green);
+  border-color: #34D399;
+  color: #fff;
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.6);
+  animation: tvrMicPulse 1.2s infinite;
+}
+
+@keyframes tvrMicPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.tvr-inp-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.tvr-input {
+  width: 100%;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--tvr-card);
+  border: 1px solid var(--tvr-border);
+  padding: 0 42px 0 14px;
+  color: var(--tvr-text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.tvr-input:focus {
+  border-color: var(--tvr-acc);
+}
+
+.tvr-send-btn {
+  position: absolute;
+  right: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tvr-acc);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tvr-send-btn:active {
+  transform: scale(0.9);
+}
+
+/* ---------- Telekanal Almashtirish Modali (Channel Switcher) ---------- */
+.tvr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.tvr-modal[hidden] {
+  display: none !important;
+}
+
+.tvr-sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 82vh;
+  background: var(--tvr-card);
+  border-radius: 24px 24px 0 0;
+  border-top: 1px solid var(--tvr-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: tvrSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tvrSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.tvr-sheet-head {
+  padding: 14px 16px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--tvr-border);
+}
+
+.tvr-sheet-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.tvr-sheet-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  color: var(--tvr-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.tvr-sheet-search {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--tvr-border);
+}
+
+.tvr-sheet-search input {
+  width: 100%;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  padding: 0 12px;
+  color: var(--tvr-text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.tvr-sheet-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tvr-ch-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 14px;
+  background: var(--tvr-card2);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tvr-ch-item:hover, .tvr-ch-item:active {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: var(--tvr-acc);
+}
+
+.tvr-ch-item.active {
+  background: rgba(139, 92, 246, 0.25);
+  border-color: var(--tvr-acc);
+}
+
+.tvr-ch-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tvr-ch-item-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: #000;
+}
+
+.tvr-ch-item-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.tvr-ch-item-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.tvr-ch-item-desc {
+  font-size: 11.5px;
+  color: var(--tvr-sub);
+}
+
+.tvr-ch-item-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--tvr-cyan);
+  background: rgba(6, 182, 212, 0.12);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* ---------- Boshlang'ich Foydalanuvchi Lobby / Xona Tanlash ---------- */
+.tvr-lobby {
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 16px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tvr-lobby-hero {
+  text-align: center;
+  padding: 20px 10px;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.12) 0%, rgba(12, 8, 26, 0) 100%);
+  border-radius: 20px;
+  border: 1px solid var(--tvr-border);
+}
+
+.tvr-lobby-hero h2 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 6px 0;
+  letter-spacing: -0.3px;
+}
+
+.tvr-lobby-hero p {
+  font-size: 13.5px;
+  color: var(--tvr-sub);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.tvr-action-card {
+  background: var(--tvr-card);
+  border: 1px solid var(--tvr-border);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tvr-primary-btn {
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+  color: #fff;
+  border: none;
+  font-size: 15px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px var(--tvr-acc-glow);
+  transition: transform 0.1s;
+}
+
+.tvr-primary-btn:active {
+  transform: scale(0.97);
+}
+
+.tvr-join-row {
+  display: flex;
+  gap: 8px;
+}
+
+.tvr-join-input {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  padding: 0 12px;
+  color: var(--tvr-text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.tvr-secondary-btn {
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  background: var(--tvr-card2);
+  border: 1px solid var(--tvr-border);
+  color: var(--tvr-text);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tvr-secondary-btn:active {
+  background: var(--tvr-acc);
+}
+
+.tvr-public-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--tvr-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tvr-rooms-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.tvr-room-item {
+  background: var(--tvr-card);
+  border: 1px solid var(--tvr-border);
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.tvr-room-item:active {
+  transform: scale(0.98);
+  border-color: var(--tvr-acc);
+}
+
+.tvr-r-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tvr-r-name {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.tvr-r-ch {
+  font-size: 12px;
+  color: var(--tvr-sub);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tvr-r-users {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--tvr-cyan);
+  background: rgba(6, 182, 212, 0.12);
+  padding: 4px 9px;
+  border-radius: 999px;
+}

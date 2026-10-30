@@ -240,11 +240,11 @@ $("sbg").onclick = hideSheet;
 // ---------- hodisalar ----------
 function syncLangBtn() {
   const cur = (window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toLowerCase();
-  const txt = document.getElementById("zkLangText");
-  if (txt) {
+  const txts = document.querySelectorAll("#zkLangText, .zk-lang-code");
+  txts.forEach((txt) => {
     txt.textContent = cur.toUpperCase();
-  }
-  const pills = document.querySelectorAll(".zk-lang-pill");
+  });
+  const pills = document.querySelectorAll(".zk-lang-pill, .zk-lang-modal-opt");
   pills.forEach((p) => {
     const isCur = (p.getAttribute("data-lang") || "").toLowerCase() === cur;
     p.classList.toggle("on", isCur);
@@ -294,7 +294,7 @@ document.addEventListener("click", (e) => {
     if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
     return;
   }
-  const langBtn = e.target.closest("#zkLangBtn");
+  const langBtn = e.target.closest("#zkLangBtn, #hbLangBtn, .zk-lang-btn");
   if (langBtn) {
     e.preventDefault();
     e.stopPropagation();
@@ -973,7 +973,7 @@ async function load() {
   $("chan").hidden = !channel;
   render();
   const _urlParams = new URLSearchParams(location.search);
-  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || _urlParams.get("c") || _urlParams.get("movie") || _urlParams.get("m") || "";
+  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || _urlParams.get("startapp") || _urlParams.get("start") || _urlParams.get("c") || _urlParams.get("movie") || _urlParams.get("m") || "";
   if (document.querySelector('#seg [data-m="games"]') && (/^games/i.test(sp) || new URLSearchParams(location.search).has("games"))) {
     const gid = sp.split("_")[1]; setMode("games"); if (gid && window.ZGames && ZGames.ids.includes(gid)) ZGames.open(gid); return; }
   const stq = new URLSearchParams(location.search).get("story");
@@ -1154,7 +1154,7 @@ const ZHub = (() => {
   const segs = () => (window.ZK_SEGS && window.ZK_SEGS.length ? window.ZK_SEGS.map((x) => x[0]) : Object.keys(META)).filter((m) => META[m]);
   const name = () => { try { return (tg.initDataUnsafe.user.first_name || "").slice(0, 24); } catch (e) { return ""; } };
   function modeToggle() {
-    return `<div class="hb-mode" role="group" aria-label="Ko'rinish"><button data-ui="kr" class="${lite() ? "" : "on"}">✨ Kreativ</button><button data-ui="lite" class="${lite() ? "on" : ""}">⚡ Oddiy</button></div>`;
+    return `<div class="hb-mode" role="group" aria-label="Ko'rinish"><button data-ui="kr" class="${lite() ? "" : "on"}" aria-label="Kreativ" title="Kreativ">✨</button><button data-ui="lite" class="${lite() ? "on" : ""}" aria-label="Oddiy" title="Oddiy">⚡</button></div>`;
   }
   function tiles() {
     const list = segs();
@@ -1176,7 +1176,18 @@ const ZHub = (() => {
     }).join("")}</div><div class="hb-lh">Barcha bo'limlar</div>` : "";
     el.innerHTML = `${from ? '<div class="hb-grab" aria-hidden="true"><i></i></div>' : ""}<div class="hb-in">
       <div class="hb-head">${from ? `<button class="hb-x" data-act="close" aria-label="Yopish">✕</button>` : ""}
-        <div class="hb-hi">${from ? "<b>Bo'limlar</b><small>Pastga surib yoping</small>" : `<b>Salom${name() ? ", " + esc(name()) : ""} 👋</b><small>Hamma bo'limlar shu yerda — tanlang</small>`}</div>${modeToggle()}</div>
+        <div class="hb-hi">${from ? "<b>Bo'limlar</b><small>Pastga surib yoping</small>" : `<b>Salom${name() ? ", " + esc(name()) : ""} 👋</b><small>Hamma bo'limlar shu yerda — tanlang</small>`}</div>
+        <div class="hb-head-actions">
+          <button class="zk-lang-btn hb-lang-btn" id="hbLangBtn" type="button" aria-label="Tilni tanlash / Choose language" data-notr>
+            <svg class="zk-globe-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span class="zk-lang-code" data-notr>${(window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toUpperCase()}</span>
+          </button>
+          ${modeToggle()}
+        </div>
+      </div>
       ${qrow}<div class="hb-grid">${tiles()}</div>${adCard()}
       ${playing ? `<button class="hb-cont" data-go="music"><span>🎧</span><span><b>Musiqa davom etmoqda</b><small>Pleyerga qaytish</small></span><em>›</em></button>` : ""}
       </div>`;

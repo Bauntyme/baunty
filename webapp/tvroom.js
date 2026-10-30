@@ -328,8 +328,12 @@
 
   // Xonaga kirish
   async function join(code) {
+    if (!isOpen) {
+      open(code);
+      return;
+    }
     haptic();
-    const res = await api("api/tvroom/join", "POST", { code });
+    const res = await api("api/tvroom/join", "POST", { code: code || "main" });
     if (res && res.ok && res.room) {
       currentRoom = res.room;
       renderRoom();
@@ -535,8 +539,51 @@
     }).join("");
   }
 
+  function updatePlayerHeaderChannel(ch) {
+    if (!ch) return;
+    const nameEl = document.querySelector(".tvr-ch-name");
+    if (nameEl) nameEl.textContent = ch.name || "TV";
+    const qEl = document.querySelector(".tvr-ch-quality");
+    if (qEl) qEl.textContent = ch.q || "4K UHD";
+    const infoWrap = document.querySelector(".tvr-ch-info");
+    if (infoWrap) {
+      const img = infoWrap.querySelector("img.tvr-ch-logo");
+      const iconSpan = infoWrap.querySelector("span:not(.tvr-ch-name):not(.tvr-ch-quality)");
+      if (ch.l) {
+        if (img) {
+          img.src = ch.l;
+          img.style.display = "";
+        } else {
+          const newImg = document.createElement("img");
+          newImg.src = ch.l;
+          newImg.className = "tvr-ch-logo";
+          newImg.alt = "";
+          if (iconSpan) iconSpan.replaceWith(newImg);
+          else infoWrap.prepend(newImg);
+        }
+      } else {
+        if (img) {
+          const newSpan = document.createElement("span");
+          newSpan.style.fontSize = "18px";
+          newSpan.textContent = ch.logo || "📺";
+          img.replaceWith(newSpan);
+        } else if (iconSpan) {
+          iconSpan.textContent = ch.logo || "📺";
+        }
+      }
+    }
+  }
+
   function renderChannelsList(query = "") {
-    if (!allChannels || !allChannels.length) return `<div style="text-align:center;padding:20px;color:var(--tvr-sub)">Kanallar yuklanmoqda…</div>`;
+    if (!allChannels || !allChannels.length) {
+      loadHomeData().then(() => {
+        const listEl = $("tvr-ch-list");
+        if (listEl && isChannelModalOpen) {
+          listEl.innerHTML = renderChannelsList(query);
+        }
+      });
+      return `<div style="text-align:center;padding:20px;color:var(--tvr-sub)">Kanallar yuklanmoqda…</div>`;
+    }
     const q = query.toLowerCase().trim();
     const list = q ? allChannels.filter((c) => (c.name || "").toLowerCase().includes(q) || (c.category || "").toLowerCase().includes(q)) : allChannels;
     const curId = currentRoom && currentRoom.channel ? currentRoom.channel.id : 0;
@@ -564,13 +611,20 @@
     const loader = $("tvr-loading");
     if (!video || !currentRoom || !currentRoom.channel) return;
 
+    updatePlayerHeaderChannel(currentRoom.channel);
+
     let streamUrl = currentRoom.channel.stream;
     if (!streamUrl) return;
-    if (!streamUrl.includes("/api/tv/stream") && streamUrl.includes("cinerama.uz") && streamUrl.includes("tracks-v1a1")) {
+
+    // cinerama.uz va CORS cheklovli oqimlarni darhol tezyurar server proxy orqali uzatish
+    if (streamUrl.includes("cinerama.uz") && !streamUrl.includes("/api/tv/stream")) {
+      streamUrl = `/api/tv/stream?url=${encodeURIComponent(streamUrl)}`;
+    } else if (!streamUrl.includes("/api/tv/stream") && streamUrl.includes("tracks-v1a1")) {
       streamUrl = streamUrl.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
     }
 
-    const backups = Array.isArray(currentRoom.channel.backups) ? currentRoom.channel.backups : [];
+    const rawBackups = Array.isArray(currentRoom.channel.backups) ? currentRoom.channel.backups : [];
+    const backups = rawBackups.map((u) => (u && u.includes("cinerama.uz") && !u.includes("/api/tv/stream")) ? `/api/tv/stream?url=${encodeURIComponent(u)}` : u);
     let backupIdx = 0;
 
     if (loader) loader.hidden = false;
@@ -603,17 +657,17 @@
             maxBufferSize: 60 * 1000 * 1000,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 8,
-            manifestLoadingTimeOut: 5000,
+            manifestLoadingTimeOut: 4000,
             manifestLoadingMaxRetry: 2,
-            levelLoadingTimeOut: 5000,
+            levelLoadingTimeOut: 4000,
             levelLoadingMaxRetry: 2,
-            fragLoadingTimeOut: 12000,
-            fragLoadingMaxRetry: 3,
+            fragLoadingTimeOut: 8000,
+            fragLoadingMaxRetry: 2,
           });
           hlsInstance.loadSource(streamUrl);
           hlsInstance.attachMedia(video);
           hlsInstance.on(HlsClass.Events.MANIFEST_PARSED, onPlayReady);
-          let proxyTried = false;
+          let proxyTried = streamUrl.includes("/api/tv/stream");
           hlsInstance.on(HlsClass.Events.ERROR, (event, data) => {
             if (data.fatal) {
               if (backupIdx < backups.length) {
@@ -627,10 +681,11 @@
                 hlsInstance.startLoad();
               } else {
                 if (loader) loader.hidden = false;
-                $("tvr-load-text").textContent = "Qayta ulanmoqda…";
+                const lt = $("tvr-load-text");
+                if (lt) lt.textContent = "Qayta ulanmoqda…";
                 setTimeout(() => {
                   if (hlsInstance) hlsInstance.startLoad();
-                }, 1500);
+                }, 1000);
               }
             } else if (data && data.details === HlsClass.ErrorDetails.BUFFER_STALLED_ERROR) {
               try {
@@ -730,13 +785,22 @@
       isChannelModalOpen = false;
       $("tvr-ch-modal").hidden = true;
 
-      // Agar host bo'lsa butun xonaga sinxronlash
+      // Mahalliy kanallar ro'yxatidan tanlangan kanalni darhol faollashtirish
+      const localCh = (allChannels || []).find((c) => c.id === chId);
+      if (localCh) {
+        currentRoom.channel = Object.assign({}, localCh);
+        updatePlayerHeaderChannel(currentRoom.channel);
+        initVideoPlayer();
+      }
+
+      // Xona hosti yoki umumiy xona holatida serverga sinxronlash
       const res = await api("api/tvroom/channel", "POST", { room: currentRoom.id, channel_id: chId });
       if (res && res.ok && res.channel) {
         currentRoom.channel = res.channel;
+        updatePlayerHeaderChannel(res.channel);
         initVideoPlayer();
         toast(`Kanal o'zgartirildi: ${res.channel.name}`, "ok");
-      } else {
+      } else if (res && !res.ok) {
         toast(res.message || "Faqat xona boshqaruvchisi kanalni o'zgartirishi mumkin", "err");
       }
     };
@@ -1127,11 +1191,9 @@
         // Kanal o'zgargan bo'lsa sinxron yangilash
         if (currentRoom.channel && nextRoom.channel && (currentRoom.channel.id !== nextRoom.channel.id || currentRoom.channel.stream !== nextRoom.channel.stream)) {
           currentRoom.channel = nextRoom.channel;
+          updatePlayerHeaderChannel(nextRoom.channel);
           initVideoPlayer();
-          const ch = nextRoom.channel;
-          const nameEl = rootEl.querySelector(".tvr-ch-name");
-          if (nameEl) nameEl.textContent = ch.name || "TV";
-          toast(`Kanal yangilandi: ${ch.name}`, "info");
+          toast(`Kanal yangilandi: ${nextRoom.channel.name}`, "info");
         }
 
         // Qatnashuvchilar o'zgargan bo'lsa
@@ -1222,11 +1284,11 @@
       });
     }
 
+    loadHomeData();
     if (roomCode) {
       join(roomCode);
     } else {
       renderLobby();
-      loadHomeData();
     }
   }
 
