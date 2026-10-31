@@ -16,6 +16,10 @@ from services.security_service import (
     SlidingWindowRateLimiter,
     extract_client_ip,
     security_middleware,
+    verify_admin_request,
+    get_admin_vault_key,
+    create_admin_session_token,
+    verify_admin_session_token,
 )
 
 __all__ = [
@@ -38,5 +42,9 @@ __all__ = [
     "SlidingWindowRateLimiter",
     "extract_client_ip",
     "security_middleware",
+    "verify_admin_request",
+    "get_admin_vault_key",
+    "create_admin_session_token",
+    "verify_admin_session_token",
 ]
 

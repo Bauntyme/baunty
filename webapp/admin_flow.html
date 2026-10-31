@@ -981,6 +981,18 @@
     let currentStatusFilter = 'ALL';
     let cachedRequests = [];
 
+    function getAuthHeaders() {
+      const h = { 'Accept': 'application/json' };
+      try {
+        const p = new URLSearchParams(window.location.search);
+        const initData = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || p.get("initData") || p.get("init_data") || p.get("tgWebAppData") || "";
+        if (initData) h['X-Telegram-Init-Data'] = initData;
+        const key = p.get("admin_key") || p.get("key") || "";
+        if (key) h['X-Admin-Key'] = key;
+      } catch (e) {}
+      return h;
+    }
+
     // Telegram WebApp expand if available
     if (window.Telegram && window.Telegram.WebApp) {
       try {
@@ -1046,7 +1058,7 @@
     async function fetchTelemetry(isManual = false) {
       try {
         const res = await fetch('/api/admin/flow/data?t=' + Date.now(), {
-          headers: { 'Accept': 'application/json' }
+          headers: getAuthHeaders()
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
@@ -1210,7 +1222,7 @@
         const t0 = performance.now();
         const res = await fetch('/api/admin/flow/benchmark', {
           method: 'POST',
-          headers: { 'Accept': 'application/json' }
+          headers: getAuthHeaders()
         });
         const roundTrip = Math.round(performance.now() - t0);
         const data = await res.json();
@@ -1239,7 +1251,7 @@
     async function clearLogs() {
       if (!confirm("Haqiqatdan ham so'rovlar buferini tozalamoqchimisiz?")) return;
       try {
-        await fetch('/api/admin/flow/clear', { method: 'POST' });
+        await fetch('/api/admin/flow/clear', { method: 'POST', headers: getAuthHeaders() });
         cachedRequests = [];
         renderTable();
         showToast("So'rovlar jurnali tozalandi");
@@ -1277,7 +1289,7 @@
 
     async function fetchMaintenance(showMsg = false) {
       try {
-        const res = await fetch('/api/admin/maintenance');
+        const res = await fetch('/api/admin/maintenance', { headers: getAuthHeaders() });
         const data = await res.json();
         if (data.ok && data.maintenance) {
           maintState = data.maintenance;
@@ -1304,7 +1316,7 @@
           badge.className = 'badge badge-green';
           badge.innerText = '🟢 NORMAL ISHLAMOQDA';
           btn.className = 'btn btn-outline';
-          btn.innerText = '🛑 Tizimni to\'xtatish';
+          btn.innerText = '🛑 Tizimni to'xtatish';
         }
       }
 
@@ -1321,7 +1333,7 @@
             <div style="background: ${isPActive ? 'rgba(239,68,68,0.18)' : 'rgba(15,23,42,0.6)'}; border: 1px solid ${isPActive ? 'rgba(239,68,68,0.4)' : 'var(--border-card)'}; border-radius: var(--radius-sm); padding: 8px 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;">
               <span style="font-size: 12px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${label}</span>
               <button onclick="togglePageMaint('${pId}')" ${isGlobal ? 'disabled' : ''} style="padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 4px; border: 0; cursor: ${isGlobal ? 'not-allowed' : 'pointer'}; background: ${isPActive ? '#ef4444' : 'rgba(255,255,255,0.1)'}; color: #fff;">
-                ${isPActive ? '🔴 O\'chirish' : '🟢 Yoqish'}
+                ${isPActive ? '🔴 O'chirish' : '🟢 Yoqish'}
               </button>
             </div>
           `;
@@ -1343,7 +1355,7 @@
       try {
         const res = await fetch('/api/admin/maintenance', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
           body: JSON.stringify({action: 'toggle_global', message_idx: idx})
         });
         const data = await res.json();
@@ -1363,7 +1375,7 @@
       try {
         const res = await fetch('/api/admin/maintenance', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
           body: JSON.stringify({target: pageId, action: 'toggle_page', message_idx: idx})
         });
         const data = await res.json();
@@ -1383,7 +1395,7 @@
       if (maintState && maintState.global && (maintState.global.enabled || maintState.global.active)) {
         await fetch('/api/admin/maintenance', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
           body: JSON.stringify({target: 'global', enabled: true, message_idx: idx})
         });
         showToast("Shablon yangilandi");

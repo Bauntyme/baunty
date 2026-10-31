@@ -989,6 +989,18 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
     let currentStatusFilter = 'ALL';
     let cachedRequests = [];
 
+    function getAuthHeaders() {
+      const h = { 'Accept': 'application/json' };
+      try {
+        const p = new URLSearchParams(window.location.search);
+        const initData = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) || p.get("initData") || p.get("init_data") || p.get("tgWebAppData") || "";
+        if (initData) h['X-Telegram-Init-Data'] = initData;
+        const key = p.get("admin_key") || p.get("key") || "";
+        if (key) h['X-Admin-Key'] = key;
+      } catch (e) {}
+      return h;
+    }
+
     // Telegram WebApp expand if available
     if (window.Telegram && window.Telegram.WebApp) {
       try {
@@ -1054,7 +1066,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
     async function fetchTelemetry(isManual = false) {
       try {
         const res = await fetch('/api/admin/flow/data?t=' + Date.now(), {
-          headers: { 'Accept': 'application/json' }
+          headers: getAuthHeaders()
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
@@ -1218,7 +1230,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
         const t0 = performance.now();
         const res = await fetch('/api/admin/flow/benchmark', {
           method: 'POST',
-          headers: { 'Accept': 'application/json' }
+          headers: getAuthHeaders()
         });
         const roundTrip = Math.round(performance.now() - t0);
         const data = await res.json();
@@ -1247,7 +1259,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
     async function clearLogs() {
       if (!confirm("Haqiqatdan ham so'rovlar buferini tozalamoqchimisiz?")) return;
       try {
-        await fetch('/api/admin/flow/clear', { method: 'POST' });
+        await fetch('/api/admin/flow/clear', { method: 'POST', headers: getAuthHeaders() });
         cachedRequests = [];
         renderTable();
         showToast("So'rovlar jurnali tozalandi");
@@ -1285,7 +1297,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
 
     async function fetchMaintenance(showMsg = false) {
       try {
-        const res = await fetch('/api/admin/maintenance');
+        const res = await fetch('/api/admin/maintenance', { headers: getAuthHeaders() });
         const data = await res.json();
         if (data.ok && data.maintenance) {
           maintState = data.maintenance;
@@ -1351,7 +1363,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/admin/maintenance', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
           body: JSON.stringify({action: 'toggle_global', message_idx: idx})
         });
         const data = await res.json();
@@ -1371,7 +1383,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
       try {
         const res = await fetch('/api/admin/maintenance', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
           body: JSON.stringify({target: pageId, action: 'toggle_page', message_idx: idx})
         });
         const data = await res.json();
@@ -1391,7 +1403,7 @@ ADMIN_FLOW_HTML = """<!DOCTYPE html>
       if (maintState && maintState.global && (maintState.global.enabled || maintState.global.active)) {
         await fetch('/api/admin/maintenance', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: Object.assign({'Content-Type': 'application/json'}, getAuthHeaders()),
           body: JSON.stringify({target: 'global', enabled: true, message_idx: idx})
         });
         showToast("Shablon yangilandi");

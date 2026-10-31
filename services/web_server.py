@@ -32,6 +32,9 @@ from services.security_service import (
     is_valid_user_id,
     validate_telegram_init_data,
     extract_client_ip,
+    verify_admin_request,
+    create_admin_session_token,
+    PROTECTED_FILENAMES,
 )
 from services.telemetry_service import telemetry_service
 from services.admin_flow_html import ADMIN_FLOW_HTML
@@ -54,17 +57,14 @@ def set_bot_instance(bot) -> None:
 
 
 async def handle_health(request: web.Request) -> web.Response:
-    """Render.com va boshqa bulutli xizmatlar uchun health check endpointi."""
-    ua = request.headers.get("User-Agent", "").lower()
-    is_browser = "mozilla" in ua or "chrome" in ua or "safari" in ua or "firefox" in ua
-    data = {
-        "status": "ok",
-        "service": "Bauntyfilms_bot & Mini App",
-        "timestamp": int(time.time()),
-    }
-    if not is_browser:
-        data["bot"] = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
-    return web.json_response(data)
+    """Render.com va boshqa bulutli monitoring xizmatlari uchun xavfsiz minimal healthcheck."""
+    return web.json_response(
+        {"status": "ok", "timestamp": int(time.time())},
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "X-Content-Type-Options": "nosniff"
+        }
+    )
 
 
 async def handle_ping(request: web.Request) -> web.Response:
@@ -108,8 +108,22 @@ async def telemetry_middleware(request: web.Request, handler) -> web.Response:
 
 
 async def handle_admin_flow(request: web.Request) -> web.Response:
-    """Admin Flow & Database Monitor UI sahifasini uzatish."""
-    return web.Response(
+    """Admin Flow & Database Monitor UI sahifasini uzatish (Qat'iy Kriptografik Himoyalangan)."""
+    is_adm, uid = verify_admin_request(request)
+    if not is_adm:
+        return web.Response(
+            text="""<!DOCTYPE html>
+<html lang="uz"><head><meta charset="utf-8"><title>403 Taqiqlangan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#070B1F;color:#f2f3f5;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}.c{text-align:center;padding:32px 24px;border-radius:20px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);max-width:380px}h1{font-size:24px;color:#ef4444;margin:0 0 10px}p{font-size:14px;color:#94a3b8;line-height:1.5;margin:0}</style></head>
+<body><div class="c"><h1>⛔ 403 Taqiqlangan</h1><p>Admin panelga faqat tasdiqlangan kriptografik imzo yoki admin kaliti bilan kirish mumkin.</p></div></body></html>""",
+            content_type="text/html",
+            charset="utf-8",
+            status=403,
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate", "X-Content-Type-Options": "nosniff"}
+        )
+
+    resp = web.Response(
         text=ADMIN_FLOW_HTML,
         content_type="text/html",
         charset="utf-8",
@@ -119,10 +133,26 @@ async def handle_admin_flow(request: web.Request) -> web.Response:
             "Expires": "0"
         }
     )
+    if uid:
+        try:
+            resp.set_cookie(
+                "baunty_admin_session",
+                create_admin_session_token(uid),
+                max_age=7200,
+                httponly=True,
+                secure=True,
+                samesite="Lax"
+            )
+        except Exception:
+            pass
+    return resp
 
 
 async def handle_admin_flow_data(request: web.Request) -> web.Response:
     """Admin Flow uchun real-vaqtdagi telemetriya va baza ma'lumotlarini JSON qaytarish."""
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden", "message": "Admin authorization required"}, status=403)
     data = await telemetry_service.get_full_telemetry()
     return web.json_response(data, headers={
         "Cache-Control": "no-cache, no-store, must-revalidate"
@@ -131,6 +161,9 @@ async def handle_admin_flow_data(request: web.Request) -> web.Response:
 
 async def handle_admin_flow_benchmark(request: web.Request) -> web.Response:
     """Admin Flow ma'lumotlar bazasi tezkorlik benchmarkini bajarish."""
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
     t0 = time.perf_counter()
     try:
         from sqlalchemy import text
@@ -155,6 +188,9 @@ async def handle_admin_flow_benchmark(request: web.Request) -> web.Response:
 
 async def handle_admin_flow_clear(request: web.Request) -> web.Response:
     """Admin Flow so'rovlar buferini tozalash."""
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
     telemetry_service.clear_buffer()
     return web.json_response({"ok": True, "message": "Buffer cleared"})
 
@@ -1495,44 +1531,25 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
             return web.json_response(st_data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path == "api/kal/adm/photo":
-            init_data_val = request.headers.get("X-Init-Data") or request.query.get("init_data")
-            is_adm = False
-            if init_data_val:
-                from services.security_service import validate_telegram_init_data
-                ok, res_data, _ = validate_telegram_init_data(init_data_val, strict=True)
-                if ok and res_data and res_data.get("user_id"):
-                    is_adm = config.is_admin(res_data["user_id"])
-            elif os.getenv("PYTEST_CURRENT_TEST"):
-                is_adm = bool(user_id and (config.is_admin(user_id) or str(user_id) == "881122"))
-
+            is_adm, _ = verify_admin_request(request)
             if not is_adm:
-                return web.json_response({"ok": False, "error": "forbidden", "status": 403}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+                return web.json_response({"ok": False, "error": "forbidden", "status": 403}, status=403)
             return web.Response(
                 body=b"",
-                content_type="image/jpeg",
-                headers={"Access-Control-Allow-Origin": "*"}
+                content_type="image/jpeg"
             )
 
         elif "api/kal/adm" in path:
-            init_data_val = request.headers.get("X-Init-Data") or request.query.get("init_data")
-            is_adm = False
-            if init_data_val:
-                from services.security_service import validate_telegram_init_data
-                ok, res_data, _ = validate_telegram_init_data(init_data_val, strict=True)
-                if ok and res_data and res_data.get("user_id"):
-                    is_adm = config.is_admin(res_data["user_id"])
-            elif os.getenv("PYTEST_CURRENT_TEST"):
-                is_adm = bool(user_id and (config.is_admin(user_id) or str(user_id) == "881122"))
-
+            is_adm, _ = verify_admin_request(request)
             if not is_adm:
-                return web.json_response({"ok": False, "error": "forbidden", "status": 403}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+                return web.json_response({"ok": False, "error": "forbidden", "status": 403}, status=403)
             st_data = await kaloriya_service.get_status(user_id=user_id)
             return web.json_response({
                 "ok": True,
                 "items": [],
                 "user": {"id": user_id, "n": "Foydalanuvchi", "on": True, "d": 30, "until": (datetime.now() + timedelta(days=30)).isoformat()},
                 "stats": {"act": 1, "today": 1, "soon": 0, "wait": 0}
-            }, headers={"Access-Control-Allow-Origin": "*"})
+            })
 
         data = await kaloriya_service.get_status(user_id=user_id)
         return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
@@ -2103,7 +2120,14 @@ async def handle_fx_alerts(request: web.Request) -> web.Response:
 
 
 async def handle_admin_maintenance(request: web.Request) -> web.Response:
-    """Admin Profilaktika / Maintenance boshqaruvi API (GET va POST)."""
+    """Admin Profilaktika / Maintenance boshqaruvi API (GET va POST) - Faqat Admin."""
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({
+            "ok": False,
+            "error": "forbidden",
+            "message": "Admin authorization required"
+        }, status=403)
     from services.maintenance_service import MAINTENANCE_TEMPLATES, PAGE_NAMES, PAGE_EMOJIS
 
     if request.method == "POST":
@@ -3410,6 +3434,9 @@ async def handle_tv_me(request: web.Request) -> web.Response:
 
 
 async def handle_tv_hide(request: web.Request) -> web.Response:
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
     return web.json_response({"ok": True})
 
 
@@ -3620,11 +3647,17 @@ async def handle_music_report(request: web.Request) -> web.Response:
 
 async def handle_music_ban(request: web.Request) -> web.Response:
     """Trekni bloklash / yashirish (admin)."""
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
     return web.json_response({"ok": True})
 
 
 async def handle_music_purge(request: web.Request) -> web.Response:
     """Musiqa keshini tozalash (admin)."""
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403)
     return web.json_response({"ok": True})
 
 
@@ -5305,6 +5338,8 @@ def create_web_app() -> web.Application:
     app.router.add_get("/webapp/favicon.ico", handle_favicon)
     app.router.add_get("/admin/flow", handle_admin_flow)
     app.router.add_get("/webapp/admin/flow", handle_admin_flow)
+    app.router.add_get("/admin_flow.html", handle_admin_flow)
+    app.router.add_get("/webapp/admin_flow.html", handle_admin_flow)
     app.router.add_get("/", handle_index)
     app.router.add_get("/index.html", handle_index)
     app.router.add_get("/webapp", handle_index)
@@ -5529,13 +5564,16 @@ def create_web_app() -> web.Application:
         app.router.add_static("/f", f_dir, name="fonts")
         app.router.add_static("/webapp/f", f_dir, name="webapp_fonts")
 
-    # Asosiy Mini App papkasidagi barcha statik fayllarni root orqali ham berish
+    # Asosiy Mini App papkasidagi faqat xavfsiz statik fayllarni root orqali berish
+    # Xavfsizlik: .db, .sqlite, .py, .env, admin_flow.html yoki maxfiy fayllar aslo statik berilmaydi
+    ALLOWED_STATIC_EXTS = {".js", ".css", ".svg", ".png", ".jpg", ".jpeg", ".webp", ".ico", ".woff", ".woff2", ".ttf"}
     for fpath in webapp_dir.iterdir():
-        if fpath.is_file() and fpath.name != "index.html":
-            def make_handler(target_path):
-                async def _h(req):
-                    return web.FileResponse(target_path)
-                return _h
-            app.router.add_get(f"/{fpath.name}", make_handler(fpath))
+        if fpath.is_file() and fpath.name not in ("index.html", "admin_flow.html"):
+            if fpath.suffix.lower() in ALLOWED_STATIC_EXTS and fpath.name.lower() not in PROTECTED_FILENAMES:
+                def make_handler(target_path):
+                    async def _h(req):
+                        return web.FileResponse(target_path)
+                    return _h
+                app.router.add_get(f"/{fpath.name}", make_handler(fpath))
 
     return app
