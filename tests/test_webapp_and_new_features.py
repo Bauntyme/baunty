@@ -110,7 +110,8 @@ async def test_webapp_health_endpoint():
         assert resp.status == 200
         data = await resp.json()
         assert data["status"] == "ok"
-        assert "bot" in data
+        assert "timestamp" in data
+        assert "bot" not in data  # Sanitized to prevent recon/bot name leakage
     finally:
         await client.close()
 
