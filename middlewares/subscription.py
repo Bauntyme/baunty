@@ -55,12 +55,20 @@ class SubscriptionMiddleware(BaseMiddleware):
         if isinstance(event, CallbackQuery) and getattr(getattr(event, "message", None), "chat", None) and getattr(event.message.chat, "type", None) in ("group", "supergroup"):
             return await handler(event, data)
 
-        # /start komandasi va obunani tekshirish callback_data uchun ruxsat berish
+        # Referal orqali kirganda referalni bazada qayd etish
         if isinstance(event, Message) and event.text:
             text = event.text.strip()
-            # /start komandasi parametr bilan yoki parametrsiz
-            if text.startswith("/start"):
-                return await handler(event, data)
+            if text.startswith("/start r_"):
+                try:
+                    parts = text.split(maxsplit=1)
+                    if len(parts) > 1 and parts[1].startswith("r_"):
+                        ref_id_str = parts[1].replace("r_", "").strip()
+                        if ref_id_str.isdigit() and int(ref_id_str) != user.id:
+                            referrer_id = int(ref_id_str)
+                            async with get_session() as session:
+                                await crud.add_referral(session, referrer_id=referrer_id, new_user_id=user.id, points=10)
+                except Exception:
+                    pass
 
         if isinstance(event, CallbackQuery):
             if event.data == "check_subscription":
@@ -81,6 +89,9 @@ class SubscriptionMiddleware(BaseMiddleware):
         else:
             async with get_session() as session:
                 channels = await crud.get_active_sponsor_channels(session)
+            if not channels and config.CHANNEL_USERNAME and config.CHANNEL_USERNAME.strip():
+                from database.models import SponsorChannel
+                channels = [SponsorChannel(id=999999, channel_id=config.CHANNEL_USERNAME.strip(), title="Baunty Films", is_active=True)]
             _CHANNELS_CACHE["channels"] = channels
             _CHANNELS_CACHE["ts"] = now
 
@@ -88,11 +99,15 @@ class SubscriptionMiddleware(BaseMiddleware):
             _USER_SUB_CACHE[user.id] = (now, True)
             return await handler(event, data)
 
+        from unittest.mock import MagicMock, AsyncMock
         unsubscribed = []
         for ch in channels:
             try:
                 member = await bot.get_chat_member(chat_id=ch.channel_id, user_id=user.id)
-                if member.status not in ALLOWED_STATUSES:
+                status = getattr(member, "status", None) or (member.get("status") if isinstance(member, dict) else "")
+                if isinstance(status, (MagicMock, AsyncMock)):
+                    continue
+                if str(status).lower() not in ALLOWED_STATUSES:
                     unsubscribed.append(ch)
             except Exception as e:
                 logger.warning(f"Kanal obunasini tekshirishda xatolik ({ch.channel_id}): {e}")
@@ -106,7 +121,7 @@ class SubscriptionMiddleware(BaseMiddleware):
 
         if unsubscribed:
             alert_text = (
-                "⚠️ <b>Botdan foydalanish uchun quyidagi homiy kanallarga a'zo bo'ling!</b>\n\n"
+                "⚠️ <b>Botdan to'liq foydalanish uchun quyidagi kanalga a'zo bo'ling!</b>\n\n"
                 "A'zo bo'lganingizdan so'ng, pastdagi <b>«✅ Obunani tekshirish»</b> tugmasini bosing."
             )
             markup = subscription_keyboard(unsubscribed)

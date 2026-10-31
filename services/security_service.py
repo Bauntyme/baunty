@@ -235,6 +235,10 @@ def check_reconnaissance_and_database_shield(path: str) -> Tuple[bool, Optional[
     if ".." in norm_lower:
         return True, "path_traversal"
 
+    # Maxfiy muhit o'zgaruvchilari (.env fayllari) qat'iy to'siladi
+    if ".env" in norm_lower or norm_lower.startswith(".env") or "/.env" in norm_lower:
+        return True, "protected_env_file"
+
     # 2. Admin Flow monitoring endpointlari uchun to'g'ridan-to'g'ri ruxsat
     if norm_lower in ("/admin/flow", "/webapp/admin/flow") or norm_lower.startswith(("/admin/flow/", "/webapp/admin/flow/", "/api/admin/flow", "/webapp/api/admin/flow")):
         if not any(norm_lower.endswith(ext) for ext in (".db", ".sqlite", ".py", ".env", ".sh")):
@@ -690,7 +694,7 @@ class AutoBanJail:
     Skaner, exploit, SQLi yoki nozik fayllarni titkilash aniqlanganda IP avtomatik ravishda
     jail ga olinadi va keyingi so'rovlari darhol 403 Forbidden bilan to'xtatiladi.
     """
-    def __init__(self, default_ban_seconds: float = 900.0):
+    def __init__(self, default_ban_seconds: float = 120.0):
         self.default_ban_seconds = default_ban_seconds
         self._jailed: Dict[str, Tuple[float, str]] = {}
 
@@ -991,6 +995,11 @@ def _clean_sensitive_headers(resp: web.StreamResponse) -> None:
                 del resp.headers[h]
             except KeyError:
                 pass
+    if resp.headers.get("Access-Control-Allow-Origin") == "*" and resp.headers.get("Access-Control-Allow-Credentials", "").lower() == "true":
+        try:
+            del resp.headers["Access-Control-Allow-Credentials"]
+        except KeyError:
+            pass
 
 
 class SecurityService:
@@ -1167,9 +1176,9 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
                 {
                     "ok": False,
                     "error": "forbidden",
+                    "status": 403,
                     "message": "Zararli faoliyat sababli ushbu IP vaqtincha bloklangan.",
-                    "threat": "ip_auto_banned",
-                    "reason": jail_reason
+                    "threat": "ip_auto_banned"
                 },
                 status=403
             )
@@ -1190,8 +1199,8 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
             {
                 "ok": False,
                 "error": "forbidden",
-                "message": "Zararli yoki ruxsat etilmagan so'rov aniqlandi va bloklandi.",
-                "threat": recon_threat
+                "status": 403,
+                "message": "Zararli yoki ruxsat etilmagan so'rov aniqlandi va bloklandi."
             },
             status=403
         )
@@ -1229,8 +1238,8 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
             {
                 "ok": False,
                 "error": "forbidden",
-                "message": "Zararli yoki ruxsat etilmagan so'rov aniqlandi va bloklandi.",
-                "threat": threat_name
+                "status": 403,
+                "message": "Zararli yoki ruxsat etilmagan so'rov aniqlandi va bloklandi."
             },
             status=403
         )

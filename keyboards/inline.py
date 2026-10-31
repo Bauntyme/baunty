@@ -19,12 +19,18 @@ def subscription_keyboard(channels: List[SponsorChannel]) -> InlineKeyboardMarku
     builder = InlineKeyboardBuilder()
 
     for idx, channel in enumerate(channels, 1):
-        link = channel.invite_link
-        if not link.startswith("http"):
+        link = getattr(channel, "invite_link", None) or ""
+        if not link:
+            ch_id = str(getattr(channel, "channel_id", "")).lstrip("@")
+            link = f"https://t.me/{ch_id}"
+        elif not link.startswith("http"):
             link = f"https://t.me/{link.lstrip('@')}"
+
+        title = getattr(channel, "title", "Baunty Films")
+        btn_text = f"📢 Kanalga a'zo bo'lish: {title}" if len(channels) == 1 else f"📢 {idx}-kanal: {title}"
         builder.row(
             InlineKeyboardButton(
-                text=f"📢 {idx}-kanal: {channel.title}",
+                text=btn_text,
                 url=link
             )
         )

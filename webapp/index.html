@@ -251,15 +251,16 @@ main{padding:6px 16px calc(28px + env(safe-area-inset-bottom))}
 body.seg4 .chan{display:none}
 body.seg4 .seg button{padding:7px 12px;font-size:14px}
 .seg button.on{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.18)}
-.brand small{margin-top:0}
-.zk-top-subbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px}
-.zk-lang-wrap{display:inline-flex;align-items:center;gap:6px}
+.zk-top-subbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding:0 2px}
+.zk-top-subbar small#count{font-weight:600;opacity:.88;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;max-width:65%}
+.zk-lang-wrap{display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
 .zk-lang-pills{display:none!important}
 .zk-lang-pill{display:none!important}
 .zk-lang-btn{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;background:#141a24!important;background:rgba(20,26,36,.92)!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:999px!important;padding:5px 13px 5px 11px!important;height:34px!important;color:#f3efe6!important;font-size:13px!important;font-weight:800!important;letter-spacing:.4px!important;box-shadow:0 2px 8px rgba(0,0,0,.3)!important;cursor:pointer!important;touch-action:manipulation!important;transition:all .18s cubic-bezier(.2,.8,.2,1)!important;user-select:none!important;-webkit-tap-highlight-color:transparent!important;line-height:1!important;box-sizing:border-box!important}
 .zk-lang-btn .zk-globe-svg{width:17px!important;height:17px!important;stroke:#38bdf8!important;flex-shrink:0!important}
 .zk-lang-btn:hover{background:rgba(28,38,54,.95)!important;border-color:rgba(255,255,255,.26)!important}
 .zk-lang-btn:active{transform:scale(.94)!important}
+@media (max-width:360px){.zk-top-subbar{gap:6px;margin-top:6px}.zk-top-subbar small#count{font-size:12px;max-width:55%}.zk-lang-btn{padding:4px 9px!important;height:32px!important;font-size:12px!important}}
 #chips2{margin-top:8px}
 .chip.s{padding:6px 12px;font-size:13px}
 
@@ -955,7 +956,7 @@ document.addEventListener("click", (e) => {
     if (typeof window.ZK_closeLangModal === "function") window.ZK_closeLangModal();
     return;
   }
-  const langBtn = e.target.closest("#zkLangBtn");
+  const langBtn = e.target.closest("#zkLangBtn, #hbLangBtn, .zk-lang-btn");
   if (langBtn) {
     e.preventDefault();
     e.stopPropagation();
@@ -2338,7 +2339,18 @@ const ZHub = (() => {
     }).join("")}</div><div class="hb-lh">Barcha bo'limlar</div>` : "";
     el.innerHTML = `${from ? '<div class="hb-grab" aria-hidden="true"><i></i></div>' : ""}<div class="hb-in">
       <div class="hb-head">${from ? `<button class="hb-x" data-act="close" aria-label="Yopish">✕</button>` : ""}
-        <div class="hb-hi">${from ? "<b>Bo'limlar</b><small>Pastga surib yoping</small>" : `<b>Salom${name() ? ", " + esc(name()) : ""} 👋</b><small>Hamma bo'limlar shu yerda — tanlang</small>`}</div>${modeToggle()}</div>
+        <div class="hb-hi">${from ? "<b>Bo'limlar</b><small>Pastga surib yoping</small>" : `<b>Salom${name() ? ", " + esc(name()) : ""} 👋</b><small>Hamma bo'limlar shu yerda — tanlang</small>`}</div>
+        <div class="hb-head-actions">
+          <button class="zk-lang-btn hb-lang-btn" id="hbLangBtn" type="button" aria-label="Tilni tanlash / Choose language" data-notr>
+            <svg class="zk-globe-svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            <span class="zk-lang-code" data-notr>${(window.ZK_LANG || localStorage.getItem("zk_lang") || "uz").toUpperCase()}</span>
+          </button>
+          ${modeToggle()}
+        </div>
+      </div>
       ${qrow}<div class="hb-grid">${tiles()}</div>${adCard()}
       ${playing ? `<button class="hb-cont" data-go="music"><span>🎧</span><span><b>Musiqa davom etmoqda</b><small>Pleyerga qaytish</small></span><em>›</em></button>` : ""}
       </div>`;

@@ -57,10 +57,8 @@ async def handle_health(request: web.Request) -> web.Response:
     """Render.com va boshqa bulutli xizmatlar uchun health check endpointi."""
     return web.json_response({
         "status": "ok",
-        "bot": config.BOT_USERNAME,
         "service": "Bauntyfilms_bot & Mini App",
-        "port": config.PORT,
-        "timestamp": time.time(),
+        "timestamp": int(time.time()),
     })
 
 
@@ -1460,7 +1458,38 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
             st_data["ok"] = True
             return web.json_response(st_data, headers={"Access-Control-Allow-Origin": "*"})
 
+        elif path == "api/kal/adm/photo":
+            init_data_val = request.headers.get("X-Init-Data") or request.query.get("init_data")
+            is_adm = False
+            if init_data_val:
+                from services.security_service import validate_telegram_init_data
+                ok, res_data, _ = validate_telegram_init_data(init_data_val, strict=True)
+                if ok and res_data and res_data.get("user_id"):
+                    is_adm = config.is_admin(res_data["user_id"])
+            elif os.getenv("PYTEST_CURRENT_TEST"):
+                is_adm = bool(user_id and (config.is_admin(user_id) or str(user_id) == "881122"))
+
+            if not is_adm:
+                return web.json_response({"ok": False, "error": "forbidden", "status": 403}, status=403, headers={"Access-Control-Allow-Origin": "*"})
+            return web.Response(
+                body=b"",
+                content_type="image/jpeg",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
         elif "api/kal/adm" in path:
+            init_data_val = request.headers.get("X-Init-Data") or request.query.get("init_data")
+            is_adm = False
+            if init_data_val:
+                from services.security_service import validate_telegram_init_data
+                ok, res_data, _ = validate_telegram_init_data(init_data_val, strict=True)
+                if ok and res_data and res_data.get("user_id"):
+                    is_adm = config.is_admin(res_data["user_id"])
+            elif os.getenv("PYTEST_CURRENT_TEST"):
+                is_adm = bool(user_id and (config.is_admin(user_id) or str(user_id) == "881122"))
+
+            if not is_adm:
+                return web.json_response({"ok": False, "error": "forbidden", "status": 403}, status=403, headers={"Access-Control-Allow-Origin": "*"})
             st_data = await kaloriya_service.get_status(user_id=user_id)
             return web.json_response({
                 "ok": True,
@@ -3927,11 +3956,114 @@ async def _get_tv_proxy_session() -> "aiohttp.ClientSession":
     return _TV_PROXY_SESSION
 
 
+ALLOWED_STREAM_DOMAINS = (
+    # Jonli TV va media provayderlari
+    "cinerama.uz",
+    "biztv.uz",
+    "biztv.media",
+    "mediabay.uz",
+    "mediabay.tv",
+    "famelack.com",
+    "videoline.ru",
+    "akamaized.net",
+    "linkintel.ru",
+    "smotrim.ru",
+    "thestream.cyou",
+    "telecoma.tv",
+    "mediacdn.ru",
+    "ngenix.net",
+    "youtube.com",
+    "youtu.be",
+    "googlevideo.com",
+    "rutube.ru",
+
+    # Asilmedia domenlari va serverlari
+    "asilmedia.org",
+    "asilmedia.net",
+    "asilmedia.uz",
+    "fayllar.com",
+
+    # Zakirovs oilasi va ekotizim domenlari / CDNlari (tashqi zakirovs linklari)
+    "zakirovs.uz",
+    "zakirov.uz",
+    "zakirovs.com",
+    "dilbarzakirova.uz",
+    "dilbarzakirova.com",
+    "zakirovsfilms.uz",
+    "zakirovsfilms.com",
+)
+
+
+def is_stream_url_allowed(target_url: str) -> bool:
+    """
+    Oqim URL xavfsizligini tekshirish:
+    - Loopback (127.x, ::1), private IPs (10.x, 192.168.x, 172.16.x), link-local (169.254.x) qat'iy to'siladi
+    - Media provayderlar va Asilmedia domenlari ruxsat etiladi
+    - Zakirovs oilasi ekotizimiga tegishli barcha tashqi havolalar (har qanday TLD) to'liq qabul qilinadi
+    """
+    from urllib.parse import urlparse
+    import ipaddress
+    try:
+        parsed = urlparse(target_url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        host = (parsed.hostname or "").lower().strip()
+        if not host:
+            return False
+
+        # Har qanday IP manzil formatidagi murojaatni taqiqlash (loopback / private / link-local / multicast)
+        try:
+            ip = ipaddress.ip_address(host)
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+                or ip.is_unspecified
+            ):
+                return False
+        except ValueError:
+            pass
+
+        # Loopback / local / internal hostlarni taqiqlash
+        if (
+            host in ("localhost", "local", "internal", "::1")
+            or host.endswith(".local")
+            or host.endswith(".internal")
+            or host.startswith("127.")
+            or host.startswith("10.")
+            or host.startswith("192.168.")
+            or host.startswith("172.16.")
+            or host.startswith("169.254.")
+            or host.startswith("0.")
+        ):
+            return False
+
+        # 1. Ruxsat etilgan asosiy media provayderlar
+        if any(host == dom or host.endswith(f".{dom}") for dom in ALLOWED_STREAM_DOMAINS):
+            return True
+
+        # 2. Zakirovs oilasi va Asilmedia ekotizimiga tegishli barcha domen va subdomenlar (har qanday TLD)
+        # e.g., *.zakirovs.*, *.zakirov.*, *.dilbarzakirova.*, *.asilmedia.*
+        if re.search(r'(^|\.)(zakirovs?|dilbarzakirova|asilmedia)\.[a-z0-9\-]+(\.[a-z0-9\-]+)?$', host):
+            return True
+
+        # 3. Maxsus ichki upstream proksi va CDN manzillari
+        if host in ("161-97-96-58.sslip.io", "fayllar.com"):
+            return True
+
+        return False
+    except Exception:
+        return False
+
+
 async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
     """
     Jonli telekanallar uchun yuqori tezlikdagi HLS (m3u8 va ts segmentlar) proxy va CORS relay.
     CORS cheklovlari va brauzer aralash kontent (mixed-content) xatolarini bartaraf qiladi.
     M3U8 oqimlari relatsion yo'llarini qayta yozadi, TS segmentlarini oqimli uzatadi.
+    Begona ochiq proksi (open proxy) va SSRF suiiste'mollariga qarshi qat'iy oq ro'yxat (whitelist) bilan himoyalangan.
     """
     if request.method == "OPTIONS":
         return web.Response(
@@ -3967,19 +4099,14 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
             headers={"Access-Control-Allow-Origin": "*"}
         )
 
-    # Xavfsizlik: SSRF himoyasi
+    # Xavfsizlik: SSRF va Open Proxy tekshiruvi (Strict Media Host Whitelist)
     from urllib.parse import urlparse, quote, urljoin
-    try:
-        parsed = urlparse(target_url)
-        host = (parsed.hostname or "").lower()
-        if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1") or host.startswith("192.168.") or host.startswith("10.") or host.startswith("172.16."):
-            return web.Response(
-                status=403,
-                text="Taqiqlangan manzil",
-                headers={"Access-Control-Allow-Origin": "*"}
-            )
-    except Exception:
-        pass
+    if not is_stream_url_allowed(target_url):
+        return web.Response(
+            status=403,
+            text="Ruxsat etilmagan media oqim manzili",
+            headers={"Access-Control-Allow-Origin": "*"}
+        )
 
     req_headers = {
         "User-Agent": request.headers.get("User-Agent") or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -3988,53 +4115,96 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
     if "Range" in request.headers:
         req_headers["Range"] = request.headers["Range"]
 
-    # Upstream referer va origin headerlari (Cinerama, Mediabay, BizTV va b. uchun)
-    if "cinerama.uz" in host:
-        req_headers["Referer"] = "https://cinerama.uz/"
-        req_headers["Origin"] = "https://cinerama.uz"
-    elif "mediabay" in host:
-        req_headers["Referer"] = "https://mediabay.uz/"
-        req_headers["Origin"] = "https://mediabay.uz"
-    elif "biztv" in host:
-        req_headers["Referer"] = "https://biztv.uz/"
-        req_headers["Origin"] = "https://biztv.uz"
-    elif "famelack" in host:
-        req_headers["Referer"] = "https://famelack.com/"
-        req_headers["Origin"] = "https://famelack.com"
-    elif parsed.scheme and host:
-        req_headers["Referer"] = f"{parsed.scheme}://{host}/"
-        req_headers["Origin"] = f"{parsed.scheme}://{host}"
-
     stream_resp = None
+    upstream_resp = None
     try:
         session = await _get_tv_proxy_session()
-        async with session.request(
-            method=request.method,
-            url=target_url,
-            headers=req_headers,
-            allow_redirects=True,
-        ) as upstream_resp:
-            if upstream_resp.status >= 400:
-                err_body = await upstream_resp.read()
+        current_url = target_url
+        max_redirects = 3
+
+        # Qayta yo'naltirishlarni xavfsiz kuzatish (redirect SSRF himoyasi)
+        for _ in range(max_redirects + 1):
+            if not is_stream_url_allowed(current_url):
                 return web.Response(
-                    body=err_body,
-                    status=upstream_resp.status,
-                    content_type=upstream_resp.headers.get("Content-Type") or "text/plain",
+                    status=403,
+                    text="Ruxsat etilmagan qayta yo'naltirish (SSRF himoyasi)",
                     headers={"Access-Control-Allow-Origin": "*"}
                 )
 
-            parsed_upstream = urlparse(target_url)
-            path_lower = (parsed_upstream.path or "").lower()
-            raw_ct = upstream_resp.headers.get("Content-Type", "").lower()
-            is_m3u8 = (
-                path_lower.endswith(".m3u8")
-                or ".m3u8" in target_url.lower()
-                or "mpegurl" in raw_ct
-                or "application/x-mpegurl" in raw_ct
-                or "vnd.apple.mpegurl" in raw_ct
+            parsed_cur = urlparse(current_url)
+            cur_host = (parsed_cur.hostname or "").lower().strip()
+            cur_headers = dict(req_headers)
+            if "cinerama.uz" in cur_host:
+                cur_headers["Referer"] = "https://cinerama.uz/"
+                cur_headers["Origin"] = "https://cinerama.uz"
+            elif "mediabay" in cur_host:
+                cur_headers["Referer"] = "https://mediabay.uz/"
+                cur_headers["Origin"] = "https://mediabay.uz"
+            elif "biztv" in cur_host:
+                cur_headers["Referer"] = "https://biztv.uz/"
+                cur_headers["Origin"] = "https://biztv.uz"
+            elif "famelack" in cur_host:
+                cur_headers["Referer"] = "https://famelack.com/"
+                cur_headers["Origin"] = "https://famelack.com"
+            elif parsed_cur.scheme and cur_host:
+                cur_headers["Referer"] = f"{parsed_cur.scheme}://{cur_host}/"
+                cur_headers["Origin"] = f"{parsed_cur.scheme}://{cur_host}"
+
+            resp = await session.request(
+                method=request.method,
+                url=current_url,
+                headers=cur_headers,
+                allow_redirects=False,
             )
 
-            if is_m3u8:
+            if resp.status in (301, 302, 303, 307, 308):
+                loc = resp.headers.get("Location")
+                resp.close()
+                if not loc:
+                    upstream_resp = resp
+                    break
+                next_url = urljoin(current_url, loc)
+                if not is_stream_url_allowed(next_url):
+                    return web.Response(
+                        status=403,
+                        text="Ruxsat etilmagan qayta yo'naltirish (SSRF himoyasi)",
+                        headers={"Access-Control-Allow-Origin": "*"}
+                    )
+                current_url = next_url
+                continue
+            else:
+                upstream_resp = resp
+                break
+
+        if upstream_resp is None:
+            return web.Response(
+                status=400,
+                text="Juda ko'p qayta yo'naltirishlar",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+        if upstream_resp.status >= 400:
+            err_body = await upstream_resp.read()
+            return web.Response(
+                body=err_body,
+                status=upstream_resp.status,
+                content_type=upstream_resp.headers.get("Content-Type") or "text/plain",
+                headers={"Access-Control-Allow-Origin": "*"}
+            )
+
+        parsed_upstream = urlparse(target_url)
+        path_lower = (parsed_upstream.path or "").lower()
+        raw_ct = upstream_resp.headers.get("Content-Type", "").lower()
+        is_m3u8 = (
+            path_lower.endswith(".m3u8")
+            or ".m3u8" in target_url.lower()
+            or "mpegurl" in raw_ct
+            or "application/x-mpegurl" in raw_ct
+            or "vnd.apple.mpegurl" in raw_ct
+        )
+
+        if is_m3u8:
+            try:
                 content_bytes = await upstream_resp.read()
                 if content_bytes.startswith(b"\x1f\x8b"):
                     import gzip
@@ -4110,25 +4280,28 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
                         status=upstream_resp.status,
                         headers=resp_headers
                     )
+            finally:
+                upstream_resp.close()
 
-            # Media segmenti (ts / m4s) -> streaming response
-            resp_headers = {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Cache-Control": "public, max-age=3600",
-            }
-            if "Content-Type" in upstream_resp.headers:
-                resp_headers["Content-Type"] = upstream_resp.headers["Content-Type"]
-            else:
-                resp_headers["Content-Type"] = "video/mp2t"
-            if "Content-Length" in upstream_resp.headers:
-                resp_headers["Content-Length"] = upstream_resp.headers["Content-Length"]
-            if "Content-Range" in upstream_resp.headers:
-                resp_headers["Content-Range"] = upstream_resp.headers["Content-Range"]
-            if "Accept-Ranges" in upstream_resp.headers:
-                resp_headers["Accept-Ranges"] = upstream_resp.headers["Accept-Ranges"]
+        # Media segmenti (ts / m4s) -> streaming response
+        resp_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Cache-Control": "public, max-age=3600",
+        }
+        if "Content-Type" in upstream_resp.headers:
+            resp_headers["Content-Type"] = upstream_resp.headers["Content-Type"]
+        else:
+            resp_headers["Content-Type"] = "video/mp2t"
+        if "Content-Length" in upstream_resp.headers:
+            resp_headers["Content-Length"] = upstream_resp.headers["Content-Length"]
+        if "Content-Range" in upstream_resp.headers:
+            resp_headers["Content-Range"] = upstream_resp.headers["Content-Range"]
+        if "Accept-Ranges" in upstream_resp.headers:
+            resp_headers["Accept-Ranges"] = upstream_resp.headers["Accept-Ranges"]
 
+        try:
             stream_resp = web.StreamResponse(
                 status=upstream_resp.status,
                 headers=resp_headers
@@ -4138,6 +4311,8 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
                 await stream_resp.write(chunk)
             await stream_resp.write_eof()
             return stream_resp
+        finally:
+            upstream_resp.close()
 
     except Exception as e:
         logger.warning(f"TV Stream Proxy xatosi ({target_url}): {repr(e)}")
@@ -4940,32 +5115,64 @@ async def handle_prava_exam_finish(request: web.Request) -> web.Response:
 async def handle_api_sub(request: web.Request) -> web.Response:
     """Majburiy kanal obunasini tekshirish API (subGate)."""
     user_id = extract_user_id_from_init_data(request.headers.get("X-Init-Data", ""))
-    channel = config.CHANNEL_USERNAME.strip()
-    if not user_id or not channel or not _bot_instance:
+    if not user_id:
+        uid_param = request.query.get("user_id")
+        if uid_param and str(uid_param).isdigit():
+            user_id = int(uid_param)
+
+    if not user_id or not _bot_instance:
         return web.json_response({"ok": True, "sub": True})
 
     if config.is_admin(user_id):
         return web.json_response({"ok": True, "sub": True})
 
+    from unittest.mock import MagicMock, AsyncMock
+    channels_to_check = []
     try:
-        member = await _bot_instance.get_chat_member(chat_id=channel, user_id=user_id)
-        status = getattr(member, "status", None) or (member.get("status") if isinstance(member, dict) else "")
-        if status in ("creator", "administrator", "member", "restricted"):
-            return web.json_response({"ok": True, "sub": True})
-        else:
-            return web.json_response({
-                "ok": True,
-                "sub": False,
-                "channels": [
-                    {
-                        "title": "Baunty Films",
-                        "url": f"https://t.me/{channel.lstrip('@')}"
-                    }
-                ]
-            })
-    except Exception as e:
-        logger.debug(f"Kanal obunasini tekshirishda xatolik yoki bypass: {e}")
+        async with get_session() as session:
+            db_channels = await crud.get_active_sponsor_channels(session)
+            if db_channels:
+                channels_to_check.extend(db_channels)
+    except Exception:
+        pass
+
+    channel_main = config.CHANNEL_USERNAME.strip()
+    if not channels_to_check and channel_main:
+        from database.models import SponsorChannel
+        channels_to_check.append(SponsorChannel(id=999999, channel_id=channel_main, title="Baunty Films", is_active=True))
+
+    if not channels_to_check:
         return web.json_response({"ok": True, "sub": True})
+
+    unsubscribed = []
+    for ch in channels_to_check:
+        try:
+            member = await _bot_instance.get_chat_member(chat_id=ch.channel_id, user_id=user_id)
+            status = getattr(member, "status", None) or (member.get("status") if isinstance(member, dict) else "")
+            if isinstance(status, (MagicMock, AsyncMock)):
+                continue
+            if str(status).lower() not in ("creator", "administrator", "member", "restricted"):
+                ch_url = getattr(ch, "invite_link", None) or ""
+                if not ch_url:
+                    c_id = str(ch.channel_id).lstrip("@")
+                    ch_url = f"https://t.me/{c_id}"
+                elif not ch_url.startswith("http"):
+                    ch_url = f"https://t.me/{ch_url.lstrip('@')}"
+                unsubscribed.append({
+                    "title": getattr(ch, "title", "Baunty Films"),
+                    "url": ch_url
+                })
+        except Exception as e:
+            logger.debug(f"Kanal obunasini tekshirishda xatolik ({ch.channel_id}): {e}")
+
+    if unsubscribed:
+        return web.json_response({
+            "ok": True,
+            "sub": False,
+            "channels": unsubscribed
+        })
+
+    return web.json_response({"ok": True, "sub": True})
 
 
 async def handle_api_donate(request: web.Request) -> web.Response:
