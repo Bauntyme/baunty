@@ -390,13 +390,16 @@ body.seg4 .seg button{padding:7px 12px;font-size:14px}
 .vbox-fs-btn:active{transform:scale(.9);background:rgba(229,72,77,.95)}
 :fullscreen .vbox-fs-btn, :-webkit-full-screen .vbox-fs-btn,
 .tv-full-screen-mode .vbox-fs-btn{display:none !important}
+.hb-mode{display:flex;align-items:center;flex:none;padding:3px;border-radius:13px;background:rgba(7,11,31,.55);box-shadow:inset 0 0 0 1px var(--sep);gap:2px;overflow:hidden}
+.hb-mode button{display:grid;place-items:center;width:30px;height:28px;border-radius:9px;background:none;border:none;font:800 13px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif!important;color:var(--hint)!important;cursor:pointer;transition:all .18s ease;padding:0;margin:0;box-sizing:border-box;overflow:hidden;text-overflow:clip;white-space:nowrap;line-height:1}
+.hb-mode button.on{background:#F2B84B;color:#2A1500!important}
 </style>
 </head>
 <body data-zkm="kino" class="splashing">
 <div id="zksplash" aria-hidden="true"><i class="zs-burst"></i><div class="zs-orb"><i class="zs-chip" style="--r:0deg;--c:#C8344C"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></i><i class="zs-chip" style="--r:72deg;--c:#1FA8AE"><svg viewBox="0 0 24 24"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg></i><i class="zs-chip" style="--r:144deg;--c:#2440C8"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-3v14h3z"/></svg></i><i class="zs-chip" style="--r:216deg;--c:#FF7A1A"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4zm1 2v2H5v1h2v2h1v-2h2v-1H8v-2z"/></svg></i><i class="zs-chip" style="--r:288deg;--c:#8B5CFF"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zM9 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></i></div><div class="zs-logo"><img src="logo.webp" alt="" decoding="async"><i class="zs-shine zk-splash-shine"></i><div class="zk-splash-rings" aria-hidden="true"><svg viewBox="-60 -60 120 120"><g><rect x="-36" y="-36" width="72" height="72" pathLength="1"/><rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/></g></svg></div></div><small>kino · musiqa · kitob · o'yin · story</small></div>
 <script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e){e.classList.add("out");setTimeout(function(){e.remove();},650);}document.body.classList.remove("splashing");};try{if(new URLSearchParams(location.search).has("nosplash") || window.ZK_LITE)k();}catch(e){}
-/* himoya: zk.js yuklanmasa yoki xato bersa ham ilova 5 s da ochiladi; bosilsa darhol */
-setTimeout(k,5000);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,600);});})();</script>
+/* himoya: zk.js yuklanmasa yoki xato bersa ham ilova 1.2 s da ochiladi; bosilsa darhol */
+setTimeout(k,1200);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,300);});})();</script>
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
   <div class="brand">
     <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books" data-tab="books" id="tab-books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="prava">🚗 Prava</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="mafia">🕵️ Mafia</button><button data-m="tvroom">📺 Tv Xona</button><button data-m="rasxod">💰 Rasxod</button><button data-m="kal">🥗 Kaloriya</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
@@ -2317,7 +2320,7 @@ const ZHub = (() => {
   const segs = () => (window.ZK_SEGS && window.ZK_SEGS.length ? window.ZK_SEGS.map((x) => x[0]) : Object.keys(META)).filter((m) => META[m]);
   const name = () => { try { return (tg.initDataUnsafe.user.first_name || "").slice(0, 24); } catch (e) { return ""; } };
   function modeToggle() {
-    return `<div class="hb-mode" role="group" aria-label="Ko'rinish"><button data-ui="kr" class="${lite() ? "" : "on"}">✨ Kreativ</button><button data-ui="lite" class="${lite() ? "on" : ""}">⚡ Oddiy</button></div>`;
+    return `<div class="hb-mode" role="group" aria-label="Ko'rinish"><button data-ui="kr" class="${lite() ? "" : "on"}" aria-label="Kreativ" title="Kreativ">✨</button><button data-ui="lite" class="${lite() ? "on" : ""}" aria-label="Oddiy" title="Oddiy">⚡</button></div>`;
   }
   function tiles() {
     const list = segs();

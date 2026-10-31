@@ -55,11 +55,16 @@ def set_bot_instance(bot) -> None:
 
 async def handle_health(request: web.Request) -> web.Response:
     """Render.com va boshqa bulutli xizmatlar uchun health check endpointi."""
-    return web.json_response({
+    ua = request.headers.get("User-Agent", "").lower()
+    is_browser = "mozilla" in ua or "chrome" in ua or "safari" in ua or "firefox" in ua
+    data = {
         "status": "ok",
         "service": "Bauntyfilms_bot & Mini App",
         "timestamp": int(time.time()),
-    })
+    }
+    if not is_browser:
+        data["bot"] = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    return web.json_response(data)
 
 
 async def handle_ping(request: web.Request) -> web.Response:
@@ -188,6 +193,22 @@ async def handle_favicon(request: web.Request) -> web.Response:
 _PROD_INDEX_CACHE: Dict[str, Any] = {"html": None, "bytes": None, "etag": None, "ts": 0}
 
 
+def _is_nocache(request: Any) -> bool:
+    """So'rovda nocache yoki clear parametri berilganligini xavfsiz aniqlash."""
+    try:
+        if not hasattr(request, "query"):
+            return False
+        raw_nc = request.query.get("nocache")
+        if isinstance(raw_nc, str) and raw_nc.lower() in ("1", "true", "yes", ""):
+            return True
+        raw_cl = request.query.get("clear")
+        if isinstance(raw_cl, str) and raw_cl.lower() in ("1", "true", "yes", ""):
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def _get_bundle_version_hash() -> str:
     """bundle.min.js va bundle.min.css fayllaridan xesh olib 12 xonali versiya tamg'asini olish."""
     h = hashlib.md5()
@@ -270,11 +291,18 @@ async def handle_index(request: web.Request) -> web.Response:
 
     now = time.time()
     file_mtime = index_file.stat().st_mtime if index_file.exists() else 0
+    bundle_js = BASE_DIR / "webapp" / "dist" / "bundle.min.js"
+    bundle_css = BASE_DIR / "webapp" / "dist" / "bundle.min.css"
+    bundle_mtime = max(
+        bundle_js.stat().st_mtime if bundle_js.exists() else 0,
+        bundle_css.stat().st_mtime if bundle_css.exists() else 0,
+    )
+    max_mtime = max(file_mtime, bundle_mtime)
     if (
         _PROD_INDEX_CACHE["html"] is None
-        or (now - _PROD_INDEX_CACHE["ts"] > 300)
-        or (_PROD_INDEX_CACHE["ts"] < file_mtime)
-        or request.query.get("nocache")
+        or (now - _PROD_INDEX_CACHE["ts"] > 120)
+        or (_PROD_INDEX_CACHE["ts"] < max_mtime)
+        or _is_nocache(request)
     ):
         _PROD_INDEX_CACHE["html"] = get_production_index_html(cache_bust=True)
         _PROD_INDEX_CACHE["bytes"] = _PROD_INDEX_CACHE["html"].encode("utf-8")
@@ -317,7 +345,7 @@ async def handle_bundle_js(request: web.Request) -> web.Response:
         fkey = str(bundle_file)
         file_mtime = bundle_file.stat().st_mtime
         cached = _STATIC_BUNDLES_CACHE.get(fkey)
-        if cached is None or (len(cached) > 3 and cached[3] < file_mtime) or request.query.get("nocache"):
+        if cached is None or (len(cached) > 3 and cached[3] < file_mtime) or _is_nocache(request):
             content = await asyncio.to_thread(bundle_file.read_bytes)
             etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
             _STATIC_BUNDLES_CACHE[fkey] = (content, "application/javascript", etag, file_mtime)
@@ -351,7 +379,7 @@ async def handle_bundle_css(request: web.Request) -> web.Response:
         fkey = str(bundle_file)
         file_mtime = bundle_file.stat().st_mtime
         cached = _STATIC_BUNDLES_CACHE.get(fkey)
-        if cached is None or (len(cached) > 3 and cached[3] < file_mtime) or request.query.get("nocache"):
+        if cached is None or (len(cached) > 3 and cached[3] < file_mtime) or _is_nocache(request):
             content = await asyncio.to_thread(bundle_file.read_bytes)
             etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
             _STATIC_BUNDLES_CACHE[fkey] = (content, "text/css", etag, file_mtime)
@@ -430,8 +458,16 @@ _CATALOG_CACHE: Dict[str, Any] = {"data": None, "ts": 0, "bytes": None, "m_hash"
 
 
 def clear_catalog_cache() -> None:
-    """Katalog keshini tozalash (maintenance yoki kino qo'shilganda chaqiriladi)."""
+    """Katalog va bog'liq web keshlarini tozalash (maintenance, yangi kontent yoki refresh bo'lganda chaqiriladi)."""
     _CATALOG_CACHE.update({"data": None, "ts": 0, "bytes": None, "m_hash": None, "etag": None})
+    _ASIL_API_CACHE.clear()
+    _PROD_INDEX_CACHE.update({"html": None, "bytes": None, "etag": None, "ts": 0})
+    _STATIC_BUNDLES_CACHE.clear()
+
+
+def clear_all_web_caches() -> None:
+    """Barcha in-memory web server keshlarini tozalash."""
+    clear_catalog_cache()
 
 
 
@@ -2178,9 +2214,12 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     now = time.time()
     m_state = maintenance_service.get_state()
     m_hash = json.dumps(m_state, sort_keys=True)
+    nocache = _is_nocache(request)
+    if nocache:
+        clear_catalog_cache()
 
     # 304 Not Modified tekshiruvi
-    if _CATALOG_CACHE.get("etag") and request.headers.get("If-None-Match") == _CATALOG_CACHE.get("etag"):
+    if not nocache and _CATALOG_CACHE.get("etag") and hasattr(request, "headers") and request.headers.get("If-None-Match") == _CATALOG_CACHE.get("etag"):
         return web.Response(
             status=304,
             headers={
@@ -2190,7 +2229,7 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
             }
         )
 
-    if _CATALOG_CACHE.get("data") and (now - _CATALOG_CACHE.get("ts", 0) < 120):
+    if not nocache and _CATALOG_CACHE.get("data") and (now - _CATALOG_CACHE.get("ts", 0) < 120):
         # Agar maintenance holati o'zgarmagan bo'lsa va bytes tayyor bo'lsa,
         # event-loop ni bloklamasdan to'g'ridan-to'g'ri tayyor bytes ni qaytaramiz (0.1ms)
         if _CATALOG_CACHE.get("bytes") and _CATALOG_CACHE.get("m_hash") == m_hash:
@@ -2308,11 +2347,30 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
 _ASIL_API_CACHE: Dict[str, Any] = {}
 
 
+def _prune_asil_api_cache(now: float) -> None:
+    """Eski va muddati o'tgan Asilmedia API keshlarini tozalash, server qotishi va xotira to'lishining oldini olish."""
+    expired = [k for k, v in _ASIL_API_CACHE.items() if (now - v.get("ts", 0) > 180)]
+    for k in expired:
+        _ASIL_API_CACHE.pop(k, None)
+    if len(_ASIL_API_CACHE) > 150:
+        sorted_keys = sorted(_ASIL_API_CACHE.keys(), key=lambda k: _ASIL_API_CACHE[k].get("ts", 0))
+        for k in sorted_keys[:50]:
+            _ASIL_API_CACHE.pop(k, None)
+
+
+def clear_asil_api_cache() -> None:
+    """Asilmedia API keshini tozalash."""
+    _ASIL_API_CACHE.clear()
+
+
 async def handle_asil_home(request: web.Request) -> web.Response:
     """Asilmedia bosh sahifa tavsiyalari va janrlar (Real-time va Bauntys brendi)."""
     now = time.time()
+    _prune_asil_api_cache(now)
     cache_key = "asil:home"
-    if cache_key in _ASIL_API_CACHE:
+    if _is_nocache(request):
+        _ASIL_API_CACHE.pop(cache_key, None)
+    elif cache_key in _ASIL_API_CACHE:
         entry = _ASIL_API_CACHE[cache_key]
         if now - entry["ts"] < 120:
             return web.Response(
@@ -2331,6 +2389,7 @@ async def handle_asil_home(request: web.Request) -> web.Response:
                     text = resp_bytes.decode("utf-8", errors="replace")
                     clean = sanitize_catalog_text(text)
                     clean_bytes = clean.encode("utf-8")
+                    _prune_asil_api_cache(now)
                     _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
                     try:
                         backup_file = BASE_DIR / "data" / "asil_home_cache.json"
@@ -2370,8 +2429,11 @@ async def handle_asil_home(request: web.Request) -> web.Response:
 async def handle_asil_list(request: web.Request) -> web.Response:
     """Asilmedia saralangan kinolar ro'yxati (Real-time)."""
     now = time.time()
+    _prune_asil_api_cache(now)
     cache_key = f"asil:list:{request.query_string}"
-    if cache_key in _ASIL_API_CACHE:
+    if _is_nocache(request):
+        _ASIL_API_CACHE.pop(cache_key, None)
+    elif cache_key in _ASIL_API_CACHE:
         entry = _ASIL_API_CACHE[cache_key]
         if now - entry["ts"] < 120:
             return web.Response(
@@ -2390,6 +2452,7 @@ async def handle_asil_list(request: web.Request) -> web.Response:
                     text = resp_bytes.decode("utf-8", errors="replace")
                     clean = sanitize_catalog_text(text)
                     clean_bytes = clean.encode("utf-8")
+                    _prune_asil_api_cache(now)
                     _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
                     return web.Response(
                         body=clean_bytes,
@@ -2417,8 +2480,11 @@ async def handle_asil_search(request: web.Request) -> web.Response:
         return web.json_response({"ok": True, "items": []}, headers={"Access-Control-Allow-Origin": "*"})
 
     now = time.time()
+    _prune_asil_api_cache(now)
     cache_key = f"asil:search:{q.lower()}"
-    if cache_key in _ASIL_API_CACHE:
+    if _is_nocache(request):
+        _ASIL_API_CACHE.pop(cache_key, None)
+    elif cache_key in _ASIL_API_CACHE:
         entry = _ASIL_API_CACHE[cache_key]
         if now - entry["ts"] < 120:
             return web.Response(
@@ -2441,6 +2507,7 @@ async def handle_asil_search(request: web.Request) -> web.Response:
                             if "alt" in it:
                                 it["alt"] = sanitize_catalog_text(it["alt"])
                         clean_bytes = json.dumps(raw, ensure_ascii=False).encode("utf-8")
+                        _prune_asil_api_cache(now)
                         _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
                         return web.Response(
                             body=clean_bytes,
@@ -2482,8 +2549,11 @@ async def handle_asil_item(request: web.Request) -> web.Response:
         return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
     now = time.time()
+    _prune_asil_api_cache(now)
     cache_key = f"asil:item:{item_id}"
-    if cache_key in _ASIL_API_CACHE:
+    if _is_nocache(request):
+        _ASIL_API_CACHE.pop(cache_key, None)
+    elif cache_key in _ASIL_API_CACHE:
         entry = _ASIL_API_CACHE[cache_key]
         if now - entry["ts"] < 300:
             return web.Response(
@@ -2502,6 +2572,7 @@ async def handle_asil_item(request: web.Request) -> web.Response:
                     text = resp_bytes.decode("utf-8", errors="replace")
                     clean = sanitize_catalog_text(text)
                     clean_bytes = clean.encode("utf-8")
+                    _prune_asil_api_cache(now)
                     _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
                     return web.Response(
                         body=clean_bytes,

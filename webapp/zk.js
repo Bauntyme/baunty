@@ -387,10 +387,10 @@ if (sp) {
     setTimeout(() => sp.remove(), 650);
   };
   sp.addEventListener("pointerdown", end);
-  const MIN = RM ? 900 : 2500;
-  const wait = () => { const el = performance.now() - t0; el > MIN ? end() : setTimeout(end, MIN - el); };
-  if (document.readyState === "complete") wait(); else addEventListener("load", wait);
-  setTimeout(end, 4000);
+  const MIN = RM ? 0 : 300;
+  const wait = () => { const el = performance.now() - t0; el >= MIN ? end() : setTimeout(end, MIN - el); };
+  if (document.readyState === "complete" || document.readyState === "interactive") wait(); else addEventListener("DOMContentLoaded", wait);
+  setTimeout(end, 1200);
 }
 })();
 
