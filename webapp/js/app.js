@@ -429,6 +429,10 @@ const App = {
             window._tvSpeedWarned = true;
             try { this.showToast?.("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi."); } catch(e){}
         }
+        if (window._lastMeasuredSpeedMbps && window._lastMeasuredSpeedMbps < 1.0) {
+            try { this.showToast?.(`⚠️ Internet tezligi juda past (${window._lastMeasuredSpeedMbps} Mbps). Kamida 1 Mbps talab qilinadi.`); } catch(e){}
+            return;
+        }
         let targetUrl = streamUrl;
         if (!targetUrl.includes('/api/tv/stream') && targetUrl.includes('cinerama.uz') && targetUrl.includes('tracks-v1a1')) {
             targetUrl = targetUrl.replace('tracks-v1a1/mono.ts.m3u8', 'playlist.m3u8').replace('tracks-v1a1/mono.m3u8', 'playlist.m3u8');
@@ -445,7 +449,7 @@ const App = {
             this.hls = new window.Hls({
                 testBandwidth: false,
                 startLevel: -1,
-                abrEwmaDefaultEstimate: _isSlow ? 1800000 : 2500000,
+                abrEwmaDefaultEstimate: _isSlow ? 1200000 : 2500000,
                 abrEwmaDefaultEstimateMax: 40000000,
                 capLevelToPlayerSize: false,
                 enableWorker: true,

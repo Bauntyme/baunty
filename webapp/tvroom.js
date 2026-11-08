@@ -428,13 +428,15 @@
 
         <!-- Tezkor Reaksiyalar -->
         <div class="tvr-quick-reacts">
+          <button class="tvr-qbtn" data-r="🎃">🎃</button>
+          <button class="tvr-qbtn" data-r="👻">👻</button>
+          <button class="tvr-qbtn" data-r="🦇">🦇</button>
           <button class="tvr-qbtn" data-r="🔥">🔥</button>
           <button class="tvr-qbtn" data-r="❤️">❤️</button>
           <button class="tvr-qbtn" data-r="😂">😂</button>
           <button class="tvr-qbtn" data-r="👏">👏</button>
           <button class="tvr-qbtn" data-r="🍿">🍿</button>
-          <button class="tvr-qbtn" data-r="⚽">⚽</button>
-          <button class="tvr-qbtn" data-r="🎉">🎉</button>
+          <button class="tvr-qbtn" data-r="🍬">🍬</button>
         </div>
 
         <!-- Xabar yozish va Ovoz boshqaruvi -->
@@ -605,7 +607,54 @@
     }).join("");
   }
 
-  // Video Pleyerni ishga tushirish (HLS / m3u8)
+  let _lastMeasuredSpeedMbps = null;
+  let _lastMeasuredTime = 0;
+  let _speedMeasuringPromise = null;
+
+  async function getAccurateNetworkSpeed(forceRefresh = false) {
+    const now = Date.now();
+    if (!forceRefresh && _lastMeasuredSpeedMbps !== null && (now - _lastMeasuredTime < 15000)) {
+      return _lastMeasuredSpeedMbps;
+    }
+    if (_speedMeasuringPromise) return _speedMeasuringPromise;
+
+    _speedMeasuringPromise = (async () => {
+      try {
+        const testBytes = 65536;
+        const t0 = performance.now();
+        const resp = await fetch(`/api/tv/speed?bytes=${testBytes}&_t=${now}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" }
+        });
+        if (resp.ok) {
+          const buf = await resp.arrayBuffer();
+          const t1 = performance.now();
+          const durationSec = Math.max(0.012, (t1 - t0) / 1000);
+          const actualBytes = buf.byteLength || testBytes;
+          const speedMbps = Number(((actualBytes * 8) / (durationSec * 1000000)).toFixed(2));
+          _lastMeasuredSpeedMbps = speedMbps;
+          _lastMeasuredTime = Date.now();
+          window._lastMeasuredSpeedMbps = speedMbps;
+          return speedMbps;
+        }
+      } catch (e) {}
+
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (conn && conn.downlink) {
+        _lastMeasuredSpeedMbps = Number(conn.downlink);
+        _lastMeasuredTime = Date.now();
+        window._lastMeasuredSpeedMbps = _lastMeasuredSpeedMbps;
+        return _lastMeasuredSpeedMbps;
+      }
+
+      return _lastMeasuredSpeedMbps || 3.5;
+    })().finally(() => {
+      _speedMeasuringPromise = null;
+    });
+
+    return _speedMeasuringPromise;
+  }
+
   async function initVideoPlayer() {
     const video = $("tvr-video");
     const loader = $("tvr-loading");
@@ -613,10 +662,21 @@
 
     updatePlayerHeaderChannel(currentRoom.channel);
 
+    const speedMbps = await getAccurateNetworkSpeed();
+    if (speedMbps < 1.0) {
+      if (loader) loader.hidden = true;
+      toast(`⚠️ Internet tezligi juda past (${speedMbps} Mbps). Kamida 1 Mbps talab qilinadi.`, "err");
+      const lt = $("tvr-load-text");
+      if (lt) {
+        if (loader) loader.hidden = false;
+        lt.textContent = `⚠️ Internet tezligi juda past (${speedMbps} Mbps). Kamida 1 Mbps kerak.`;
+      }
+      return;
+    }
+
     let streamUrl = currentRoom.channel.stream;
     if (!streamUrl) return;
 
-    // cinerama.uz va CORS cheklovli oqimlarni darhol tezyurar server proxy orqali uzatish
     if (streamUrl.includes("cinerama.uz") && !streamUrl.includes("/api/tv/stream")) {
       streamUrl = `/api/tv/stream?url=${encodeURIComponent(streamUrl)}`;
     } else if (!streamUrl.includes("/api/tv/stream") && streamUrl.includes("tracks-v1a1")) {
@@ -629,7 +689,6 @@
 
     if (loader) loader.hidden = false;
 
-    // Avvalgi HLS obyektini tozalash
     if (hlsInstance) {
       try { hlsInstance.destroy(); } catch (e) {}
       hlsInstance = null;
@@ -641,7 +700,6 @@
     };
 
     if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      // Safari / iOS Native HLS
       video.src = streamUrl;
       video.addEventListener("loadedmetadata", onPlayReady, { once: true });
     } else {
@@ -667,10 +725,29 @@
             levelLoadingRetryDelay: 500,
             fragLoadingTimeOut: 8000,
             fragLoadingMaxRetry: 2,
+            abrEwmaDefaultEstimate: speedMbps < 2.0 ? 1200000 : 2500000,
           });
           hlsInstance.loadSource(streamUrl);
           hlsInstance.attachMedia(video);
           hlsInstance.on(HlsClass.Events.MANIFEST_PARSED, onPlayReady);
+          hlsInstance.on(HlsClass.Events.FRAG_LOADED, (_, d) => {
+            if (d && d.stats) {
+              const b = d.stats.total;
+              const ms = Math.max(15, (d.stats.loading && d.stats.loading.end && d.stats.loading.start)
+                ? (d.stats.loading.end - d.stats.loading.start)
+                : (d.stats.tload - d.stats.tfirst));
+              if (b > 0 && ms > 0) {
+                const liveMbps = Number(((b * 8) / (ms * 1000)).toFixed(2));
+                if (liveMbps > 0.05 && liveMbps < 500) {
+                  _lastMeasuredSpeedMbps = _lastMeasuredSpeedMbps
+                    ? Number((_lastMeasuredSpeedMbps * 0.7 + liveMbps * 0.3).toFixed(2))
+                    : liveMbps;
+                  window._lastMeasuredSpeedMbps = _lastMeasuredSpeedMbps;
+                  _lastMeasuredTime = Date.now();
+                }
+              }
+            }
+          });
           let proxyTried = streamUrl.includes("/api/tv/stream");
           hlsInstance.on(HlsClass.Events.ERROR, (event, data) => {
             if (data.fatal) {

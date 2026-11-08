@@ -438,8 +438,9 @@ async def test_poster_proxy_and_catalog_api():
 @pytest.mark.asyncio
 async def test_webapp_watch_with_delivery_and_fallback():
     """/api/watch da foydalanuvchi chatiga rostdan ham yetkazish va fallback testlari."""
-    from unittest.mock import AsyncMock
+    from unittest.mock import AsyncMock, patch
     from services.web_server import set_bot_instance
+    from services.movie_service import movie_service
 
     mock_bot = AsyncMock()
     mock_bot.send_message = AsyncMock()
@@ -454,23 +455,27 @@ async def test_webapp_watch_with_delivery_and_fallback():
 
     try:
         # 1. user_id bilan yuborilganda va bot mavjud bo'lganda muvaffaqiyatli yetkazish
-        resp = await client.post("/api/watch", json={"code": "284", "part": 1, "user_id": 998877})
-        assert resp.status == 200
-        data = await resp.json()
-        assert data["ok"] is True
-        assert data["delivered"] is True
-        assert data["code"] == "284"
+        with patch.object(movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliver:
+            mock_deliver.return_value = True
+            resp = await client.post("/api/watch", json={"code": "284", "part": 1, "user_id": 998877})
+            assert resp.status == 200
+            data = await resp.json()
+            assert data["ok"] is True
+            assert data["delivered"] is True
+            assert data["code"] == "284"
 
         # 2. deliver_movie xatolik berganda yoki bot xabar yubora olmaganda open_bot qaytarish
         mock_bot.send_message.side_effect = Exception("Forbidden: bot was blocked by the user")
         mock_bot.send_photo.side_effect = Exception("Forbidden: bot was blocked by the user")
         mock_bot.send_video.side_effect = Exception("Forbidden: bot was blocked by the user")
-        resp_fail = await client.post("/api/watch", json={"code": "99999", "part": 1, "user_id": 998877})
-        assert resp_fail.status == 200
-        data_fail = await resp_fail.json()
-        assert data_fail["ok"] is False
-        assert data_fail["action"] == "open_bot"
-        assert "t.me" in data_fail["url"]
+        with patch.object(movie_service, "deliver_movie", new_callable=AsyncMock) as mock_deliver:
+            mock_deliver.return_value = False
+            resp_fail = await client.post("/api/watch", json={"code": "99999", "part": 1, "user_id": 998877})
+            assert resp_fail.status == 200
+            data_fail = await resp_fail.json()
+            assert data_fail["ok"] is False
+            assert data_fail["action"] == "open_bot"
+            assert "t.me" in data_fail["url"]
 
         # 3. bot_instance None bo'lganda va user_id bo'lganda open_bot qaytarish
         set_bot_instance(None)

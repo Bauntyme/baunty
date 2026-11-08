@@ -4433,6 +4433,43 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
         )
 
 
+_SPEED_PAYLOAD = os.urandom(524288)
+
+
+async def handle_tv_speed(request: web.Request) -> web.Response:
+    if request.method == "OPTIONS":
+        return web.Response(
+            status=200,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+    try:
+        raw_bytes = int(request.query.get("bytes", "65536"))
+        byte_count = max(1024, min(raw_bytes, 524288))
+    except (ValueError, TypeError):
+        byte_count = 65536
+
+    payload = _SPEED_PAYLOAD[:byte_count]
+    resp = web.Response(
+        body=payload,
+        content_type="application/octet-stream",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "X-Server-Time-Ms": str(int(time.time() * 1000)),
+            "Content-Length": str(byte_count),
+        }
+    )
+    resp._no_compression = True
+    return resp
+
+
 async def handle_tv_icon(request: web.Request) -> web.Response:
     """Telekanal logosi / ikonkasini tiniq vektor SVG sifatida uzatish (100% tezkor va barqaror)."""
     raw_id = request.match_info.get("id", "").replace(".svg", "").replace(".ico", "").replace(".png", "")
@@ -5387,6 +5424,11 @@ def create_web_app() -> web.Application:
         ("POST", "/api/music/{tail:.*}", handle_upstream_api_proxy),
         ("GET", "/api/tv/stream", handle_tv_stream_proxy),
         ("POST", "/api/tv/stream", handle_tv_stream_proxy),
+        ("GET", "/api/tv/speed", handle_tv_speed),
+        ("HEAD", "/api/tv/speed", handle_tv_speed),
+        ("POST", "/api/tv/speed", handle_tv_speed),
+        ("GET", "/api/speedtest", handle_tv_speed),
+        ("HEAD", "/api/speedtest", handle_tv_speed),
         ("GET", "/api/tv", handle_get_tv),
         ("POST", "/api/tv", handle_get_tv),
         ("GET", "/api/tv/icon/{id}", handle_tv_icon),
@@ -5540,6 +5582,9 @@ def create_web_app() -> web.Application:
     app.router.add_route("OPTIONS", "/webapp/api/tv/stream", handle_tv_stream_proxy)
     app.router.add_route("HEAD", "/api/tv/stream", handle_tv_stream_proxy)
     app.router.add_route("HEAD", "/webapp/api/tv/stream", handle_tv_stream_proxy)
+    app.router.add_route("OPTIONS", "/api/tv/speed", handle_tv_speed)
+    app.router.add_route("OPTIONS", "/webapp/api/tv/speed", handle_tv_speed)
+    app.router.add_route("OPTIONS", "/api/speedtest", handle_tv_speed)
 
     # Optimizatsiya qilingan va himoyalangan bundle marshrutlari
     app.router.add_get("/bundle.min.js", handle_bundle_js)

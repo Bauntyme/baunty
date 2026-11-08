@@ -1155,3 +1155,33 @@ body.tvr-on > main {
   padding: 4px 9px;
   border-radius: 999px;
 }
+
+.tvr-head {
+  border-bottom: 1px solid rgba(255, 117, 24, 0.22) !important;
+  box-shadow: 0 4px 20px rgba(255, 117, 24, 0.12) !important;
+}
+.tvr-primary-btn {
+  background: linear-gradient(135deg, #FF7518, #9D4EDD) !important;
+  box-shadow: 0 4px 18px rgba(255, 117, 24, 0.35) !important;
+  border: none !important;
+}
+.tvr-badge-live {
+  background: linear-gradient(135deg, #FF7518, #EF4444) !important;
+  box-shadow: 0 0 10px rgba(255, 117, 24, 0.45) !important;
+}
+.tvr-player-box {
+  border: 1px solid rgba(255, 117, 24, 0.25) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 117, 24, 0.18) !important;
+}
+.tvr-mic-btn.active {
+  background: linear-gradient(135deg, #FF7518, #9D4EDD) !important;
+  box-shadow: 0 0 18px rgba(255, 117, 24, 0.6) !important;
+}
+.tvr-qbtn:hover, .tvr-qbtn:active {
+  transform: scale(1.22) !important;
+  filter: drop-shadow(0 0 8px #FF7518) !important;
+}
+.tvr-room-pill {
+  border-color: rgba(255, 117, 24, 0.3) !important;
+  box-shadow: 0 0 12px rgba(255, 117, 24, 0.15) !important;
+}

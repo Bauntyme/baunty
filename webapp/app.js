@@ -573,7 +573,54 @@ function report(c, idx, ok, bad = false) {
   fetch("api/tv/report", {method: "POST", headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData},
     body: JSON.stringify({id: c.i, i: idx, ok, bad})}).catch(() => {});
 }
-// YouTube rasmiy jonli efiri → embed manzili (aks holda null)
+let _lastMeasuredSpeedMbps = null;
+let _lastMeasuredTime = 0;
+let _speedMeasuringPromise = null;
+
+async function getAccurateNetworkSpeed(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && _lastMeasuredSpeedMbps !== null && (now - _lastMeasuredTime < 15000)) {
+    return _lastMeasuredSpeedMbps;
+  }
+  if (_speedMeasuringPromise) return _speedMeasuringPromise;
+
+  _speedMeasuringPromise = (async () => {
+    try {
+      const testBytes = 65536;
+      const t0 = performance.now();
+      const resp = await fetch(`api/tv/speed?bytes=${testBytes}&_t=${now}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" }
+      });
+      if (resp.ok) {
+        const buf = await resp.arrayBuffer();
+        const t1 = performance.now();
+        const durationSec = Math.max(0.012, (t1 - t0) / 1000);
+        const actualBytes = buf.byteLength || testBytes;
+        const speedMbps = Number(((actualBytes * 8) / (durationSec * 1000000)).toFixed(2));
+        _lastMeasuredSpeedMbps = speedMbps;
+        _lastMeasuredTime = Date.now();
+        window._lastMeasuredSpeedMbps = speedMbps;
+        return speedMbps;
+      }
+    } catch (e) {}
+
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn && conn.downlink) {
+      _lastMeasuredSpeedMbps = Number(conn.downlink);
+      _lastMeasuredTime = Date.now();
+      window._lastMeasuredSpeedMbps = _lastMeasuredSpeedMbps;
+      return _lastMeasuredSpeedMbps;
+    }
+
+    return _lastMeasuredSpeedMbps || 3.5;
+  })().finally(() => {
+    _speedMeasuringPromise = null;
+  });
+
+  return _speedMeasuringPromise;
+}
+
 function ytEmbed(url) {
   let m = url.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|live\/|embed\/)|youtu\.be\/)([\w-]{11})/);
   if (m) return `https://www.youtube.com/embed/${m[1]}`;
@@ -587,7 +634,7 @@ function attempt(url) {
     const fin = (f, v) => { if (!done) { done = true; clearTimeout(tvTimer); vid.onplaying = vid.onerror = vid.oncanplay = vid.onloadeddata = vid.onloadedmetadata = vid.ontimeupdate = null; f(v); } };
     const _conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     const _downlink = (_conn && _conn.downlink) ? _conn.downlink : 10;
-    const _isSlow = Boolean(_conn && (_conn.saveData || _downlink < 2.0 || (_conn.effectiveType && /2g/.test(_conn.effectiveType))));
+    const _isSlow = Boolean((_conn && (_conn.saveData || _downlink < 2.0 || (_conn.effectiveType && /2g/.test(_conn.effectiveType)))) || (window._lastMeasuredSpeedMbps && window._lastMeasuredSpeedMbps < 2.0));
     if (_conn && (_downlink < 2.0 || /2g/.test(_conn.effectiveType || "")) && !window._tvSpeedWarned) {
       window._tvSpeedWarned = true;
       try { setTimeout(() => { toast("⚠️ Internet tezligi 2 Mbit/s dan past. 1440p QHD tiniq ko'rish uchun 2+ Mbit/s tavsiya etiladi.", 3200); }, 600); } catch (e) {}
@@ -750,7 +797,7 @@ function attempt(url) {
                 }
               }
               hls.autoLevelCapping = -1;
-              hls.startLevel = _isSlow ? slowIdx : slowIdx;
+              hls.startLevel = _isSlow ? slowIdx : targetIdx;
               hls.currentLevel = -1; // Adaptive, never lock!
               hls.minAutoLevel = 0;
             }
@@ -787,6 +834,21 @@ let tvN = 0;
 async function playTV(c, from = 0) {
   const my = ++tvTry;
   stopVideo(); tvState("load", "Kanal ochilmoqda…"); $("unmute").hidden = true;
+
+  const currentSpeed = await getAccurateNetworkSpeed();
+  if (currentSpeed < 1.0) {
+    stopVideo();
+    tvState("err", `Internet tezligi juda past (${currentSpeed} Mbps). Kamida 1 Mbps talab qilinadi.`);
+    toast(`⚠️ Internet tezligi juda past (${currentSpeed} Mbps). Kamida 1 Mbps internet talab qilinadi.`, 4200);
+    const verrt = $("verrt");
+    if (verrt) verrt.textContent = `Internet tezligi juda past (${currentSpeed} Mbps)`;
+    const verrSub = $("verr") ? $("verr").querySelector("span") : null;
+    if (verrSub) verrSub.textContent = "Jonli efir barqaror ishlashi uchun kamida 1.0 Mbps internet talab qilinadi. Qayta tekshiring.";
+    const vretry = $("vretry");
+    if (vretry) vretry.onclick = () => { getAccurateNetworkSpeed(true).then(() => playTV(c, 0)); };
+    return;
+  }
+
   const streamList = Array.isArray(c.u) && c.u.length ? c.u : [[0, c.stream || c.u]];
   for (let n = from; n < streamList.length; n++) {
     const [idx, url] = streamList[n];

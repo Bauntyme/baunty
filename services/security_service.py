@@ -1473,10 +1473,11 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
                     _clean_sensitive_headers(resp_304, request=request)
                     return resp_304
 
-    if hasattr(resp, "enable_compression") and resp.status not in (204, 304):
-        if getattr(resp, "body", None) is not None or isinstance(resp, web.FileResponse):
-            try:
-                resp.enable_compression()
-            except Exception:
-                pass
+    if hasattr(resp, "enable_compression") and resp.status not in (204, 304) and not getattr(resp, "_no_compression", False):
+        if path not in ("/api/tv/speed", "/webapp/api/tv/speed", "/api/speedtest") and "tv/speed" not in path:
+            if getattr(resp, "body", None) is not None or isinstance(resp, web.FileResponse):
+                try:
+                    resp.enable_compression()
+                except Exception:
+                    pass
     return resp
