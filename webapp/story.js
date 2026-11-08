@@ -546,7 +546,7 @@ function bindViewer(el) {
 function share() {
   const pr = prof;
   const sp = `st_${pr.p}_${pr.u.replace(/\./g, "-")}`;
-  const link = botName ? `https://t.me/${botName}?startapp=${sp}` : (pr.p === "ig" ? `https://instagram.com/${pr.u}` : `https://t.me/${pr.u}`);
+  const link = botName ? `https://t.me/${botName}?start=${sp}` : (pr.p === "ig" ? `https://instagram.com/${pr.u}` : `https://t.me/${pr.u}`);
   const text = `👻 @${pr.u} story'larini anonim ko'ring`;
   try { tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`); }
   catch (e) { try { navigator.clipboard.writeText(link); toast("Havola nusxalandi"); } catch (e2) {} }

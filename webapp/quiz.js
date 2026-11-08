@@ -486,7 +486,7 @@ function onClick(e) {
   else if (act === "qroom") go({v: "setup", id: v.z.id, title: v.z.t});
   else if (act === "qsolo") soloStart("", v.z.id);
   else if (act === "qedit") go({v: "edit", f: {id: v.z.id, t: v.z.t, tp: v.z.tp, vis: v.z.vis, qs: v.z.qs.map((q) => ({t: q.t, o: q.o.concat(["", "", ""]).slice(0, 4), c: q.c, s: q.s}))}});
-  else if (act === "qshare") share(`🧠 «${v.z.t}» — ${v.z.n} savolli viktorina. O'ynab ko'ring!`, bot ? `https://t.me/${bot}?startapp=qz${v.z.id}` : "");
+  else if (act === "qshare") share(`🧠 «${v.z.t}» — ${v.z.n} savolli viktorina. O'ynab ko'ring!`, bot ? `https://t.me/${bot}?start=qz${v.z.id}` : "");
   else if (act === "qdel") { if (confirm("Viktorina o'chirilsinmi?")) api("api/quiz/delete", {id: v.z.id}).then((r) => { if (r.ok) { toast("O'chirildi"); stack.length = 1; render(); refresh(); } }); }
   else if (act === "vis") { readEdit(); v.f.vis = v.f.vis === "public" ? "link" : "public"; haptic(); render(); }
   else if (act === "addq") { readEdit(); v.f.qs.push(blankQ()); haptic(); render(); setTimeout(() => { const all = document.querySelectorAll("[data-qt]"); if (all.length) all[all.length - 1].focus(); }, 50); }

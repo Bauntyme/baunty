@@ -1251,7 +1251,7 @@ async function adminDelete(id) {
 }
 function shareBook(id) {
   const b = books.get(id); if (!b) return;
-  const link = botName ? `https://t.me/${botName}?startapp=books_${id}` : location.href;
+  const link = botName ? `https://t.me/${botName}?start=books_${id}` : location.href;
   const text = `📚 «${b.t}»${b.a ? " — " + shortA(b.a) : ""}. Shu yerda bepul o'qing:`;
   if (inTg) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`);
   else { try { navigator.clipboard.writeText(link); toast("🔗 Havola nusxalandi"); } catch (e) {} }

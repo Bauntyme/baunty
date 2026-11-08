@@ -35,12 +35,12 @@ def get_tvroom_keyboard(code: str = "") -> InlineKeyboardMarkup:
         webapp_url = f"{base_url}?m=tvroom&room={norm}"
         btn_text = f"📺 Tv Xonaga Kirish (#{code})"
         share_text = f"Do'stlar, keling birga Bauntys «Tv Xona»da #{code} xonasida 4K TV tomosha qilamiz! 🍿📺"
-        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?startapp=tvroom_{code}&text={urllib.parse.quote(share_text)}"
+        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=tvroom_{code}&text={urllib.parse.quote(share_text)}"
     else:
         webapp_url = f"{base_url}?m=tvroom"
         btn_text = "📺 Tv Xonaga Kirish"
         share_text = "Do'stlar, keling birga Bauntys «Tv Xona»da 4K telekanal tomosha qilamiz! 🍿📺"
-        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?startapp=tvroom&text={urllib.parse.quote(share_text)}"
+        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=tvroom&text={urllib.parse.quote(share_text)}"
 
     create_url = f"{base_url}?m=tvroom&action=create"
 

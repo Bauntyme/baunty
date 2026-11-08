@@ -824,7 +824,7 @@
       haptic("ok");
       const code = currentRoom.code || currentRoom.id.replace("tv_", "");
       const botName = (window.BOT_USERNAME || "BauntyCinemabot").replace("@", "");
-      const appLink = `https://t.me/${botName}?startapp=tvroom_${code}`;
+      const appLink = `https://t.me/${botName}?start=tvroom_${code}`;
       const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(appLink)}&text=${encodeURIComponent("📺 Do'stlarim, Bauntys Tv Xonada birga Zo'r TV 4K tomosha qilamiz! Kirish uchun bosing 👇")}`;
       try {
         if (inTg && tg.openTelegramLink) {
@@ -1288,7 +1288,7 @@
             $("tvr-btn-invite").onclick = () => {
               const code = currentRoom.code || currentRoom.id.replace("tv_", "");
               const botName = (window.BOT_USERNAME || "BauntyCinemabot").replace("@", "");
-              const appLink = `https://t.me/${botName}?startapp=tvroom_${code}`;
+              const appLink = `https://t.me/${botName}?start=tvroom_${code}`;
               const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(appLink)}&text=${encodeURIComponent("📺 Do'stlarim, Bauntys Tv Xonada birga Zo'r TV 4K tomosha qilamiz!")}`;
               if (inTg && tg.openTelegramLink) tg.openTelegramLink(shareUrl);
               else window.open(shareUrl, "_blank");

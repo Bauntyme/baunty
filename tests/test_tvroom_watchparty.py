@@ -522,6 +522,7 @@ async def test_webrtc_full_mesh_signaling_exchange():
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
 async def test_cmd_start_deep_link_routing_to_tvroom():
     """cmd_start orqali /start tvroom_1234 va /start tv_5678 chaqirilganda to'g'ri ishlashi."""
     from handlers.start import cmd_start
@@ -534,13 +535,22 @@ async def test_cmd_start_deep_link_routing_to_tvroom():
     state = MagicMock()
     state.clear = AsyncMock()
 
-    with patch("handlers.tvroom.handle_tvroom_start", new_callable=AsyncMock) as mock_handle:
+    dummy_session = AsyncMock()
+    dummy_session.__aenter__.return_value = dummy_session
+    dummy_session.__aexit__.return_value = None
+    mock_user = MagicMock(is_banned=False, language="uz")
+
+    with patch("handlers.start.get_session", return_value=dummy_session), \
+         patch("database.crud.get_or_create_user", new_callable=AsyncMock, return_value=(mock_user, False)), \
+         patch("handlers.tvroom.handle_tvroom_start", new_callable=AsyncMock) as mock_handle:
         await cmd_start(msg, state)
         mock_handle.assert_called_once_with(msg, "tvroom_1234")
 
     # Mock tv_5678
     msg.text = "/start tv_5678"
-    with patch("handlers.tvroom.handle_tvroom_start", new_callable=AsyncMock) as mock_handle2:
+    with patch("handlers.start.get_session", return_value=dummy_session), \
+         patch("database.crud.get_or_create_user", new_callable=AsyncMock, return_value=(mock_user, False)), \
+         patch("handlers.tvroom.handle_tvroom_start", new_callable=AsyncMock) as mock_handle2:
         await cmd_start(msg, state)
         mock_handle2.assert_called_once_with(msg, "tv_5678")
 
