@@ -1072,7 +1072,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
 .hw-spider-silk{display:block;width:1px;height:28px;background:rgba(255,255,255,.32);margin:0 auto}
 .hw-spider-body{display:block;margin:0 auto;filter:drop-shadow(0 0 5px rgba(255,117,24,.8))}
 
-.play, .vbtn, .chip.on, .seg button.on, .tvr-primary-btn, .tvr-btn-create, .tvr-join-btn, .vbox-fs-btn, .tvr-btn-share, .tvr-send-btn, .btn-primary, .hb-lang-btn, .zk-lang-btn{
+.play, .vbtn, .chip.on, .seg button.on, .tvr-primary-btn, .tvr-btn-create, .tvr-join-btn, .vbox-fs-btn, .tvr-btn-share, .tvr-send-btn, .tvr-btn-invite, .btn-primary, .hb-lang-btn, .zk-lang-btn{
   background:linear-gradient(135deg,#FF7518 0%,#9D4EDD 30%,#FF5400 65%,#39FF14 85%,#FF7518 100%)!important;
   background-size:260% 260%!important;
   animation:hwBtnFlameGrad 4s ease infinite,hwBtnGlowPulse 3s ease-in-out infinite!important;
@@ -1081,7 +1081,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   overflow:hidden!important;
   text-shadow:0 1px 2px rgba(0,0,0,.6)!important;
 }
-.play::after, .vbtn::after, .chip.on::after, .seg button.on::after, .tvr-primary-btn::after, .tvr-join-btn::after{
+.play::after, .vbtn::after, .chip.on::after, .seg button.on::after, .tvr-primary-btn::after, .tvr-join-btn::after, .tvr-btn-share::after, .tvr-send-btn::after, .tvr-btn-invite::after, .btn-primary::after, .hb-lang-btn::after, .zk-lang-btn::after{
   content:"";
   position:absolute;
   inset:-20% -50%;
@@ -1090,7 +1090,7 @@ html.zk-lite .pst, body.zk-lite .pst, body:not(.zk) .pst {
   animation:hwSheenSweep 4.5s ease-in-out infinite;
   pointer-events:none;
 }
-.play:active, .vbtn:active, .tvr-primary-btn:active, .chip.on:active, .seg button.on:active{
+.play:active, .vbtn:active, .tvr-primary-btn:active, .chip.on:active, .seg button.on:active, .tvr-btn-share:active, .tvr-send-btn:active, .tvr-btn-invite:active, .btn-primary:active, .hb-lang-btn:active, .zk-lang-btn:active{
   transform:scale(.96)!important;
   filter:brightness(1.2)!important;
 }
