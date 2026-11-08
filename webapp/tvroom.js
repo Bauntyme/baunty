@@ -82,7 +82,6 @@
     }
   }
 
-  // HLS kutubxonasini yuklash
   function loadHls() {
     if (window.Hls) return Promise.resolve(window.Hls);
     if (hlsLibPromise) return hlsLibPromise;

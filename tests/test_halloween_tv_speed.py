@@ -94,13 +94,23 @@ class TestTVSpeedAndHalloween(AioHTTPTestCase):
         assert "@keyframes hwBatFly1" in zk_css
         assert "@keyframes hwBatFly2" in zk_css
         assert "@keyframes hwPumpkinPulse" in zk_css
+        assert "@keyframes hwZombieWalk" in zk_css
+        assert "@keyframes hwZombieClaw" in zk_css
+        assert "@keyframes hwBtnFlameGrad" in zk_css
         assert ".hw-mist-layer" in zk_css
         assert ".hw-bats-opening" in zk_css
         assert ".hw-pumpkin-glow" in zk_css
+        assert ".hw-zombie-walker" in zk_css
+        assert ".hw-zombie-hand" in zk_css
+        assert ".hw-ghost" in zk_css
+        assert ".hw-spiderweb" in zk_css
 
         assert "hw-mist-layer" in index_html
         assert "hw-bats-opening" in index_html
         assert "hw-pumpkin-glow" in index_html
+        assert "hw-zombie-walker" in index_html
+        assert "hw-zombie-hand" in index_html
+        assert "hw-ghost" in index_html
         assert "Bauntys Halloween" in index_html
 
         assert ".tvr-head" in tvroom_css and ".tvr-head" in tv_room_css

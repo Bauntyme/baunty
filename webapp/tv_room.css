@@ -1160,10 +1160,23 @@ body.tvr-on > main {
   border-bottom: 1px solid rgba(255, 117, 24, 0.22) !important;
   box-shadow: 0 4px 20px rgba(255, 117, 24, 0.12) !important;
 }
-.tvr-primary-btn {
-  background: linear-gradient(135deg, #FF7518, #9D4EDD) !important;
+.tvr-primary-btn, .tvr-btn-share, .tvr-send-btn {
+  background: linear-gradient(135deg, #FF7518 0%, #9D4EDD 30%, #FF5400 65%, #39FF14 85%, #FF7518 100%) !important;
+  background-size: 260% 260% !important;
+  animation: hwBtnFlameGrad 4s ease infinite, hwBtnGlowPulse 3s ease-in-out infinite !important;
   box-shadow: 0 4px 18px rgba(255, 117, 24, 0.35) !important;
   border: none !important;
+  color: #fff !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+.tvr-ch-item.active, .tvr-ch-item:hover {
+  border-color: #FF7518 !important;
+  box-shadow: 0 0 14px rgba(255, 117, 24, 0.45), inset 0 0 8px rgba(157, 78, 221, 0.25) !important;
+}
+.tvr-room-item:hover, .tvr-room-item:active {
+  border-color: #FF7518 !important;
+  box-shadow: 0 4px 18px rgba(255, 117, 24, 0.3) !important;
 }
 .tvr-badge-live {
   background: linear-gradient(135deg, #FF7518, #EF4444) !important;
