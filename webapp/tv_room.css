@@ -1156,19 +1156,56 @@ body.tvr-on > main {
   border-radius: 999px;
 }
 
+@keyframes hwBtnFlameGrad {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes hwBtnGlowPulse {
+  0%, 100% {
+    box-shadow: 0 4px 18px rgba(255, 117, 24, 0.5), 0 0 12px rgba(255, 84, 0, 0.35), inset 0 0 10px rgba(157, 78, 221, 0.35);
+    border: 1px solid rgba(255, 117, 24, 0.85);
+  }
+  50% {
+    box-shadow: 0 4px 26px rgba(157, 78, 221, 0.6), 0 0 16px rgba(57, 255, 20, 0.45), inset 0 0 12px rgba(255, 117, 24, 0.4);
+    border: 1px solid rgba(57, 255, 20, 0.85);
+  }
+}
+@keyframes hwSheenSweep {
+  0% { transform: translateX(-180%) skewX(-25deg); }
+  30%, 100% { transform: translateX(280%) skewX(-25deg); }
+}
+
 .tvr-head {
   border-bottom: 1px solid rgba(255, 117, 24, 0.22) !important;
   box-shadow: 0 4px 20px rgba(255, 117, 24, 0.12) !important;
 }
-.tvr-primary-btn, .tvr-btn-share, .tvr-send-btn {
-  background: linear-gradient(135deg, #FF7518 0%, #9D4EDD 30%, #FF5400 65%, #39FF14 85%, #FF7518 100%) !important;
-  background-size: 260% 260% !important;
-  animation: hwBtnFlameGrad 4s ease infinite, hwBtnGlowPulse 3s ease-in-out infinite !important;
-  box-shadow: 0 4px 18px rgba(255, 117, 24, 0.35) !important;
+.tvr-primary-btn, .tvr-btn-share, .tvr-send-btn, .tvr-btn-create, .tvr-join-btn, .tvr-btn-invite, .tvr-pbtn, .tvr-qbtn, .tvr-secondary-btn, .tvr-btn-guide, .tvr-btn-chswitch {
+  background: linear-gradient(135deg, #FF1E00 0%, #FF7518 20%, #9D4EDD 42%, #FF5400 65%, #39FF14 85%, #FF1E00 100%) !important;
+  background-size: 300% 300% !important;
+  animation: hwBtnFlameGrad 3.5s ease infinite, hwBtnGlowPulse 2.8s ease-in-out infinite !important;
+  box-shadow: 0 4px 18px rgba(255, 117, 24, 0.45) !important;
   border: none !important;
   color: #fff !important;
   position: relative !important;
   overflow: hidden !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7) !important;
+}
+.tvr-primary-btn::after, .tvr-btn-share::after, .tvr-send-btn::after, .tvr-btn-create::after, .tvr-join-btn::after, .tvr-btn-invite::after, .tvr-pbtn::after, .tvr-qbtn::after, .tvr-secondary-btn::after, .tvr-btn-guide::after, .tvr-btn-chswitch::after {
+  content: "";
+  position: absolute;
+  inset: -20% -50%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  transform: translateX(-180%) skewX(-25deg);
+  animation: hwSheenSweep 4s ease-in-out infinite;
+  pointer-events: none;
+}
+.tvr-primary-btn:hover, .tvr-btn-share:hover, .tvr-send-btn:hover, .tvr-btn-create:hover, .tvr-join-btn:hover, .tvr-btn-invite:hover, .tvr-pbtn:hover, .tvr-qbtn:hover, .tvr-secondary-btn:hover, .tvr-btn-guide:hover, .tvr-btn-chswitch:hover {
+  filter: brightness(1.15) contrast(1.08) !important;
+}
+.tvr-primary-btn:active, .tvr-btn-share:active, .tvr-send-btn:active, .tvr-btn-create:active, .tvr-join-btn:active, .tvr-btn-invite:active, .tvr-pbtn:active, .tvr-qbtn:active, .tvr-secondary-btn:active, .tvr-btn-guide:active, .tvr-btn-chswitch:active {
+  transform: scale(0.96) !important;
+  filter: brightness(1.25) contrast(1.15) !important;
 }
 .tvr-ch-item.active, .tvr-ch-item:hover {
   border-color: #FF7518 !important;

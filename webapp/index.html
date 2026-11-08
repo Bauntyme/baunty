@@ -122,11 +122,13 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 img{display:block;image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
 
 /* ---------- sarlavha ---------- */
-/* Splash paytida header va sahifa kontenti 100% yashiriladi */
-#zksplash{position:fixed!important;inset:0!important;z-index:999999!important;background:#070B1F!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:30px!important;overflow:hidden!important}
-#zksplash.out{opacity:0!important;transform:scale(1.08)!important;pointer-events:none!important;transition:opacity .55s ease,transform .55s ease!important}
+#zksplash{position:fixed!important;inset:0!important;z-index:999999!important;background:radial-gradient(circle at 50% 45%, #1f0a35 0%, #0d0418 60%, #04010a 100%)!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:30px!important;overflow:hidden!important}
+#zksplash.out{opacity:0!important;transform:scale(1.12)!important;filter:blur(10px)!important;pointer-events:none!important;transition:opacity .65s cubic-bezier(.4,0,.2,1),transform .65s cubic-bezier(.4,0,.2,1),filter .65s ease!important}
 body.splashing > .top, body.splashing > main,
 body:has(#zksplash:not(.out)) > .top, body:has(#zksplash:not(.out)) > main{display:none!important}
+@keyframes hwPageEntrance{0%{opacity:0;transform:scale(.97) translateY(14px);filter:blur(8px)}100%{opacity:1;transform:scale(1) translateY(0);filter:blur(0)}}
+body:not(.splashing) > .top, body:not(.splashing) > main,
+body.zk:not(.splashing) > .top, body.zk:not(.splashing) > main{animation:hwPageEntrance .6s cubic-bezier(.16,1,.3,1) backwards!important;will-change:transform,opacity,filter;backface-visibility:hidden}
 .top{position:sticky;top:0;z-index:999;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);background:var(--bg);padding:12px 16px 8px;
   box-shadow:0 1px 0 var(--sep);flex-shrink:0!important;width:100%!important;box-sizing:border-box!important;padding-top:max(12px,env(safe-area-inset-top,12px))!important}
 body:has(#det.open) > .top, body:has(#tvp.open) > .top,
@@ -395,34 +397,47 @@ body.seg4 .seg button{padding:7px 12px;font-size:14px}
 .hb-mode button.on{background:#F2B84B;color:#2A1500!important}
 </style>
 </head>
-<body data-zkm="kino" class="splashing">
-<div id="zksplash" aria-hidden="true"><div class="hw-mist-layer" aria-hidden="true"></div><div class="hw-bats-opening" aria-hidden="true"><span class="hw-bat b1">🦇</span><span class="hw-bat b2">🦇</span><span class="hw-bat b3">🦇</span></div><i class="zs-burst"></i><div class="zs-orb"><i class="zs-chip" style="--r:0deg;--c:#C8344C"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></i><i class="zs-chip" style="--r:72deg;--c:#1FA8AE"><svg viewBox="0 0 24 24"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg></i><i class="zs-chip" style="--r:144deg;--c:#2440C8"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-3v14h3z"/></svg></i><i class="zs-chip" style="--r:216deg;--c:#FF7A1A"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4zm1 2v2H5v1h2v2h1v-2h2v-1H8v-2z"/></svg></i><i class="zs-chip" style="--r:288deg;--c:#8B5CFF"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zM9 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></i></div><div class="zs-logo"><img src="logo.webp" alt="" decoding="async"><i class="zs-shine zk-splash-shine"></i><div class="zk-splash-rings" aria-hidden="true"><svg viewBox="-60 -60 120 120"><g><rect x="-36" y="-36" width="72" height="72" pathLength="1"/><rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/></g></svg></div><div class="hw-pumpkin-glow" aria-hidden="true">🎃</div></div><small>🎃 Bauntys Halloween · Jonli TV, Kinolar va Musiqa 🦇</small></div>
+<body class="zk splashing" data-zkm="kino">
+<div id="zksplash" aria-hidden="true"><div class="hw-mist-layer" aria-hidden="true"></div><div class="hw-bats-opening" aria-hidden="true"><span class="hw-bat b1">🦇</span><span class="hw-bat b2">🦇</span><span class="hw-bat b3">🦇</span><span class="hw-bat b4">🦇</span><span class="hw-bat b5">🦇</span></div><i class="zs-burst"></i><div class="zs-orb"><i class="zs-chip" style="--r:0deg;--c:#C8344C"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></i><i class="zs-chip" style="--r:72deg;--c:#1FA8AE"><svg viewBox="0 0 24 24"><path d="M12 3v10.6A4 4 0 1 0 14 17V7h4V3z"/></svg></i><i class="zs-chip" style="--r:144deg;--c:#2440C8"><svg viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-3v14h3z"/></svg></i><i class="zs-chip" style="--r:216deg;--c:#FF7A1A"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v1a3 3 0 0 1-5.4 1.8L15 13H9l-1.6 1.8A3 3 0 0 1 2 13v-1a4 4 0 0 1 4-4zm1 2v2H5v1h2v2h1v-2h2v-1H8v-2z"/></svg></i><i class="zs-chip" style="--r:288deg;--c:#8B5CFF"><svg viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8v12l3-2 2.5 2 2.5-2 2.5 2 2.5-2 3 2V10a8 8 0 0 0-8-8zM9 9a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm6 0a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z"/></svg></i></div><div class="zs-logo"><img src="logo.webp" alt="" decoding="async"><i class="zs-shine zk-splash-shine"></i><div class="zk-splash-rings" aria-hidden="true"><svg viewBox="-60 -60 120 120"><g><rect x="-36" y="-36" width="72" height="72" pathLength="1"/><rect x="-36" y="-36" width="72" height="72" pathLength="1" transform="rotate(45)"/></g></svg></div><div class="hw-pumpkin-glow" aria-hidden="true">🎃</div></div><small>🎃 Bauntys Halloween · Jonli TV, Kinolar va Musiqa 🦇</small></div>
 <div class="hw-ambient-bg" aria-hidden="true">
+  <div class="hw-lightning-flash" aria-hidden="true"></div>
+  <div class="hw-harvest-moon" aria-hidden="true"><div class="hw-moon-clouds"></div></div>
   <div class="hw-mist-layer"></div>
-  <svg class="hw-zombie-walker" viewBox="0 0 100 130">
-    <circle cx="50" cy="22" r="13" fill="#150f24" />
-    <circle cx="45" cy="20" r="2.2" fill="#39FF14" />
-    <circle cx="53" cy="20" r="2.2" fill="#39FF14" />
-    <path d="M42 35 L28 47 L12 51 L10 47 L24 43 L37 33 Z" fill="#150f24" />
-    <path d="M58 35 L72 47 L88 50 L90 46 L76 43 L63 33 Z" fill="#150f24" />
-    <path d="M37 33 L63 33 L67 74 L33 74 Z" fill="#1b122c" />
-    <path d="M33 74 L29 114 L19 115 L23 74 Z" fill="#110a1c" />
-    <path d="M53 74 L57 113 L67 115 L63 74 Z" fill="#110a1c" />
+  <div class="hw-fog-drift"></div>
+  <div class="hw-embers" aria-hidden="true">
+    <span class="hw-ember" style="left:8%;--ed:7.5s;--es:0.2s;--ex:25px;width:3px;height:3px;background:#ff7518;"></span>
+    <span class="hw-ember" style="left:18%;--ed:9.2s;--es:1.4s;--ex:-35px;width:4px;height:4px;background:#ff5400;"></span>
+    <span class="hw-ember" style="left:32%;--ed:8.1s;--es:2.6s;--ex:15px;width:2px;height:2px;background:#ffd166;"></span>
+    <span class="hw-ember" style="left:48%;--ed:6.8s;--es:0.8s;--ex:-20px;width:3px;height:3px;background:#ff7518;"></span>
+    <span class="hw-ember" style="left:62%;--ed:10.5s;--es:3.2s;--ex:40px;width:4px;height:4px;background:#ff3c00;"></span>
+    <span class="hw-ember" style="left:74%;--ed:8.7s;--es:1.8s;--ex:-15px;width:2px;height:2px;background:#9d4edd;"></span>
+    <span class="hw-ember" style="left:86%;--ed:7.2s;--es:2.1s;--ex:30px;width:3px;height:3px;background:#ff7518;"></span>
+    <span class="hw-ember" style="left:93%;--ed:9.8s;--es:0.5s;--ex:-25px;width:3px;height:3px;background:#ff5400;"></span>
+  </div>
+  <svg class="hw-ghost" viewBox="0 0 100 120" fill="none">
+    <defs>
+      <linearGradient id="ectoplasm" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.85)"/>
+        <stop offset="35%" stop-color="rgba(180,120,255,0.55)"/>
+        <stop offset="75%" stop-color="rgba(57,255,20,0.3)"/>
+        <stop offset="100%" stop-color="rgba(14,7,26,0)"/>
+      </linearGradient>
+    </defs>
+    <path d="M50 12 C30 12 18 28 18 52 C18 78 22 92 27 106 C32 98 38 108 44 98 C50 108 56 96 62 108 C68 98 73 106 78 96 C82 86 82 74 82 52 C82 28 70 12 50 12 Z" fill="url(#ectoplasm)" stroke="rgba(255,117,24,0.4)" stroke-width="1.2" />
+    <ellipse cx="38" cy="45" rx="4.5" ry="7" fill="#39FF14" />
+    <ellipse cx="62" cy="45" rx="4.5" ry="7" fill="#39FF14" />
+    <circle cx="39" cy="44" r="1.8" fill="#070312" />
+    <circle cx="61" cy="44" r="1.8" fill="#070312" />
+    <ellipse cx="50" cy="64" rx="6" ry="9" fill="#0a0416" />
   </svg>
-  <svg class="hw-ghost" viewBox="0 0 90 100">
-    <path d="M45 10 C25 10 15 28 15 50 C15 72 20 85 24 90 C28 95 32 85 36 90 C40 95 44 85 48 90 C52 95 56 85 60 90 C64 95 68 85 72 90 C76 85 75 72 75 50 C75 28 65 10 45 10 Z" fill="rgba(157,78,221,0.22)" stroke="rgba(255,117,24,0.35)" stroke-width="1.5" />
-    <ellipse cx="36" cy="42" rx="4" ry="6" fill="#39FF14" />
-    <ellipse cx="54" cy="42" rx="4" ry="6" fill="#39FF14" />
-    <ellipse cx="45" cy="58" rx="5" ry="7" fill="#0d0517" />
-  </svg>
+  <div class="hw-gothic-horizon">
+    <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+      <path d="M0,120 L0,95 L30,95 L40,75 L45,95 L75,95 L85,60 L90,60 L95,40 L100,60 L105,60 L115,95 L160,95 L170,80 L180,95 L240,95 L255,50 L260,30 L265,50 L280,95 L340,95 L350,70 L360,95 L420,95 L435,45 L440,20 L445,45 L460,95 L520,95 L530,75 L540,95 L600,95 L615,55 L620,35 L625,55 L640,95 L710,95 L725,40 L730,15 L735,40 L750,95 L820,95 L835,65 L850,95 L910,95 L925,48 L930,25 L935,48 L950,95 L1020,95 L1035,70 L1050,95 L1120,95 L1135,35 L1140,10 L1145,35 L1160,95 L1200,95 L1200,120 Z"/>
+    </svg>
+  </div>
+  <svg class="hw-zombie-walker" viewBox="0 0 100 130" style="display:none!important;" aria-hidden="true"></svg>
 </div>
-<svg class="hw-zombie-hand" viewBox="0 0 80 100" aria-hidden="true">
-  <path d="M30 100 L32 65 L26 50 L20 46 L22 42 L30 46 L34 32 L40 32 L39 46 L45 30 L51 31 L48 47 L56 36 L62 38 L54 52 L50 65 L52 100 Z" fill="#180f28" />
-  <circle cx="21" cy="44" r="2.2" fill="#39FF14" />
-  <circle cx="37" cy="32" r="2.2" fill="#39FF14" />
-  <circle cx="48" cy="30" r="2.2" fill="#39FF14" />
-  <circle cx="59" cy="37" r="2.2" fill="#39FF14" />
-</svg>
+<svg class="hw-zombie-hand" viewBox="0 0 80 100" style="display:none!important;" aria-hidden="true"></svg>
 <div class="hw-spider-corner" aria-hidden="true">
   <svg class="hw-spiderweb" viewBox="0 0 100 100" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.2">
     <path d="M0 0 L100 0 M0 0 L0 100 M0 0 L100 100 M0 0 L35 100 M0 0 L70 100 M0 0 L100 35 M0 0 L100 70" />
@@ -444,7 +459,7 @@ body.seg4 .seg button{padding:7px 12px;font-size:14px}
 </div>
 <script>(function(){var k=function(){var e=document.getElementById("zksplash");if(e){e.classList.add("out");setTimeout(function(){e.remove();},650);}document.body.classList.remove("splashing");};try{if(new URLSearchParams(location.search).has("nosplash") || window.ZK_LITE)k();}catch(e){}
 
-setTimeout(k,1200);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,300);});})();</script>
+setTimeout(k,1500);try{document.getElementById("zksplash").addEventListener("click",k);}catch(e){}window.addEventListener("error",function(){setTimeout(k,300);});})();</script>
 <header class="top"><div class="zk-brand-bar" style="display:none" aria-hidden="true"><div class="zk-brand-profile"><div class="zk-brand-avatar-wrap"><img src="logo.svg" alt="Bauntys"></div><div class="zk-brand-name">Bauntys PRO</div></div></div>
   <div class="brand">
     <div><div class="seg" id="seg"><button class="on" data-m="kino">🎬 Kinolar</button><button data-m="music">🎧 Musiqa</button><button data-m="books" data-tab="books" id="tab-books">📚 Kitoblar</button><button data-m="games">🧸 O'yinlar</button><button data-m="story">👻 Story</button><button data-m="docs">📄 Hujjatlar</button><button data-m="quiz">🧠 Viktorina</button><button data-m="prava">🚗 Prava</button><button data-m="food">🍲 Taomlar</button><button data-m="fx">💱 Kurs</button><button data-m="mafia">🕵️ Mafia</button><button data-m="tvroom">📺 Tv Xona</button><button data-m="rasxod">💰 Rasxod</button><button data-m="kal">🥗 Kaloriya</button><button data-m="tv">📺 TV</button><div class="zk-ind" id="zkInd"></div></div>
