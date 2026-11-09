@@ -145,3 +145,101 @@ def test_bundle_frontend_compiled_and_has_stream_proxy():
     assert len(css_text) > 200000
     assert "/api/tv/stream" in js_text
     assert "manifestLoadingTimeOut: 5000" in js_text
+
+
+@pytest.mark.asyncio
+async def test_tv_proxy_connection_pool_tuning():
+    """Proxy sessiyasi ulanishlar puli (limit=1000, per_host=100) va qisqa timeoutlar (3s/15s) tekshiruvi."""
+    from services.web_server import _get_tv_proxy_session
+    session = await _get_tv_proxy_session()
+    assert session is not None
+    assert session.connector.limit == 1000
+    assert session.connector.limit_per_host == 100
+    assert session.connector._keepalive_timeout == 30
+    assert session.timeout.connect == 3.0
+    assert session.timeout.sock_read == 15.0
+
+
+@pytest.mark.asyncio
+async def test_tv_report_auto_failover_and_cache_invalidation():
+    """Ketma-ket 3 ta nosozlik hisoboti yuborilganda kanal zaxiraga o'tishi va kesh tozalanishi."""
+    from services.tv_data import CHANNELS_LIST
+    from services.web_server import _TV_ALL_CACHE, _TV_STREAM_FAILURES
+
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    try:
+        # Zo'r TV (id=4)
+        zor_ch = next(c for c in CHANNELS_LIST if c.get("id") == 4 or c.get("i") == 4)
+        orig_stream = zor_ch["stream"]
+        backups = zor_ch.get("u", [])
+        assert len(backups) >= 2
+
+        # 1. TV sahifasini chaqirib keshni to'ldirish
+        r_tv = await client.get("/api/tv")
+        assert r_tv.status == 200
+        assert _TV_ALL_CACHE.get("bytes") is not None
+
+        # 2. 3 marta xatolik hisoboti yuborish
+        for _ in range(3):
+            r_rep = await client.post("/api/tv/report", json={"id": 4, "ok": False, "bad": True})
+            assert r_rep.status == 200
+            data = await r_rep.json()
+            assert data.get("ok") is True
+
+        # 3. Zaxira oqim birlamchi oqimga aylanishi va kesh tozalanishi
+        assert zor_ch["stream"] != orig_stream
+        assert zor_ch["stream"] == backups[1][1]
+        assert _TV_ALL_CACHE.get("bytes") is None
+
+        # 4. Muvaffaqiyatli o'ynash hisoboti yuborilganda xatolar kamayishi
+        r_ok = await client.post("/api/tv/report", json={"id": 4, "ok": True})
+        assert r_ok.status == 200
+
+        # Kanal oqimini qaytarish (test tozaligi uchun)
+        zor_ch["stream"] = orig_stream
+        _TV_STREAM_FAILURES.pop(4, None)
+    finally:
+        await client.close()
+
+
+def test_tv_catalog_sanitization_and_stream8_backups():
+    """Ruxsor va Nasaf TV oqimlarida o'lik stream3 o'rniga ishlaydigan stream8 mavjudligi va barcha kanallar HTTPS."""
+    by_name = {c["name"]: c for c in CHANNELS_LIST}
+
+    # Ruxsor TV (stream 1040)
+    ruxsor = by_name["Ruxsor TV"]
+    for idx, u in ruxsor["u"]:
+        assert "stream8.cinerama.uz/1040" in u
+        assert not u.startswith("http://")
+
+    # Nasaf TV (stream 1199)
+    nasaf = by_name["Nasaf TV"]
+    for idx, u in nasaf["u"]:
+        assert "stream8.cinerama.uz/1199" in u
+        assert not u.startswith("http://")
+
+
+def test_frontend_direct_first_and_stall_recovery():
+    """app.js, tv_room.js va tvroom.js da direct-first CORS, non-blocking tezlik va qotishdan xavfsiz chiqish."""
+    app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+    tv_room_js = (BASE_DIR / "webapp" / "tv_room.js").read_text(encoding="utf-8")
+    tvroom_js = (BASE_DIR / "webapp" / "tvroom.js").read_text(encoding="utf-8")
+
+    for code, name in [(tv_room_js, "tv_room.js"), (tvroom_js, "tvroom.js")]:
+        # Direct-first: majburiy pre-proxy yo'qligi
+        assert 'if (streamUrl.includes("cinerama.uz") && !streamUrl.includes("/api/tv/stream"))' not in code, f"Forced proxy in {name}"
+        # Bloklovchi tezlik to'xtatuvchisi (return) yo'qligi
+        assert "if (speedMbps < 1.0) {\n      if (loader) loader.hidden = true;" not in code
+        # Stall recovery da ko'r-ko'rona currentTime += 0.15 sakrashi yo'qligi
+        assert "video.currentTime += 0.15;" not in code
+        # maxBufferLength 15 va maxMaxBufferLength 30
+        assert "maxBufferLength: 15," in code
+        assert "maxMaxBufferLength: 30," in code
+
+    # app.js da ham currentTime += 0.15 sakrashi yo'qligi
+    assert "vid.currentTime += 0.15;" not in app_js
+    assert "hls.config.maxBufferLength = 15;" in app_js

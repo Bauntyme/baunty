@@ -1,0 +1,9 @@
+scratch/
+data/videos/*.mp4
+!data/videos/.gitkeep
+.git/
+.agents/
+logs/*.log
+temp_downloads/
+__pycache__/
+.pytest_cache/

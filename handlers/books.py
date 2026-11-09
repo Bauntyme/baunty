@@ -12,7 +12,7 @@ import html
 import logging
 import math
 import re
-from typing import Optional
+from typing import Any, Optional
 from aiogram import Router, F
 from aiogram.filters import Command, CommandObject
 from aiogram.fsm.context import FSMContext
@@ -408,7 +408,7 @@ async def cb_books_category(call: CallbackQuery) -> None:
 async def cb_book_item(call: CallbackQuery) -> None:
     """Kitob haqida batafsil ma'lumot va amal tugmalari."""
     bid = call.data.split(":")[-1]
-    book = book_service.get_book_by_id(bid)
+    book = await book_service.async_get_book_by_id(bid) or book_service.get_book_by_id(bid)
     if not book:
         await call.answer("Kitob topilmadi!", show_alert=True)
         return
@@ -428,7 +428,7 @@ async def cb_book_item(call: CallbackQuery) -> None:
 async def cb_book_read(call: CallbackQuery) -> None:
     """Kitobdan parcha / mutolaa matnini ko'rsatish."""
     bid = call.data.split(":")[-1]
-    book = book_service.get_book_by_id(bid)
+    book = await book_service.async_get_book_by_id(bid) or book_service.get_book_by_id(bid)
     if not book:
         await call.answer("Kitob topilmadi!", show_alert=True)
         return
@@ -487,7 +487,7 @@ async def cb_book_download(call: CallbackQuery) -> None:
     bid = parts[-1]
     fmt = "epub" if action == "epub" else "pdf"
 
-    book = book_service.get_book_by_id(bid)
+    book = await book_service.async_get_book_by_id(bid) or book_service.get_book_by_id(bid)
     if not book:
         await call.answer("Kitob topilmadi!", show_alert=True)
         return

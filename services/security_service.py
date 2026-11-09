@@ -566,41 +566,49 @@ def is_malicious_request(
     )):
         return False, None
 
-    # 2. User-Agent va Health/Ping tekshiruvi (UptimeRobot va Render healthcheck oq ro'yxatda)
+    # 2. User-Agent va Health/Ping tekshiruvi (UptimeRobot, Render keepalive va monitoring oq ro'yxatda)
     ua_raw = user_agent or ""
     ua_clean = ua_raw.strip().lower()
 
-    # Agar so'rov toza monitoring probe bo'lsa (query va body bo'sh)
-    is_probe_path = clean_path in (
-        "/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status",
-        "/", "", "/webapp", "webapp", "/webapp/", "/favicon.ico", "favicon.ico"
+    # Monitoring va healthcheck probe yo'llari
+    is_probe_path = (
+        clean_path in (
+            "/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status",
+            "/", "", "/webapp", "webapp", "/webapp/", "/favicon.ico", "favicon.ico",
+            "/index.html", "index.html", "/webapp/index.html", "/webapp/favicon.ico"
+        )
+        or clean_path.startswith(("/health", "/ping", "/status", "/healthz"))
     )
-    is_probe_ua = "uptimerobot" in ua_clean or "uptime" in ua_clean or "probe" in ua_clean or "monitor" in ua_clean or "ping" in ua_clean
-    if (is_probe_ua or is_probe_path) and not query_string and not body:
-        return False, None
+    is_probe_ua = any(p in ua_clean for p in (
+        "uptimerobot", "uptime", "probe", "monitor", "ping",
+        "render", "betteruptime", "cron-job", "freshping", "pingdom"
+    ))
+
+    # User-Agent orqali SQLi/XSS/Log4j/SSTI kiritish urinishlari (har doim va barcha yo'llarda to'siladi)
+    if ua_raw and FAST_MASTER_THREAT_REGEX.search(ua_raw):
+        for pattern in MALICIOUS_PATTERNS:
+            if pattern.search(ua_raw):
+                return True, f"malicious_ua:{pattern.pattern[:30]}"
+        return True, "malicious_ua_threat"
 
     if not ua_clean:
-        if clean_path not in ("/health", "health", "/ping", "ping", "/healthz", "healthz", "/", "", "/webapp", "webapp") and not is_test:
+        if not is_probe_path and not is_test:
             return True, "empty_user_agent"
     else:
-        # Taniqli tajovuzkor skanerlar va avtomatlashtirilgan exploit agentlarini tekshirish
+        # Taniqli tajovuzkor exploit skanerlari (sqlmap, nikto, wpscan, ffuf va b. har doim bloklanadi)
         for scanner in KNOWN_SCANNER_AGENTS:
             if scanner in ua_clean:
+                # Agar health/root probe yo'li bo'lsa, monitoring/CLI vositalari (curl, requests, python) ruxsat etiladi
+                if is_probe_path and scanner in ("curl/", "wget/", "python-requests", "python-urllib", "requests/"):
+                    continue
                 return True, f"scanner_ua:{scanner}"
 
-        # Standalone CLI skanerlar va kutubxonalar (curl, wget, requests)
-        if re.search(r"\b(?:curl|wget|requests|python-requests|python-urllib)\b", ua_clean):
+        # Standalone CLI vositalari (curl, wget, requests) - faqat no-probe yo'llarda bloklanadi
+        if not is_probe_path and re.search(r"\b(?:curl|wget|requests|python-requests|python-urllib)\b", ua_clean):
             return True, "scanner_ua:cli_tool"
 
-        # User-Agent orqali SQLi/XSS/Log4j/SSTI kiritish urinishlari (1-taktda master regex)
-        if FAST_MASTER_THREAT_REGEX.search(ua_raw):
-            for pattern in MALICIOUS_PATTERNS:
-                if pattern.search(ua_raw):
-                    return True, f"malicious_ua:{pattern.pattern[:30]}"
-            return True, "malicious_ua_threat"
-
-        # To'g'ridan-to'g'ri internetdan kelgan xom python/aiohttp so'rovlarini cheklash
-        if not is_test:
+        # To'g'ridan-to'g'ri internetdan kelgan xom python/aiohttp so'rovlarini cheklash - faqat no-probe yo'llarda
+        if not is_test and not is_probe_path and not is_probe_ua:
             if any(bot in ua_clean for bot in ("aiohttp/", "python/")):
                 return True, "blocked_bot_client"
 
@@ -775,6 +783,51 @@ def is_private_or_loopback_ip(ip_str: str) -> bool:
         return False
 
 
+RENDER_NAT_NETWORKS = [
+    # Render.com Outbound NAT Gateway IP blocks (Oregon, Ohio, Frankfurt, Virginia)
+    ipaddress.ip_network("216.24.56.0/22"),    # 216.24.56.0 - 216.24.59.255 (Oregon us-west)
+    ipaddress.ip_network("216.24.60.0/22"),    # 216.24.60.0 - 216.24.63.255 (Global / Anycast)
+    ipaddress.ip_network("169.150.247.0/24"),  # Render egress
+    ipaddress.ip_network("3.125.105.150/32"),
+    ipaddress.ip_network("3.120.21.168/32"),
+    ipaddress.ip_network("3.64.163.6/32"),
+    ipaddress.ip_network("18.192.149.206/32"),
+    ipaddress.ip_network("18.197.8.222/32"),
+    ipaddress.ip_network("18.156.108.99/32"),
+    ipaddress.ip_network("3.67.240.165/32"),
+    ipaddress.ip_network("3.121.144.179/32"),
+    ipaddress.ip_network("18.198.81.252/32"),
+    ipaddress.ip_network("18.158.118.99/32"),
+    ipaddress.ip_network("3.69.117.202/32"),
+    ipaddress.ip_network("3.121.240.213/32"),
+    ipaddress.ip_network("44.209.160.0/20"),   # US-East Virginia Render NAT pool
+]
+
+
+def is_render_nat_ip(ip_str: str) -> bool:
+    """Check if IP belongs to Render.com outbound NAT gateways or environment configured Render IPs."""
+    if not ip_str:
+        return False
+    clean = _normalize_ip_str(ip_str).lower()
+    if not clean:
+        return False
+    for env_var in ("RENDER_NAT_IPS", "RENDER_EXTERNAL_IP", "RENDER_EGRESS_IPS", "RENDER_OUTBOUND_IPS"):
+        val = os.getenv(env_var)
+        if val:
+            for piece in val.split(","):
+                piece_clean = _normalize_ip_str(piece).lower()
+                if piece_clean and piece_clean == clean:
+                    return True
+    try:
+        ip_obj = ipaddress.ip_address(clean)
+        for net in RENDER_NAT_NETWORKS:
+            if ip_obj in net:
+                return True
+    except ValueError:
+        return False
+    return False
+
+
 def is_trusted_proxy(ip_str: str) -> bool:
     """
     IP manzil serverning o'zi, lokal tarmoq, Render/Cloudflare proksisi
@@ -783,7 +836,7 @@ def is_trusted_proxy(ip_str: str) -> bool:
     """
     if not ip_str:
         return False
-    if is_private_or_loopback_ip(ip_str):
+    if is_private_or_loopback_ip(ip_str) or is_render_nat_ip(ip_str):
         return True
     ip_clean = _normalize_ip_str(ip_str).lower()
     try:
@@ -792,6 +845,9 @@ def is_trusted_proxy(ip_str: str) -> bool:
             if ip_obj in net:
                 return True
         for net in CLOUDFLARE_NETWORKS:
+            if ip_obj in net:
+                return True
+        for net in RENDER_NAT_NETWORKS:
             if ip_obj in net:
                 return True
     except ValueError:
@@ -806,7 +862,7 @@ def is_public_ip(ip_str: str) -> bool:
     clean = _normalize_ip_str(ip_str)
     if not clean:
         return False
-    if is_private_or_loopback_ip(clean):
+    if is_private_or_loopback_ip(clean) or is_render_nat_ip(clean):
         return False
     try:
         ip_obj = ipaddress.ip_address(clean)
@@ -814,6 +870,9 @@ def is_public_ip(ip_str: str) -> bool:
             if ip_obj in net:
                 return False
         for net in CLOUDFLARE_NETWORKS:
+            if ip_obj in net:
+                return False
+        for net in RENDER_NAT_NETWORKS:
             if ip_obj in net:
                 return False
         return True
@@ -842,9 +901,9 @@ class AutoBanJail:
     def jail_ip(self, ip: str, duration: Optional[float] = None, reason: str = "malicious_activity") -> None:
         if not ip:
             return
-        # Private, loopback yoki ishonchli proksi IP manzillar HECH QACHON va HECH QANDAY SHARTDA jail ga olinmaydi!
-        if is_private_or_loopback_ip(ip) or is_trusted_proxy(ip):
-            logger.debug(f"Private/trusted IP {ip} jail ga olinmadi (Sabab: {reason})")
+        # Private, loopback, Render outbound NAT gateway yoki ishonchli proksi IP manzillar HECH QACHON jail ga olinmaydi!
+        if is_private_or_loopback_ip(ip) or is_trusted_proxy(ip) or is_render_nat_ip(ip):
+            logger.debug(f"Private/trusted/Render IP {ip} jail ga olinmadi (Sabab: {reason})")
             return
         # Faqat haqiqiy public tashqi hujumchi IP lari jail ga olinadi
         if not is_public_ip(ip):
@@ -860,8 +919,8 @@ class AutoBanJail:
     def is_jailed(self, ip: str) -> Tuple[bool, Optional[float], Optional[str]]:
         if not ip or ip not in self._jailed:
             return False, None, None
-        # Himoya: private yoki loopback yoki trusted IP hech qachon jailed deb hisoblanmaydi
-        if is_private_or_loopback_ip(ip) or is_trusted_proxy(ip):
+        # Himoya: private, loopback yoki Render NAT IP hech qachon jailed deb hisoblanmaydi
+        if is_private_or_loopback_ip(ip) or is_trusted_proxy(ip) or is_render_nat_ip(ip):
             self._jailed.pop(ip, None)
             return False, None, None
         exp, reason = self._jailed[ip]
@@ -920,13 +979,25 @@ class SlidingWindowRateLimiter:
     def is_allowed(self, client_ip: str, path: str = "", user_id: Optional[int] = None) -> Tuple[bool, Optional[int]]:
         now = time.monotonic()
 
-        # 1. /health, /ping va render ichki cheklari har doim oq ro'yxatda
+        # 1. Monitoring, health check va asosiy WebApp boshlang'ich yo'llari har doim oq ro'yxatda
         clean_path = path.lower().split("?")[0].rstrip("/")
-        if clean_path in ("/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status"):
+        raw_path = path.lower().split("?")[0]
+        if (
+            clean_path in (
+                "/health", "health", "/ping", "ping", "/healthz", "healthz", "/status", "status",
+                "", "/", "/webapp", "webapp", "/webapp/", "/index.html", "index.html",
+                "/favicon.ico", "favicon.ico", "/webapp/index.html", "/webapp/favicon.ico"
+            )
+            or raw_path in ("/", "/webapp/", "/index.html", "/favicon.ico", "/webapp/favicon.ico")
+        ):
             return True, None
 
-        # 2. Localhost / Trusted proxy / TestClient uchun testlarda yengillik
-        is_loopback_or_proxy = is_trusted_proxy(client_ip) or client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
+        # 2. Localhost / Trusted proxy / Render NAT / TestClient uchun testlarda yengillik
+        is_loopback_or_proxy = (
+            is_trusted_proxy(client_ip)
+            or is_render_nat_ip(client_ip)
+            or client_ip in ("127.0.0.1", "::1", "localhost", "testclient")
+        )
         if is_loopback_or_proxy and not os.getenv("STRICT_RATE_LIMIT_TEST"):
             return True, None
 
@@ -1272,6 +1343,9 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
                 or "cron-job" in ua
                 or "freshping" in ua
                 or "pingdom" in ua
+                or "curl" in ua
+                or "requests" in ua
+                or "python" in ua
             )
         )
     )

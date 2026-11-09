@@ -38,9 +38,9 @@ class ThrottlingMiddleware(BaseMiddleware):
             }
 
         if now - last_time < self.rate_limit:
-            # Juda tez so'rov yuborilgan - cooldown yangilanadi va so'rov e'tiborsiz qoldiriladi
+            # Juda tez so'rov yuborilgan - so'rov e'tiborsiz qoldiriladi
+            # E'tibor: jazolovchi reset (punitive reset) yo'q: timestamp faqat ruxsat etilgan so'rovda yangilanadi
             logger.debug(f"User {user.id} spam/flood chekloviga tushdi")
-            self.user_timestamps[user.id] = now
             if isinstance(event, CallbackQuery):
                 try:
                     await event.answer("⚠️ Iltimos, biroz kuting...", show_alert=False)

@@ -7,12 +7,14 @@ To'liq oq brendlangan: Baunty, Baunty Films, @BauntyCinemabot.
 
 from __future__ import annotations
 
+import asyncio
 import html
 import io
 import json
 import logging
 import os
 import re
+import threading
 import urllib.parse
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -250,8 +252,83 @@ def get_catalog(
     }
 
 
-def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
-    """Kitobni ID orqali olish (mahalliy yoki upstream katalogidan)."""
+_UPSTREAM_LOOP: Optional[asyncio.AbstractEventLoop] = None
+_UPSTREAM_THREAD: Optional[threading.Thread] = None
+
+
+def _get_upstream_loop() -> asyncio.AbstractEventLoop:
+    global _UPSTREAM_LOOP, _UPSTREAM_THREAD
+    if _UPSTREAM_LOOP is None or not _UPSTREAM_LOOP.is_running():
+        _UPSTREAM_LOOP = asyncio.new_event_loop()
+        def _run(loop: asyncio.AbstractEventLoop) -> None:
+            asyncio.set_event_loop(loop)
+            loop.run_forever()
+        _UPSTREAM_THREAD = threading.Thread(target=_run, args=(_UPSTREAM_LOOP,), daemon=True, name="book_upstream_loop")
+        _UPSTREAM_THREAD.start()
+    return _UPSTREAM_LOOP
+
+
+async def _fetch_upstream_book_aiohttp(bid: str) -> Optional[Dict[str, Any]]:
+    """Asinxron aiohttp ClientSession orqali upstream kitob ma'lumotlarini olish."""
+    try:
+        import aiohttp
+        url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
+        timeout = aiohttp.ClientTimeout(total=0.8, connect=0.5)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, headers={"User-Agent": "BauntyBot/2.0"}) as resp:
+                if resp.status == 200:
+                    return await resp.json(content_type=None)
+    except Exception as e:
+        logger.debug(f"Upstreamdan kitob #{bid} aiohttp orqali yuklab bo'lmadi: {e}")
+    return None
+
+
+def _build_upstream_book_obj(ub: Dict[str, Any], bid: str, raw: str) -> Dict[str, Any]:
+    """Upstreamdan kelgan kitob obyektini to'liq mahalliy formatga o'tkazish."""
+    title = ub.get("t") or f"Kitob #{bid}"
+    author = ub.get("a") or "Noma'lum muallif"
+    category_code = ub.get("g") or "badiiy"
+    meta = next((c for c in CATEGORIES_META if c["id"] == category_code), None)
+    category_name = meta["name"] if meta else "Badiiy adabiyot"
+    desc = ub.get("desc") or f"{title} — {author} asari."
+    size_bytes = (ub.get("s") or {}).get("pdf") or 2500000
+    size_mb = round(size_bytes / 1048576, 1) if size_bytes else 2.5
+
+    book_obj = {
+        "id": str(ub.get("i", bid)),
+        "title": title,
+        "author": author,
+        "category": category_code,
+        "category_name": category_name,
+        "pages": ub.get("p") or 120,
+        "lang": ub.get("l") or "uz",
+        "year": ub.get("y"),
+        "rating": ub.get("r") or 4.9,
+        "views": (ub.get("rd") or 10) * 150,
+        "format": "PDF",
+        "size_mb": size_mb,
+        "popular": True,
+        "description": desc,
+        "sample_text": f"«{title}» ({author}) kitobining mutolaa va tanishuv nusxasi.",
+        "cover": f"https://161-97-96-58.sslip.io/bk/{ub.get('i', bid)}/cover_l.webp" if ub.get("c") else "",
+        # Upstream mosligi (i, t, a, c, p, l, g, f, s)
+        "i": ub.get("i", int(bid) if bid.isdigit() else 0),
+        "t": title,
+        "a": author,
+        "c": ub.get("c", 0),
+        "p": ub.get("p", 120),
+        "l": ub.get("l", "uz"),
+        "g": category_code,
+        "f": ["pdf", "epub"],
+        "s": {"pdf": size_bytes, "epub": int(size_bytes * 0.55)},
+    }
+    _BOOKS_BY_ID[bid] = book_obj
+    _BOOKS_BY_ID[raw] = book_obj
+    return book_obj
+
+
+async def async_get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
+    """Kitobni ID orqali asinxron olish (aiohttp orqali upstream chaqiruvi bilan)."""
     load_books()
     raw = str(book_id).strip()
     bid = re.sub(r'^(?:book_|books_|b_|kitob_)', '', raw).strip()
@@ -259,57 +336,33 @@ def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
     if book:
         return book
 
-    # Faqat raqamli bo'lsa va lokal bazada bo'lmasa, upstream katalogidan olishga urinish
+    if bid.isdigit():
+        data = await _fetch_upstream_book_aiohttp(bid)
+        if data and data.get("ok") and data.get("book"):
+            return _build_upstream_book_obj(data["book"], bid, raw)
+
+    return None
+
+get_book_by_id_async = async_get_book_by_id
+
+
+def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
+    """Kitobni ID orqali olish (mahalliy yoki aiohttp orqali upstream katalogidan, non-blocking)."""
+    load_books()
+    raw = str(book_id).strip()
+    bid = re.sub(r'^(?:book_|books_|b_|kitob_)', '', raw).strip()
+    book = _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
+    if book:
+        return book
+
+    # Faqat raqamli bo'lsa va lokal bazada bo'lmasa, aiohttp orqali upstreamdan non-blocking olish
     if bid.isdigit():
         try:
-            import urllib.request
-            url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
-            req = urllib.request.Request(url, headers={"User-Agent": "BauntyBot/2.0"})
-            with urllib.request.urlopen(req, timeout=0.8) as resp:
-                if resp.status == 200:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    if data.get("ok") and data.get("book"):
-                        ub = data["book"]
-                        title = ub.get("t") or f"Kitob #{bid}"
-                        author = ub.get("a") or "Noma'lum muallif"
-                        category_code = ub.get("g") or "badiiy"
-                        meta = next((c for c in CATEGORIES_META if c["id"] == category_code), None)
-                        category_name = meta["name"] if meta else "Badiiy adabiyot"
-                        desc = ub.get("desc") or f"{title} — {author} asari."
-                        size_bytes = (ub.get("s") or {}).get("pdf") or 2500000
-                        size_mb = round(size_bytes / 1048576, 1) if size_bytes else 2.5
-
-                        book_obj = {
-                            "id": str(ub.get("i", bid)),
-                            "title": title,
-                            "author": author,
-                            "category": category_code,
-                            "category_name": category_name,
-                            "pages": ub.get("p") or 120,
-                            "lang": ub.get("l") or "uz",
-                            "year": ub.get("y"),
-                            "rating": ub.get("r") or 4.9,
-                            "views": (ub.get("rd") or 10) * 150,
-                            "format": "PDF",
-                            "size_mb": size_mb,
-                            "popular": True,
-                            "description": desc,
-                            "sample_text": f"«{title}» ({author}) kitobining mutolaa va tanishuv nusxasi.",
-                            "cover": f"https://161-97-96-58.sslip.io/bk/{ub.get('i', bid)}/cover_l.webp" if ub.get("c") else "",
-                            # Upstream mosligi (i, t, a, c, p, l, g, f, s)
-                            "i": ub.get("i", int(bid) if bid.isdigit() else 0),
-                            "t": title,
-                            "a": author,
-                            "c": ub.get("c", 0),
-                            "p": ub.get("p", 120),
-                            "l": ub.get("l", "uz"),
-                            "g": category_code,
-                            "f": ["pdf", "epub"],
-                            "s": {"pdf": size_bytes, "epub": int(size_bytes * 0.55)},
-                        }
-                        _BOOKS_BY_ID[bid] = book_obj
-                        _BOOKS_BY_ID[raw] = book_obj
-                        return book_obj
+            loop = _get_upstream_loop()
+            fut = asyncio.run_coroutine_threadsafe(_fetch_upstream_book_aiohttp(bid), loop)
+            data = fut.result(timeout=0.8)
+            if data and data.get("ok") and data.get("book"):
+                return _build_upstream_book_obj(data["book"], bid, raw)
         except Exception as e:
             logger.debug(f"Upstreamdan kitob #{book_id} yuklab bo'lmadi: {e}")
 

@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any
 from sqlalchemy import select, update, delete, func, desc, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import (
     User, Movie, MovieFile, SponsorChannel, DownloadLog, BotSetting,
@@ -59,9 +60,36 @@ async def get_or_create_user(
             created_at=utc_now(),
             last_active=utc_now(),
         )
-        session.add(new_user)
-        await session.flush()
-        return new_user, True
+        try:
+            async with session.begin_nested():
+                session.add(new_user)
+                await session.flush()
+            return new_user, True
+        except IntegrityError:
+            # Parallel so'rov natijasida foydalanuvchi allaqachon yaratilgan
+            for _ in range(5):
+                stmt = select(User).where(User.id == user_id)
+                result = await session.execute(stmt)
+                user = result.scalar_one_or_none()
+                if user:
+                    break
+                await asyncio.sleep(0.05)
+            if user:
+                changed = False
+                if username and user.username != username:
+                    user.username = username
+                    changed = True
+                if first_name and user.first_name != first_name:
+                    user.first_name = first_name
+                    changed = True
+                if last_name and user.last_name != last_name:
+                    user.last_name = last_name
+                    changed = True
+                user.last_active = utc_now()
+                if changed:
+                    await session.flush()
+                return user, False
+            raise
 
 
 async def get_user(session: AsyncSession, user_id: int) -> Optional[User]:
@@ -511,9 +539,37 @@ async def save_movie_file(
             quality=quality,
             created_at=utc_now(),
         )
-        session.add(new_mf)
-        await session.flush()
-        return new_mf
+        try:
+            async with session.begin_nested():
+                session.add(new_mf)
+                await session.flush()
+            return new_mf
+        except IntegrityError:
+            # Parallel sinxronizatsiya sababli movie_file yaratilgan
+            for _ in range(5):
+                stmt = (
+                    select(MovieFile)
+                    .where(MovieFile.movie_code == clean_code, MovieFile.part == m_part)
+                    .order_by(MovieFile.id.desc())
+                )
+                res = await session.execute(stmt)
+                mf = res.scalars().first()
+                if mf:
+                    break
+                await asyncio.sleep(0.05)
+            if mf:
+                if fid_str:
+                    mf.file_id = fid_str
+                mf.file_type = file_type
+                if dur_val is not None:
+                    mf.duration = dur_val
+                if fsize_val is not None:
+                    mf.file_size = fsize_val
+                if quality:
+                    mf.quality = quality
+                await session.flush()
+                return mf
+            raise
 
 
 async def get_movie_file(
@@ -651,9 +707,40 @@ async def upsert_movie(
             downloads_count=downloads_count or 50,
             created_at=utc_now(),
         )
-        session.add(new_movie)
-        await session.flush()
-        return new_movie, True
+        try:
+            async with session.begin_nested():
+                session.add(new_movie)
+                await session.flush()
+            return new_movie, True
+        except IntegrityError:
+            # Parallel sinxronizatsiya sababli kino kodi allaqachon yaratilgan
+            for _ in range(5):
+                movie = await get_movie_by_code(session, clean_code)
+                if movie:
+                    break
+                await asyncio.sleep(0.05)
+            if movie:
+                if title:
+                    movie.title = title.strip()
+                if description is not None:
+                    movie.description = description.strip() if description else None
+                if genres:
+                    movie.genres = genres.strip()
+                if year:
+                    movie.year = year
+                if rating:
+                    movie.rating = rating
+                if poster_file_id:
+                    movie.poster_file_id = poster_file_id
+                if file_id and (not movie.file_id or movie.file_id.startswith("BAACAgIAAxkBAAIB_")):
+                    movie.file_id = file_id.strip()
+                if views_count is not None and views_count > movie.views_count:
+                    movie.views_count = views_count
+                if downloads_count is not None and downloads_count > movie.downloads_count:
+                    movie.downloads_count = downloads_count
+                await session.flush()
+                return movie, False
+            raise
 
 
 async def sync_movies_from_catalog_data(
@@ -849,6 +936,15 @@ async def get_downloads_stats_by_platform(session: AsyncSession) -> Dict[str, in
     )
     result = await session.execute(stmt)
     return {row[0]: row[1] for row in result.fetchall()}
+
+
+async def prune_old_download_logs(session: AsyncSession, days: int = 30) -> int:
+    """Belgilangan kundan (default 30 kun) eski download_logs yozuvlarini o'chirish."""
+    cutoff = utc_now() - timedelta(days=days)
+    stmt = delete(DownloadLog).where(DownloadLog.created_at < cutoff)
+    result = await session.execute(stmt)
+    await session.flush()
+    return result.rowcount or 0
 
 
 # ==========================================
@@ -1598,5 +1694,14 @@ async def record_mafia_game(
     session.add(rec)
     await session.flush()
     return rec
+
+
+async def prune_old_game_records(session: AsyncSession, days: int = 60) -> int:
+    """Belgilangan kundan (default 60 kun) eski mafia_game_records yozuvlarini o'chirish."""
+    cutoff = utc_now() - timedelta(days=days)
+    stmt = delete(MafiaGameRecord).where(MafiaGameRecord.created_at < cutoff)
+    result = await session.execute(stmt)
+    await session.flush()
+    return result.rowcount or 0
 
 

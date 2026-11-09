@@ -132,7 +132,7 @@ class DownloadLog(Base):
     user_id = Column(BigInteger, index=True, nullable=False)
     platform = Column(String(64), nullable=False)  # instagram, tiktok, youtube, snapchat, music, story
     query_or_url = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=utc_now, nullable=False)
+    created_at = Column(DateTime, default=utc_now, index=True, nullable=False)
 
     def __repr__(self):
         return f"<DownloadLog user={self.user_id} platform={self.platform}>"
@@ -230,7 +230,7 @@ class MafiaGameRecord(Base):
     winner = Column(String(32), nullable=False)  # "civ", "maf", "many", "cancel"
     total_players = Column(Integer, default=0, nullable=False)
     days_count = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime, default=utc_now, nullable=False)
+    created_at = Column(DateTime, default=utc_now, index=True, nullable=False)
 
     def __repr__(self):
         return f"<MafiaGameRecord room={self.room_id} winner={self.winner}>"

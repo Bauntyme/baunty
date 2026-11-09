@@ -35,11 +35,13 @@ MALICIOUS_PATTERNS = (
 class BotSecurityMiddleware(BaseMiddleware):
     """Telegram bot so'rovlarini himoyalovchi xavfsizlik middleware."""
 
-    def __init__(self, window_seconds: float = 3.0, max_requests: int = 5):
+    def __init__(self, window_seconds: float = 3.0, max_requests: int = 5, negative_ban_ttl: float = 45.0):
         self.window_seconds = window_seconds
         self.max_requests = max_requests
+        self.negative_ban_ttl = negative_ban_ttl
         self.user_requests: Dict[int, deque] = defaultdict(deque)
         self._banned_cache: Dict[int, float] = {}
+        self._not_banned_cache: Dict[int, float] = {}
 
     async def __call__(
         self,
@@ -58,7 +60,7 @@ class BotSecurityMiddleware(BaseMiddleware):
         if is_admin:
             return await handler(event, data)
 
-        # 2. Bloklangan foydalanuvchilarni tekshirish (10 soniyalik kesh bilan)
+        # 2. Bloklangan foydalanuvchilarni tekshirish (kesh bilan)
         now = time.monotonic()
         if user_id in self._banned_cache:
             if now - self._banned_cache[user_id] < 15.0:
@@ -67,21 +69,34 @@ class BotSecurityMiddleware(BaseMiddleware):
                 elif isinstance(event, CallbackQuery):
                     await event.answer("⛔ Siz bloklangansiz!", show_alert=True)
                 return
+            else:
+                del self._banned_cache[user_id]
 
-        try:
-            async with get_session() as session:
-                is_banned = await crud.is_user_banned(session, user_id)
-                if is_banned:
-                    self._banned_cache[user_id] = now
-                    if isinstance(event, Message):
-                        await event.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
-                    elif isinstance(event, CallbackQuery):
-                        await event.answer("⛔ Siz bloklangansiz!", show_alert=True)
-                    return
-                elif user_id in self._banned_cache:
-                    del self._banned_cache[user_id]
-        except Exception as e:
-            logger.debug(f"Ban check xatolik: {e}")
+        # Salbiy kesh (negative cache): bloklanmagan foydalanuvchilarni 30s-60s (default 45s) DB so'rovisiz o'tkazish
+        need_db_check = True
+        if user_id in self._not_banned_cache:
+            if now - self._not_banned_cache[user_id] < self.negative_ban_ttl:
+                need_db_check = False
+            else:
+                del self._not_banned_cache[user_id]
+
+        if need_db_check:
+            try:
+                async with get_session() as session:
+                    is_banned = await crud.is_user_banned(session, user_id)
+                    if is_banned:
+                        self._banned_cache[user_id] = now
+                        self._not_banned_cache.pop(user_id, None)
+                        if isinstance(event, Message):
+                            await event.answer("⛔ <b>Kechirasiz, siz botdan foydalanish uchun bloklangansiz.</b>", parse_mode="HTML")
+                        elif isinstance(event, CallbackQuery):
+                            await event.answer("⛔ Siz bloklangansiz!", show_alert=True)
+                        return
+                    else:
+                        self._not_banned_cache[user_id] = now
+                        self._banned_cache.pop(user_id, None)
+            except Exception as e:
+                logger.debug(f"Ban check xatolik: {e}")
 
         # 3. Anti-Flood sliding window cheklovi
         user_queue = self.user_requests[user_id]
@@ -174,5 +189,13 @@ class BotSecurityMiddleware(BaseMiddleware):
                 deque,
                 {uid: q for uid, q in self.user_requests.items() if q and (now - q[-1]) < 30.0}
             )
+        if len(self._not_banned_cache) > 10000:
+            self._not_banned_cache = {
+                uid: t for uid, t in self._not_banned_cache.items() if (now - t) < self.negative_ban_ttl
+            }
+        if len(self._banned_cache) > 2000:
+            self._banned_cache = {
+                uid: t for uid, t in self._banned_cache.items() if (now - t) < 60.0
+            }
 
         return await handler(event, data)

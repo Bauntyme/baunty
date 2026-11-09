@@ -3425,7 +3425,68 @@ async def handle_music_recognize(request: web.Request) -> web.Response:
     })
 
 
+_TV_ALL_CACHE: Dict[str, Any] = {"bytes": None, "ts": 0, "etag": None}
+_TV_STREAM_FAILURES: Dict[int, Dict[str, Any]] = {}
+
+
 async def handle_tv_report(request: web.Request) -> web.Response:
+    """
+    Kanal oqimlari holati to'g'risidagi hisobotlarni qabul qilish va
+    ketma-ket xatoliklar kuzatilganda avtomatik zaxira oqimga o'tkazish (dynamic auto-failover).
+    """
+    try:
+        data = {}
+        try:
+            data = await request.json()
+        except Exception:
+            pass
+        if not isinstance(data, dict) or not data:
+            data = dict(request.query)
+
+        raw_id = data.get("id") or data.get("channel_id") or data.get("i")
+        stream_idx = data.get("idx") or (data.get("i") if "id" in data else 0)
+        is_ok = bool(data.get("ok"))
+        is_bad = bool(data.get("bad", False))
+
+        ch_id = None
+        if raw_id is not None:
+            try:
+                ch_id = int(raw_id)
+            except (ValueError, TypeError):
+                pass
+
+        if ch_id is not None:
+            now = time.time()
+            record = _TV_STREAM_FAILURES.setdefault(ch_id, {"fails": 0, "last_fail": 0, "active_idx": 0})
+            if not is_ok or is_bad:
+                if now - record.get("last_fail", 0) > 300:
+                    record["fails"] = 1
+                else:
+                    record["fails"] += 1
+                record["last_fail"] = now
+
+                # Agar ketma-ket 3+ ta xatolik bo'lsa, zaxiraga o'tkazish (failover)
+                if record["fails"] >= 3:
+                    for ch in CHANNELS_LIST:
+                        if ch.get("id") == ch_id or ch.get("i") == ch_id:
+                            backups = ch.get("u", [])
+                            if len(backups) > 1:
+                                next_idx = (record["active_idx"] + 1) % len(backups)
+                                record["active_idx"] = next_idx
+                                promoted_url = backups[next_idx][1]
+                                ch["stream"] = promoted_url
+                                # Invalidate TV catalog cache
+                                _TV_ALL_CACHE["ts"] = 0
+                                _TV_ALL_CACHE["bytes"] = None
+                                _TV_ALL_CACHE["etag"] = None
+                                logger.info(f"TV Channel {ch_id} ({ch.get('name')}) auto-failover to backup #{next_idx}: {promoted_url}")
+                            break
+            else:
+                if record["fails"] > 0:
+                    record["fails"] = max(0, record["fails"] - 1)
+    except Exception as e:
+        logger.warning(f"handle_tv_report error: {e}")
+
     return web.json_response({"ok": True})
 
 
@@ -3941,8 +4002,6 @@ async def handle_music_send(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "message": f"«{artist} - {title}» chatga yuborildi!"})
 
 
-_TV_ALL_CACHE: Dict[str, Any] = {"bytes": None, "ts": 0, "etag": None}
-
 
 async def handle_get_tv(request: web.Request) -> web.Response:
     """Jonli telekanallar ro'yxati (O'zbek telekanallari mutlaq 1-o'rinda, eng yuqori sifat)."""
@@ -4047,12 +4106,13 @@ async def _get_tv_proxy_session() -> "aiohttp.ClientSession":
     import aiohttp
     if _TV_PROXY_SESSION is None or _TV_PROXY_SESSION.closed:
         connector = aiohttp.TCPConnector(
-            limit=200,
+            limit=1000,
+            limit_per_host=100,
             ttl_dns_cache=300,
-            keepalive_timeout=60,
+            keepalive_timeout=30,
             ssl=False,
         )
-        timeout = aiohttp.ClientTimeout(total=60.0, connect=5.0, sock_read=25.0)
+        timeout = aiohttp.ClientTimeout(total=30.0, connect=3.0, sock_read=15.0)
         _TV_PROXY_SESSION = aiohttp.ClientSession(
             connector=connector,
             timeout=timeout,
@@ -4415,8 +4475,16 @@ async def handle_tv_stream_proxy(request: web.Request) -> web.StreamResponse:
                 await stream_resp.write(chunk)
             await stream_resp.write_eof()
             return stream_resp
+        except (asyncio.CancelledError, ConnectionResetError):
+            upstream_resp.close()
+            raise
         finally:
             upstream_resp.close()
+
+    except asyncio.CancelledError:
+        if upstream_resp is not None:
+            upstream_resp.close()
+        raise
 
     except Exception as e:
         logger.warning(f"TV Stream Proxy xatosi ({target_url}): {repr(e)}")

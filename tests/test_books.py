@@ -54,6 +54,18 @@ def test_get_book_by_id():
     assert b_none is None
 
 
+@pytest.mark.asyncio
+async def test_async_get_book_by_id():
+    """Asinxron async_get_book_by_id va aiohttp client orqali olish testi."""
+    b1 = await book_service.async_get_book_by_id("1")
+    assert b1 is not None
+    assert b1["id"] == "1"
+    assert "O'tkan kunlar" in b1["title"]
+
+    b_none = await book_service.async_get_book_by_id("999999")
+    assert b_none is None
+
+
 def test_create_book_pdf_sample():
     """Kitob PDF mutolaa nusxasi generatsiyasini tekshirish."""
     b = book_service.get_book_by_id("1")

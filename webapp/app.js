@@ -642,9 +642,9 @@ function attempt(url) {
     tvTimer = setTimeout(() => fin(bad, "timeout"), _isSlow ? 7000 : 5000);
     vid.onplaying = () => {
       if (hls && hls.config) {
-        hls.config.maxBufferLength = 30;
-        hls.config.maxMaxBufferLength = 60;
-        hls.config.maxBufferSize = 60 * 1000 * 1000;
+        hls.config.maxBufferLength = 15;
+        hls.config.maxMaxBufferLength = 30;
+        hls.config.maxBufferSize = 30 * 1024 * 1024;
       }
       fin(ok);
     };
@@ -691,10 +691,10 @@ function attempt(url) {
             lowLatencyMode: false,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 8,
-            maxBufferLength: 30, // legacy maxBufferLength: 45
-            maxMaxBufferLength: 60, // legacy maxMaxBufferLength: 120
+            maxBufferLength: 15, // maxBufferLength: 30
+            maxMaxBufferLength: 30, // maxMaxBufferLength: 60
             maxBufferHole: 0.5,
-            maxBufferSize: 60 * 1000 * 1000,
+            maxBufferSize: 30 * 1024 * 1024,
             backBufferLength: 10,
             abrEwmaDefaultEstimate: _isSlow ? 1800000 : 2500000,
             testBandwidth: true,
@@ -763,7 +763,6 @@ function attempt(url) {
                   try { hls.startLoad(); } catch (err) {}
                   if (hls.currentLevel !== -1) hls.currentLevel = -1;
                 }
-                if (vid.currentTime > 0) vid.currentTime += 0.15;
                 if (vid.paused) vid.play().catch(() => {});
               } catch (e) {}
             }
@@ -776,9 +775,9 @@ function attempt(url) {
             clearTimeout(tvTimer);
             tvTimer = setTimeout(() => fin(bad, "buffer_timeout"), 10000);
             if (hls && hls.config) {
-              hls.config.maxBufferLength = 30;
-              hls.config.maxMaxBufferLength = 60;
-              hls.config.maxBufferSize = 60 * 1024 * 1024;
+              hls.config.maxBufferLength = 15;
+              hls.config.maxMaxBufferLength = 30;
+              hls.config.maxBufferSize = 30 * 1024 * 1024;
             }
           });
           hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
@@ -835,19 +834,13 @@ async function playTV(c, from = 0) {
   const my = ++tvTry;
   stopVideo(); tvState("load", "Kanal ochilmoqda…"); $("unmute").hidden = true;
 
-  const currentSpeed = await getAccurateNetworkSpeed();
-  if (currentSpeed < 1.0) {
-    stopVideo();
-    tvState("err", `Internet tezligi juda past (${currentSpeed} Mbps). Kamida 1 Mbps talab qilinadi.`);
-    toast(`⚠️ Internet tezligi juda past (${currentSpeed} Mbps). Kamida 1 Mbps internet talab qilinadi.`, 4200);
-    const verrt = $("verrt");
-    if (verrt) verrt.textContent = `Internet tezligi juda past (${currentSpeed} Mbps)`;
-    const verrSub = $("verr") ? $("verr").querySelector("span") : null;
-    if (verrSub) verrSub.textContent = "Jonli efir barqaror ishlashi uchun kamida 1.0 Mbps internet talab qilinadi. Qayta tekshiring.";
-    const vretry = $("vretry");
-    if (vretry) vretry.onclick = () => { getAccurateNetworkSpeed(true).then(() => playTV(c, 0)); };
-    return;
-  }
+  // Asinxron tezlik o'lchash (telemetriya) - oqim yuklanishini to'xtatmaydi, HLS ABR sifatni o'zi tanlaydi
+  getAccurateNetworkSpeed().then((currentSpeed) => {
+    if (currentSpeed < 1.0 && !window._tvSpeedWarned) {
+      window._tvSpeedWarned = true;
+      try { toast(`⚠️ Internet tezligi juda past (${currentSpeed} Mbps). Kamida 1 Mbps tavsiya etiladi, avtomatik sifat (ABR) ulandi.`, 3500); } catch (e) {}
+    }
+  }).catch(() => {});
 
   const streamList = Array.isArray(c.u) && c.u.length ? c.u : [[0, c.stream || c.u]];
   for (let n = from; n < streamList.length; n++) {

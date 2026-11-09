@@ -26,3 +26,4 @@ data/videos/*.mp4
 !data/videos/1500_*.mp4
 !data/videos/14902_*.mp4
 !data/videos/.gitkeep
+.agents/

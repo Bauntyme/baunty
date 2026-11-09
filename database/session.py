@@ -3,34 +3,41 @@ Ma'lumotlar bazasi sessiyalari va ulanish boshqaruvi
 """
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool
 from config import config
 from database.models import Base
 
 logger = logging.getLogger(__name__)
 
-from sqlalchemy.pool import NullPool
-
-# Engine yaratish (Postgres uchun tezkor connection pool, SQLite uchun WAL + NullPool)
+# Engine yaratish (Postgres uchun tezkor connection pool, SQLite uchun WAL + bounded QueuePool)
 _is_sqlite = "sqlite" in config.db_url
 
 if _is_sqlite:
     engine = create_async_engine(
         config.db_url,
         echo=False,
-        poolclass=NullPool,
+        poolclass=AsyncAdaptedQueuePool,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=3600,
         connect_args={"check_same_thread": False, "timeout": 30}
     )
 else:
     engine = create_async_engine(
         config.db_url,
         echo=False,
-        poolclass=NullPool,
+        poolclass=AsyncAdaptedQueuePool,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=3600,
         connect_args={"ssl": "require"} if ("neon.tech" in config.db_url or "ssl" in config.db_url) else {}
     )
 
@@ -47,9 +54,43 @@ if _is_sqlite:
             cursor.execute("PRAGMA temp_store=MEMORY")
             cursor.execute("PRAGMA busy_timeout=15000")
             cursor.execute("PRAGMA mmap_size=268435456")
+            cursor.execute("PRAGMA auto_vacuum = INCREMENTAL")
+            cursor.execute("PRAGMA wal_autocheckpoint = 1000")
             cursor.close()
         except Exception:
             pass
+
+
+async def execute_incremental_vacuum(pages: int = 500, session: Optional[AsyncSession] = None) -> None:
+    """SQLite bo'sh sahifalarini tozalash (incremental vacuum)."""
+    if not _is_sqlite:
+        return
+    from sqlalchemy import text
+    if session is not None:
+        await session.execute(text(f"PRAGMA incremental_vacuum({int(pages)})"))
+    else:
+        async with engine.begin() as conn:
+            await conn.execute(text(f"PRAGMA incremental_vacuum({int(pages)})"))
+
+
+async def execute_wal_checkpoint(mode: str = "TRUNCATE", session: Optional[AsyncSession] = None) -> None:
+    """SQLite WAL faylini xotira va diskdan tozalash/checkpoint qilish (PASSIVE, FULL, RESTART, TRUNCATE)."""
+    if not _is_sqlite:
+        return
+    valid_modes = {"PASSIVE", "FULL", "RESTART", "TRUNCATE"}
+    target_mode = mode.upper() if mode.upper() in valid_modes else "TRUNCATE"
+    from sqlalchemy import text
+    if session is not None:
+        await session.execute(text(f"PRAGMA wal_checkpoint({target_mode})"))
+    else:
+        async with engine.begin() as conn:
+            await conn.execute(text(f"PRAGMA wal_checkpoint({target_mode})"))
+
+
+# Qisqa aliaslar
+incremental_vacuum = execute_incremental_vacuum
+wal_checkpoint = execute_wal_checkpoint
+
 
 
 # Async session factory
@@ -118,6 +159,18 @@ def _run_db_migrations(sync_conn) -> None:
                 )
             """))
             sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_movie_files_movie_code ON movie_files (movie_code)"))
+        except Exception:
+            pass
+
+    if "download_logs" in existing_tables:
+        try:
+            sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_download_logs_created_at ON download_logs (created_at)"))
+        except Exception:
+            pass
+
+    if "mafia_game_records" in existing_tables:
+        try:
+            sync_conn.execute(text("CREATE INDEX IF NOT EXISTS ix_mafia_game_records_created_at ON mafia_game_records (created_at)"))
         except Exception:
             pass
 

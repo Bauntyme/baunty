@@ -661,29 +661,24 @@
 
     updatePlayerHeaderChannel(currentRoom.channel);
 
-    const speedMbps = await getAccurateNetworkSpeed();
-    if (speedMbps < 1.0) {
-      if (loader) loader.hidden = true;
-      toast(`⚠️ Internet tezligi juda past (${speedMbps} Mbps). Kamida 1 Mbps talab qilinadi.`, "err");
-      const lt = $("tvr-load-text");
-      if (lt) {
-        if (loader) loader.hidden = false;
-        lt.textContent = `⚠️ Internet tezligi juda past (${speedMbps} Mbps). Kamida 1 Mbps kerak.`;
+    // Asinxron tezlik o'lchash (telemetriya) - oqim yuklanishini to'xtatmaydi, HLS ABR sifatni o'zi tanlaydi
+    getAccurateNetworkSpeed().then((speedMbps) => {
+      if (speedMbps < 1.0) {
+        toast(`⚠️ Internet tezligi juda past (${speedMbps} Mbps). Kamida 1 Mbps tavsiya etiladi, avtomatik sifat (ABR) ulandi.`, "info");
       }
-      return;
-    }
+    }).catch(() => {});
+    const speedMbps = window._lastMeasuredSpeedMbps || 5.0;
 
     let streamUrl = currentRoom.channel.stream;
     if (!streamUrl) return;
 
-    if (streamUrl.includes("cinerama.uz") && !streamUrl.includes("/api/tv/stream")) {
-      streamUrl = `/api/tv/stream?url=${encodeURIComponent(streamUrl)}`;
-    } else if (!streamUrl.includes("/api/tv/stream") && streamUrl.includes("tracks-v1a1")) {
+    // Direct-first CORS streaming (Cinerama / BIZ TV CORS ruxsatiga ega)
+    if (!streamUrl.includes("/api/tv/stream") && streamUrl.includes("tracks-v1a1")) {
       streamUrl = streamUrl.replace("tracks-v1a1/mono.ts.m3u8", "playlist.m3u8").replace("tracks-v1a1/mono.m3u8", "playlist.m3u8");
     }
 
     const rawBackups = Array.isArray(currentRoom.channel.backups) ? currentRoom.channel.backups : [];
-    const backups = rawBackups.map((u) => (u && u.includes("cinerama.uz") && !u.includes("/api/tv/stream")) ? `/api/tv/stream?url=${encodeURIComponent(u)}` : u);
+    const backups = rawBackups.slice();
     let backupIdx = 0;
 
     if (loader) loader.hidden = false;
@@ -711,9 +706,9 @@
             startFragPrefetch: true,
             initialLiveManifestSize: 1,
             backBufferLength: 15,
-            maxBufferLength: 20,
-            maxMaxBufferLength: 40,
-            maxBufferSize: 30 * 1000 * 1000,
+            maxBufferLength: 15,
+            maxMaxBufferLength: 30,
+            maxBufferSize: 30 * 1024 * 1024,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 8,
             manifestLoadingTimeOut: 5000,
@@ -747,17 +742,21 @@
               }
             }
           });
+          let currentStream = streamUrl;
           let proxyTried = streamUrl.includes("/api/tv/stream");
           hlsInstance.on(HlsClass.Events.ERROR, (event, data) => {
             if (data.fatal) {
-              if (backupIdx < backups.length) {
-                const nextUrl = backups[backupIdx++];
-                hlsInstance.loadSource(nextUrl);
-                hlsInstance.startLoad();
-              } else if (!proxyTried && !streamUrl.includes("/api/tv/stream")) {
+              if (!proxyTried && !currentStream.includes("/api/tv/stream")) {
                 proxyTried = true;
-                const proxyUrl = `/api/tv/stream?url=${encodeURIComponent(streamUrl)}`;
+                const proxyUrl = `/api/tv/stream?url=${encodeURIComponent(currentStream)}`;
+                currentStream = proxyUrl;
                 hlsInstance.loadSource(proxyUrl);
+                hlsInstance.startLoad();
+              } else if (backupIdx < backups.length) {
+                const nextUrl = backups[backupIdx++];
+                currentStream = nextUrl;
+                proxyTried = nextUrl.includes("/api/tv/stream");
+                hlsInstance.loadSource(nextUrl);
                 hlsInstance.startLoad();
               } else {
                 if (loader) loader.hidden = false;
@@ -772,7 +771,6 @@
                 if (hlsInstance) {
                   try { hlsInstance.startLoad(); } catch (e) {}
                 }
-                if (video.currentTime > 0) video.currentTime += 0.15;
                 if (video.paused) video.play().catch(() => {});
               } catch (e) {}
             }
