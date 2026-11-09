@@ -1,6 +1,6 @@
 import pytest
 from aiohttp import web
-from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
+from aiohttp.test_utils import AioHTTPTestCase
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from services.web_server import create_web_app
@@ -8,10 +8,19 @@ from services.security_service import security_service, get_security_headers
 
 
 class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
+    async def setUpAsync(self):
+        await super().setUpAsync()
+        from database.session import engine
+        await engine.dispose()
+
+    async def tearDownAsync(self):
+        from database.session import engine
+        await engine.dispose()
+        await super().tearDownAsync()
+
     async def get_application(self):
         return create_web_app()
 
-    @unittest_run_loop
     async def test_security_headers_and_cors(self):
         """Security and CORS headers must be present and correctly configured."""
         resp = await self.client.get("/api/catalog")
@@ -32,7 +41,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         csp = headers.get("Content-Security-Policy", "")
         assert "frame-ancestors 'self' https://web.telegram.org https://*.telegram.org https://t.me;" in csp
 
-    @unittest_run_loop
     async def test_options_preflight(self):
         """OPTIONS preflight requests should return CORS headers with 200 or 204."""
         resp = await self.client.options("/api/catalog")
@@ -41,7 +49,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         assert "POST" in resp.headers.get("Access-Control-Allow-Methods", "")
         assert resp.headers.get("Access-Control-Max-Age") == "86400"
 
-    @unittest_run_loop
     async def test_catalog_etag_and_304(self):
         """Catalog should produce ETag and handle If-None-Match with 304 Not Modified."""
         resp1 = await self.client.get("/api/catalog")
@@ -53,7 +60,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp2 = await self.client.get("/api/catalog", headers={"If-None-Match": etag})
         assert resp2.status == 304
 
-    @unittest_run_loop
     async def test_tv_etag_and_304(self):
         """TV endpoint should produce ETag and return 304 for unchanged client cache."""
         resp1 = await self.client.get("/api/tv")
@@ -66,7 +72,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp2 = await self.client.get("/api/tv", headers={"If-None-Match": etag})
         assert resp2.status == 304
 
-    @unittest_run_loop
     async def test_music_home_etag_and_304(self):
         """Music home should produce ETag and return 304 for unchanged client cache."""
         resp1 = await self.client.get("/api/music/home")
@@ -79,7 +84,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp2 = await self.client.get("/api/music/home", headers={"If-None-Match": etag})
         assert resp2.status == 304
 
-    @unittest_run_loop
     async def test_static_bundle_etag_and_304(self):
         """Static bundle JS and CSS should return ETags and handle 304."""
         resp1 = await self.client.get("/bundle.min.js")
@@ -90,7 +94,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp2 = await self.client.get("/bundle.min.js", headers={"If-None-Match": etag})
         assert resp2.status == 304
 
-    @unittest_run_loop
     async def test_send_endpoints(self):
         """Both /api/send and /api/send_to_chat and their /webapp counterparts should work."""
         # GET /api/send
@@ -114,7 +117,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
             data_post = await resp_post.json()
             assert data_post.get("ok") is True
 
-    @unittest_run_loop
     async def test_docs_endpoints(self):
         """Docs config and root endpoints should return ok: True."""
         resp_cfg = await self.client.get("/api/docs/config")
@@ -133,7 +135,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp_webapp_cfg = await self.client.get("/webapp/api/docs/config")
         assert resp_webapp_cfg.status == 200
 
-    @unittest_run_loop
     async def test_lang_endpoint(self):
         """Language settings endpoint should handle GET and POST."""
         resp_get = await self.client.get("/api/lang?lang=ru")
@@ -148,7 +149,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         assert data_post.get("ok") is True
         assert data_post.get("lang") == "en"
 
-    @unittest_run_loop
     async def test_watch_endpoints(self):
         """Watch GET and POST should be available."""
         resp_get = await self.client.get("/api/watch")
@@ -159,7 +159,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp_post = await self.client.post("/api/watch", json={"code": "100"})
         assert resp_post.status == 200
 
-    @unittest_run_loop
     async def test_donate_and_sub_endpoints(self):
         """Donate and sub endpoints should respond properly."""
         resp_don_get = await self.client.get("/api/donate/ev")
@@ -176,7 +175,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         resp_sub_post = await self.client.post("/api/sub", json={})
         assert resp_sub_post.status == 200
 
-    @unittest_run_loop
     async def test_games_and_tv_me_ok_field(self):
         """Games, TV me, and movies responses should contain ok: True."""
         resp_games = await self.client.get("/api/games")
@@ -194,7 +192,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         data_movies = await resp_movies.json()
         assert data_movies.get("ok") is True
 
-    @unittest_run_loop
     async def test_asil_and_prava_endpoints(self):
         """Asil and Prava endpoints should return ok: True."""
         resp_asil = await self.client.get("/api/asil")
@@ -207,7 +204,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
         data_prava = await resp_prava.json()
         assert data_prava.get("ok") is True
 
-    @unittest_run_loop
     async def test_all_api_and_webapp_api_aliases_post_and_get(self):
         """Test GET and POST for all endpoints and /webapp/api/ aliases."""
         endpoints = [
@@ -249,7 +245,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
             resp_wa_post = await self.client.post(webapp_ep, json={})
             assert resp_wa_post.status == 200, f"POST {webapp_ep} failed with {resp_wa_post.status}"
 
-    @unittest_run_loop
     async def test_movies_database_fallback_resilience(self):
         """When database raises an exception, handle_get_movies must seamlessly fallback to catalog.json."""
         with patch("services.web_server.get_session", side_effect=Exception("Database connection timeout")):

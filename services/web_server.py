@@ -956,12 +956,16 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         book = book_service.get_book_by_id(bid)
         if book:
             if m_toc:
+                pages = book.get("pages") or book.get("p") or 120
                 toc_data = {
                     "ok": True,
                     "mode": "text",
-                    "pages": book.get("pages", 120),
+                    "pages": pages,
                     "toc": [
-                        {"t": "1-bob. Muqaddima va mutolaa", "c": 1}
+                        {"t": "1-bob. Muqaddima va asar tavsifi", "c": 1},
+                        {"t": "2-bob. Asosiy g'oyalar va voqealar rivoji", "c": 2},
+                        {"t": "3-bob. Saralangan parcha va tahlil", "c": 3},
+                        {"t": "4-bob. Xotima va xulosalar", "c": 4},
                     ]
                 }
                 c_bytes = json.dumps(toc_data, ensure_ascii=False).encode("utf-8")
@@ -971,14 +975,48 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
                     headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400"}
                 )
             elif m_ch:
-                title = book.get("title", "Kitob")
-                author = book.get("author", "Muallif")
-                desc = book.get("description", "")
-                sample = book.get("sample_text", desc)
-                paras = [f"«{title}» ({author}) — Mutolaa nusxasi.", desc]
-                paras.extend([p.strip() for p in sample.split("\n") if p.strip()])
+                ch_num = int(m_ch.group(2))
+                title = book.get("title") or book.get("t") or "Kitob"
+                author = book.get("author") or book.get("a") or "Muallif"
+                desc = book.get("description") or book.get("desc") or ""
+                sample = book.get("sample_text") or desc
+                cat_name = book.get("category_name") or "Adabiyot"
+
+                sample_paras = [p.strip() for p in sample.split("\n") if p.strip()]
+                if not sample_paras:
+                    sample_paras = [desc] if desc else ["Matn mavjud emas."]
+
+                if ch_num == 1:
+                    ch_title = "1-bob. Muqaddima va asar tavsifi"
+                    paras = [
+                        f"«{title}» ({author}) — {cat_name} durdonasi.",
+                        desc or f"Ushbu mashhur asar {author} tomonidan yozilgan bo'lib, o'quvchilar qalbidan chuqur joy olgan.",
+                        "Kitob mutolaasi inson dunyoqarashini boyitadi, tafakkurini charxlaydi va yangi ufqlarni ochadi."
+                    ]
+                elif ch_num == 2:
+                    ch_title = "2-bob. Asosiy g'oyalar va voqealar rivoji"
+                    mid = len(sample_paras) // 2
+                    p_slice = sample_paras[:mid] if mid > 0 else sample_paras
+                    paras = [
+                        f"«{title}» asarining asosiy g'oyalari va voqealar bayoni:",
+                    ] + p_slice
+                elif ch_num == 3:
+                    ch_title = "3-bob. Saralangan parcha va tahlil"
+                    mid = len(sample_paras) // 2
+                    p_slice = sample_paras[mid:] if mid > 0 else sample_paras
+                    paras = [
+                        f"«{title}» asaridan saralangan parcha:",
+                    ] + p_slice
+                else:
+                    ch_title = f"{ch_num}-bob. Xotima va xulosalar"
+                    paras = [
+                        f"«{title}» kitobining yakuniy xulosalari va mazmun-mohiyati.",
+                        f"{author} qalamiga mansub ushbu asar chuqur hayotiy saboqlar va qimmatli fikrlarni o'z ichiga oladi.",
+                        "Mutolaa uchun tashakkur! Baunty Kutubxonasida boshqa sara asarlarni ham kashf eting."
+                    ]
+
                 ch_data = {
-                    "t": f"{title} — {author}",
+                    "t": ch_title,
                     "h": f"«{title}» — {author}",
                     "p": paras
                 }
@@ -3113,6 +3151,7 @@ async def handle_asil_send(request: web.Request) -> web.Response:
             if is_chat_error:
                 return web.json_response({
                     "ok": False,
+                    "delivered": False,
                     "error": "need_start",
                     "url": bot_url,
                     "bot": bot_username
@@ -3120,12 +3159,21 @@ async def handle_asil_send(request: web.Request) -> web.Response:
             else:
                 return web.json_response({
                     "ok": False,
-                    "error": "not_ready",
+                    "delivered": False,
+                    "error": "video_unavailable",
+                    "message": "Ushbu kino videosi hozirda mavjud emas yoki tayyorlanmoqda.",
                     "id": item_id,
                     "part": part
                 })
     else:
-        return web.json_response({"ok": True, "delivered": True, "id": item_id, "part": part, "mock": True})
+        return web.json_response({
+            "ok": False,
+            "delivered": False,
+            "error": "video_unavailable",
+            "message": "Bot ulanmagan yoki video yetkazib bo'lmadi",
+            "id": item_id,
+            "part": part
+        })
 
 
 async def handle_asil_stream(request: web.Request) -> web.Response:
@@ -3253,7 +3301,8 @@ async def handle_watch(request: web.Request) -> web.Response:
                 bot=_bot_instance,
                 chat_id=user_id,
                 code=clean_code,
-                part=part
+                part=part,
+                require_video=True
             )
         except Exception as e:
             logger.error(f"Watch so'rovida chatga yuborishda xatolik: {e}")
@@ -3272,7 +3321,8 @@ async def handle_watch(request: web.Request) -> web.Response:
                 "ok": False,
                 "action": "open_bot",
                 "url": bot_url,
-                "error": "send_failed",
+                "error": "video_unavailable",
+                "message": "Video mavjud emas yoki yetkazib bo'lmadi.",
                 "delivered": False,
                 "code": clean_code,
                 "part": part
@@ -3282,7 +3332,8 @@ async def handle_watch(request: web.Request) -> web.Response:
             "ok": False,
             "action": "open_bot",
             "url": bot_url,
-            "error": "bot_not_connected",
+            "error": "video_unavailable",
+            "message": "Bot ulanmagan yoki video yetkazib bo'lmadi.",
             "delivered": False,
             "code": clean_code,
             "part": part
@@ -3293,7 +3344,8 @@ async def handle_watch(request: web.Request) -> web.Response:
             "ok": False,
             "action": "open_bot",
             "url": bot_url,
-            "error": "user_id_missing",
+            "error": "video_unavailable",
+            "message": "Foydalanuvchi identifikatori topilmadi.",
             "delivered": False,
             "code": clean_code,
             "part": part
@@ -4902,14 +4954,25 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                 bot=_bot_instance,
                 chat_id=chat_id,
                 code=clean_code,
-                part=req_part
+                part=req_part,
+                require_video=True
             )
             if delivered:
                 cat_item = MovieService.get_catalog_item(clean_code)
                 title = cat_item.get("t") if cat_item else f"Kino #{clean_code}"
-                return web.json_response({"success": True, "ok": True, "message": f"«{title}» chatga yuborildi!"})
+                return web.json_response({
+                    "success": True,
+                    "ok": True,
+                    "delivered": True,
+                    "message": f"«{title}» chatga yuborildi!"
+                })
             else:
-                return web.json_response({"error": "Kino topilmadi"}, status=404)
+                return web.json_response({
+                    "ok": False,
+                    "delivered": False,
+                    "error": "video_unavailable",
+                    "message": "Video mavjud emas yoki yetkazib bo'lmadi"
+                }, status=404)
         elif action_type == "music":
             title = body.get("title", "Musiqa")
             artist = body.get("artist", "")
@@ -5090,58 +5153,41 @@ async def handle_books_search(request: web.Request) -> web.Response:
     items = []
     total = 0
 
-    # 1. Avval real-time upstream API ga so'rov (3390+ kitoblar)
-    upstream_url = "https://161-97-96-58.sslip.io/api/books/search"
-    if request.query_string:
-        upstream_url += f"?{request.query_string}"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    raw_data = await resp.json()
-                    if isinstance(raw_data, dict) and "items" in raw_data:
-                        raw_items = raw_data.get("items", [])
-                        total = raw_data.get("total", len(raw_items))
-                        for it in raw_items:
-                            b = dict(it)
-                            # Dual schema: ham tests uchun id, title, author, ham webapp uchun i, t, a
-                            b["id"] = str(b.get("i", b.get("id", "")))
-                            b["title"] = b.get("t", b.get("title", ""))
-                            b["author"] = b.get("a", b.get("author", ""))
-                            b["category"] = b.get("g", b.get("category", "badiiy"))
-                            b["i"] = b.get("i") or (int(b["id"]) if str(b["id"]).isdigit() else 0)
-                            b["t"] = b["title"]
-                            b["a"] = b["author"]
-                            b["g"] = b["category"]
-                            b["c"] = b.get("c", 0)
-                            b["p"] = b.get("p", 0)
-                            b["l"] = b.get("l", "uz")
-                            b["f"] = b.get("f") or ["pdf", "epub"]
-                            b["s"] = b.get("s") or {"pdf": 2500000, "epub": 1375000}
-                            items.append(b)
-    except Exception as e:
-        logger.debug(f"Upstream books search xatosi ({e}), lokal qidiruvga o'tiladi")
+    from services import book_service
+    cat_res = book_service.get_catalog(
+        category=genre,
+        query=q,
+        lang=lang,
+        limit=limit,
+        offset=offset
+    )
+    local_items = cat_res.get("items", [])
+    total = cat_res.get("total", len(local_items))
+    if sort == "az":
+        local_items = sorted(local_items, key=lambda x: (x.get("title") or x.get("t") or ""))
+    elif sort == "rate":
+        local_items = sorted(local_items, key=lambda x: (x.get("rating") or x.get("r") or 0), reverse=True)
+    elif sort == "new":
+        local_items = sorted(local_items, key=lambda x: (x.get("year") or x.get("y") or 0), reverse=True)
 
-    # 2. Agar upstream natija bermasa yoki offline bo'lsa — mahalliy katalogdan qidirish
-    if not items:
-        from services import book_service
-        cat_res = book_service.get_catalog(
-            category=genre,
-            query=q,
-            lang=lang,
-            limit=limit,
-            offset=offset
-        )
-        local_items = cat_res.get("items", [])
-        total = cat_res.get("total", len(local_items))
-        if sort == "az":
-            local_items = sorted(local_items, key=lambda x: x.get("title", ""))
-        elif sort == "rate":
-            local_items = sorted(local_items, key=lambda x: x.get("rating", 0), reverse=True)
-        elif sort == "new":
-            local_items = sorted(local_items, key=lambda x: x.get("year", 0), reverse=True)
-        items = local_items
+    items = []
+    for it in local_items:
+        b = dict(it)
+        # Dual schema: ham tests uchun id, title, author, ham webapp uchun i, t, a
+        b["id"] = str(b.get("i", b.get("id", "")))
+        b["title"] = b.get("t", b.get("title", ""))
+        b["author"] = b.get("a", b.get("author", ""))
+        b["category"] = b.get("g", b.get("category", "badiiy"))
+        b["i"] = b.get("i") or (int(b["id"]) if str(b["id"]).isdigit() else 0)
+        b["t"] = b["title"]
+        b["a"] = b["author"]
+        b["g"] = b["category"]
+        b["c"] = b.get("c", 0)
+        b["p"] = b.get("p", b.get("pages", 120))
+        b["l"] = b.get("l", b.get("lang", "uz"))
+        b["f"] = b.get("f") or ["pdf", "epub"]
+        b["s"] = b.get("s") or {"pdf": int(b.get("size_mb", 2.5) * 1048576), "epub": int(b.get("size_mb", 2.5) * 524288)}
+        items.append(b)
 
     return web.json_response({"ok": True, "items": items, "total": total}, headers={"Access-Control-Allow-Origin": "*"})
 

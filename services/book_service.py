@@ -30,14 +30,18 @@ _BOOKS_CACHE: List[Dict[str, Any]] = []
 _BOOKS_BY_ID: Dict[str, Dict[str, Any]] = {}
 
 CATEGORIES_META = [
-    {"id": "all", "name": "Barchasi", "icon": "📚"},
-    {"id": "pop", "name": "Ommabop", "icon": "🔥"},
-    {"id": "badiiy", "name": "Badiiy adabiyot", "icon": "📖"},
-    {"id": "biznes", "name": "Biznes & Moliya", "icon": "💼"},
-    {"id": "psixologiya", "name": "Psixologiya", "icon": "🧠"},
-    {"id": "diniy", "name": "Diniy & Ma'rifiy", "icon": "🕌"},
-    {"id": "tarix", "name": "Tarix & Fan", "icon": "📜"},
-    {"id": "bolalar", "name": "Bolalar uchun", "icon": "🧸"},
+    {"id": "badiiy", "name": "Badiiy adabiyot", "icon": "📚"},
+    {"id": "biznes", "name": "Biznes va moliya", "icon": "💼"},
+    {"id": "psixologiya", "name": "Psixologiya va rivojlanish", "icon": "🧠"},
+    {"id": "fantastika", "name": "Ilmiy fantastika", "icon": "🚀"},
+    {"id": "detektiv", "name": "Detektiv va triller", "icon": "🔍"},
+    {"id": "diniy", "name": "Diniy va ma'rifiy", "icon": "🌙"},
+    {"id": "tarix", "name": "Tarixiy asarlar", "icon": "🏛️"},
+    {"id": "bolalar", "name": "Bolalar adabiyoti", "icon": "🎈"},
+    {"id": "hikoya", "name": "Hikoyalar va qissalar", "icon": "📖"},
+    {"id": "falsafa", "name": "Falsafa va tafakkur", "icon": "💡"},
+    {"id": "sarguzasht", "name": "Sarguzasht asarlar", "icon": "🧭"},
+    {"id": "sheriyat", "name": "She'riyat durdonalari", "icon": "✨"},
 ]
 
 
@@ -53,6 +57,7 @@ def _normalize(text: str) -> str:
     t = t.replace("o‘", "o'").replace("g‘", "g'").replace("oʻ", "o'").replace("gʻ", "g'")
     t = t.replace("ў", "o'").replace("ғ", "g'").replace("ш", "sh").replace("ч", "ch")
     t = t.replace("ё", "yo").replace("ю", "yu").replace("я", "ya").replace("ц", "ts")
+    t = re.sub(r'[«»""“”„!?.,;:()\[\]{}—–\-_/\\*&^%$#@~<>|]', ' ', t)
     t_clean = re.sub(r"['`ʻʼ’´]", "", t)
     t_punct = re.sub(r"[^\w\s]", " ", t)
     return " ".join((t_punct + " " + t_clean).split())
@@ -216,17 +221,26 @@ def get_catalog(
     if query:
         norm_q = _normalize(query)
         words = norm_q.split()
-        raw_words = query.lower().split()
-        clean_q = re.sub(r"['`ʻʼ’´]", "", query).lower().strip()
+
+        # Punctuation delimiter stripping for tokens
+        punct_pattern = r'[«»""“”„!?.,;:()\[\]{}—–\-_/\\*&^%$#@~<>|]'
+        clean_no_punct = re.sub(punct_pattern, " ", query).lower()
+        clean_q = re.sub(r"['`ʻʼ’´]", "", clean_no_punct).strip()
         clean_words = clean_q.split()
-        cyr_ru_q = query.lower().replace("қ", "к").replace("ў", "у").replace("ғ", "г").replace("ҳ", "х")
-        cyr_ru_words = cyr_ru_q.split()
+
+        raw_words = [re.sub(punct_pattern, "", w).strip("'`ʻʼ’´ ") for w in query.lower().split()]
+        raw_words = [w for w in raw_words if w]
+
+        cyr_ru_clean = re.sub(punct_pattern, " ", query.lower())
+        cyr_ru_q = cyr_ru_clean.replace("қ", "к").replace("ў", "у").replace("ғ", "г").replace("ҳ", "х")
+        cyr_ru_words = [w.strip() for w in cyr_ru_q.split() if w.strip()]
 
         from utils.translit import cyrillic_to_latin, latin_to_cyrillic
         cyr_to_lat = cyrillic_to_latin(query).lower()
         cyr_to_lat_words = _normalize(cyr_to_lat).split()
         lat_to_cyr = latin_to_cyrillic(query).lower()
-        lat_to_cyr_words = lat_to_cyr.split()
+        lat_to_cyr_clean = re.sub(punct_pattern, " ", lat_to_cyr)
+        lat_to_cyr_words = [w.strip() for w in lat_to_cyr_clean.split() if w.strip()]
 
         filtered = [
             b for b in filtered
@@ -328,45 +342,18 @@ def _build_upstream_book_obj(ub: Dict[str, Any], bid: str, raw: str) -> Dict[str
 
 
 async def async_get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
-    """Kitobni ID orqali asinxron olish (aiohttp orqali upstream chaqiruvi bilan)."""
-    load_books()
-    raw = str(book_id).strip()
-    bid = re.sub(r'^(?:book_|books_|b_|kitob_)', '', raw).strip()
-    book = _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
-    if book:
-        return book
-
-    if bid.isdigit():
-        data = await _fetch_upstream_book_aiohttp(bid)
-        if data and data.get("ok") and data.get("book"):
-            return _build_upstream_book_obj(data["book"], bid, raw)
-
-    return None
+    """Kitobni ID orqali asinxron olish (mahalliy 3390 kitoblar keshidan darhol qaytarish)."""
+    return get_book_by_id(book_id)
 
 get_book_by_id_async = async_get_book_by_id
 
 
 def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
-    """Kitobni ID orqali olish (mahalliy yoki aiohttp orqali upstream katalogidan, non-blocking)."""
+    """Kitobni ID orqali olish (mahalliy 3390 kitoblar keshidan darhol <1ms qaytarish)."""
     load_books()
     raw = str(book_id).strip()
     bid = re.sub(r'^(?:book_|books_|b_|kitob_)', '', raw).strip()
-    book = _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
-    if book:
-        return book
-
-    # Faqat raqamli bo'lsa va lokal bazada bo'lmasa, aiohttp orqali upstreamdan non-blocking olish
-    if bid.isdigit():
-        try:
-            loop = _get_upstream_loop()
-            fut = asyncio.run_coroutine_threadsafe(_fetch_upstream_book_aiohttp(bid), loop)
-            data = fut.result(timeout=0.8)
-            if data and data.get("ok") and data.get("book"):
-                return _build_upstream_book_obj(data["book"], bid, raw)
-        except Exception as e:
-            logger.debug(f"Upstreamdan kitob #{book_id} yuklab bo'lmadi: {e}")
-
-    return None
+    return _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
 
 
 def search_books(query: str, limit: int = 25) -> List[Dict[str, Any]]:

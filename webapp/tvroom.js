@@ -708,7 +708,7 @@
             backBufferLength: 15,
             maxBufferLength: 15,
             maxMaxBufferLength: 30,
-            maxBufferSize: 30 * 1024 * 1024,
+            maxBufferSize: 30 * 1000 * 1000,
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 8,
             manifestLoadingTimeOut: 5000,

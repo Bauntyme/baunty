@@ -135,24 +135,22 @@ class MovieService:
         bot_clean = config.BOT_USERNAME.lstrip("@")
         channel_clean = config.CHANNEL_USERNAME.lstrip("@")
         # URLs
-        text = re.sub(r'https?://t\.me/(?:Zakirovs(?:films_bot|film_bot|Kino)|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
-        text = re.sub(r't\.me/(?:Zakirovs(?:films_bot|film_bot|Kino)|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
+        text = re.sub(r'https?://t\.me/(?:Zakirovs?(?:films_bot|film_bot|Kino|_ai|_bot)?|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
+        text = re.sub(r't\.me/(?:Zakirovs?(?:films_bot|film_bot|Kino|_ai|_bot)?|dilbarzakirova)\b', f't.me/{channel_clean}', text, flags=re.I)
         # Usernames with @
-        text = re.sub(r'@Zakirovsfilms_bot\b', f'@{bot_clean}', text, flags=re.I)
-        text = re.sub(r'@Zakirovsfilm_bot\b', f'@{bot_clean}', text, flags=re.I)
+        text = re.sub(r'@Zakirovs?films?_bot\b', f'@{bot_clean}', text, flags=re.I)
+        text = re.sub(r'@Zakirovs?_ai\b', f'@{bot_clean}', text, flags=re.I)
         text = re.sub(r'@ZakirovsKino\b', f'@{channel_clean}', text, flags=re.I)
         text = re.sub(r'@dilbarzakirova\b', f'@{channel_clean}', text, flags=re.I)
-        text = re.sub(r'@Zakirovs?\b', f'@{channel_clean}', text, flags=re.I)
+        text = re.sub(r'@Zakirovs?[\w]*\b', f'@{channel_clean}', text, flags=re.I)
         # Names
         text = re.sub(r'Zakirovs\s+Films\b', 'Baunty Films', text, flags=re.I)
-        text = re.sub(r'Zakirovs_bot\b', bot_clean, text, flags=re.I)
-        text = re.sub(r'Zakirovsfilm_bot\b', bot_clean, text, flags=re.I)
-        text = re.sub(r'Zakirovsfilms_bot\b', bot_clean, text, flags=re.I)
+        text = re.sub(r'Zakirovs?(?:films?_bot|_bot)\b', bot_clean, text, flags=re.I)
         text = re.sub(r'Zakirovs\b', 'Baunty', text, flags=re.I)
         text = re.sub(r'zakirovs\b', 'baunty', text, flags=re.I)
         text = re.sub(r'Dilbar\s*Zakirova\b', 'Baunty', text, flags=re.I)
-        text = re.sub(r'Zakirova\b', 'Baunty', text, flags=re.I)
-        text = re.sub(r'zakirova\b', 'baunty', text, flags=re.I)
+        text = re.sub(r'Zakirova?\b', 'Baunty', text, flags=re.I)
+        text = re.sub(r'zakirova?\b', 'baunty', text, flags=re.I)
         # Legacy bot username migration (@Bauntyfilmsbot -> current BOT_USERNAME)
         text = re.sub(r'https?://t\.me/Bauntyfilmsbot\b', f'https://t.me/{bot_clean}', text, flags=re.I)
         text = re.sub(r't\.me/Bauntyfilmsbot\b', f't.me/{bot_clean}', text, flags=re.I)
@@ -672,10 +670,7 @@ class MovieService:
                 f"{c}-{part}",
                 f"{c}p{part}",
             ])
-            if part == 1:
-                keys_to_check.append(c)
-        for c in alias_codes:
-            if c not in keys_to_check:
+            if part == 1 and c not in keys_to_check:
                 keys_to_check.append(c)
 
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
@@ -819,7 +814,8 @@ class MovieService:
         code: str,
         part: int = 1,
         session: Optional[AsyncSession] = None,
-        reply_to_message_id: Optional[int] = None
+        reply_to_message_id: Optional[int] = None,
+        require_video: bool = False
     ) -> bool:
         """
         Foydalanuvchiga kinoni yuborish (Video, HD Poster yoki tafsilotlar bilan).
@@ -832,7 +828,8 @@ class MovieService:
                 code=code,
                 part=part,
                 session=session,
-                reply_to_message_id=reply_to_message_id
+                reply_to_message_id=reply_to_message_id,
+                require_video=require_video
             )
         else:
             from database.session import get_session
@@ -843,7 +840,8 @@ class MovieService:
                     code=code,
                     part=part,
                     session=s,
-                    reply_to_message_id=reply_to_message_id
+                    reply_to_message_id=reply_to_message_id,
+                    require_video=require_video
                 )
 
     @staticmethod
@@ -1114,7 +1112,8 @@ class MovieService:
         code: str,
         part: int,
         session: AsyncSession,
-        reply_to_message_id: Optional[int] = None
+        reply_to_message_id: Optional[int] = None,
+        require_video: bool = False
     ) -> bool:
         clean_code = str(code).strip().lstrip("#№")
         if clean_code.startswith("kino_"):
@@ -1125,6 +1124,9 @@ class MovieService:
             clean_code = clean_code[2:]
         elif clean_code.startswith("m") and len(clean_code) > 1 and clean_code[1:].isdigit():
             clean_code = clean_code[1:]
+
+        if not clean_code or not clean_code.strip():
+            return False
 
         # Agar code ichida part bo'lsa (masalan: 289_2, 289-2, 289p2) va part == 1 bo'lsa
         m_part_code = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
@@ -1585,7 +1587,7 @@ class MovieService:
                             candidates.append(resolved_source)
                 elif resolved_source.get("file_id") and MovieService.is_valid_telegram_file_id(resolved_source.get("file_id")):
                     candidates.append(resolved_source)
-                elif resolved_source.get("url") and not any(h in resolved_source["url"] for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
+                elif resolved_source.get("url") and str(resolved_source["url"]).startswith("http") and not any(h in resolved_source["url"] for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
                     candidates.append(resolved_source)
                     alt_url = resolved_source.get("watch_url") if resolved_source.get("url") != resolved_source.get("watch_url") else resolved_source.get("download_url")
                     if alt_url and alt_url != resolved_source.get("url") and not any(h in alt_url for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
@@ -1622,6 +1624,10 @@ class MovieService:
                         "duration": None,
                         "file_size": None
                     })
+
+            if not candidates:
+                logger.info(f"Kino #{clean_code} (qism={part}) uchun haqiqiy video manbasi mavjud emas, silent poster downgrade bekor qilinadi.")
+                return False
 
             for cand in candidates:
                 try:
@@ -1733,8 +1739,11 @@ class MovieService:
                 except Exception as e:
                     logger.warning(f"Video manbasi yuborib bo'lmadi ({e}), keyingi zaxira tekshiriladi.")
 
+        if require_video or not candidates:
+            logger.info(f"Kino #{clean_code} uchun video yetkazilmadi (require_video={require_video}), False qaytariladi.")
+            return False
 
-        # 2. HD Poster rasmi orqali yuborish
+        # 2. HD Poster rasmi orqali yuborish (faqat tarmoq xatoligi bo'lganda favqulodda zaxira)
         posters_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "posters"
         posters_dir.mkdir(parents=True, exist_ok=True)
         poster_path = posters_dir / f"{clean_code}_l.webp"

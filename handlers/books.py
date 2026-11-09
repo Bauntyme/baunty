@@ -27,12 +27,18 @@ logger = logging.getLogger(__name__)
 router = Router(name="books")
 
 CAT_NAMES = {
-    "badiiy": "📖 Badiiy adabiyot",
-    "biznes": "💼 Biznes & Moliya",
-    "psixologiya": "🧠 Psixologiya",
-    "diniy": "🕌 Diniy & Ma'rifiy",
-    "tarix": "📜 Tarix & Fan",
-    "bolalar": "🧸 Bolalar uchun",
+    "badiiy": "📚 Badiiy adabiyot",
+    "biznes": "💼 Biznes va moliya",
+    "psixologiya": "🧠 Psixologiya va rivojlanish",
+    "fantastika": "🚀 Ilmiy fantastika",
+    "detektiv": "🔍 Detektiv va triller",
+    "diniy": "🌙 Diniy va ma'rifiy",
+    "tarix": "🏛️ Tarixiy asarlar",
+    "bolalar": "🎈 Bolalar adabiyoti",
+    "hikoya": "📖 Hikoyalar va qissalar",
+    "falsafa": "💡 Falsafa va tafakkur",
+    "sarguzasht": "🧭 Sarguzasht asarlar",
+    "sheriyat": "✨ She'riyat durdonalari",
     "pop": "🔥 Ommabop kitoblar",
 }
 
@@ -40,9 +46,15 @@ CAT_BANNERS = {
     "badiiy": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80",
     "biznes": "https://images.unsplash.com/photo-1589829085413-56de8ae18c73?w=600&q=80",
     "psixologiya": "https://images.unsplash.com/photo-1532012164546-f432f2e3edd4?w=600&q=80",
+    "fantastika": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&q=80",
+    "detektiv": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=600&q=80",
     "diniy": "https://images.unsplash.com/photo-1542816417-0983c9c9ad53?w=600&q=80",
     "tarix": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?w=600&q=80",
     "bolalar": "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600&q=80",
+    "hikoya": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=600&q=80",
+    "falsafa": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=600&q=80",
+    "sarguzasht": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&q=80",
+    "sheriyat": "https://images.unsplash.com/photo-1474932430478-367dbb6832c1?w=600&q=80",
     "pop": "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600&q=80",
 }
 
@@ -57,7 +69,7 @@ def safe_html(text: Any) -> str:
 
 
 def get_books_main_keyboard() -> InlineKeyboardMarkup:
-    """Kutubxona bosh inline klaviaturasi."""
+    """Kutubxona bosh inline klaviaturasi (12 toifa + ommabop + qidiruv + ilova)."""
     webapp_url = f"{config.WEBAPP_URL}?books" if config.WEBAPP_URL else None
 
     buttons = []
@@ -68,17 +80,30 @@ def get_books_main_keyboard() -> InlineKeyboardMarkup:
 
     buttons.append([
         InlineKeyboardButton(text="🔥 Ommabop kitoblar", callback_data="book:cat:pop:1"),
-        InlineKeyboardButton(text="📖 Badiiy adabiyot", callback_data="book:cat:badiiy:1"),
+        InlineKeyboardButton(text="📚 Badiiy adabiyot", callback_data="book:cat:badiiy:1"),
     ])
     buttons.append([
-        InlineKeyboardButton(text="💼 Biznes & Moliya", callback_data="book:cat:biznes:1"),
+        InlineKeyboardButton(text="💼 Biznes va moliya", callback_data="book:cat:biznes:1"),
         InlineKeyboardButton(text="🧠 Psixologiya", callback_data="book:cat:psixologiya:1"),
     ])
     buttons.append([
-        InlineKeyboardButton(text="🕌 Diniy & Ma'rifiy", callback_data="book:cat:diniy:1"),
-        InlineKeyboardButton(text="🧸 Bolalar uchun", callback_data="book:cat:bolalar:1"),
+        InlineKeyboardButton(text="🚀 Ilmiy fantastika", callback_data="book:cat:fantastika:1"),
+        InlineKeyboardButton(text="🔍 Detektiv va triller", callback_data="book:cat:detektiv:1"),
     ])
     buttons.append([
+        InlineKeyboardButton(text="🌙 Diniy va ma'rifiy", callback_data="book:cat:diniy:1"),
+        InlineKeyboardButton(text="🏛️ Tarixiy asarlar", callback_data="book:cat:tarix:1"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="🎈 Bolalar adabiyoti", callback_data="book:cat:bolalar:1"),
+        InlineKeyboardButton(text="📖 Hikoyalar va qissalar", callback_data="book:cat:hikoya:1"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="💡 Falsafa va tafakkur", callback_data="book:cat:falsafa:1"),
+        InlineKeyboardButton(text="🧭 Sarguzasht asarlar", callback_data="book:cat:sarguzasht:1"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="✨ She'riyat durdonalari", callback_data="book:cat:sheriyat:1"),
         InlineKeyboardButton(text="🔍 Kitob qidirish", callback_data="books:search"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
@@ -134,6 +159,19 @@ def format_book_item_card(book: dict) -> tuple[str, InlineKeyboardMarkup]:
         InlineKeyboardButton(text="📚 Bosh menyu", callback_data="books:main"),
     ])
     return text, InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def send_book_overview(message: Message, book_id: str | int) -> bool:
+    """Kitob kartasini xabar sifatida yuborish (deep-link /start books_{id} uchun)."""
+    bid = str(book_id).strip()
+    book = await book_service.async_get_book_by_id(bid) or book_service.get_book_by_id(bid)
+    if not book:
+        return False
+    text, kb = format_book_item_card(book)
+    cover_url = book_service.get_book_cover_url(book)
+    lpo = LinkPreviewOptions(is_disabled=False, url=cover_url, prefer_large_media=True, show_above_text=True) if cover_url else None
+    await message.answer(text, parse_mode="HTML", reply_markup=kb, link_preview_options=lpo)
+    return True
 
 
 def format_category_page(category: str, page: int = 1) -> tuple[str, InlineKeyboardMarkup]:
@@ -464,11 +502,12 @@ async def cb_book_read(call: CallbackQuery) -> None:
         InlineKeyboardButton(text="📚 Bosh menyu", callback_data="books:main")
     ])
 
-    try:
-        await call.message.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-    except Exception as e:
-        if "message is not modified" not in str(e).lower():
-            logger.debug(f"edit_text error: {e}")
+    if call.message:
+        try:
+            await call.message.edit_text(text, parse_mode="HTML", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        except Exception as e:
+            if "message is not modified" not in str(e).lower():
+                logger.debug(f"edit_text error: {e}")
     await call.answer()
 
 
@@ -483,9 +522,16 @@ async def cb_book_read(call: CallbackQuery) -> None:
 async def cb_book_download(call: CallbackQuery) -> None:
     """Kitobni chatga yuklab berish (PDF yoki EPUB)."""
     parts = call.data.split(":")
-    action = parts[1]  # dl, pdf, yoki epub
-    bid = parts[-1]
-    fmt = "epub" if action == "epub" else "pdf"
+    if len(parts) >= 4 and parts[1] == "dl":
+        bid = parts[2]
+        fmt = parts[3].lower()
+    elif len(parts) == 3 and parts[1] == "dl":
+        bid = parts[2]
+        fmt = "pdf"
+    else:
+        action = parts[1]
+        bid = parts[-1]
+        fmt = "epub" if action == "epub" else "pdf"
 
     book = await book_service.async_get_book_by_id(bid) or book_service.get_book_by_id(bid)
     if not book:
@@ -494,12 +540,16 @@ async def cb_book_download(call: CallbackQuery) -> None:
 
     await call.answer("📥 Kitob tayyorlanmoqda va yuborilmoqda…")
     try:
+        chat_id = call.message.chat.id if call.message and call.message.chat else call.from_user.id
         await book_service.deliver_book(
             bot=call.bot,
-            chat_id=call.message.chat.id,
+            chat_id=chat_id,
             book_id=bid,
             fmt=fmt
         )
     except Exception as e:
         logger.error(f"Kitob yetkazishda xatolik: {e}")
-        await call.message.answer(f"⚠️ Kitobni yuborishda xatolik yuz berdi: {e}", protect_content=True)
+        if call.message:
+            await call.message.answer(f"⚠️ Kitobni yuborishda xatolik yuz berdi: {e}", protect_content=True)
+        else:
+            await call.answer("⚠️ Kitobni yuborishda xatolik yuz berdi", show_alert=True)

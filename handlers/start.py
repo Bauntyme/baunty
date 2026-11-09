@@ -122,7 +122,13 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             )
             if not delivered:
                 code_disp = f"{movie_code} ({part}-qism)" if part > 1 else movie_code
-                await message.answer(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
+                from handlers.movies import movie_not_found_keyboard
+                await message.answer(
+                    format_movie_not_found(code_disp),
+                    parse_mode="HTML",
+                    reply_markup=movie_not_found_keyboard(),
+                    protect_content=True
+                )
             return
 
         elif param in ("books", "book", "kitob", "kitoblar", "kutubxona") or param.startswith(("b_", "book_", "kitob_", "books_")):
@@ -132,6 +138,11 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 await cmd_books(message)
                 return
             book_id = re.sub(r'^(?:book_|books_|b_|kitob_)', '', param).strip()
+            if param.startswith("books_"):
+                from handlers.books import send_book_overview
+                shown = await send_book_overview(message, book_id)
+                if shown:
+                    return
             delivered = await book_service.deliver_book(
                 bot=message.bot,
                 chat_id=message.chat.id,
@@ -331,7 +342,12 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 if delivered:
                     return
                 elif cat_movie or "_" in clean_param:
-                    await message.answer(format_movie_not_found(movie_code), parse_mode="HTML")
+                    from handlers.movies import movie_not_found_keyboard
+                    await message.answer(
+                        format_movie_not_found(movie_code),
+                        parse_mode="HTML",
+                        reply_markup=movie_not_found_keyboard()
+                    )
                     return
             music_id = clean_param
             status_msg = await message.answer("🎵 <b>Qo'shiq tayyorlanmoqda...</b>", parse_mode="HTML")

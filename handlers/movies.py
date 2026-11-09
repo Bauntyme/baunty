@@ -8,7 +8,7 @@ import re
 from typing import Optional, Tuple
 from aiogram import Router, F
 from aiogram.filters import StateFilter, Command, CommandObject
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from config import config
 from database.session import get_session
@@ -27,6 +27,22 @@ from utils.helpers import format_movie_not_found
 
 logger = logging.getLogger(__name__)
 router = Router(name="movies_router")
+
+
+def movie_not_found_keyboard() -> InlineKeyboardMarkup:
+    """Kino topilmaganda tavsiya tugmalari: Nomi bo'yicha qidirish, Sara kinolar, rasmiy kanal."""
+    ch_user = (config.CHANNEL_USERNAME or "@BauntyFilms").lstrip("@")
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔍 Nomi bo'yicha qidirish", callback_data="movie:by_title"),
+                InlineKeyboardButton(text="🎬 Sara kinolar", callback_data="movie:top"),
+            ],
+            [
+                InlineKeyboardButton(text=f"🍿 @{ch_user} kanali", url=f"https://t.me/{ch_user}"),
+            ],
+        ]
+    )
 
 
 @router.message(Command("kino", "movie", "film", "kod", "code"))
@@ -70,7 +86,12 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
             )
             if not delivered:
                 code_disp = f"{code} ({part}-qism)" if part > 1 else code
-                await message.reply(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
+                await message.reply(
+                    format_movie_not_found(code_disp),
+                    parse_mode="HTML",
+                    reply_markup=movie_not_found_keyboard(),
+                    protect_content=True
+                )
             return
 
     # Guruhlarda parametrsiz /kino yoki /kod yozilsa, qisqa ko'rsatma beramiz
@@ -317,7 +338,12 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
         part=1
     )
     if not delivered:
-        await callback.message.answer(format_movie_not_found(code), parse_mode="HTML", protect_content=True)
+        await callback.message.answer(
+            format_movie_not_found(code),
+            parse_mode="HTML",
+            reply_markup=movie_not_found_keyboard(),
+            protect_content=True
+        )
 
 
 @router.callback_query(
@@ -339,9 +365,9 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
     )
     if not delivered:
         await callback.message.answer(
-            f"❌ <b>#{code}</b> serialining <b>{part}-qismi</b> topilmadi.\n"
-            f"🍿 Barcha premyerlar kanalimizda: {config.CHANNEL_USERNAME}",
+            format_movie_not_found(f"{code} ({part}-qism)"),
             parse_mode="HTML",
+            reply_markup=movie_not_found_keyboard(),
             protect_content=True
         )
 
@@ -390,7 +416,7 @@ async def state_process_code(message: Message, state: FSMContext) -> None:
         await message.reply(
             format_movie_not_found(code_disp),
             parse_mode="HTML",
-            reply_markup=main_menu_keyboard(is_admin=config.is_admin(message.from_user.id)),
+            reply_markup=movie_not_found_keyboard(),
             protect_content=True
         )
 
@@ -753,7 +779,12 @@ async def process_numeric_movie_code(message: Message) -> None:
     )
     if not delivered:
         code_disp = f"{code} ({part}-qism)" if part > 1 else code
-        await message.reply(format_movie_not_found(code_disp), parse_mode="HTML", protect_content=True)
+        await message.reply(
+            format_movie_not_found(code_disp),
+            parse_mode="HTML",
+            reply_markup=movie_not_found_keyboard(),
+            protect_content=True
+        )
 
 
 @router.message(StateFilter(None), lambda msg: msg.reply_to_message and msg.text and re.match(r'^(?:kino\s*)?(\d{1,4})\s*(?:-?\s*(?:ci|chi))?\s*(?:-?\s*(?:qism(?:i|ni|ini)?|part|seriya(?:si)?|ep|episode))?(?:\s*(?:ko[\'‘`]?r(?:moqchiman|mochiman|moqchi|ishni|ish)?|tomosha|yuklash))?$', msg.text.strip(), re.IGNORECASE))
@@ -775,7 +806,12 @@ async def process_reply_part_request(message: Message) -> None:
         reply_to_message_id=message.message_id
     )
     if not delivered:
-        await message.reply(format_movie_not_found(f"{code} ({part}-qism)"), parse_mode="HTML", protect_content=True)
+        await message.reply(
+            format_movie_not_found(f"{code} ({part}-qism)"),
+            parse_mode="HTML",
+            reply_markup=movie_not_found_keyboard(),
+            protect_content=True
+        )
 
 
 def extract_code_from_caption(text: Optional[str]) -> Optional[str]:

@@ -859,5 +859,86 @@ async def test_start_movie_deep_link_variants():
         assert mock_deliver.call_args.kwargs["code"] == "5001"
 
 
+@pytest.mark.asyncio
+async def test_deliver_movie_no_candidate_eliminates_silent_downgrade(in_memory_session):
+    """Video manbasi umuman bo'lmaganda soxta poster/matn muvaffaqiyatiga o'tmasdan False qaytarish."""
+    from unittest.mock import AsyncMock, patch
+
+    # In-memory bazaga video faylsiz kino kiritamiz
+    movie = Movie(
+        code="88888888",
+        title="Faylsiz Test Kino",
+        file_id=None,
+        file_size=0
+    )
+    in_memory_session.add(movie)
+    await in_memory_session.commit()
+
+    bot_mock = AsyncMock()
+    bot_mock.send_video = AsyncMock()
+    bot_mock.send_photo = AsyncMock()
+    bot_mock.send_message = AsyncMock()
+
+    with patch("database.session.get_session") as mock_session_ctx:
+        mock_session_ctx.return_value.__aenter__.return_value = in_memory_session
+        result = await movie_service.deliver_movie(
+            bot=bot_mock,
+            chat_id=12345,
+            code="88888888",
+            part=1
+        )
+        # Sokin downgrade bo'lmasligi shart: result False qaytishi kerak
+        assert result is False
+        # Hech qanday soxta poster yoki matn xabari yuborilmasligi shart
+        assert not bot_mock.send_photo.called
+        assert not bot_mock.send_message.called
 
 
+def test_movie_not_found_keyboard_buttons():
+    """Kino topilmaganda taklif qilinadigan navigatsiya tugmalari testi."""
+    from handlers.movies import movie_not_found_keyboard
+
+    kb = movie_not_found_keyboard()
+    assert kb is not None
+    assert hasattr(kb, "inline_keyboard")
+    buttons = [btn for row in kb.inline_keyboard for btn in row]
+    btn_texts = [btn.text for btn in buttons]
+    btn_callbacks = [btn.callback_data for btn in buttons if btn.callback_data]
+    btn_urls = [btn.url for btn in buttons if btn.url]
+
+    # Nomi bo'yicha qidirish tugmasi
+    assert any("nomi bo'yicha" in t.lower() or "qidirish" in t.lower() for t in btn_texts)
+    assert "movie:by_title" in btn_callbacks
+
+    # Sara kinolar tugmasi
+    assert any("sara kinolar" in t.lower() or "top" in t.lower() for t in btn_texts)
+    assert "movie:top" in btn_callbacks
+
+    # Homiy/Kanal havolasi
+    assert any("bauntyfilms" in u.lower() or "t.me" in u.lower() for u in btn_urls)
+
+
+def test_real_local_video_assets_indexing_and_sizes():
+    """Haqiqiy lokal MP4 fayllar indeksatsiyasi va hajmlari kamida 10MB ekanligi testi."""
+    import json
+    from pathlib import Path
+
+    video_sources_path = BASE_DIR / "data" / "video_sources.json"
+    assert video_sources_path.exists()
+
+    with open(video_sources_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    items = data.get("items", data)
+
+    # 5 ta haqiqiy lokal video kalitlari
+    real_codes = ["101_10", "103_1", "114_1", "120_8", "142_1"]
+    for code in real_codes:
+        assert code in items, f"{code} video_sources.json da mavjud emas"
+        entry = items[code]
+        assert entry.get("source") == "local"
+        assert "file_path" in entry
+        file_path = BASE_DIR / entry["file_path"]
+        assert file_path.exists(), f"{file_path} diskda topilmadi"
+        # Kamida 10MB (10 * 1024 * 1024 bayt)
+        assert file_path.stat().st_size >= 10 * 1024 * 1024, f"{file_path} hajmi 10MB dan kichik"

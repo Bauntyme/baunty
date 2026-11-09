@@ -23,13 +23,18 @@ def test_books_load_and_catalog():
 
 
 def test_books_catalog_filtering():
-    """Toifalar va qidiruv bo'yicha saralashni tekshirish."""
-    # Badiiy toifasi
-    badiiy = book_service.get_catalog(category="badiiy")
-    assert badiiy["ok"] is True
-    assert len(badiiy["items"]) > 0
-    for b in badiiy["items"]:
-        assert b["category"] == "badiiy"
+    """Toifalar va qidiruv bo'yicha saralashni tekshirish (barcha 12 janr)."""
+    # Barcha 12 janr bo'yicha tekshirish
+    all_12_genres = [
+        "badiiy", "biznes", "psixologiya", "fantastika", "detektiv", "diniy",
+        "tarix", "bolalar", "hikoya", "falsafa", "sarguzasht", "sheriyat"
+    ]
+    for g in all_12_genres:
+        cat_res = book_service.get_catalog(category=g)
+        assert cat_res["ok"] is True
+        assert len(cat_res["items"]) > 0, f"{g} janrida kitoblar topilmadi"
+        for b in cat_res["items"]:
+            assert b["category"] == g
 
     # Ommabop (pop)
     pop = book_service.get_catalog(category="pop")
@@ -241,6 +246,8 @@ class TestBooksWebServerAPI(AioHTTPTestCase):
         data = await resp.json()
         assert "shelves" in data
         assert "genres" in data
+        assert len(data["genres"]) == 12, f"12 ta janr kutilgan edi, lekin {len(data['genres'])} ta"
+        assert len(data["categories"]) == 12, "12 ta toifa bo'lishi kerak"
         assert "collections" in data
         assert "total" in data
         assert data["total"] >= 15
@@ -278,20 +285,21 @@ class TestBooksWebServerAPI(AioHTTPTestCase):
 
     @unittest_run_loop
     async def test_bk_toc_and_chapter_dynamic_generation(self):
-        """GET /bk/{id}/toc.json va c1.json dinamik ravishda yaratilishi kerak."""
+        """GET /bk/{id}/toc.json va c1.json - c4.json dinamik ravishda yaratilishi kerak."""
         resp_toc = await self.client.request("GET", "/bk/1/toc.json")
         assert resp_toc.status == 200
         toc_data = await resp_toc.json()
         assert toc_data.get("ok") is True
         assert "toc" in toc_data
-        assert len(toc_data["toc"]) >= 1
+        assert len(toc_data["toc"]) >= 4, "TOC kamida 4 bobdan iborat bo'lishi kerak"
 
-        resp_ch = await self.client.request("GET", "/bk/1/c1.json")
-        assert resp_ch.status == 200
-        ch_data = await resp_ch.json()
-        assert "h" in ch_data
-        assert "p" in ch_data
-        assert len(ch_data["p"]) >= 2
+        for ch in [1, 2, 3, 4]:
+            resp_ch = await self.client.request("GET", f"/bk/1/c{ch}.json")
+            assert resp_ch.status == 200
+            ch_data = await resp_ch.json()
+            assert "h" in ch_data
+            assert "p" in ch_data
+            assert len(ch_data["p"]) >= 2
 
     @unittest_run_loop
     async def test_bk_cover_assets_serving(self):
@@ -601,6 +609,17 @@ async def test_start_command_book_deep_links():
     state3 = AsyncMock()
     await cmd_start(msg3, state=state3)
     assert msg3.answer.called
+
+    # 4. /start books_1 (interaktiv kitob kartasini ochish)
+    msg4 = AsyncMock()
+    msg4.text = "/start books_1"
+    msg4.from_user = MagicMock(id=12345, is_bot=False, username="test", first_name="Test", last_name="")
+    msg4.chat.id = 12345
+    msg4.answer = AsyncMock()
+    state4 = AsyncMock()
+    await cmd_start(msg4, state=state4)
+    assert msg4.answer.called
+    assert "O'tkan kunlar" in msg4.answer.call_args[0][0]
 
 
 @pytest.mark.asyncio

@@ -699,16 +699,21 @@ async function loadChapter(n, where) {
 }
 async function layout(where) {
   const page = $("rdpage"), text = $("rdtext"), flow = $("rdflow");
-  const W = page.clientWidth, H = page.clientHeight;
+  const W = page.clientWidth || window.innerWidth || 360;
+  const H = page.clientHeight || window.innerHeight || 640;
   const padX = W > 700 ? Math.round((W - 640) / 2) : 22;
+  const colW = Math.max(200, W - 2 * padX);
   R.W = W;
-  text.style.cssText = `width:${W}px;height:${H}px;padding:20px ${padX}px 22px;box-sizing:border-box;column-width:${W - 2 * padX}px;column-gap:${2 * padX}px`;
+  text.style.cssText = `width:${W}px;height:${H}px;padding:20px ${padX}px 22px;box-sizing:border-box;column-width:${colW}px;column-gap:${2 * padX}px`;
   try { await document.fonts.ready; } catch (e) {}
-  R.pages = Math.max(1, Math.round(text.scrollWidth / W));
+  const safeW = Math.max(1, W);
+  R.pages = Math.max(1, Math.round(text.scrollWidth / safeW));
   if (where === "end") R.page = R.pages - 1;
   else if (typeof where === "number") R.page = Math.min(R.pages - 1, Math.round(where * (R.pages - 1)));
   else R.page = Math.min(R.page, R.pages - 1);
-  flow.classList.remove("anim"); flow.style.transform = `translateX(${-R.page * W}px)`;
+  if (isNaN(R.page) || R.page < 0) R.page = 0;
+  const tx = isNaN(R.page * W) ? 0 : -R.page * W;
+  flow.classList.remove("anim"); flow.style.transform = `translateX(${tx}px)`;
   info();
 }
 function go(dir) {
@@ -725,7 +730,9 @@ function go(dir) {
   }
   const flow = $("rdflow");
   if (!reduced()) flow.classList.add("anim");
-  flow.style.transform = `translateX(${-R.page * R.W}px)`;
+  const curW = R.W || window.innerWidth || 360;
+  const tx = isNaN(R.page * curW) ? 0 : -R.page * curW;
+  flow.style.transform = `translateX(${tx}px)`;
   info(); saveSoon(); haptic();
 }
 function info() {

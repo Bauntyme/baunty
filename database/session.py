@@ -1,6 +1,7 @@
 """
 Ma'lumotlar bazasi sessiyalari va ulanish boshqaruvi
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator, Optional
@@ -14,6 +15,9 @@ from config import config
 from database.models import Base
 
 logger = logging.getLogger(__name__)
+
+# Event loop tracking for connection pool isolation across async loops
+_engine_loop: Optional[asyncio.AbstractEventLoop] = None
 
 # Engine yaratish (Postgres uchun tezkor connection pool, SQLite uchun WAL + bounded QueuePool)
 _is_sqlite = "sqlite" in config.db_url
@@ -105,6 +109,15 @@ async_session_maker = async_sessionmaker(
 @asynccontextmanager
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     """Ma'lumotlar bazasi sessiyasini xavfsiz context manager orqali olish."""
+    global _engine_loop
+    try:
+        current_loop = asyncio.get_running_loop()
+        if _engine_loop is not None and _engine_loop != current_loop:
+            await engine.dispose()
+        _engine_loop = current_loop
+    except RuntimeError:
+        pass
+
     async with async_session_maker() as session:
         try:
             yield session
@@ -193,5 +206,7 @@ async def init_db() -> None:
 
 async def close_db() -> None:
     """Ma'lumotlar bazasi ulanishlarini yopish."""
+    global _engine_loop
     logger.info("Ma'lumotlar bazasi ulanishlari yopilmoqda...")
     await engine.dispose()
+    _engine_loop = None

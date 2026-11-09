@@ -119,7 +119,10 @@ async def main() -> None:
     async def on_startup():
         logger.info("Baza va xizmatlar ishga tushirilmoqda...")
         await init_db()
-        await set_default_commands(bot)
+        try:
+            await set_default_commands(bot)
+        except Exception as e:
+            logger.warning(f"set_default_commands xatolik: {e}")
         await set_webapp_menu_button(bot)
         await notify_admins_on_startup(bot)
         from services.movie_service import start_periodic_catalog_sync, start_background_movie_preloader
