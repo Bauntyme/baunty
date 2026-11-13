@@ -197,7 +197,8 @@ async def test_cmd_debug_optimize_lcp():
     reply_text = call_args[0][0]
     assert "LCP" in reply_text
     assert "fetchpriority" in reply_text
-    assert "161-97-96-58.sslip.io" in reply_text
+    assert "Bauntys" in reply_text
+    assert "161-97-96-58.sslip.io" not in reply_text
     assert "asilmedia.org" in reply_text
 
 
@@ -266,7 +267,8 @@ def test_is_valid_telegram_file_id_validation():
 
     # Haqiqiy Telegram file_id lar
     assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkDAAIC_cloud_pool_fid_valid_real_telegram_12345") is True
-    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAIB_real_video_uploaded_by_telegram_12345678") is True
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAE_real_video_uploaded_by_telegram_12345678") is True
+    assert MovieService.is_valid_telegram_file_id("BAACAgIAAxkBAAIB_real_video_uploaded_by_telegram_12345678") is False
 
 
 @pytest.mark.asyncio

@@ -213,7 +213,6 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
             "/api/music",
             "/api/music/home",
             "/api/games",
-            "/api/story",
             "/api/docs",
             "/api/books",
             "/api/fx",
@@ -225,6 +224,19 @@ class TestHeadersAndEndpointsAudit(AioHTTPTestCase):
             "/api/kal",
             "/api/mafia",
         ]
+        # /api/story parametr kiritilmasa GET/POST 400 (bad_username), /api/story/me GET 200 qaytarishi kerak
+        for story_bad_method in ("GET", "POST"):
+            resp_story_bad = await self.client.request(
+                story_bad_method, "/api/story", json={} if story_bad_method == "POST" else None
+            )
+            assert resp_story_bad.status == 400
+            story_bad_data = await resp_story_bad.json()
+            assert story_bad_data.get("error") == "bad_username"
+        for story_me_ep in ("/api/story/me", "/webapp/api/story/me"):
+            resp_me = await self.client.get(story_me_ep)
+            assert resp_me.status == 200
+            assert (await resp_me.json()).get("ok") is True
+
         for ep in endpoints:
             # Direct GET
             resp = await self.client.get(ep)

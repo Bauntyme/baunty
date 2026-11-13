@@ -20,6 +20,8 @@ CSS_FILES = [
     "kattalar.css",
     "mafia.css",
     "tvroom.css",
+    "bunker.css",
+    "deliv.css",
     "music.css",
     "docs.css",
     "fx.css",
@@ -34,11 +36,14 @@ CSS_FILES = [
 
 JS_FILES = [
     "i18n.js",
+    "zintro.js",
     "music.js",
     "docs.js",
     "games.js",
     "kattalar.js",
     "mafia.js",
+    "bunker.js",
+    "deliv.js",
     "tvroom.js",
     "story.js",
     "books.js",
@@ -50,6 +55,7 @@ JS_FILES = [
     "kaloriya.js",
     "asil.js",
     "zk.js",
+    "app.js",
 ]
 
 DEVTOOLS_SHIELD_JS = """/* Bauntys Production Security Shield & Anti-Debugging */

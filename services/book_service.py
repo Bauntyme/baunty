@@ -266,79 +266,311 @@ def get_catalog(
     }
 
 
-_UPSTREAM_LOOP: Optional[asyncio.AbstractEventLoop] = None
-_UPSTREAM_THREAD: Optional[threading.Thread] = None
+_BOOKS_STATE_LOCK = threading.RLock()
+_BOOKS_STATE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data",
+    "books_state.json",
+)
 
 
-def _get_upstream_loop() -> asyncio.AbstractEventLoop:
-    global _UPSTREAM_LOOP, _UPSTREAM_THREAD
-    if _UPSTREAM_LOOP is None or not _UPSTREAM_LOOP.is_running():
-        _UPSTREAM_LOOP = asyncio.new_event_loop()
-        def _run(loop: asyncio.AbstractEventLoop) -> None:
-            asyncio.set_event_loop(loop)
-            loop.run_forever()
-        _UPSTREAM_THREAD = threading.Thread(target=_run, args=(_UPSTREAM_LOOP,), daemon=True, name="book_upstream_loop")
-        _UPSTREAM_THREAD.start()
-    return _UPSTREAM_LOOP
+def _load_books_state() -> Dict[str, Any]:
+    """Foydalanuvchi kutubxona holatini JSON fayldan xavfsiz o'qish."""
+    import json
+    with _BOOKS_STATE_LOCK:
+        if not os.path.exists(_BOOKS_STATE_PATH):
+            return {"users": {}}
+        try:
+            with open(_BOOKS_STATE_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, dict) and isinstance(data.get("users"), dict):
+                return data
+        except Exception as e:
+            logger.warning(f"Kitob holatini o'qishda xatolik: {e}")
+        return {"users": {}}
 
 
-async def _fetch_upstream_book_aiohttp(bid: str) -> Optional[Dict[str, Any]]:
-    """Asinxron aiohttp ClientSession orqali upstream kitob ma'lumotlarini olish."""
-    try:
-        import aiohttp
-        url = f"https://161-97-96-58.sslip.io/api/books/b/{bid}"
-        timeout = aiohttp.ClientTimeout(total=0.8, connect=0.5)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, headers={"User-Agent": "BauntyBot/2.0"}) as resp:
-                if resp.status == 200:
-                    return await resp.json(content_type=None)
-    except Exception as e:
-        logger.debug(f"Upstreamdan kitob #{bid} aiohttp orqali yuklab bo'lmadi: {e}")
-    return None
+def _save_books_state(data: Dict[str, Any]) -> None:
+    """Foydalanuvchi kutubxona holatini JSON faylga atomik saqlash."""
+    import json
+    with _BOOKS_STATE_LOCK:
+        os.makedirs(os.path.dirname(_BOOKS_STATE_PATH), exist_ok=True)
+        tmp_path = f"{_BOOKS_STATE_PATH}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, _BOOKS_STATE_PATH)
 
 
-def _build_upstream_book_obj(ub: Dict[str, Any], bid: str, raw: str) -> Dict[str, Any]:
-    """Upstreamdan kelgan kitob obyektini to'liq mahalliy formatga o'tkazish."""
-    title = ub.get("t") or f"Kitob #{bid}"
-    author = ub.get("a") or "Noma'lum muallif"
-    category_code = ub.get("g") or "badiiy"
-    meta = next((c for c in CATEGORIES_META if c["id"] == category_code), None)
-    category_name = meta["name"] if meta else "Badiiy adabiyot"
-    desc = ub.get("desc") or f"{title} — {author} asari."
-    size_bytes = (ub.get("s") or {}).get("pdf") or 2500000
-    size_mb = round(size_bytes / 1048576, 1) if size_bytes else 2.5
+def _ensure_user_entry(state: Dict[str, Any], user_id: Any) -> Dict[str, Any]:
+    """Foydalanuvchi yozuvini tayyorlash yoki yaratish."""
+    uid = str(user_id or "guest")
+    users = state.setdefault("users", {})
+    entry = users.setdefault(uid, {})
+    entry.setdefault("books", {})
+    entry.setdefault("audio", {})
+    entry.setdefault("notes", [])
+    stats = entry.setdefault("stats", {})
+    stats.setdefault("secs", 0)
+    stats.setdefault("books", 0)
+    stats.setdefault("month", 0)
+    stats.setdefault("streak", 0)
+    if not isinstance(stats.get("week"), list) or len(stats["week"]) != 7:
+        stats["week"] = [0, 0, 0, 0, 0, 0, 0]
+    return entry
 
-    book_obj = {
-        "id": str(ub.get("i", bid)),
-        "title": title,
-        "author": author,
-        "category": category_code,
-        "category_name": category_name,
-        "pages": ub.get("p") or 120,
-        "lang": ub.get("l") or "uz",
-        "year": ub.get("y"),
-        "rating": ub.get("r") or 4.9,
-        "views": (ub.get("rd") or 10) * 150,
-        "format": "PDF",
-        "size_mb": size_mb,
-        "popular": True,
-        "description": desc,
-        "sample_text": f"«{title}» ({author}) kitobining mutolaa va tanishuv nusxasi.",
-        "cover": f"https://161-97-96-58.sslip.io/bk/{ub.get('i', bid)}/cover_l.webp" if ub.get("c") else "",
-        # Upstream mosligi (i, t, a, c, p, l, g, f, s)
-        "i": ub.get("i", int(bid) if bid.isdigit() else 0),
-        "t": title,
-        "a": author,
-        "c": ub.get("c", 0),
-        "p": ub.get("p", 120),
-        "l": ub.get("l", "uz"),
-        "g": category_code,
-        "f": ["pdf", "epub"],
-        "s": {"pdf": size_bytes, "epub": int(size_bytes * 0.55)},
+
+def _serialize_book_entry(bid: str, rec: Dict[str, Any]) -> Dict[str, Any]:
+    """Saqlangan kitob holatini katalog metama'lumotlari bilan birlashtirish."""
+    b = get_book_by_id(bid) or {}
+    bid_int = int(bid) if str(bid).isdigit() else bid
+    return {
+        "i": bid_int,
+        "id": str(bid),
+        "t": b.get("title", f"Kitob #{bid}"),
+        "a": b.get("author", "Noma'lum muallif"),
+        "c": b.get("cover", "") or f"bk/{bid}/cover_l.webp",
+        "l": b.get("lang", "uz"),
+        "p": int(b.get("pages", 200) or 200),
+        "ch": int(rec.get("ch", 0) or 0),
+        "off": float(rec.get("off", 0.0) or 0.0),
+        "pct": round(float(rec.get("pct", 0.0) or 0.0), 1),
+        "saved": bool(rec.get("saved", False)),
+        "done": bool(rec.get("done", False)),
+        "dl": bool(rec.get("dl", False)),
+        "stars": int(rec.get("stars", 0) or 0),
+        "at": int(rec.get("at", 0) or 0),
+        "ap": rec.get("ap"),
     }
-    _BOOKS_BY_ID[bid] = book_obj
-    _BOOKS_BY_ID[raw] = book_obj
-    return book_obj
+
+
+def get_user_state(user_id: Any) -> Dict[str, Any]:
+    """Foydalanuvchining javoni, mutolaa jarayoni, izohlari va statistikasini olish."""
+    load_books()
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        books_list = [
+            _serialize_book_entry(bid, rec)
+            for bid, rec in entry["books"].items()
+            if isinstance(rec, dict)
+        ]
+        books_list.sort(key=lambda x: x.get("at", 0), reverse=True)
+        shelf_list = [x for x in books_list if x["saved"] or x["done"]]
+
+        audio_list = []
+        for bid, ap in entry.get("audio", {}).items():
+            if not isinstance(ap, dict):
+                continue
+            b = get_book_by_id(bid) or {}
+            audio_list.append({
+                "i": int(bid) if str(bid).isdigit() else bid,
+                "t": b.get("title", f"Kitob #{bid}"),
+                "a": b.get("author", ""),
+                "l": b.get("lang", "uz"),
+                "c": 1,
+                "n": int(ap.get("n", 1) or 1),
+                "pt": float(ap.get("t", 0.0) or 0.0),
+                "ts": int(ap.get("ts", 0) or 0),
+            })
+        audio_list.sort(key=lambda x: x.get("ts", 0), reverse=True)
+
+        notes_list = sorted(
+            [n for n in entry.get("notes", []) if isinstance(n, dict)],
+            key=lambda x: x.get("ts", 0),
+            reverse=True,
+        )
+        return {
+            "ok": True,
+            "books": books_list,
+            "shelf": shelf_list,
+            "audio": audio_list,
+            "notes": notes_list,
+            "stats": dict(entry["stats"]),
+        }
+
+
+def get_user_book_me(user_id: Any, book_id: Any) -> Dict[str, Any]:
+    """Bitta kitob bo'yicha foydalanuvchi holatini (progress, saqlash, izohlar) qaytarish."""
+    bid = str(book_id)
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        rec = dict(entry["books"].get(bid, {}))
+        ap = entry.get("audio", {}).get(bid)
+        notes = [
+            n for n in entry.get("notes", [])
+            if isinstance(n, dict) and str(n.get("i")) == bid
+        ]
+        return {
+            "ch": int(rec.get("ch", 0) or 0),
+            "off": float(rec.get("off", 0.0) or 0.0),
+            "pct": float(rec.get("pct", 0.0) or 0.0),
+            "saved": bool(rec.get("saved", False)),
+            "done": bool(rec.get("done", False)),
+            "dl": bool(rec.get("dl", False)),
+            "stars": int(rec.get("stars", 0) or 0),
+            "ap": ap,
+            "notes": notes,
+        }
+
+
+def save_user_progress(
+    user_id: Any,
+    book_id: Any,
+    ch: int = 0,
+    off: float = 0.0,
+    pct: float = 0.0,
+    secs: int = 0,
+) -> Dict[str, Any]:
+    """Mutolaa jarayonini va o'qish vaqtini JSON bazaga saqlash."""
+    import time
+    from datetime import datetime
+    bid = str(book_id)
+    now_ts = int(time.time())
+    safe_pct = max(0.0, min(100.0, float(pct or 0.0)))
+    safe_secs = max(0, int(secs or 0))
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        rec = entry["books"].setdefault(bid, {})
+        was_done = bool(rec.get("done", False))
+        rec["ch"] = max(0, int(ch or 0))
+        rec["off"] = max(0.0, min(1.0, float(off or 0.0)))
+        rec["pct"] = round(safe_pct, 2)
+        rec["at"] = now_ts
+        if safe_pct >= 99.0:
+            rec["done"] = True
+            if not was_done:
+                entry["stats"]["books"] = int(entry["stats"].get("books", 0)) + 1
+                entry["stats"]["month"] = int(entry["stats"].get("month", 0)) + 1
+        if safe_secs > 0:
+            entry["stats"]["secs"] = int(entry["stats"].get("secs", 0)) + safe_secs
+            entry["stats"]["week"][6] = int(entry["stats"]["week"][6]) + safe_secs
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        if entry["stats"].get("last_day") != today_str:
+            entry["stats"]["streak"] = int(entry["stats"].get("streak", 0)) + 1
+            entry["stats"]["last_day"] = today_str
+        _save_books_state(state)
+        return {"ok": True, "me": _serialize_book_entry(bid, rec)}
+
+
+def toggle_shelf(
+    user_id: Any,
+    book_id: Any,
+    saved: Optional[bool] = None,
+    done: Optional[bool] = None,
+    stars: Optional[int] = None,
+    remove: bool = False,
+    dl: Optional[bool] = None,
+) -> Dict[str, Any]:
+    """Kitobni javonga qo'shish/o'chirish, tugatish va baholash holatini saqlash."""
+    import time
+    bid = str(book_id)
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        if remove:
+            entry["books"].pop(bid, None)
+            _save_books_state(state)
+            return {"ok": True, "removed": True}
+        rec = entry["books"].setdefault(bid, {})
+        was_done = bool(rec.get("done", False))
+        if saved is not None:
+            rec["saved"] = bool(saved)
+        elif done is None and stars is None and dl is None:
+            rec["saved"] = not bool(rec.get("saved", False))
+        if done is not None:
+            rec["done"] = bool(done)
+            if rec["done"] and float(rec.get("pct", 0.0) or 0.0) < 100.0:
+                rec["pct"] = 100.0
+            if rec["done"] and not was_done:
+                entry["stats"]["books"] = int(entry["stats"].get("books", 0)) + 1
+                entry["stats"]["month"] = int(entry["stats"].get("month", 0)) + 1
+        if stars is not None:
+            rec["stars"] = max(1, min(5, int(stars)))
+        if dl is not None:
+            rec["dl"] = bool(dl)
+        rec["at"] = int(time.time())
+        if (
+            not rec.get("saved")
+            and not rec.get("done")
+            and not rec.get("dl")
+            and float(rec.get("pct", 0.0) or 0.0) == 0.0
+            and not rec.get("stars")
+        ):
+            entry["books"].pop(bid, None)
+            _save_books_state(state)
+            return {"ok": True, "saved": False}
+        _save_books_state(state)
+        return {"ok": True, "me": _serialize_book_entry(bid, rec)}
+
+
+def add_note(
+    user_id: Any,
+    book_id: Any,
+    ch: int = 0,
+    q: str = "",
+    note: str = "",
+    pos: int = -1,
+) -> Dict[str, Any]:
+    """Kitobdagi belgilangan parcha va shaxsiy izohni saqlash."""
+    import time
+    import uuid
+    bid = str(book_id)
+    b = get_book_by_id(bid) or {}
+    nid = uuid.uuid4().hex[:10]
+    item = {
+        "id": nid,
+        "i": int(bid) if bid.isdigit() else bid,
+        "t": b.get("title", f"Kitob #{bid}"),
+        "ch": max(0, int(ch or 0)),
+        "q": str(q or "").strip()[:600],
+        "n": str(note or "").strip()[:2000],
+        "pos": int(pos if pos is not None else -1),
+        "ts": int(time.time()),
+    }
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        entry["notes"].insert(0, item)
+        entry["notes"] = entry["notes"][:200]
+        _save_books_state(state)
+    return {"ok": True, "id": nid, "note": item}
+
+
+def delete_note(user_id: Any, note_id: Any) -> Dict[str, Any]:
+    """Foydalanuvchi izohini o'chirish."""
+    nid = str(note_id)
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        before = len(entry["notes"])
+        entry["notes"] = [n for n in entry["notes"] if str(n.get("id")) != nid]
+        if len(entry["notes"]) != before:
+            _save_books_state(state)
+            return {"ok": True, "deleted": True}
+    return {"ok": True, "deleted": False}
+
+
+def save_user_audio_progress(
+    user_id: Any,
+    book_id: Any,
+    n: int = 1,
+    t: float = 0.0,
+    secs: int = 0,
+) -> Dict[str, Any]:
+    """Audiokitob tinglash joyini saqlash."""
+    import time
+    bid = str(book_id)
+    now_ts = int(time.time())
+    with _BOOKS_STATE_LOCK:
+        state = _load_books_state()
+        entry = _ensure_user_entry(state, user_id)
+        entry["audio"][bid] = {"n": max(1, int(n or 1)), "t": max(0.0, float(t or 0.0)), "ts": now_ts}
+        if secs and int(secs) > 0:
+            entry["stats"]["secs"] = int(entry["stats"].get("secs", 0)) + int(secs)
+        _save_books_state(state)
+    return {"ok": True}
 
 
 async def async_get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
@@ -623,22 +855,72 @@ def get_book_cover_url(book: Dict[str, Any]) -> str:
     return "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=600&q=80"
 
 
+def _find_unicode_ttf(bold: bool = False) -> Optional[str]:
+    """Kirill va O'zbek lotin harflarini qo'llab-quvvatlovchi tizim shriftini topish."""
+    candidates = (
+        [
+            "C:/Windows/Fonts/arialbd.ttf",
+            "C:/Windows/Fonts/segoeuib.ttf",
+            "C:/Windows/Fonts/calibrib.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "DejaVuSans-Bold.ttf",
+            "arialbd.ttf",
+        ]
+        if bold
+        else [
+            "C:/Windows/Fonts/arial.ttf",
+            "C:/Windows/Fonts/segoeui.ttf",
+            "C:/Windows/Fonts/calibri.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "DejaVuSans.ttf",
+            "arial.ttf",
+        ]
+    )
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return None
+
+
+def _clean_pdf_text(text: str) -> str:
+    """TTF shriftda bo'sh kvadrat (tofu) bermasligi uchun emoji belgilarini tozalash."""
+    import re
+    cleaned = re.sub(r"[\U00010000-\U0010FFFF\u2600-\u27BF\uFE0F]", "", str(text or ""))
+    return re.sub(r"[ \t]{2,}", " ", cleaned).strip()
+
+
 def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
     """Kitob uchun chiroyli PDF mutolaa nusxasini yaratish (ReportLab yoki Pillow yordamida)."""
-    title = book.get("title", "Kitob")
-    author = book.get("author", "Noma'lum muallif")
-    desc = book.get("description", "")
-    sample = book.get("sample_text", desc)
-    category_name = book.get("category_name", "Badiiy adabiyot")
+    title = _clean_pdf_text(book.get("title", "Kitob"))
+    author = _clean_pdf_text(book.get("author", "Noma'lum muallif"))
+    desc = _clean_pdf_text(book.get("description", ""))
+    sample = _clean_pdf_text(book.get("sample_text", desc))
+    category_name = _clean_pdf_text(book.get("category_name", "Badiiy adabiyot"))
     pages = book.get("pages", 200)
+    bot_user = config.BOT_USERNAME.lstrip("@")
 
-    # 1. Agar ReportLab mavjud bo'lsa
+    # 1. Agar ReportLab mavjud bo'lsa (Unicode TTF ro'yxatdan o'tkazish bilan)
     try:
         import html
         from reportlab.lib.pagesizes import letter
         from reportlab.lib import colors
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+
+        reg_ttf = _find_unicode_ttf(False)
+        bold_ttf = _find_unicode_ttf(True) or reg_ttf
+        font_reg = "Helvetica"
+        font_bold = "Helvetica-Bold"
+        if reg_ttf:
+            pdfmetrics.registerFont(TTFont("BauntyBook", reg_ttf))
+            pdfmetrics.registerFont(TTFont("BauntyBookBold", bold_ttf))
+            pdfmetrics.registerFontFamily("BauntyBook", normal="BauntyBook", bold="BauntyBookBold")
+            font_reg = "BauntyBook"
+            font_bold = "BauntyBookBold"
 
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
@@ -647,6 +929,7 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
         title_style = ParagraphStyle(
             "BookTitle",
             parent=styles["Title"],
+            fontName=font_bold,
             fontSize=24,
             leading=28,
             textColor=colors.HexColor("#1A1D20"),
@@ -656,6 +939,7 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
         author_style = ParagraphStyle(
             "BookAuthor",
             parent=styles["Normal"],
+            fontName=font_reg,
             fontSize=14,
             leading=18,
             textColor=colors.HexColor("#E5484D"),
@@ -665,15 +949,24 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
         meta_style = ParagraphStyle(
             "BookMeta",
             parent=styles["Normal"],
+            fontName=font_reg,
             fontSize=11,
             leading=15,
             textColor=colors.HexColor("#6C757D"),
             alignment=1,
             spaceAfter=24
         )
+        h2_style = ParagraphStyle(
+            "BookH2",
+            parent=styles["Heading2"],
+            fontName=font_bold,
+            fontSize=14,
+            textColor=colors.HexColor("#1A1D20")
+        )
         body_style = ParagraphStyle(
             "BookBody",
             parent=styles["Normal"],
+            fontName=font_reg,
             fontSize=12,
             leading=18,
             textColor=colors.HexColor("#2B2D42"),
@@ -682,6 +975,7 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
         footer_style = ParagraphStyle(
             "BookFooter",
             parent=styles["Normal"],
+            fontName=font_reg,
             fontSize=10,
             leading=14,
             textColor=colors.HexColor("#8D99AE"),
@@ -690,19 +984,19 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
 
         elements = [
             Paragraph(f"<b>{html.escape(title)}</b>", title_style),
-            Paragraph(f"✍️ Muallif: <b>{html.escape(author)}</b>", author_style),
-            Paragraph(f"📂 Janr: {html.escape(category_name)} | 📄 {pages} sahifa | ⭐ Reyting: {book.get('rating', 4.9)}", meta_style),
+            Paragraph(f"Muallif: <b>{html.escape(author)}</b>", author_style),
+            Paragraph(f"Janr: {html.escape(category_name)} | {pages} sahifa | Reyting: {book.get('rating', 4.9)}", meta_style),
             HRFlowable(width="100%", thickness=1, color=colors.HexColor("#E2E8F0"), spaceAfter=20),
-            Paragraph("<b>Qisqacha mazmuni:</b>", ParagraphStyle("H2", parent=styles["Heading2"], fontSize=14, textColor=colors.HexColor("#1A1D20"))),
+            Paragraph("<b>Qisqacha mazmuni:</b>", h2_style),
             Spacer(1, 6),
             Paragraph(html.escape(desc), body_style),
             Spacer(1, 14),
-            Paragraph("<b>Kitobdan parcha (Mutolaa):</b>", ParagraphStyle("H2", parent=styles["Heading2"], fontSize=14, textColor=colors.HexColor("#1A1D20"))),
+            Paragraph("<b>Kitobdan parcha (Mutolaa):</b>", h2_style),
             Spacer(1, 6),
             Paragraph(html.escape(sample), body_style),
             Spacer(1, 30),
             HRFlowable(width="100%", thickness=1, color=colors.HexColor("#E2E8F0"), spaceAfter=14),
-            Paragraph(f"📚 Baunty Kutubxonasi — @{config.BOT_USERNAME.lstrip('@')} | {config.CHANNEL_USERNAME}", footer_style)
+            Paragraph(f"Baunty Kutubxonasi — @{bot_user} | {config.CHANNEL_USERNAME}", footer_style)
         ]
 
         doc.build(elements)
@@ -711,44 +1005,61 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
     except Exception as e:
         logger.debug(f"ReportLab orqali PDF generatsiyasida xatolik ({e}), Pillow yordamida yaratiladi.")
 
-    # 2. Pillow (PIL) yordamida to'liq, sifatli va o'qiladigan 2 sahifali PDF
+    # 2. Pillow (PIL) yordamida to'liq Unicode TTF shriftli 2 sahifali PDF
     try:
         import textwrap
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
+
+        reg_ttf = _find_unicode_ttf(False)
+        bold_ttf = _find_unicode_ttf(True) or reg_ttf
+        f_head = ImageFont.truetype(bold_ttf, 28) if bold_ttf else _get_cover_font(28, bold=True)
+        f_title = ImageFont.truetype(bold_ttf, 44) if bold_ttf else _get_cover_font(44, bold=True)
+        f_sub = ImageFont.truetype(reg_ttf, 28) if reg_ttf else _get_cover_font(28)
+        f_sec = ImageFont.truetype(bold_ttf, 28) if bold_ttf else _get_cover_font(28, bold=True)
+        f_body = ImageFont.truetype(reg_ttf, 26) if reg_ttf else _get_cover_font(26)
+        f_foot = ImageFont.truetype(reg_ttf, 22) if reg_ttf else _get_cover_font(22)
 
         W, H = 1200, 1600
         p1 = Image.new("RGB", (W, H), color=(253, 251, 247))
         d1 = ImageDraw.Draw(p1)
         d1.rectangle([(0, 0), (W, 110)], fill=(26, 29, 32))
-        d1.text((50, 40), f"BAUNTY KUTUBXONASI — @{config.BOT_USERNAME.lstrip('@')}", fill=(255, 255, 255))
-        d1.text((50, 160), title[:45], fill=(26, 29, 32))
-        d1.text((50, 220), f"Muallif: {author[:50]}", fill=(229, 72, 77))
-        d1.text((50, 270), f"Janr: {category_name}  |  {pages} bet  |  Reyting: {book.get('rating', 4.9)}/5.0", fill=(108, 117, 125))
-        d1.line([(50, 315), (W - 50, 315)], fill=(226, 232, 240), width=2)
-        d1.text((50, 340), "QISQACHA MAZMUNI:", fill=(26, 29, 32))
-        y = 390
-        for line in textwrap.wrap(desc, width=68):
-            d1.text((50, y), line, fill=(43, 45, 66))
-            y += 34
-            if y > H - 100:
+        d1.text((50, 38), f"BAUNTY KUTUBXONASI — @{bot_user}", fill=(255, 255, 255), font=f_head)
+        d1.text((50, 155), title[:42], fill=(26, 29, 32), font=f_title)
+        d1.text((50, 225), f"Muallif: {author[:50]}", fill=(229, 72, 77), font=f_sub)
+        d1.text((50, 275), f"Janr: {category_name}  |  {pages} bet  |  Reyting: {book.get('rating', 4.9)}/5.0", fill=(108, 117, 125), font=f_foot)
+        d1.line([(50, 320), (W - 50, 320)], fill=(226, 232, 240), width=2)
+        d1.text((50, 350), "QISQACHA MAZMUNI:", fill=(26, 29, 32), font=f_sec)
+        y = 405
+        for para in (desc or "").split("\n"):
+            for line in textwrap.wrap(para, width=64) or [""]:
+                d1.text((50, y), line, fill=(43, 45, 66), font=f_body)
+                y += 38
+                if y > H - 105:
+                    break
+            y += 10
+            if y > H - 105:
                 break
         d1.line([(50, H - 70), (W - 50, H - 70)], fill=(226, 232, 240), width=1)
-        d1.text((50, H - 50), f"Baunty Books • {config.CHANNEL_USERNAME} • 1-sahifa", fill=(141, 153, 174))
+        d1.text((50, H - 52), f"Baunty Books | {config.CHANNEL_USERNAME} | 1-sahifa", fill=(141, 153, 174), font=f_foot)
 
         p2 = Image.new("RGB", (W, H), color=(253, 251, 247))
         d2 = ImageDraw.Draw(p2)
         d2.rectangle([(0, 0), (W, 110)], fill=(26, 29, 32))
-        d2.text((50, 40), f"«{title[:40]}» — MUTOLAA PARCHASI", fill=(255, 255, 255))
-        y = 150
-        d2.text((50, y), "KITOBDAN PARCHA:", fill=(26, 29, 32))
-        y += 45
-        for line in textwrap.wrap(sample, width=68):
-            d2.text((50, y), line, fill=(43, 45, 66))
-            y += 34
-            if y > H - 100:
+        d2.text((50, 38), f"«{title[:38]}» — MUTOLAA PARCHASI", fill=(255, 255, 255), font=f_head)
+        y = 155
+        d2.text((50, y), "KITOBDAN PARCHA:", fill=(26, 29, 32), font=f_sec)
+        y += 50
+        for para in (sample or "").split("\n"):
+            for line in textwrap.wrap(para, width=64) or [""]:
+                d2.text((50, y), line, fill=(43, 45, 66), font=f_body)
+                y += 38
+                if y > H - 105:
+                    break
+            y += 10
+            if y > H - 105:
                 break
         d2.line([(50, H - 70), (W - 50, H - 70)], fill=(226, 232, 240), width=1)
-        d2.text((50, H - 50), f"Baunty Books • @{config.BOT_USERNAME.lstrip('@')} • 2-sahifa", fill=(141, 153, 174))
+        d2.text((50, H - 52), f"Baunty Books | @{bot_user} | 2-sahifa", fill=(141, 153, 174), font=f_foot)
 
         buf = io.BytesIO()
         p1.save(buf, format="PDF", save_all=True, append_images=[p2])

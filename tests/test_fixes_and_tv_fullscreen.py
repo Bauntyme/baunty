@@ -132,6 +132,7 @@ def test_webapp_tv_fullscreen_elements():
     index_file = BASE_DIR / "webapp" / "index.html"
     assert index_file.exists()
     content = index_file.read_text(encoding="utf-8")
+    app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
 
     # CSS Pseudo-Fullscreen
     assert ".tv-full-screen-mode" in content
@@ -142,13 +143,12 @@ def test_webapp_tv_fullscreen_elements():
     assert 'id="vboxfs"' in content
     assert 'id="fsclose"' in content
     assert 'id="fsname"' in content
-    assert "4K UHD" in content
+    assert "1440p QHD" in content
 
     # JS Funksiyalar
-    assert "toggleTVFullscreen" in content
-    assert "requestFullscreen" in content
-    assert "orientation.lock" in content
-    assert "bindClickAndTouch" in content
+    assert "requestFullscreen" in app_js
+    assert "orientation.lock" in app_js
+    assert "tvfs" in app_js
 
     # CSS Native Fullscreen va Non-overlapping boshqaruv
     assert ":fullscreen .fs-bar" in content

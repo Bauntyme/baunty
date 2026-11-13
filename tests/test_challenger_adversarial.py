@@ -200,12 +200,13 @@ def test_tv_stream_proxy_legitimate_domains_allowed():
         "https://biztv.uz/live/stream.m3u8",
         "https://fl.biztv.media/cinema_720/index.m3u8",
         "https://zabava-htlive.cdn.ngenix.net/hls/CH_C06_NASHFOOTBALLHD/variant.m3u8",
-        "https://161-97-96-58.sslip.io/streams/test.m3u8",
+        "https://fayllar.com/streams/test.m3u8",
     ]
 
     for target in valid_targets:
         allowed = is_stream_url_allowed(target)
         assert allowed is True, f"Legitimate stream {target} must be allowed!"
+    assert is_stream_url_allowed("https://161-97-96-58.sslip.io/streams/test.m3u8") is False
 
 
 # =====================================================================

@@ -438,7 +438,7 @@ async def test_deliver_movie_sends_media_from_cloud(in_memory_session: AsyncSess
         code="718",
         title="Taksi 1",
         description="Fransuz komediya klassikasi",
-        file_id="BAACAgIAAxkBAAIB_taxi1_cloud_fid",
+        file_id="BAACAgIAAxkBAAE_TAXI1_REAL_CLOUD_FID_12345",
         file_type="video",
         duration=5400,
         views_count=100
@@ -447,7 +447,7 @@ async def test_deliver_movie_sends_media_from_cloud(in_memory_session: AsyncSess
         session=in_memory_session,
         movie_code="718",
         part=1,
-        file_id="BAACAgIAAxkBAAIB_taxi1_cloud_fid",
+        file_id="BAACAgIAAxkBAAE_TAXI1_REAL_CLOUD_FID_12345",
         file_type="video",
         duration=5400
     )
@@ -465,7 +465,7 @@ async def test_deliver_movie_sends_media_from_cloud(in_memory_session: AsyncSess
     # Haqiqiy media yuborilganini tekshirish
     assert bot.send_video.called
     kwargs = bot.send_video.call_args[1]
-    assert kwargs["video"] == "BAACAgIAAxkBAAIB_taxi1_cloud_fid"
+    assert kwargs["video"] == "BAACAgIAAxkBAAE_TAXI1_REAL_CLOUD_FID_12345"
     assert "Baunty" in kwargs["caption"]
     assert "Zakirov" not in kwargs["caption"]
 

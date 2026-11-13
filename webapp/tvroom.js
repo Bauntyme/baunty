@@ -427,15 +427,15 @@
 
         <!-- Tezkor Reaksiyalar -->
         <div class="tvr-quick-reacts">
-          <button class="tvr-qbtn" data-r="🎃">🎃</button>
-          <button class="tvr-qbtn" data-r="👻">👻</button>
-          <button class="tvr-qbtn" data-r="🦇">🦇</button>
+          <button class="tvr-qbtn" data-r="🛰️">🛰️</button>
+          <button class="tvr-qbtn" data-r="⭐">⭐</button>
+          <button class="tvr-qbtn" data-r="🚀">🚀</button>
           <button class="tvr-qbtn" data-r="🔥">🔥</button>
           <button class="tvr-qbtn" data-r="❤️">❤️</button>
           <button class="tvr-qbtn" data-r="😂">😂</button>
           <button class="tvr-qbtn" data-r="👏">👏</button>
           <button class="tvr-qbtn" data-r="🍿">🍿</button>
-          <button class="tvr-qbtn" data-r="🍬">🍬</button>
+          <button class="tvr-qbtn" data-r="🌌">🌌</button>
         </div>
 
         <!-- Xabar yozish va Ovoz boshqaruvi -->

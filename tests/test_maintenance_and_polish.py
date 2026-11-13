@@ -170,8 +170,9 @@ def test_sticky_header_and_image_rendering_css():
     zk_css = (BASE_DIR / "webapp" / "zk.css").read_text(encoding="utf-8")
     index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
 
-    assert "position:sticky;top:0;z-index:999" in zk_css.replace(" ", "") or "position: sticky; top: 0; z-index: 999" in zk_css
-    assert "image-rendering:-webkit-optimize-contrast" in zk_css.replace(" ", "")
+    combined_css = (index_html + zk_css).replace(" ", "")
+    assert "position:sticky;top:0;z-index:999" in combined_css
+    assert "image-rendering:-webkit-optimize-contrast" in combined_css
     assert "image-rendering:-webkit-optimize-contrast" in index_html.replace(" ", "")
     assert "z-index:999" in index_html.replace(" ", "")
     assert "backdrop-filter:blur(16px)" in index_html.replace(" ", "")

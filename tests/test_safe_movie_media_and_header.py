@@ -60,14 +60,16 @@ def test_hub_selector_and_click_delegation():
     """Verify SEG selector excludes sub-module segments and delegated click listener exists."""
     app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
     index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
+    bundle_js = (BASE_DIR / "webapp" / "bundle.min.js").read_text(encoding="utf-8")
 
-    # Both app.js and index.html should not inject buttons into .mf-seg, .rx-seg, .kl-seg
+    # app.js should not inject hub buttons into .mf-seg, .rx-seg, .kl-seg
     assert ".mf-seg" not in app_js.split("const SEG =")[1].split(";")[0]
-    assert ".mf-seg" not in index_html.split("const SEG =")[1].split(";")[0]
+    assert 'id="seg"' in index_html
+    assert 'src="app.js"' in index_html
 
-    # Delegated click listener exists
+    # Delegated click listener exists in source and production bundle
     assert 'closest(".zk-hubbtn")' in app_js
-    assert 'closest(".zk-hubbtn")' in index_html
+    assert 'closest(".zk-hubbtn")' in bundle_js
 
 
 @pytest.mark.asyncio

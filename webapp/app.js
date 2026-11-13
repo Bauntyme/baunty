@@ -116,9 +116,108 @@ document.addEventListener("error", (e) => {
 }, true);
 
 // ---------- batafsil ----------
-let cur = null, busy = false;
-function openDetail(it, push = true) {
+let cur = null, curPart = 1, busy = false;
+function openVideoStream(url, title) {
+  if (!url || !/^https?:|^\//i.test(url)) { toast("⚠️ Oqim havolasi topilmadi"); return; }
+  if (window.ZK_openStreamModal) { window.ZK_openStreamModal(url, title); return; }
+  const existing = document.getElementById("zkStreamModal");
+  if (existing) existing.remove();
+  const modal = document.createElement("div");
+  modal.id = "zkStreamModal";
+  modal.className = "zk-vmodal";
+  modal.innerHTML = `<div class="zk-vmodal-in">
+    <div class="zk-vmodal-hd"><b>${esc(title || "Onlayn tomosha")}</b><button type="button" class="zk-vmodal-x" aria-label="Yopish">✕</button></div>
+    <div class="zk-vmodal-bd"><video id="zkStreamVid" controls playsinline webkit-playsinline autoplay preload="metadata" src="${esc(url)}"></video></div>
+    <div class="zk-vmodal-st" id="zkStreamSt">Yuklanmoqda…</div></div>`;
+  const kill = () => {
+    try { const v = document.getElementById("zkStreamVid"); if (v) { v.pause(); v.removeAttribute("src"); v.load(); } } catch (e) {}
+    modal.remove();
+  };
+  modal.onclick = (e) => { if (e.target === modal || e.target.closest(".zk-vmodal-x")) kill(); };
+  document.body.appendChild(modal);
+  const v = document.getElementById("zkStreamVid"), st = document.getElementById("zkStreamSt");
+  fetch(url, {method: "HEAD"}).then((r) => {
+    const ct = (r.headers.get("content-type") || "").toLowerCase();
+    if (!r.ok || ct.includes("text/html") || ct.includes("application/json")) {
+      if (st) st.textContent = "❌ Server video oqimi o'rniga noto'g'ri javob qaytardi";
+      try { v.pause(); v.removeAttribute("src"); } catch (e) {}
+    } else if (st) { st.textContent = "⏳ Buferlanmoqda…"; }
+  }).catch(() => {});
+  if (v) {
+    v.oncanplay = () => { if (st) st.textContent = "▶️ Ijro etilmoqda"; };
+    v.onerror = () => { if (st) st.textContent = "❌ Video oqimini ochib bo'lmadi"; };
+  }
+}
+function fmtSize(bytes) {
+  const b = +bytes || 0;
+  if (!b) return "";
+  return b >= 1073741824 ? `${(b / 1073741824).toFixed(1)} GB` : `${Math.round(b / 1048576)} MB`;
+}
+function renderDetailGrid(it) {
+  const p = Math.max(1, it.p || (it._parts && it._parts.length) || 1);
+  const el = $("detParts");
+  if (!el) return;
+  if (p <= 1 && !(it._parts && it._parts.length > 1)) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="ph-h">📺 Qismlar (${p} ta)</div><div class="pgrid">${
+    Array.from({length: p}, (_, i) => {
+      const n = i + 1;
+      const cls = ["pbtn", seen[it.c]?.includes(n) ? "seen" : "", curPart === n ? "cur" : ""].filter(Boolean).join(" ");
+      return `<button class="${cls}" data-p="${n}">${n}</button>`;
+    }).join("")}</div>`;
+}
+function renderPartMeta(it) {
+  const box = $("pmeta");
+  if (!box) return;
+  const rows = Array.isArray(it._parts) ? it._parts : [];
+  if (!rows.length) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="pmeta-list">${rows.map((r) => {
+    const n = +(r.part || r.num || 1);
+    const sz = fmtSize(r.file_size || r.size), dur = r.duration ? `${Math.round(r.duration / 60)} daq` : "";
+    const meta = [dur, sz].filter(Boolean).join(" · ");
+    return `<div class="pmeta-row${curPart === n ? " on" : ""}" data-p="${n}">
+      <div class="pt"><b>${esc(r.title || `${n}-qism`)}</b>${meta ? `<small>${esc(meta)}</small>` : ""}</div>
+      <button type="button" class="pgo" data-p="${n}">📩 Bot</button>
+      ${r.stream_url ? `<button type="button" class="pstr" data-act-str="${esc(r.stream_url)}" data-part="${n}">🎬</button>` : ""}
+    </div>`;
+  }).join("")}</div>`;
+}
+function renderDetailActs(it, partNo) {
+  curPart = Math.max(1, +partNo || 1);
+  document.querySelectorAll(".pbtn").forEach((b) => b.classList.toggle("cur", +b.dataset.p === curPart));
+  document.querySelectorAll(".pmeta-row").forEach((r) => r.classList.toggle("on", +r.dataset.p === curPart));
+  const p = Math.max(1, it.p || (it._parts && it._parts.length) || 1);
+  const label = p > 1 ? `📩 ${curPart}-qismni botdan olish` : "📩 Botda olish";
+  $("play").textContent = label;
+  if (inTg) { try { tg.MainButton.setText(label); } catch (e) {} }
+  const partObj = Array.isArray(it._parts) ? it._parts.find((x) => +(x.part || x.num) === curPart) : null;
+  const sUrl = (partObj && partObj.stream_url) || (curPart === 1 || p === 1 ? it.stream_url : "") || "";
+  const acts = $("detActs");
+  if (acts) {
+    acts.className = sUrl ? "det-acts dual" : "det-acts";
+    acts.innerHTML = `<button type="button" class="act-bot" data-act-bot="${curPart}">${label}</button>` +
+      (sUrl ? `<button type="button" class="act-str" data-act-str="${esc(sUrl)}" data-part="${curPart}">🎬 Onlayn ko'rish</button>` : "");
+  }
+}
+function enrichMovie(it) {
+  if (!it || !it.c || it._enriched) return;
+  it._enriched = true;
+  fetch("api/movies/" + encodeURIComponent(it.c)).then((r) => r.json()).then((d) => {
+    if (!d || !d.ok) return;
+    if (Array.isArray(d.parts) && d.parts.length) it._parts = d.parts;
+    if (d.part_count && d.part_count > (it.p || 1)) it.p = +d.part_count;
+    else if (it._parts && it._parts.length > (it.p || 1)) it.p = it._parts.length;
+    if (d.stream_url) it.stream_url = d.stream_url;
+    if (cur && cur.c === it.c) {
+      renderDetailGrid(it);
+      renderPartMeta(it);
+      renderDetailActs(it, curPart);
+    }
+  }).catch(() => {});
+}
+function openDetail(it, push = true, requestedPart = null) {
   cur = it; haptic();
+  const totalP = Math.max(1, it.p || (Array.isArray(it._parts) ? it._parts.length : 1));
+  curPart = requestedPart ? Math.max(1, Math.min(totalP, +requestedPart || 1)) : (totalP > 1 ? nextPart(it) : 1);
   const big = it.i ? `p/${it.c}_l.webp?v=${it.i}` : "";
   $("hero").innerHTML = (big ? `<div class="blur" style="background-image:url('${big}')"></div>` : "") +
     posterHTML(it, "l", "", true);
@@ -126,25 +225,27 @@ function openDetail(it, push = true) {
   let desc = (it.d || "").trim();
   const first = desc.split("\n")[0];
   if (first && norm(first) === it._n) desc = desc.slice(first.length).trim();
-  const parts = it.p > 1 ? `<div class="ph-h">📺 Qismlar</div><div class="pgrid">${
-    Array.from({length: it.p}, (_, i) => `<button class="pbtn${seen[it.c]?.includes(i + 1) ? " seen" : ""}" data-p="${i + 1}">${i + 1}</button>`).join("")}</div>` : "";
   const ratingBadge = (it.imdb || it.r)
     ? `<span class="baunty-star-badge"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg> ${esc(it.imdb || it.r)}</span>`
     : `<span class="baunty-star-badge"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg> Baunty PRO</span>`;
   $("info").innerHTML = `<h2>${esc(it.t)}</h2>
-    <div class="meta"><span>🔑 Kod: ${it.c}</span>${ratingBadge}${it.v ? `<span>👁 ${fmt(it.v)}</span>` : ""}${it.p > 1 ? `<span>📺 ${it.p} qism</span>` : ""}</div>
+    <div class="meta"><span>🔑 Kod: ${it.c}</span>${ratingBadge}${it.v ? `<span>👁 ${fmt(it.v)}</span>` : ""}${totalP > 1 ? `<span>📺 ${totalP} qism</span>` : ""}</div>
     ${desc ? `<p class="desc${desc.length > 320 ? " cut" : ""}" id="desc">${esc(desc)}</p>${desc.length > 320 ? `<button class="more" id="more">Ko'proq…</button>` : ""}` : ""}
-    ${parts}`;
+    <div id="detParts"></div><div id="pmeta"></div><div class="det-acts" id="detActs"></div>`;
+  renderDetailGrid(it);
+  renderPartMeta(it);
   $("det").scrollTop = 0;
   $("det").classList.add("open");
   document.body.classList.add("det-open");
-  const label = it.p > 1 ? `▶️ ${nextPart(it)}-qismni ko'rish` : "▶️ Tomosha qilish";
+  const label = totalP > 1 ? `📩 ${curPart}-qismni botdan olish` : "📩 Botda olish";
   $("play").textContent = label;
   if (inTg) {
     tg.BackButton.show();
     const cs = getComputedStyle(document.documentElement), acc = cs.getPropertyValue("--zk-acc").trim(), ink = cs.getPropertyValue("--zk-ink").trim();
     tg.MainButton.setParams(Object.assign({text: label, is_visible: true, is_active: true}, /^#[0-9a-f]{6}$/i.test(acc) ? {color: acc, text_color: ink || "#000000"} : {}));
   }
+  renderDetailActs(it, curPart);
+  enrichMovie(it);
   pushed = push;
   if (push) history.pushState({d: it.c}, "");
 }
@@ -183,23 +284,31 @@ function setBusy(on, part) {
 }
 async function watch(it, part, recheck = false) {
   if (busy) return;
-  if (!inTg) { toast("📱 Kinoni olish uchun katalogni Telegram ichida oching"); return; }
-  setBusy(true, part);
+  const p = Math.max(1, +part || 1);
+  if (!inTg) {
+    const partObj = Array.isArray(it._parts) ? it._parts.find((x) => +(x.part || x.num) === p) : null;
+    const sUrl = (partObj && partObj.stream_url) || (p === 1 || it.p <= 1 ? it.stream_url : "");
+    if (sUrl) return openVideoStream(sUrl, `${it.t}${it.p > 1 ? ` · ${p}-qism` : ""}`);
+    toast("📱 Botda olish uchun katalogni Telegram ichida oching");
+    return;
+  }
+  setBusy(true, p);
   let r;
   try {
     const res = await fetch("api/watch", {method: "POST",
       headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData},
-      body: JSON.stringify({c: it.c, p: part, code: it.c, part, recheck})});
+      body: JSON.stringify({c: it.c, p, code: it.c, part: p, recheck})});
     r = await res.json();
   } catch (e) { r = {ok: false, error: "network"}; }
   setBusy(false);
   if (r.ok) {
-    haptic("ok"); markSeen(it.c, part); refreshSeen(it.c);
+    haptic("ok"); markSeen(it.c, p); refreshSeen(it.c);
+    if (r.stream_url) { it.stream_url = r.stream_url; renderDetailActs(it, p); }
     if (it.p > 1) {
-      document.querySelector(`.pbtn[data-p="${part}"]`)?.classList.add("seen");
-      const label = `▶️ ${nextPart(it)}-qismni ko'rish`;
-      $("play").textContent = label; tg.MainButton.setText(label);
-      toast(r.queued ? `⏳ ${part}-qism navbatda — bir necha soniyada chatga keladi` : `✅ ${part}-qism chatga yuborildi`);
+      document.querySelector(`.pbtn[data-p="${p}"]`)?.classList.add("seen");
+      curPart = nextPart(it);
+      renderDetailActs(it, curPart);
+      toast(r.queued ? `⏳ ${p}-qism navbatda — bir necha soniyada chatga keladi` : `✅ ${p}-qism chatga yuborildi`);
     } else {
       toast(r.queued ? "⏳ Kino navbatda — bir necha soniyada chatga keladi" : "✅ Kino chatga yuborildi");
       setTimeout(() => tg.close(), r.queued ? 1600 : 650);
@@ -207,6 +316,7 @@ async function watch(it, part, recheck = false) {
     return;
   }
   haptic("err");
+  if (r.stream_url) { it.stream_url = r.stream_url; renderDetailActs(it, p); }
   const msg = {
     not_found: "❌ Bu kino olib tashlangan",
     rate: `⏳ Juda ko'p so'rov. ${Math.ceil((r.retry || 600) / 60)} daqiqadan keyin urinib ko'ring`,
@@ -214,13 +324,21 @@ async function watch(it, part, recheck = false) {
     network: "📶 Internet bilan muammo. Qayta urinib ko'ring",
     send_failed: "⚠️ Yuborib bo'lmadi. Birozdan keyin urinib ko'ring",
     busy: "⏳ Hozir juda ko'p odam kirdi — 5-10 soniyadan keyin qayta bosing",
+    too_big: "⚠️ Video 50 MB dan katta — Bot API orqali yuborib bo'lmaydi. Onlayn ko'rishdan foydalaning.",
+    file_too_large: "⚠️ Video 50 MB dan katta — Bot API orqali yuborib bo'lmaydi. Onlayn ko'rishdan foydalaning.",
+    video_unavailable: "⚠️ Video fayli hozircha mavjud emas",
   };
-  if (r.error === "need_sub") return showSub(it, part, r.channels || []);
+  if (r.error === "need_sub") return showSub(it, p, r.channels || []);
   if (r.error === "need_start") {
     toast("🤖 Botni ishga tushiryapmiz…");
     if (botName) return tg.openTelegramLink(`https://t.me/${botName}?start=kino_${it.c}`);
   }
-  toast(msg[r.error] || msg.send_failed, 3200);
+  if ((r.error === "too_big" || r.error === "file_too_large") && r.stream_url) {
+    toast(r.message || msg[r.error], 3400);
+    openVideoStream(r.stream_url, `${it.t}${it.p > 1 ? ` · ${p}-qism` : ""}`);
+    return;
+  }
+  toast(r.message || msg[r.error] || msg.send_failed, 3200);
 }
 
 function showSub(it, part, chans) {
@@ -315,15 +433,31 @@ document.addEventListener("click", (e) => {
   }
   const card = e.target.closest(".card[data-c]");
   if (card) { const it = byCode.get(+card.dataset.c); if (it) openDetail(it); return; }
+  const actStr = e.target.closest("[data-act-str]");
+  if (actStr && cur) {
+    haptic();
+    const pt = +actStr.dataset.part || curPart;
+    renderDetailActs(cur, pt);
+    openVideoStream(actStr.dataset.actStr, `${cur.t}${cur.p > 1 ? ` · ${pt}-qism` : ""}`);
+    return;
+  }
+  const actBot = e.target.closest("[data-act-bot]");
+  if (actBot && cur) { haptic(); watch(cur, +actBot.dataset.actBot || curPart); return; }
+  const pgo = e.target.closest(".pmeta-row .pgo");
+  if (pgo && cur) { haptic(); const pt = +pgo.dataset.p || 1; renderDetailActs(cur, pt); watch(cur, pt); return; }
   const pb = e.target.closest(".pbtn");
-  if (pb && cur) { haptic(); watch(cur, +pb.dataset.p); return; }
+  if (pb && cur) { haptic(); const pt = +pb.dataset.p || 1; renderDetailActs(cur, pt); watch(cur, pt); return; }
   if (e.target.id === "more") { $("desc").classList.remove("cut"); e.target.remove(); }
 });
-$("play").onclick = () => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1);
+$("play").onclick = () => cur && watch(cur, curPart || (cur.p > 1 ? nextPart(cur) : 1));
 $("dclose").onclick = () => closeDetail();
 if (inTg) {
-  tg.MainButton.onClick(() => cur && watch(cur, cur.p > 1 ? nextPart(cur) : 1));
-  tg.BackButton.onClick(() => { if ((window.ZMusic && ZMusic.busy()) || (window.ZDocs && ZDocs.busy()) || (window.ZGames && ZGames.busy())) return; if (!tvCur) closeDetail(); });
+  tg.MainButton.onClick(() => cur && watch(cur, curPart || (cur.p > 1 ? nextPart(cur) : 1)));
+  tg.BackButton.onClick(() => {
+    if (window.ZAdult && ZAdult.busy && ZAdult.busy()) { ZAdult.back(); return; }
+    if (window.ZK_canHideBack && !window.ZK_canHideBack()) return;
+    if (!tvCur) closeDetail();
+  });
 }
 window.addEventListener("popstate", () => { if (tvCur) closeTV(true); else if (cur) closeDetail(true); });
 
@@ -469,6 +603,40 @@ async function loadTV() {
   });
   if (mode === "tv") { tvChips(); $("count").textContent = `${tvItems.length} ta kanal · jonli efir`; renderTV(); }
 }
+const MOD_KEYS = {
+  music: "ZMusic", docs: "ZDocs", games: "ZGames", story: "ZStory",
+  books: "ZBooks", fx: "ZFx", food: "ZFood", quiz: "ZQuiz",
+  prava: "ZPrava", rasxod: "ZRasxod", kal: "ZKal", mafia: "ZMafia",
+  tvroom: "ZTvRoom", bunker: "ZBunker", deliv: "ZDeliv",
+};
+function modClose(id) {
+  if (id === "duel") {
+    if (window.ZDuel && ZDuel.close) { try { ZDuel.close(); } catch (e) {} return; }
+    try { if (window.ZAdult) ZAdult.stop(); } catch (e) {}
+    const g = $("games"); if (g) { g.hidden = true; g.classList.remove("dark"); }
+    document.body.classList.remove("g-on");
+    return;
+  }
+  const k = MOD_KEYS[id], mod = k && window[k];
+  if (mod && mod.close) { try { mod.close(); } catch (e) {} }
+}
+function modOpen(id) {
+  if (id === "duel") {
+    if (window.ZDuel && ZDuel.open) { try { ZDuel.open(); } catch (e) {} return true; }
+    if (window.ZAdult && $("gxview")) {
+      const g = $("games");
+      if (g) { g.hidden = false; g.style.setProperty("--bg", "#0d1030"); g.style.setProperty("--edge", "#232a5c"); g.classList.add("dark"); }
+      document.body.classList.add("g-on");
+      const topBar = `<div class="ka-bar" style="padding:8px 0 12px"><button type="button" class="zk-hubbtn" onclick="window.ZHub&&ZHub.open('duel')">☰ <span>Bo'limlar</span></button><b class="ka-h">⚔️ Duel (1v1)</b><button type="button" class="ka-back" onclick="window.ZK_setMode&&ZK_setMode('kino')" aria-label="Yopish">✕</button></div>`;
+      try { ZAdult.home($("gxview"), topBar, ""); } catch (e) {}
+      return true;
+    }
+    return false;
+  }
+  const k = MOD_KEYS[id], mod = k && window[k];
+  if (mod && mod.open) { try { mod.open(); } catch (e) {} return true; }
+  return Object.prototype.hasOwnProperty.call(MOD_KEYS, id);
+}
 function setMode(m) {
   if (mode === m) return;
   try { if (window.ZHub) ZHub.used(m); } catch (e) {}
@@ -480,32 +648,8 @@ function setMode(m) {
   if (was === "kino") { try { closeDetail(true); } catch (e) {} }
   try { if (window.ZAsil && ZAsil.close) ZAsil.close(); } catch (e) {}
   try { stopVideo(); } catch (e) {}
-  if (was === "music" && window.ZMusic) { try { ZMusic.close(); } catch (e) {} }
-  if (was === "docs" && window.ZDocs) { try { ZDocs.close(); } catch (e) {} }
-  if (was === "games" && window.ZGames) { try { ZGames.close(); } catch (e) {} }
-  if (was === "story" && window.ZStory) { try { ZStory.close(); } catch (e) {} }
-  if (was === "books" && window.ZBooks) { try { ZBooks.close(); } catch (e) {} }
-  if (was === "fx" && window.ZFx) { try { ZFx.close(); } catch (e) {} }
-  if (was === "food" && window.ZFood) { try { ZFood.close(); } catch (e) {} }
-  if (was === "quiz" && window.ZQuiz) { try { ZQuiz.close(); } catch (e) {} }
-  if (was === "prava" && window.ZPrava) { try { ZPrava.close(); } catch (e) {} }
-  if (was === "rasxod" && window.ZRasxod) { try { ZRasxod.close(); } catch (e) {} }
-  if (was === "kal" && window.ZKal) { try { ZKal.close(); } catch (e) {} }
-  if (was === "mafia" && window.ZMafia) { try { ZMafia.close(); } catch (e) {} }
-  if (was === "tvroom" && window.ZTvRoom) { try { ZTvRoom.close(); } catch (e) {} }
-  if (m === "music") { if (window.ZMusic) { try { ZMusic.open(); } catch (e) {} } return; }
-  if (m === "docs") { if (window.ZDocs) { try { ZDocs.open(); } catch (e) {} } return; }
-  if (m === "games") { if (window.ZGames) { try { ZGames.open(); } catch (e) {} } return; }
-  if (m === "story") { if (window.ZStory) { try { ZStory.open(); } catch (e) {} } return; }
-  if (m === "books") { if (window.ZBooks) { try { ZBooks.open(); } catch (e) {} } return; }
-  if (m === "fx") { if (window.ZFx) { try { ZFx.open(); } catch (e) {} } return; }
-  if (m === "food") { if (window.ZFood) { try { ZFood.open(); } catch (e) {} } return; }
-  if (m === "quiz") { if (window.ZQuiz) { try { ZQuiz.open(); } catch (e) {} } return; }
-  if (m === "prava") { if (window.ZPrava) { try { ZPrava.open(); } catch (e) {} } return; }
-  if (m === "rasxod") { if (window.ZRasxod) { try { ZRasxod.open(); } catch (e) {} } return; }
-  if (m === "kal") { if (window.ZKal) { try { ZKal.open(); } catch (e) {} } return; }
-  if (m === "mafia") { if (window.ZMafia) { try { ZMafia.open(); } catch (e) {} } return; }
-  if (m === "tvroom") { if (window.ZTvRoom) { try { ZTvRoom.open(); } catch (e) {} } return; }
+  modClose(was);
+  if (m !== "kino" && m !== "tv" && modOpen(m)) return;
   $("seg").querySelectorAll("button[data-m]").forEach((b) => b.classList.toggle("on", b.dataset.m === m));
   $("q").placeholder = m === "tv" ? "Kanal nomi…" : "Kino nomi yoki kodi…";
   $("chan").hidden = m === "tv" || !channel;
@@ -542,7 +686,11 @@ window.addEventListener("hashchange", () => {
   }
 });
 window.ZK_setMode = setMode;
-window.ZK_canHideBack = () => !cur && !tvCur && !(window.ZTvRoom && ZTvRoom.busy()) && !(window.ZAsil && ZAsil.busy()) && !(window.ZMusic && ZMusic.busy()) && !(window.ZDocs && ZDocs.busy()) && !(window.ZGames && ZGames.busy()) && !(window.ZStory && ZStory.busy()) && !(window.ZBooks && ZBooks.busy()) && !(window.ZFx && ZFx.busy()) && !(window.ZFood && ZFood.busy()) && !(window.ZQuiz && ZQuiz.busy()) && !(window.ZPrava && ZPrava.busy()) && !(window.ZRasxod && ZRasxod.busy()) && !(window.ZKal && ZKal.busy()) && !(window.ZMafia && ZMafia.busy());
+window.ZK_canHideBack = () => !cur && !tvCur &&
+  !(window.ZAsil && ZAsil.busy && ZAsil.busy()) &&
+  !(window.ZAdult && ZAdult.busy && ZAdult.busy()) &&
+  !(window.ZDuel && ZDuel.busy && ZDuel.busy()) &&
+  !Object.values(MOD_KEYS).some((k) => window[k] && window[k].busy && window[k].busy());
 function renderCur() { mode === "tv" ? renderTV() : render(); }
 
 // ---------- pleyer ----------
@@ -981,7 +1129,7 @@ document.addEventListener("click", (e) => {
   openTV(c, !tvCur);
 });
 if (inTg) tg.BackButton.onClick(() => { if (tvCur) closeTV(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && tvCur) vid.pause(); });
+// TV / PiP fonda ham uzilmasligi uchun visibilitychange da pause qilinmaydi
 
 // ---------- yuklash ----------
 async function load() {
@@ -989,6 +1137,7 @@ async function load() {
   try {
     const r = await (await fetch("api/catalog", {cache: "no-cache"})).json();
     items = r.items || []; channel = r.channel || ""; botName = r.bot || "";
+    window.ZK_MAINTENANCE = r.maintenance || null;
     tvSoon = !!r.tv_soon;
     ASIL = !!(r.asil && window.ZAsil);
     if (ASIL) {
@@ -1006,15 +1155,20 @@ async function load() {
     if (!r.food) $("seg").querySelector('[data-m="food"]')?.remove();
     if (!r.quiz) $("seg").querySelector('[data-m="quiz"]')?.remove();
     if (!r.prava) $("seg").querySelector('[data-m="prava"]')?.remove();
+    if (r.bunker === false || !window.ZBunker) $("seg").querySelector('[data-m="bunker"]')?.remove();
+    if (r.deliv === false || !window.ZDeliv) $("seg").querySelector('[data-m="deliv"]')?.remove();
+    if (r.duel === false || (!window.ZDuel && !window.ZAdult)) $("seg").querySelector('[data-m="duel"]')?.remove();
+    if (r.tvroom === false || !window.ZTvRoom) $("seg").querySelector('[data-m="tvroom"]')?.remove();
+    if (r.mafia === false || !window.ZMafia) $("seg").querySelector('[data-m="mafia"]')?.remove();
+    if (r.rasxod === false || !window.ZRasxod) $("seg").querySelector('[data-m="rasxod"]')?.remove();
+    if (r.kal === false || !window.ZKal) $("seg").querySelector('[data-m="kal"]')?.remove();
     window.ZK_SEGS = [...$("seg").querySelectorAll("button[data-m]")].map((b) => [b.dataset.m, b.textContent.replace(/^\S+\s/, "")]);
     // 3 va undan ko'p bo'lim — sig'ishi uchun belgilarsiz (🎬 🎧 📄) qisqa yozuv
     if (window.ZK_SEGS.length > 2) $("seg").querySelectorAll("button[data-m]").forEach((b) => { b.textContent = b.textContent.replace(/^\S+\s/, ""); });
     document.body.classList.toggle("seg4", window.ZK_SEGS.length > 3);   // 4 bo'lim — «Kanal» tugmasi o'rniga joy
-    if (window.ZMusic) ZMusic.setBot(botName);
-    if (window.ZDocs) ZDocs.setBot(botName);
-    if (window.ZStory) ZStory.setBot(botName);
-    if (window.ZBooks) ZBooks.setBot(botName);
-    if (window.ZQuiz) ZQuiz.setBot(botName);
+    ["ZMusic", "ZDocs", "ZStory", "ZBooks", "ZQuiz", "ZBunker", "ZDeliv", "ZMafia", "ZTvRoom"].forEach((k) => {
+      try { if (window[k] && window[k].setBot) window[k].setBot(botName); } catch (e) {}
+    });
     if (window.ZK_SEGS.length < 2) $("seg").outerHTML = `<h1 style="font-size:21px;margin:0;font-weight:800;letter-spacing:-.3px">🎬 Kinolar</h1>`;
   } catch (e) {
     $("main").innerHTML = `<div class="empty"><div class="big">📶</div><b>Yuklab bo'lmadi</b>Internetni tekshiring.<br><br>
@@ -1028,10 +1182,27 @@ async function load() {
   $("chan").hidden = !channel;
   render();
   const _urlParams = new URLSearchParams(location.search);
-  const sp = (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || _urlParams.get("startapp") || _urlParams.get("start") || _urlParams.get("c") || _urlParams.get("movie") || _urlParams.get("m") || "";
-  if (document.querySelector('#seg [data-m="games"]') && (/^games/i.test(sp) || new URLSearchParams(location.search).has("games"))) {
+  const _hashRaw = (location.hash || "").replace(/^#/, "");
+  const _hashParams = new URLSearchParams(_hashRaw.includes("=") ? _hashRaw : "");
+  const reqPart = +(_urlParams.get("part") || _urlParams.get("p") || _hashParams.get("part") || _hashParams.get("p") || 0) || null;
+  const hashCodeRaw = (_hashParams.get("view") === "movie" ? _hashParams.get("id") : "") || _hashParams.get("c") || _hashParams.get("movie") || "";
+  const sp = String((tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) || _urlParams.get("startapp") || _urlParams.get("start") || _urlParams.get("c") || _urlParams.get("movie") || _urlParams.get("m") || hashCodeRaw || "").trim();
+  if ((document.querySelector('#seg [data-m="bunker"]') || window.ZBunker) && (/^(?:bunker|bnk)(?:_|$)/i.test(sp) || _urlParams.has("bunker") || _urlParams.get("m") === "bunker")) {
+    setMode("bunker");
+    const roomP = _urlParams.get("room") || (sp.match(/^(?:bunker|bnk)_([a-zA-Z0-9_-]+)/i) || [])[1];
+    const bfn = window.ZBunker && (ZBunker.openRoom || ZBunker.join);
+    if (roomP && bfn) bfn(roomP);
+    return;
+  }
+  if ((document.querySelector('#seg [data-m="deliv"]') || window.ZDeliv) && (/^(?:deliv|dlv|yetkazish)(?:_|$)/i.test(sp) || _urlParams.has("deliv") || _urlParams.get("m") === "deliv")) {
+    setMode("deliv"); return;
+  }
+  if ((document.querySelector('#seg [data-m="duel"]') || window.ZDuel || window.ZAdult) && (/^(?:duel|kattalar)(?:_|$)/i.test(sp) || _urlParams.has("duel") || _urlParams.has("kattalar") || _urlParams.get("m") === "duel")) {
+    setMode("duel"); return;
+  }
+  if (document.querySelector('#seg [data-m="games"]') && (/^games/i.test(sp) || _urlParams.has("games"))) {
     const gid = sp.split("_")[1]; setMode("games"); if (gid && window.ZGames && ZGames.ids.includes(gid)) ZGames.open(gid); return; }
-  const stq = new URLSearchParams(location.search).get("story");
+  const stq = _urlParams.get("story");
   if (document.querySelector('#seg [data-m="story"]') && (/^st(ory)?(_|$)/i.test(sp) || stq !== null)) {
     setMode("story"); const spec = stq || sp.replace(/^st(ory)?_?/i, ""); if (spec && window.ZStory) ZStory.open(spec); return; }
   const bkq = _urlParams.get("books");
@@ -1045,7 +1216,7 @@ async function load() {
     if (bid && window.ZBooks) ZBooks.open(bid);
     return;
   }
-  const qzq = new URLSearchParams(location.search).get("quiz") || new URLSearchParams(location.search).get("qz");
+  const qzq = _urlParams.get("quiz") || _urlParams.get("qz");
   if (document.querySelector('#seg [data-m="quiz"]') && (/^(q\d{6}|qz\d+|quiz)/i.test(sp) || qzq !== null)) {
     setMode("quiz");
     const rawQ = qzq || sp;
@@ -1053,42 +1224,74 @@ async function load() {
     if (cleanQ && cleanQ !== "1" && window.ZQuiz) ZQuiz.start(cleanQ);
     return;
   }
-  const pvq = new URLSearchParams(location.search).get("prava");
+  const pvq = _urlParams.get("prava");
   if (document.querySelector('#seg [data-m="prava"]') && (/^(prava|avto)/i.test(sp) || pvq !== null)) {
     setMode("prava"); if ((pvq === "exam" || /exam|imtihon/i.test(sp)) && window.ZPrava) ZPrava.start("exam"); return; }
-  const fdq = new URLSearchParams(location.search).get("food");
+  const fdq = _urlParams.get("food");
   if (document.querySelector('#seg [data-m="food"]') && (/^(food|taom)/i.test(sp) || fdq !== null)) {
     setMode("food"); const rid = (fdq || sp.replace(/^\D+_?/, "")).replace(/\D/g, ""); if (rid && window.ZFood) ZFood.show(rid); return; }
-  if (document.querySelector('#seg [data-m="fx"]') && (/^(fx|kurs)/i.test(sp) || new URLSearchParams(location.search).has("fx"))) { setMode("fx"); return; }
-  if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || new URLSearchParams(location.search).has("docs"))) { setMode("docs"); return; }
-  if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || new URLSearchParams(location.search).has("music"))) {
-    setMode("music"); const mq = new URLSearchParams(location.search).get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
-  if (document.querySelector('#seg [data-m="tvroom"]') && (/^(tvroom|tvxona|tvr_|tv_)/i.test(sp) || new URLSearchParams(location.search).has("tvroom") || new URLSearchParams(location.search).has("tvxona") || (new URLSearchParams(location.search).get("m") === "tvroom"))) {
+  if (document.querySelector('#seg [data-m="fx"]') && (/^(fx|kurs)/i.test(sp) || _urlParams.has("fx"))) { setMode("fx"); return; }
+  if (document.querySelector('#seg [data-m="docs"]') && (/^docs/i.test(sp) || _urlParams.has("docs"))) { setMode("docs"); return; }
+  if (document.querySelector('#seg [data-m="music"]') && (/^(music|m$|m_)/i.test(sp) || _urlParams.has("music"))) {
+    setMode("music"); const mq = _urlParams.get("q"); if (mq && window.ZMusic) ZMusic.search(mq); return; }
+  if (document.querySelector('#seg [data-m="tvroom"]') && (/^(tvroom|tvxona|tvr_|tv_)/i.test(sp) || _urlParams.has("tvroom") || _urlParams.has("tvxona") || (_urlParams.get("m") === "tvroom"))) {
     setMode("tvroom");
     const m_tv = String(sp).match(/^(?:tvroom_|tvxona_|tvr_|tv_)([a-zA-Z0-9_]+)$/i);
-    const roomParam = new URLSearchParams(location.search).get("room") || (m_tv ? m_tv[1] : "");
+    const roomParam = _urlParams.get("room") || (m_tv ? m_tv[1] : "");
     if (roomParam && !["tvroom", "tvxona", "main"].includes(roomParam.toLowerCase()) && window.ZTvRoom) {
       ZTvRoom.join(roomParam);
     }
     return;
   }
-  if (document.querySelector('#seg [data-m="tv"]') && (/^tv($|_channel)/i.test(sp) || new URLSearchParams(location.search).has("tv") || (new URLSearchParams(location.search).get("m") === "tv"))) { setMode("tv"); return; }
-  if (document.querySelector('#seg [data-m="rasxod"]') && (/^rasxod/i.test(sp) || new URLSearchParams(location.search).has("rasxod"))) { setMode("rasxod"); return; }
-  if (document.querySelector('#seg [data-m="kal"]') && (/^(kal|kaloriya)/i.test(sp) || new URLSearchParams(location.search).has("kal"))) { setMode("kal"); return; }
-  const _search = new URLSearchParams(location.search);
-  const _mParam = _search.get("m");
-  if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || _mParam === "mafia" || _search.has("mafia"))) {
+  if (document.querySelector('#seg [data-m="tv"]') && (/^tv($|_channel)/i.test(sp) || _urlParams.has("tv") || (_urlParams.get("m") === "tv"))) { setMode("tv"); return; }
+  if (document.querySelector('#seg [data-m="rasxod"]') && (/^rasxod/i.test(sp) || _urlParams.has("rasxod"))) { setMode("rasxod"); return; }
+  if (document.querySelector('#seg [data-m="kal"]') && (/^(kal|kaloriya)/i.test(sp) || _urlParams.has("kal"))) { setMode("kal"); return; }
+  const _mParam = _urlParams.get("m");
+  if (document.querySelector('#seg [data-m="mafia"]') && (/^(mafia|maf_)/i.test(sp) || _mParam === "mafia" || _urlParams.has("mafia"))) {
     setMode("mafia");
     const mc = String(sp).match(/^(?:maf_|mafia_)?([a-zA-Z0-9]{3,10})$/i);
-    const roomParam = _search.get("room") || _search.get("code") || (mc ? mc[1] : "");
+    const roomParam = _urlParams.get("room") || _urlParams.get("code") || (mc ? mc[1] : "");
     if (roomParam && window.ZMafia) ZMafia.join(roomParam);
     return;
   }
-  if (/^(reklama|ads)/i.test(sp) || new URLSearchParams(location.search).has("reklama")) { ZHub.ads(); return; }
-  const code = +String(sp).replace(/\D/g, "");
-  const aq = new URLSearchParams(location.search).get("asil");
-  if (ASIL && (aq || (/^(asil_|kino_)?\d+$/i.test(sp) && code))) { ZAsil.open(+(aq || code)); return; }
-  if (code && byCode.has(code)) { openDetail(byCode.get(code), false); return; }
+  if (/^(reklama|ads)/i.test(sp) || _urlParams.has("reklama")) { ZHub.ads(); return; }
+  const aq = _urlParams.get("asil") || _hashParams.get("asil");
+  const isAsilSp = /^asil_(\d+)$/i.exec(sp);
+  if (ASIL && (aq || isAsilSp)) { ZAsil.open(+(aq || isAsilSp[1])); return; }
+  const kinoMatch = /^(?:kino_)?(\d+)(?:_(\d+))?$/i.exec(sp);
+  const explicitMovieCode = +(_urlParams.get("c") || _urlParams.get("movie") || hashCodeRaw || 0);
+  const code = explicitMovieCode || (kinoMatch ? +kinoMatch[1] : 0) || (/^\d+$/.test(sp) ? +sp : 0);
+  const partArg = reqPart || (kinoMatch && kinoMatch[2] ? +kinoMatch[2] : null);
+  if (code) {
+    if (byCode.has(code)) { openDetail(byCode.get(code), false, partArg); return; }
+    try {
+      const mr = await fetch("api/movies/" + encodeURIComponent(code));
+      const md = await mr.json();
+      if (md && md.ok) {
+        const mv = {
+          c: +(md.code || code),
+          t: md.title || md.t || ("Kino #" + code),
+          d: md.description || md.d || "",
+          p: Math.max(1, +(md.part_count || md.p || (Array.isArray(md.parts) ? md.parts.length : 1))),
+          i: md.poster_v || md.i || 0,
+          imdb: md.imdb || md.rating || md.r || "",
+          r: md.rating || md.r || "",
+          v: +(md.views_count || md.v || 0),
+          stream_url: md.stream_url || "",
+          _parts: Array.isArray(md.parts) ? md.parts : null,
+          _enriched: true,
+        };
+        mv._n = norm(mv.t);
+        mv._k = mv._n + " " + norm(mv.d) + " " + mv.c;
+        byCode.set(mv.c, mv);
+        openDetail(mv, false, partArg);
+        return;
+      }
+    } catch (e) {}
+    if (ASIL) { ZAsil.open(code); return; }
+    toast("❌ Kino topilmadi");
+    return;
+  }
   const yq = _urlParams.get("year");
   const actq = _urlParams.get("actor");
   const qq = _urlParams.get("q");
@@ -1100,7 +1303,7 @@ async function load() {
     render();
     return;
   }
-  if (!sp && !location.search.replace(/^\?/, "").split("&").some((x) => x && !/^(tgWebApp|nosplash)/.test(x))) ZHub.open("");
+  if (!sp && !hashCodeRaw && !location.search.replace(/^\?/, "").split("&").some((x) => x && !/^(tgWebApp|nosplash)/.test(x))) ZHub.open("");
 }
 // ---------- 🔒 majburiy obuna: kanal(lar)ga a'zo bo'lmaguncha ilova yopiq ----------
 const subGate = (() => {
@@ -1157,18 +1360,26 @@ subGate.check(false);
 // ---------- 🧭 Bosh ekran: hamma bo'limlar bir joyda + «☰ Bo'limlar» tugmasi + ko'rinish (✨ Kreativ / ⚡ Oddiy) ----------
 const ZHub = (() => {
   const META = {
-    kino: ["Kinolar", "Kodi bilan, posterlar", "🎬", "#E0465A,#7A1430"], music: ["Musiqa", "Top va qidiruv", "🎧", "#1FA8AE,#1B4FC9"],
-    books: ["Kitoblar", "Audio ham bor", "📚", "#3D5BFF,#1A2780"], games: ["O'yinlar", "Bolalar uchun", "🧸", "#FF8A1F,#C2410C"],
-    story: ["Story", "Anonim ko'rish", "👻", "#9B6BFF,#5B21B6"], docs: ["Hujjatlar", "PDF, tarjima", "📄", "#1F8C9E,#0E4F5A"],
-    quiz: ["Viktorina", "Do'stlar bilan", "🧠", "#7C6CFF,#3B2BA8"], prava: ["Prava", "1235 savol", "🚗", "#E8A51F,#7A5200"],
-    food: ["Taomlar", "Bugun nima?", "🍲", "#FF6B4A,#A3251A"], fx: ["Kurs", "Dollar, rubl", "💱", "#22B07D,#0B5E44"],
-    tv: ["TV", "Jonli efir", "📺", "#6650D8,#2C1F7A"],
-    tvroom: ["Tv Xona", "Do'stlar bilan TV", "📺", "#8B5CF6,#4C1D95"],
-    mafia: ["Mafia", "Onlayn o'yin (3–20 kishi)", "🕵️", "#C21E2C,#1E1014"],
-    rasxod: ["Rasxod", "Xarajatlar daftari", "💰", "#27AE60,#145A32"],
-    kal: ["Kaloriya", "Kunlik kkal va vazn", "🥗", "#E67E22,#935116"],
+    kino: ["Kinolar", "Kodi bilan, posterlar", "🎬", "#E0465A,#7A1430", ["#E0465A", "#B21B3A", "#FFFFFF"]],
+    tv: ["TV", "Jonli efir", "📺", "#6650D8,#2C1F7A", ["#4C35C4", "#362199", "#FFFFFF"]],
+    tvroom: ["TV Xona", "Do'stlar bilan TV", "🛰️", "#8B5CF6,#4C1D95", ["#6D28D9", "#4C1D95", "#FFFFFF"]],
+    bunker: ["Bunker", "Omon qolish o'yini", "☢️", "#F59E0B,#78350F", ["#D97706", "#92400E", "#FFFFFF"]],
+    deliv: ["Yetkazish", "Buyurtma va kuryer", "📦", "#0EA5E9,#0369A1", ["#0284C7", "#075985", "#FFFFFF"]],
+    food: ["Taomlar", "Bugun nima?", "🍲", "#FF6B4A,#A3251A", ["#EA580C", "#9A3412", "#FFFFFF"]],
+    books: ["Kitoblar", "Audio ham bor", "📚", "#3D5BFF,#1A2780", ["#2563EB", "#1D4ED8", "#FFFFFF"]],
+    music: ["Musiqa", "Top va qidiruv", "🎧", "#1FA8AE,#1B4FC9", ["#0D9488", "#115E59", "#FFFFFF"]],
+    docs: ["Hujjatlar", "PDF, tarjima", "📄", "#1F8C9E,#0E4F5A", ["#0891B2", "#155E75", "#FFFFFF"]],
+    prava: ["Prava", "1235 savol", "🚗", "#E8A51F,#7A5200", ["#CA8A04", "#854D0E", "#FFFFFF"]],
+    mafia: ["Mafia", "Onlayn o'yin (3–20 kishi)", "🕵️", "#C21E2C,#1E1014", ["#2A0610", "#991B1B", "#FFFFFF"]],
+    kal: ["Kaloriya", "Kunlik kkal va vazn", "🥗", "#E67E22,#935116", ["#D97706", "#9A3412", "#FFFFFF"]],
+    rasxod: ["Rasxod", "Xarajatlar daftari", "💸", "#27AE60,#145A32", ["#16A34A", "#166534", "#FFFFFF"]],
+    quiz: ["Viktorina", "Do'stlar bilan", "🧠", "#7C6CFF,#3B2BA8", ["#6366F1", "#4338CA", "#FFFFFF"]],
+    duel: ["Duel", "Shaxmat, shashka, 1v1", "⚔️", "#EC4899,#831843", ["#BE185D", "#831843", "#FFFFFF"]],
+    story: ["Story", "Anonim ko'rish", "👻", "#9B6BFF,#5B21B6", ["#7C3AED", "#5B21B6", "#FFFFFF"]],
+    fx: ["Kurs", "Dollar, rubl", "💱", "#22B07D,#0B5E44", ["#059669", "#065F46", "#FFFFFF"]],
+    games: ["O'yinlar", "Bolalar uchun", "🧸", "#FF8A1F,#C2410C", ["#EA580C", "#C2410C", "#FFFFFF"]],
   };
-  const NEW = new Set(["prava", "tvroom"]);
+  const NEW = new Set(["bunker", "deliv", "tvroom", "duel", "prava"]);
   const SEG = "#seg";
   let el = null, open_ = false, from = "", don = null, ad = null, page = "";
   const live = {}, liveAt = {};
@@ -1203,23 +1414,58 @@ const ZHub = (() => {
         if (u && u.r) live.fx = `$1 = ${String(Math.round(u.r)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} so'm`;
       }).catch(() => {}));
     }
+    if (!(now - (liveAt.don || 0) < 60000)) { liveAt.don = now; loadDon(); }
     if (!(now - (liveAt.ad || 0) < 60000)) { liveAt.ad = now; loadAd(); }
     if (jobs.length) { await Promise.all(jobs); if (open_ && !page && window.ZK_UI_CHOSEN) render(); }
   }
-  const segs = () => (window.ZK_SEGS && window.ZK_SEGS.length ? window.ZK_SEGS.map((x) => x[0]) : Object.keys(META)).filter((m) => META[m]);
+  const segs = () => {
+    const raw = (window.ZK_SEGS && window.ZK_SEGS.length ? window.ZK_SEGS.map((x) => x[0]) : Object.keys(META)).filter((m) => META[m]);
+    return raw.sort((a, b) => (a === "kino" ? -1 : b === "kino" ? 1 : 0));
+  };
   const name = () => { try { return (tg.initDataUnsafe.user.first_name || "").slice(0, 24); } catch (e) { return ""; } };
   function modeToggle() {
     return `<div class="hb-mode" role="group" aria-label="Ko'rinish"><button data-ui="kr" class="${lite() ? "" : "on"}" aria-label="Kreativ" title="Kreativ">✨</button><button data-ui="lite" class="${lite() ? "on" : ""}" aria-label="Oddiy" title="Oddiy">⚡</button></div>`;
   }
+  function brandCard(m, i) {
+    const [t, sub, emo, , cols] = META[m];
+    const [bg, st, ink] = cols || ["#1e293b", "#0f172a", "#ffffff"];
+    const here = from && from === m;
+    const badge = here ? '<em class="nw hr">Shu yerdasiz</em>' : NEW.has(m) ? `<em class="nw${m === "mafia" ? " mf-new" : ""}">YANGI</em>` : "";
+    if (m === "mafia") {
+      return `<button type="button" class="zb-c zb-maf" data-go="mafia"${here ? ' data-here="1"' : ""}>
+        <span class="mf-sky" aria-hidden="true"></span><span class="mf-mn" aria-hidden="true"></span>
+        <svg class="mf-sk" viewBox="0 0 320 72" preserveAspectRatio="none" aria-hidden="true"><path fill="#050103" d="M0 72V44h18V22h22v26h14V14h26v32h18V30h16v18h20V10h28v38h16V26h20v20h24V16h26v34h18V24h24v24h18V34h12v38z"/></svg>
+        <span class="mf-don" aria-hidden="true"><svg viewBox="0 0 120 120"><circle cx="62" cy="48" r="18" fill="#090205"/><rect x="34" y="34" width="56" height="6" rx="3" fill="#090205"/><path d="M44 34l6-18h24l6 18z" fill="#090205"/><path d="M22 120c4-28 20-44 40-44s36 16 40 44z" fill="#090205"/></svg></span>
+        ${badge}<span class="mk"><svg class="mk-s" viewBox="0 0 100 113"><use href="#zs"/></svg><span><span class="mk-brand">BAUNTYS</span><small>noir</small></span></span>
+        <span class="tt"><b>${t}</b><small>${esc(live[m] || sub)}</small><em class="mf-tag">3–20 kishi</em></span></button>`;
+    }
+    return `<button type="button" class="zb-c${i === 0 ? " zb-hero" : ""}" data-go="${m}"${here ? ' data-here="1"' : ""} style="--bg:${bg};--st:${st};--ink:${ink}">
+      <svg class="big" viewBox="0 0 100 113" aria-hidden="true"><use href="#zs"/></svg>${badge}
+      <span class="mk"><svg class="mk-s" viewBox="0 0 100 113"><use href="#zs"/></svg><span><span class="mk-brand">BAUNTYS</span><small>${emo} ${esc(m)}</small></span></span>
+      <span class="tt"><b>${t}</b><small>${esc(live[m] || sub)}</small></span>${i === 0 ? '<em class="go">Kirish ›</em>' : ""}</button>`;
+  }
   function tiles() {
     const list = segs();
+    if (!lite()) return list.map((m, i) => brandCard(m, i)).join("");
     return list.map((m, i) => {
       const [t, sub, emo, grad] = META[m];
       const g = grad.split(",");
       const here = from && from === m;
-      return `<button class="hb-t${i === 0 && !lite() && list.length % 3 === 2 ? " wide" : ""}${here ? " here" : ""}" data-go="${m}" style="--g1:${g[0]};--g2:${g[1]}">
+      return `<button class="hb-t${i === 0 && list.length % 3 === 2 ? " wide" : ""}${here ? " here" : ""}" data-go="${m}" style="--g1:${g[0]};--g2:${g[1]}">
         <span class="ic" data-mode-ic="${m}"><em>${emo}</em></span><span class="tx"><b>${t}</b><small>${esc(live[m] || sub)}</small></span>${here ? '<span class="nw hr">Shu yerdasiz</span>' : NEW.has(m) ? '<span class="nw">YANGI</span>' : ""}</button>`;
-    }).join("") + (don ? `<button class="hb-t don" data-act="don" style="--g1:#F2B84B;--g2:#B7791F"><span class="ic"><em>💛</em></span><span class="tx"><b>Donat</b><small>Botni qo'llab-quvvatlash</small></span></button>` : "");
+    }).join("") + (don && don.on ? `<button class="hb-t don" data-act="don" style="--g1:#F2B84B;--g2:#B7791F"><span class="ic"><em>💛</em></span><span class="tx"><b>Donat</b><small>Botni qo'llab-quvvatlash</small></span></button>` : "");
+  }
+  function spaceCard(kind, title, subHtml, cta, tag) {
+    return `<button type="button" class="zsp zsp-${kind}${kind === "ad" ? " zg-ad" : ""}" data-act="${kind}"${kind === "don" ? ' style="margin-top:12px"' : ""}>
+      <span class="zsp-sky" aria-hidden="true"></span><span class="zsp-tw" aria-hidden="true"></span>
+      <svg class="zsp-big" viewBox="0 0 100 113" aria-hidden="true"><use href="#zs"/></svg>
+      <span class="zsp-met" aria-hidden="true"><i></i><img src="rock.webp" alt=""></span>
+      <span class="mk"><svg class="mk-s" viewBox="0 0 100 113"><use href="#zs"/></svg><span><span class="mk-brand">BAUNTYS</span><small>${tag}</small></span></span>
+      <span class="tt"><b>${title}</b><small>${subHtml}</small></span><em class="go">${cta} ›</em></button>`;
+  }
+  function donCard() {
+    if (lite() || !don || !don.on) return "";
+    return spaceCard("don", "Donat", esc(don.text || "Bot rivojiga hissa qo'shing"), "Qo'llab-quvvatlash", "@BauntyCinemabot");
   }
   function render() {
     if (!el) return;
@@ -1243,14 +1489,16 @@ const ZHub = (() => {
           ${modeToggle()}
         </div>
       </div>
-      ${qrow}<div class="hb-grid">${tiles()}</div>${adCard()}
+      ${qrow}<div class="hb-grid${lite() ? "" : " zb"}">${tiles()}</div>${donCard()}${adCard()}
       ${playing ? `<button class="hb-cont" data-go="music"><span>🎧</span><span><b>Musiqa davom etmoqda</b><small>Pleyerga qaytish</small></span><em>›</em></button>` : ""}
+      <button type="button" class="hb-intro" data-act="intro">✨ Kirish animatsiyasini ko'rish</button>
       </div>`;
   }
   // 📣 Reklama: bosh ekranda karta + alohida sahifa (obunachilar soni — botning haqiqiy soni)
   const num = (n) => String(Math.max(0, n | 0)).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
   function adCard() {
     if (!ad || !ad.on) return "";
+    if (!lite()) return spaceCard("ad", "Reklama", `<b class="n">${num(ad.users)}</b> obunachiga e'loningiz`, "Batafsil", "reklama");
     return `<button class="hb-ad" data-act="ad"><span class="ic">📣</span><span><b>Reklama berish</b><small>${num(ad.users)} obunachiga e'loningiz</small></span><em>›</em></button>`;
   }
   function adPage() {
@@ -1259,7 +1507,7 @@ const ZHub = (() => {
     const ini = (ad.user || "R").replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "R";
     el.innerHTML = `<div class="hb-in hb-adp">
       <div class="hb-head"><button class="hb-x" data-act="adback" aria-label="Orqaga">‹</button><div class="hb-hi"><b>Reklama</b></div></div>
-      <div class="ad-hero"><h2>E'loningizni ${num(ad.users)} odam ko'rsin</h2>
+      <div class="ad-hero${lite() ? "" : " zsp-hero"}"><h2>E'loningizni ${num(ad.users)} odam ko'rsin</h2>
         <p>Bot, Mini App va kanallarimiz orqali — kino, musiqa va o'yin ishqibozlariga.</p>
         <div class="ad-n"><b>${num(ad.users)}</b><small>bot obunachisi · har daqiqa yangilanadi</small></div></div>
       <div class="hb-lh">Reklama turlari</div>
@@ -1269,6 +1517,9 @@ const ZHub = (() => {
         ${ph ? `<a class="ad-b call" href="tel:${ph}"><span>📞 Qo'ng'iroq qilish</span><small>${esc(ad.phone_fmt || ph)}</small></a>
         <button class="ad-cp" data-act="adcp">📋 Raqamni nusxalash</button>` : ""}</div></div>`;
     el.scrollTop = 0;
+  }
+  function loadDon() {
+    fetch("api/donate").then((r) => r.json()).then((d) => { don = (d && d.on && (d.num || (d.cards && d.cards.length))) ? d : null; if (open_ && !page && window.ZK_UI_CHOSEN) render(); }).catch(() => {});
   }
   function loadAd(cb) {
     fetch("api/reklama").then((r) => r.json()).then((d) => { ad = d && d.ok ? d : null; if (cb) cb(); else if (open_ && !page && window.ZK_UI_CHOSEN) render(); }).catch(() => {});
@@ -1308,7 +1559,12 @@ const ZHub = (() => {
       if (u) { setUI(u.dataset.ui); return; }
       const a = t.closest("[data-act]");
       if (a && a.dataset.act === "close") close();
-      if (a && a.dataset.act === "don") donSheet();
+      if (a && a.dataset.act === "don") { if (window.ZK_openDonate) { close(); window.ZK_openDonate(); } else if (don) donSheet(); return; }
+      if (a && a.dataset.act === "intro") {
+        try { localStorage.setItem("zk_intro_again", "1"); if (lite()) localStorage.setItem("zk_ui", "kr"); } catch (e2) {}
+        location.reload();
+        return;
+      }
       if (a && a.dataset.act === "ad" && ad) { haptic(); adPage(); return; }
       if (a && a.dataset.act === "adback") { haptic(); page = ""; if (window.ZK_UI_CHOSEN) render(); else picker(); return; }
       if (a && a.dataset.act === "adtg" && ad && ad.user) { haptic(); const url = "https://t.me/" + ad.user; try { tg.openTelegramLink(url); } catch (e2) { location.href = url; } return; }
@@ -1336,7 +1592,7 @@ const ZHub = (() => {
     const weakNote = window.ZK_WEAK ? "Telefoningiz uchun ⚡ Oddiy tavsiya qilinadi" : "Telefon sekin ishlasa — ⚡ Oddiy'ni tanlang";
     el.innerHTML = `<div class="hb-in hb-pick"><h2>Qaysi ko'rinish<br>sizga qulay?</h2>
       <p>Keyin «☰ Bo'limlar» orqali istalgan vaqt almashtirasiz.</p>
-      <button class="opt${lite() ? "" : " on"}" data-pick="kr"><span class="pv k"><i></i><i></i><i></i></span><span><b>✨ Kreativ</b><small>Jonli fon, animatsiyalar, chiroyli effektlar</small><em>Yangi telefonlar uchun</em></span></button>
+      <button class="opt${lite() ? "" : " on"}" data-pick="kr"><span class="pv k"><i></i><i></i><i></i></span><span><b>✨ Kreativ</b><small>Koinot foni, yulduzlar va animatsiyalar</small><em>Yangi telefonlar uchun</em></span></button>
       <button class="opt${lite() ? " on" : ""}" data-pick="lite"><span class="pv o"><i></i><i></i><i></i></span><span><b>⚡ Oddiy</b><small>Yengil va tez, batareyani tejaydi</small><em>Eski / sekin telefonlar uchun</em></span></button>
       <button class="go" data-pickgo="1">Davom etish</button><div class="note">${weakNote}</div></div>`;
   }
@@ -1376,8 +1632,6 @@ const ZHub = (() => {
     const b = e.target.closest && e.target.closest(".zk-hubbtn");
     if (b) { e.stopPropagation(); haptic(); open(document.body.dataset.zkm || "kino"); }
   });
-  // ⚡ Oddiy rejimda donat — bosh ekrandagi karta orqali (Kreativ'da zk.js tepada tugma ko'rsatadi)
-  if (lite()) fetch("api/donate").then((r) => r.json()).then((d) => { if (d && d.on && (d.num || (d.cards && d.cards.length))) { don = d; if (open_ && !page && window.ZK_UI_CHOSEN) render(); } }).catch(() => {});
   function donSheet() {
     const cards = don.cards && don.cards.length ? don.cards : [{num: don.num, name: don.name, net: don.net}];
     $("sheet").innerHTML = `<h3>💛 Botni qo'llab-quvvatlash</h3><p>${esc(don.text || "Har bir yordam bot rivojiga ketadi.")}</p>

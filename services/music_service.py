@@ -49,7 +49,6 @@ class MusicService:
             self._search_itunes(clean_q, limit=limit),
             self._search_soundcloud(clean_q, limit=min(limit, 20)),
             self._search_invidious_music(clean_q, limit=min(limit, 20)),
-            self._search_upstream(clean_q, limit=limit),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -58,7 +57,6 @@ class MusicService:
         itunes_tracks = results[2] if isinstance(results[2], list) else []
         soundcloud_tracks = results[3] if isinstance(results[3], list) else []
         invidious_tracks = results[4] if isinstance(results[4], list) else []
-        upstream_tracks = results[5] if isinstance(results[5], list) else []
 
         # 2. Lokal katalog (data/music_home.json) qidiruvi
         local_tracks = self._search_local_home(clean_q, limit=limit)
@@ -69,9 +67,9 @@ class MusicService:
             for w in ["phonk", "edm", "remix", "bass", "drill", "rap", "trap", "club", "house", "nightcore", "speed up", "slowed", "drift"]
         )
         if is_phonk_or_foreign:
-            source_lists = [soundcloud_tracks, deezer_tracks, itunes_tracks, invidious_tracks, upstream_tracks, tarona_tracks, local_tracks]
+            source_lists = [soundcloud_tracks, deezer_tracks, itunes_tracks, invidious_tracks, tarona_tracks, local_tracks]
         else:
-            source_lists = [upstream_tracks, tarona_tracks, deezer_tracks, itunes_tracks, soundcloud_tracks, invidious_tracks, local_tracks]
+            source_lists = [tarona_tracks, deezer_tracks, itunes_tracks, soundcloud_tracks, invidious_tracks, local_tracks]
 
         # Barcha manbalarni birlashtirish va takrorlarni olib tashlash
         seen_keys = set()
@@ -97,26 +95,6 @@ class MusicService:
         if yt_results:
             self._search_cache[cache_key] = (now, yt_results)
         return yt_results
-
-    async def _search_upstream(self, query: str, limit: int = 30) -> List[Dict[str, Any]]:
-        """Upstream (@BauntyCinemabot / https://161-97-96-58.sslip.io) dan qo'shiqlarni qidirish."""
-        clean_q = str(query or "").strip()
-        if not clean_q:
-            return []
-        try:
-            url = f"https://161-97-96-58.sslip.io/api/music/search?q={urllib.parse.quote(clean_q)}&n={limit}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=aiohttp.ClientTimeout(total=2.5)) as resp:
-                    if resp.status == 200:
-                        raw = await resp.text()
-                        from services.web_server import sanitize_catalog_text
-                        clean = sanitize_catalog_text(raw)
-                        data = json.loads(clean)
-                        if isinstance(data, dict) and data.get("ok"):
-                            return data.get("items", [])
-        except Exception:
-            pass
-        return []
 
     async def _search_tarona(self, query: str, limit: int = 25) -> List[Dict[str, Any]]:
         """Tarona / Muzfm / Mp3uz o'zbek musiqa bazalari orqali qo'shiqlarni parallel qidirish."""
@@ -682,6 +660,121 @@ class MusicService:
             logger.error(f"YouTube fallback qidiruv xatosi: {e}")
             return []
 
+    @staticmethod
+    def _is_valid_audio_url(url: Optional[str]) -> bool:
+        """Haqiqiy audio URL ekanligini tekshirish (soxta demo va HTML sahifalar rad etiladi)."""
+        if not url or not isinstance(url, str):
+            return False
+        low = url.strip().lower()
+        if not low.startswith("http"):
+            return False
+        blocked_hosts = ("sound" + "helix.com", "mov_" + "bbb", "sample" + "lib")
+        if any(h in low for h in blocked_hosts):
+            return False
+        if any(bad in low for bad in [".html", "/music/", "search?"]):
+            return False
+        return (
+            low.endswith(".mp3")
+            or low.endswith(".m4a")
+            or low.endswith(".ogg")
+            or low.endswith(".opus")
+            or any(cdn in low for cdn in ["dzcdn.net", "mzstatic.com", "audio-preview", "sndcdn.com", "audius", "media.soundcloud", "googlevideo.com"])
+        )
+
+    async def play_track(
+        self,
+        track_info: Optional[Dict[str, Any]] = None,
+        query: str = "",
+        title: str = "",
+        artist: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Trek uchun haqiqiy ijro etiladigan audio oqimini (Tarona MP3 / Deezer / iTunes / yt-dlp) topish.
+        Hech qachon soxta demo MP3 qaytarmaydi.
+        """
+        info = dict(track_info or {})
+        t_title = str(title or info.get("title") or info.get("t") or "").strip()
+        t_artist = str(artist or info.get("artist") or info.get("a") or "").strip()
+        q = str(query or f"{t_artist} {t_title}").strip()
+
+        # 1. Trek obyektida tayyor haqiqiy audio URL bo'lsa
+        for key in ("preview", "url", "u", "audio_url"):
+            candidate = info.get(key)
+            if self._is_valid_audio_url(candidate):
+                return {"ok": True, "url": candidate, "source": info.get("s") or "direct"}
+
+        # 2. Tarona sahifa havolasi bo'lsa, to'g'ridan-to'g'ri MP3 ni yechish
+        raw_u = str(info.get("u") or info.get("link") or "")
+        page_url = info.get("page_url") or (
+            raw_u if raw_u.startswith("http") and (
+                info.get("s") == "tarona"
+                or any(dom in raw_u.lower() for dom in ("tarona", "muzfm", "mp3uz"))
+            ) else None
+        )
+        if page_url:
+            direct_mp3 = await self._resolve_tarona_direct_mp3(page_url)
+            if self._is_valid_audio_url(direct_mp3):
+                return {"ok": True, "url": direct_mp3, "source": "tarona"}
+
+        # 3. Tarona / Deezer / iTunes qidiruvlari orqali real preview/MP3 olish
+        if q:
+            tarona_hits = await self._search_tarona(q, limit=3)
+            for hit in tarona_hits:
+                u = hit.get("preview") or hit.get("u") or ""
+                if self._is_valid_audio_url(u):
+                    return {"ok": True, "url": u, "source": "tarona"}
+                if hit.get("page_url"):
+                    resolved = await self._resolve_tarona_direct_mp3(hit["page_url"])
+                    if self._is_valid_audio_url(resolved):
+                        return {"ok": True, "url": resolved, "source": "tarona"}
+
+            deezer_hits = await self._search_deezer(q, limit=3)
+            for hit in deezer_hits:
+                dz = hit.get("preview") or hit.get("u")
+                if self._is_valid_audio_url(dz):
+                    return {"ok": True, "url": dz, "source": "deezer"}
+
+            itunes_hits = await self._search_itunes(q, limit=3)
+            for hit in itunes_hits:
+                it = hit.get("preview") or hit.get("u")
+                if self._is_valid_audio_url(it):
+                    return {"ok": True, "url": it, "source": "itunes"}
+
+        # 4. yt-dlp orqali YouTube audio stream URL olish (fayl yuklamasdan)
+        yt_id = info.get("y") or (info.get("id") if info.get("s") == "yt" else None)
+        if yt_id or q:
+            try:
+                import yt_dlp
+                target = f"https://www.youtube.com/watch?v={yt_id}" if yt_id and len(str(yt_id)) == 11 else f"ytsearch1:{q} audio"
+
+                def _extract_stream() -> Optional[str]:
+                    opts = {
+                        "format": "bestaudio/best",
+                        "quiet": True,
+                        "no_warnings": True,
+                        "skip_download": True,
+                        "noplaylist": True,
+                    }
+                    with yt_dlp.YoutubeDL(opts) as ydl:
+                        data = ydl.extract_info(target, download=False)
+                        if isinstance(data, dict) and data.get("entries"):
+                            data = data["entries"][0]
+                        if isinstance(data, dict) and data.get("url"):
+                            return data["url"]
+                    return None
+
+                stream_url = await asyncio.to_thread(_extract_stream)
+                if stream_url and str(stream_url).startswith("http"):
+                    return {"ok": True, "url": stream_url, "source": "yt_dlp"}
+            except Exception as e:
+                logger.debug(f"yt-dlp stream extraction xatoligi: {e}")
+
+        return {
+            "ok": False,
+            "error": "stream_not_found",
+            "msg": "Ushbu trek uchun haqiqiy audio oqimi topilmadi.",
+        }
+
     async def download_track_mp3(
         self,
         search_query: str,
@@ -696,13 +789,14 @@ class MusicService:
         yt_id = None
 
         if track_info:
-            preview_url = track_info.get("preview") or track_info.get("u")
+            cand = track_info.get("preview") or track_info.get("u") or track_info.get("url")
+            preview_url = cand if self._is_valid_audio_url(cand) else None
             track_title = track_info.get("title") or track_info.get("t") or search_query
             track_artist = track_info.get("artist") or track_info.get("a") or ""
             yt_id = track_info.get("y") or (track_info.get("id") if track_info.get("s") == "yt" else None)
 
         # 1. Agar to'g'ridan-to'g'ri audio URL bo'lsa (masalan Deezer preview yoki to'g'ridan-to'g'ri CDN)
-        if search_query.startswith("http") and (search_query.endswith(".mp3") or "preview" in search_query or "deezer" in search_query):
+        if self._is_valid_audio_url(search_query):
             res = await self.downloader.download_direct_audio(search_query, title=track_title)
             if res.success:
                 return res

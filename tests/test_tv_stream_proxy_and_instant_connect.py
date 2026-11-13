@@ -105,15 +105,14 @@ def test_frontend_instant_connect_and_resilient_failover():
     js_app = (BASE_DIR / "webapp" / "js" / "app.js").read_text(encoding="utf-8")
 
     # 1. Tezkor va to'liq ulanish: qulay timeoutlar (5s / 7s va 5000ms manifest timeout)
-    assert "_isSlow ? 7000 : 5000" in index_html
     assert "_isSlow ? 7000 : 5000" in app_js
-    assert "manifestLoadingTimeOut: 5000" in index_html
+    assert "_isSlow ? 7000 : 5000" in app_js
+    assert "manifestLoadingTimeOut: 5000" in app_js
     assert "manifestLoadingTimeOut: 5000" in app_js
     assert "manifestLoadingTimeOut: 5000" in tvroom_js
     assert "manifestLoadingTimeOut: 5000" in js_app
 
     # 2. Resilient failover: Proxy zaxira oqimi fallback mavjudligi
-    assert "/api/tv/stream?url=" in index_html
     assert "/api/tv/stream?url=" in app_js
     assert "/api/tv/stream?url=" in tvroom_js
     assert "/api/tv/stream?url=" in js_app
@@ -121,7 +120,6 @@ def test_frontend_instant_connect_and_resilient_failover():
     # 3. 1440p QHD va Adaptive Bitrate
     assert "1440p QHD" in index_html
     assert "1440p QHD" in app_js
-    assert "hls.currentLevel = -1;" in index_html
     assert "hls.currentLevel = -1;" in app_js
 
     # 4. Bauntys oq brendingi

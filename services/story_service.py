@@ -267,26 +267,16 @@ class StoryService:
         except Exception as e:
             logger.info(f"Profil hikoyalarini olishda xatolik: {e}")
 
-        # Agar real vaqtda faol story topilmasa ham namunaviy faol story berish (Web App ochilishi uchun)
+        # Agar real vaqtda faol story topilmasa, yolg'on namuna video bermasdan bo'sh ro'yxat qaytaramiz
         if not items:
-            items = [
-                {
-                    "id": f"{clean_u}_1",
-                    "k": "video",
-                    "t": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600",
-                    "u": "https://www.w3schools.com/html/mov_bbb.mp4",
-                    "d": 15,
-                    "ts": int(now - 7200),
-                },
-                {
-                    "id": f"{clean_u}_2",
-                    "k": "image",
-                    "t": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600",
-                    "u": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600",
-                    "d": 5,
-                    "ts": int(now - 14400),
-                }
-            ]
+            return {
+                "ok": False,
+                "error": "story_not_found",
+                "name": clean_u,
+                "pic": avatar_url,
+                "verified": False,
+                "items": [],
+            }
 
         data = {
             "ok": True,

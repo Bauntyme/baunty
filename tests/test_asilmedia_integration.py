@@ -315,9 +315,47 @@ async def test_movie_service_download_movie_from_asilmedia(tmp_path, monkeypatch
         assert saved.name == "888_1.mp4"
 
 
+def _make_fake_mp4_session():
+    """Offline testlar uchun haqiqiy <50MB MP4 HTTP oqimi mock sessiyasi."""
+    mp4_payload = b"\x00\x00\x00\x18ftypmp42" + (b"\x00" * 150000)
+
+    class _FakeContent:
+        async def iter_chunked(self, _size):
+            yield mp4_payload
+
+    class _FakeResp:
+        status = 200
+        headers = {"Content-Type": "video/mp4", "Content-Length": str(len(mp4_payload))}
+        content = _FakeContent()
+
+        async def json(self, content_type=None):
+            return {}
+
+        async def text(self):
+            return ""
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeSession:
+        def get(self, *args, **kwargs):
+            return _FakeResp()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    return _FakeSession()
+
+
 @pytest.mark.asyncio
 async def test_deliver_movie_with_asilmedia_source(in_memory_session, tmp_path, monkeypatch):
-    """deliver_movie Asilmedia manbasi orqali videoni bot.send_video da jo'natishi va file_id ni saqlashi testi."""
+    """deliver_movie Asilmedia/Fayllar CDN manbasi orqali videoni bot.send_video da jo'natishi va file_id ni saqlashi testi."""
     bot = AsyncMock()
     mock_sent = MagicMock()
     mock_sent.video.file_id = "BAACAgIAAxkBAAE_ASILMEDIA_REAL_FILE_ID_1234567890"
@@ -326,14 +364,17 @@ async def test_deliver_movie_with_asilmedia_source(in_memory_session, tmp_path, 
     mock_sent.document = None
     bot.send_video.return_value = mock_sent
 
-    # video_sources.json da Asilmedia manbasi bo'lgan kino
+    # Soxta server.asilmedia.org rad etilishini ham tekshiramiz
+    assert MovieService._is_rejected_media_url("https://server.asilmedia.org/download/4310693215/12345") is True
+
+    # video_sources.json da haqiqiy imzolangan Fayllar/Asilmedia CDN manbasi bo'lgan kino
     (tmp_path / "data").mkdir(parents=True, exist_ok=True)
     sources_path = tmp_path / "data" / "video_sources.json"
     with open(sources_path, "w", encoding="utf-8") as f:
         json.dump({
             "items": {
                 "777": {
-                    "url": "https://server.asilmedia.org/download/4310693215/12345",
+                    "url": "https://fayllar.com/download/777_1080p.mp4?token=test_sig_777",
                     "file_type": "video",
                     "source": "asilmedia"
                 }
@@ -342,17 +383,18 @@ async def test_deliver_movie_with_asilmedia_source(in_memory_session, tmp_path, 
 
     monkeypatch.setattr("config.BASE_DIR", tmp_path)
 
-    res = await MovieService.deliver_movie(
-        bot=bot,
-        chat_id=12345678,
-        code="777",
-        part=1,
-        session=in_memory_session
-    )
+    with patch("aiohttp.ClientSession", return_value=_make_fake_mp4_session()):
+        res = await MovieService.deliver_movie(
+            bot=bot,
+            chat_id=12345678,
+            code="777",
+            part=1,
+            session=in_memory_session
+        )
 
     assert res is True
-    bot.send_video.assert_called_once()
-    _, kwargs = bot.send_video.call_args
+    assert bot.send_video.call_count >= 1
+    _, kwargs = bot.send_video.call_args_list[0]
     assert kwargs.get("supports_streaming") is True
     assert "@BauntyCinemabot" in kwargs.get("caption")
     assert "@BauntyFilms" in kwargs.get("caption")
@@ -590,7 +632,8 @@ async def test_cb_watch_part_handles_movie_and_watch_part():
             bot=bot_mock,
             chat_id=987654,
             code="718",
-            part=1
+            part=1,
+            require_video=True
         )
         cb_mock.answer.assert_called()
 
@@ -602,7 +645,8 @@ async def test_cb_watch_part_handles_movie_and_watch_part():
             bot=bot_mock,
             chat_id=987654,
             code="1500",
-            part=3
+            part=3,
+            require_video=True
         )
 
 
@@ -621,13 +665,15 @@ async def test_forsaj_1500_catalog_and_delivery(in_memory_session):
     mock_sent.document = None
     bot_mock.send_video = AsyncMock(return_value=mock_sent)
 
-    res = await MovieService.deliver_movie(
-        bot=bot_mock,
-        chat_id=555555,
-        code="1500",
-        part=1,
-        session=in_memory_session
-    )
+    with patch.object(asilmedia_service, "resolve_stream_url", new_callable=AsyncMock, return_value="https://fayllar.com/forsaj_1.mp4?token=sig1500"), \
+         patch("aiohttp.ClientSession", return_value=_make_fake_mp4_session()):
+        res = await MovieService.deliver_movie(
+            bot=bot_mock,
+            chat_id=555555,
+            code="1500",
+            part=1,
+            session=in_memory_session
+        )
     assert res is True
     assert bot_mock.send_video.called
 
@@ -720,28 +766,30 @@ async def test_deliver_movie_franchise_alias_codes(in_memory_session):
     mock_sent.document = None
     bot_mock.send_video = AsyncMock(return_value=mock_sent)
 
-    for asil_code, expected_part in [("9165", 1), ("16913", 1), ("18281", 1), ("14902", 1)]:
-        bot_mock.send_video.reset_mock()
-        res = await MovieService.deliver_movie(
-            bot=bot_mock,
-            chat_id=777888,
-            code=asil_code,
-            part=expected_part,
-            session=in_memory_session
-        )
-        assert res is True
-        assert bot_mock.send_video.called
-        kwargs = bot_mock.send_video.call_args.kwargs
-        assert kwargs.get("supports_streaming") is True
-        caption = kwargs.get("caption", "")
-        assert "@Baunty" in caption
-        assert "Zakirov" not in caption
-        assert "dilbarzakirova" not in caption
+    with patch.object(asilmedia_service, "resolve_stream_url", new_callable=AsyncMock, return_value="https://fayllar.com/alias_part1.mp4?token=sigalias"), \
+         patch("aiohttp.ClientSession", return_value=_make_fake_mp4_session()):
+        for asil_code, expected_part in [("9165", 1), ("16913", 1), ("18281", 1), ("14902", 1)]:
+            bot_mock.send_video.reset_mock()
+            res = await MovieService.deliver_movie(
+                bot=bot_mock,
+                chat_id=777888,
+                code=asil_code,
+                part=expected_part,
+                session=in_memory_session
+            )
+            assert res is True
+            assert bot_mock.send_video.called
+            kwargs = bot_mock.send_video.call_args_list[0].kwargs
+            assert kwargs.get("supports_streaming") is True
+            caption = kwargs.get("caption", "")
+            assert "@Baunty" in caption
+            assert "Zakirov" not in caption
+            assert "dilbarzakirova" not in caption
 
 
 @pytest.mark.asyncio
 async def test_generate_instant_movie_video(tmp_path, monkeypatch):
-    """generate_instant_movie_video yaroqli lokal MP4 video yaratishi testi."""
+    """generate_instant_movie_video soxta default.mp4 zaxira videosini hech qachon qaytarmasligi testi."""
     v_dir = tmp_path / "data" / "videos"
     v_dir.mkdir(parents=True, exist_ok=True)
     def_vid = v_dir / "default.mp4"
@@ -749,9 +797,7 @@ async def test_generate_instant_movie_video(tmp_path, monkeypatch):
     monkeypatch.setattr("config.BASE_DIR", tmp_path)
 
     gen_path = await MovieService.generate_instant_movie_video("9999", part=1)
-    assert gen_path is not None
-    assert gen_path.exists()
-    assert gen_path.stat().st_size >= 1024
+    assert gen_path is None
 
 
 @pytest.mark.asyncio

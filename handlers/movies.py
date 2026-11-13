@@ -8,7 +8,7 @@ import re
 from typing import Optional, Tuple
 from aiogram import Router, F
 from aiogram.filters import StateFilter, Command, CommandObject
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.fsm.context import FSMContext
 from config import config
 from database.session import get_session
@@ -42,6 +42,108 @@ def movie_not_found_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(text=f"🍿 @{ch_user} kanali", url=f"https://t.me/{ch_user}"),
             ],
         ]
+    )
+
+
+async def _send_movie_delivery_fallback(
+    bot,
+    chat_id: int,
+    code: str,
+    part: int = 1,
+    reply_to_message_id: Optional[int] = None,
+    session=None,
+) -> None:
+    """Kino katalogda mavjud bo'lib, TG fayli >50MB yoki mavjud bo'lmaganda samimiy xabar + WebApp/direct tugmalar yuborish."""
+    clean_c = str(code).strip().lstrip("#№")
+    cat_item = MovieService.get_catalog_item(clean_c)
+    db_movie = None
+    if session is not None:
+        try:
+            db_movie = await crud.get_movie_by_code(session, clean_c)
+        except Exception:
+            pass
+    else:
+        try:
+            async with get_session() as s:
+                db_movie = await crud.get_movie_by_code(s, clean_c)
+        except Exception:
+            pass
+
+    stream_info = None
+    try:
+        stream_info = await MovieService.get_movie_stream_info(clean_c, part=part, session=session)
+    except Exception:
+        stream_info = None
+
+    if not cat_item and not db_movie and not stream_info:
+        code_disp = f"{clean_c} ({part}-qism)" if part > 1 else clean_c
+        await bot.send_message(
+            chat_id=chat_id,
+            text=format_movie_not_found(code_disp),
+            parse_mode="HTML",
+            reply_markup=movie_not_found_keyboard(),
+            reply_to_message_id=reply_to_message_id,
+            protect_content=True,
+        )
+        return
+
+    raw_title = (
+        (stream_info or {}).get("title")
+        or (cat_item or {}).get("t")
+        or (db_movie.title if db_movie else None)
+        or f"Kino #{clean_c}"
+    )
+    safe_title = html.escape(str(raw_title))
+    total_parts = int((stream_info or {}).get("total_parts") or (cat_item or {}).get("p") or 1)
+    part_txt = f" ({part}-qism)" if total_parts > 1 or part > 1 else ""
+    signed_url = (stream_info or {}).get("stream_url")
+    if signed_url and (not str(signed_url).startswith("http") or MovieService._is_rejected_media_url(signed_url)):
+        signed_url = None
+
+    webapp_base = config.webapp_url_resolved
+    rows = []
+    if webapp_base and webapp_base.startswith("https://"):
+        rows.append([
+            InlineKeyboardButton(
+                text="🎬 WebAppda tomosha qilish",
+                web_app=WebAppInfo(url=f"{webapp_base}?c={clean_c}&part={part}"),
+            )
+        ])
+    if signed_url:
+        rows.append([
+            InlineKeyboardButton(
+                text="⬇️ To'g'ridan-to'g'ri yuklash",
+                url=signed_url,
+            )
+        ])
+    ch_user = (config.CHANNEL_USERNAME or "@BauntyFilms").lstrip("@")
+    rows.append([
+        InlineKeyboardButton(text=f"🍿 @{ch_user}", url=f"https://t.me/{ch_user}"),
+    ])
+
+    if signed_url:
+        body = (
+            f"🎬 <b>{safe_title}{part_txt}</b>\n\n"
+            "⚠️ <i>Ushbu video fayl hajmi Telegram Bot API (50 MB) limitidan katta bo'lgani uchun "
+            "bot chatiga to'g'ridan-to'g'ri fayl sifatida yuborilmadi.</i>\n\n"
+            "👇 Quyidagi tugmalar orqali <b>WebApp pleerda onlayn tomosha qilishingiz</b> "
+            "yoki <b>to'g'ridan-to'g'ri MP4 faylni yuklab olishingiz</b> mumkin:"
+        )
+    else:
+        body = (
+            f"🎬 <b>{safe_title}{part_txt}</b>\n\n"
+            "⚠️ <i>Ushbu kino hozircha to'g'ridan-to'g'ri Telegram fayli ko'rinishida mavjud emas "
+            "yoki serverdan oqim tayyorlanmoqda.</i>\n\n"
+            "👇 <b>WebAppda tomosha qilish</b> tugmasi orqali ochib ko'ring:"
+        )
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text=body,
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+        reply_to_message_id=reply_to_message_id,
+        protect_content=True,
     )
 
 
@@ -82,15 +184,16 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
                 chat_id=message.chat.id,
                 code=code,
                 part=part,
-                reply_to_message_id=message.message_id
+                reply_to_message_id=message.message_id,
+                require_video=True,
             )
             if not delivered:
-                code_disp = f"{code} ({part}-qism)" if part > 1 else code
-                await message.reply(
-                    format_movie_not_found(code_disp),
-                    parse_mode="HTML",
-                    reply_markup=movie_not_found_keyboard(),
-                    protect_content=True
+                await _send_movie_delivery_fallback(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    code=code,
+                    part=part,
+                    reply_to_message_id=message.message_id,
                 )
             return
 
@@ -187,25 +290,45 @@ async def cb_movie_random(callback: CallbackQuery) -> None:
     async with get_session() as session:
         movie = await movie_service.get_random(session)
         if movie:
-            await movie_service.send_movie_to_user(
+            delivered = await movie_service.send_movie_to_user(
                 bot=callback.bot,
                 chat_id=callback.message.chat.id,
                 movie=movie,
-                session=session
+                session=session,
+                require_video=True,
+            )
+            if delivered:
+                return
+            await _send_movie_delivery_fallback(
+                bot=callback.bot,
+                chat_id=callback.message.chat.id,
+                code=movie.code,
+                part=1,
+                session=session,
             )
             return
 
         cat_rnd = movie_service.get_catalog_random()
         if cat_rnd and cat_rnd.get("c"):
+            rnd_code = str(cat_rnd["c"])
             delivered = await movie_service.deliver_movie(
                 bot=callback.bot,
                 chat_id=callback.message.chat.id,
-                code=str(cat_rnd["c"]),
+                code=rnd_code,
                 part=1,
-                session=session
+                session=session,
+                require_video=True,
             )
             if delivered:
                 return
+            await _send_movie_delivery_fallback(
+                bot=callback.bot,
+                chat_id=callback.message.chat.id,
+                code=rnd_code,
+                part=1,
+                session=session,
+            )
+            return
 
         await callback.message.answer(
             f"😔 Bazada hali kinolar mavjud emas.\n🍿 Yangi filmlar kanalimizda: {config.CHANNEL_USERNAME}",
@@ -335,14 +458,15 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
         bot=callback.bot,
         chat_id=callback.message.chat.id,
         code=code,
-        part=1
+        part=1,
+        require_video=True,
     )
     if not delivered:
-        await callback.message.answer(
-            format_movie_not_found(code),
-            parse_mode="HTML",
-            reply_markup=movie_not_found_keyboard(),
-            protect_content=True
+        await _send_movie_delivery_fallback(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            code=code,
+            part=1,
         )
 
 
@@ -361,14 +485,15 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
         bot=callback.bot,
         chat_id=callback.message.chat.id,
         code=code,
-        part=part
+        part=part,
+        require_video=True,
     )
     if not delivered:
-        await callback.message.answer(
-            format_movie_not_found(f"{code} ({part}-qism)"),
-            parse_mode="HTML",
-            reply_markup=movie_not_found_keyboard(),
-            protect_content=True
+        await _send_movie_delivery_fallback(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            code=code,
+            part=part,
         )
 
 
@@ -409,15 +534,16 @@ async def state_process_code(message: Message, state: FSMContext) -> None:
         chat_id=message.chat.id,
         code=code,
         part=part,
-        reply_to_message_id=message.message_id
+        reply_to_message_id=message.message_id,
+        require_video=True,
     )
     if not delivered:
-        code_disp = f"{code} ({part}-qism)" if part > 1 else code
-        await message.reply(
-            format_movie_not_found(code_disp),
-            parse_mode="HTML",
-            reply_markup=movie_not_found_keyboard(),
-            protect_content=True
+        await _send_movie_delivery_fallback(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            code=code,
+            part=part,
+            reply_to_message_id=message.message_id,
         )
 
 
@@ -775,15 +901,16 @@ async def process_numeric_movie_code(message: Message) -> None:
         chat_id=message.chat.id,
         code=code,
         part=part,
-        reply_to_message_id=message.message_id
+        reply_to_message_id=message.message_id,
+        require_video=True,
     )
     if not delivered:
-        code_disp = f"{code} ({part}-qism)" if part > 1 else code
-        await message.reply(
-            format_movie_not_found(code_disp),
-            parse_mode="HTML",
-            reply_markup=movie_not_found_keyboard(),
-            protect_content=True
+        await _send_movie_delivery_fallback(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            code=code,
+            part=part,
+            reply_to_message_id=message.message_id,
         )
 
 
@@ -803,14 +930,16 @@ async def process_reply_part_request(message: Message) -> None:
         chat_id=message.chat.id,
         code=code,
         part=part,
-        reply_to_message_id=message.message_id
+        reply_to_message_id=message.message_id,
+        require_video=True,
     )
     if not delivered:
-        await message.reply(
-            format_movie_not_found(f"{code} ({part}-qism)"),
-            parse_mode="HTML",
-            reply_markup=movie_not_found_keyboard(),
-            protect_content=True
+        await _send_movie_delivery_fallback(
+            bot=message.bot,
+            chat_id=message.chat.id,
+            code=code,
+            part=part,
+            reply_to_message_id=message.message_id,
         )
 
 
@@ -1273,7 +1402,7 @@ async def cmd_browser(message: Message) -> None:
             )
             ai_text = (
                 "🍿 <b>Bauntys — Kinolar va Kitoblar Portali</b>\n\n"
-                "🌐 <b>@Zakirovs_ai integratsiyasi:</b> barcha sara kinolar va elektron kitoblar "
+                "🌐 <b>Bauntys Media integratsiyasi:</b> barcha sara kinolar va elektron kitoblar "
                 "yagona ekotizimda to'liq ulandi! Endi istalgan filmni tomosha qilishingiz yoki "
                 "kitobni to'liq PDF formatida yuklab olishingiz mumkin.\n\n"
                 "🎬 <b>Kinolar Portali:</b>\n"
@@ -1337,10 +1466,19 @@ async def cmd_browser(message: Message) -> None:
                 chat_id=message.chat.id,
                 code=c_code,
                 part=c_part,
-                reply_to_message_id=getattr(message, "message_id", None)
+                reply_to_message_id=getattr(message, "message_id", None),
+                require_video=True,
             )
             if delivered:
                 return
+            await _send_movie_delivery_fallback(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=c_code,
+                part=c_part,
+                reply_to_message_id=getattr(message, "message_id", None),
+            )
+            return
 
         # Qidiruv so'rovini tozalash (kitob yoki kino prefikslarini olib tashlash)
         from services import book_service
@@ -1413,10 +1551,19 @@ async def cmd_browser(message: Message) -> None:
                 chat_id=message.chat.id,
                 code=m_code,
                 part=1,
-                reply_to_message_id=getattr(message, "message_id", None)
+                reply_to_message_id=getattr(message, "message_id", None),
+                require_video=True,
             )
             if delivered:
                 return
+            await _send_movie_delivery_fallback(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=m_code,
+                part=1,
+                reply_to_message_id=getattr(message, "message_id", None),
+            )
+            return
 
         # 3. Agar ham kino, ham kitob topilsa (kombinatsiyalangan natija)
         if matched_movie and matched_books:
@@ -1509,7 +1656,8 @@ async def cmd_browser(message: Message) -> None:
                     chat_id=message.chat.id,
                     code=code,
                     part=part,
-                    reply_to_message_id=message.message_id
+                    reply_to_message_id=message.message_id,
+                    require_video=True,
                 )
                 if delivered:
                     return
@@ -1548,19 +1696,27 @@ async def cmd_browser(message: Message) -> None:
                             )
                         ])
 
-                    watch_u = None
+                    direct_mp4 = None
                     if asil_movie.episodes and 1 in asil_movie.episodes:
-                        watch_u = asil_movie.episodes[1].watch_url or asil_movie.episodes[1].url
-                    elif asil_movie.video_sources:
-                        watch_u = asil_movie.video_sources.get("primary") or list(asil_movie.video_sources.values())[0]
+                        cand_ep_u = asil_movie.episodes[1].download_url or asil_movie.episodes[1].url
+                        if cand_ep_u and str(cand_ep_u).startswith("http") and not MovieService._is_rejected_media_url(cand_ep_u):
+                            direct_mp4 = cand_ep_u
+                    if not direct_mp4 and asil_movie.download_url and str(asil_movie.download_url).startswith("http") and not MovieService._is_rejected_media_url(asil_movie.download_url):
+                        direct_mp4 = asil_movie.download_url
 
-                    player_url = watch_u if watch_u and watch_u.startswith("http") else f"{webapp_url}?c={asil_movie.id}&movie={asil_movie.id}"
                     kb_rows.append([
                         InlineKeyboardButton(
-                            text="▶️ Asilmedia Playerda ochish",
-                            web_app=WebAppInfo(url=player_url)
+                            text="🎬 WebAppda tomosha qilish",
+                            web_app=WebAppInfo(url=f"{webapp_url}?c={asil_movie.id}&part=1")
                         )
                     ])
+                    if direct_mp4:
+                        kb_rows.append([
+                            InlineKeyboardButton(
+                                text="⬇️ To'g'ridan-to'g'ri yuklash",
+                                url=direct_mp4
+                            )
+                        ])
                     kb_rows.append([
                         InlineKeyboardButton(
                             text="📢 Rasmiy Kanal",
@@ -1655,10 +1811,19 @@ async def cmd_browser(message: Message) -> None:
                 chat_id=message.chat.id,
                 code=code,
                 part=part,
-                reply_to_message_id=message.message_id
+                reply_to_message_id=message.message_id,
+                require_video=True,
             )
             if delivered:
                 return
+            await _send_movie_delivery_fallback(
+                bot=message.bot,
+                chat_id=message.chat.id,
+                code=code,
+                part=part,
+                reply_to_message_id=message.message_id,
+            )
+            return
 
         # Nomi bo'yicha qidirib ko'rish
         try:
@@ -1670,10 +1835,19 @@ async def cmd_browser(message: Message) -> None:
                     chat_id=message.chat.id,
                     code=str(asil_movie.id),
                     part=1,
-                    reply_to_message_id=message.message_id
+                    reply_to_message_id=message.message_id,
+                    require_video=True,
                 )
                 if delivered:
                     return
+                await _send_movie_delivery_fallback(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    code=str(asil_movie.id),
+                    part=1,
+                    reply_to_message_id=message.message_id,
+                )
+                return
         except Exception as ae:
             logger.debug(f"Live search error in cmd_browser: {ae}")
 
@@ -1879,7 +2053,7 @@ async def cmd_chrome_devtools(message: Message) -> None:
         "• 🌐 <b>Mini App API:</b> 200 OK (Render.com Python 3.11)\n"
         "• 📺 <b>Jonli TV Drayveri:</b> 208 kanal, 1440p QHD / 1080p 60fps, CORS Proxy (/api/tv/stream) 100% faol\n"
         "• 📚 <b>Kutubxona (Books API):</b> 3,390+ kitoblar indeksi, PDF/EPUB drayveri va Reader faol\n"
-        "• 🔌 <b>Upstream AsilMedia:</b> Ulangan (https://161-97-96-58.sslip.io)\n"
+        "• 🔌 <b>AsilMedia & Katalog:</b> Bevosita ulangan (https://asilmedia.org)\n"
         "• 🎥 <b>Video Drayveri:</b> H.264 / AAC 720p/1080p FastStart\n"
         "• 🛡️ <b>Xavfsizlik (WAF):</b> 100% Bauntys Oq Brendi, Telegram InitData himoyalangan\n"
         "• 📊 <b>Baza (SQLite):</b> 600+ filmlar indeksi faol\n\n"
@@ -1905,7 +2079,6 @@ async def cmd_debug_optimize_lcp(message: Message) -> None:
         "• 🖼️ <b>Hero Banner & Top-1:</b> <code>fetchpriority=\"high\"</code>, <code>decoding=\"async\"</code>\n"
         "• 📦 <b>Katalog Posterlari:</b> <code>loading=\"lazy\"</code>, <code>decoding=\"async\"</code>\n"
         "• 🌐 <b>Preconnect & DNS-prefetch:</b>\n"
-        "  — <code>https://161-97-96-58.sslip.io</code> (SSL ulanish keshlandi)\n"
         "  — <code>https://asilmedia.org</code> (Preconnect faol)\n"
         "• ☁️ <b>Telegram Cloud File ID Pool:</b> 0 bayt Render disk sarfi, 0.5s playback\n"
         "• 🛡️ <b>Brend:</b> 100% Bauntys Oq Brendi (@BauntyCinemabot, @BauntyFilms)\n\n"

@@ -300,11 +300,12 @@ def test_r2_adv03_allowed_legitimate_media_streams():
         "https://cdn.mediabay.uz/live/milliy.m3u8",
         "https://live.famelack.com/hls/stream.m3u8",
         "https://asilmedia.org/stream/kino123.m3u8",
-        "https://161-97-96-58.sslip.io/hls/live.m3u8",
+        "https://fayllar.com/hls/live.m3u8",
     ]
 
     for url in allowed_urls:
         assert is_stream_url_allowed(url), f"Legitimate stream URL '{url}' should be allowed"
+    assert not is_stream_url_allowed("https://161-97-96-58.sslip.io/hls/live.m3u8")
 
 
 @pytest.mark.asyncio

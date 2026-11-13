@@ -10,7 +10,7 @@ from aiohttp.test_utils import TestClient, TestServer
 from config import config, BASE_DIR
 from services.prava_service import prava_service
 from services.web_server import create_web_app
-from services.movie_service import movie_service, VERIFIED_CDN_VIDEO_POOL
+from services.movie_service import movie_service, MovieService
 
 
 def test_prava_real_images_mapped():
@@ -88,31 +88,38 @@ async def test_donate_card_xaydarov_biloliddin():
 
 
 def test_no_intel_iot_debug_videos():
-    """VERIFIED_CDN_VIDEO_POOL va data/video_sources.json da AI car detection debug videolari yo'qligi."""
-    # 1. VERIFIED_CDN_VIDEO_POOL tekshiruvi
-    for item in VERIFIED_CDN_VIDEO_POOL:
-        url = item.get("url", "")
-        assert "intel-iot-devkit" not in url
-        assert "person-bicycle-car-detection" not in url
-        assert "face-demographics" not in url
-        assert "car-detection" not in url
-        assert "classroom" not in url
-        assert "head-pose" not in url
+    """Kod va video manbalarda AI debug, mov_bbb, samplelib yoki default.mp4 soxta videolari yo'qligi."""
+    assert not hasattr(MovieService, "VERIFIED_CDN_VIDEO_POOL")
+    forbidden = (
+        "intel-iot-devkit",
+        "person-bicycle-car-detection",
+        "face-demographics",
+        "mov_bbb.mp4",
+        "samplelib.com",
+        "default.mp4",
+    )
 
-    # 2. data/video_sources.json tekshiruvi
+    # 1. data/video_sources.json tekshiruvi
     sources_path = BASE_DIR / "data" / "video_sources.json"
     if sources_path.exists():
-        text = sources_path.read_text(encoding="utf-8")
-        assert "intel-iot-devkit" not in text
-        assert "person-bicycle-car-detection" not in text
+        text = sources_path.read_text(encoding="utf-8").lower()
+        for bad in forbidden:
+            assert bad not in text
+
+    # 2. data/catalog.json tekshiruvi
+    cat_path = BASE_DIR / "data" / "catalog.json"
+    if cat_path.exists():
+        text = cat_path.read_text(encoding="utf-8").lower()
+        for bad in forbidden:
+            assert bad not in text
 
 
 @pytest.mark.asyncio
 async def test_movie_delivery_branding_and_sources():
-    """Kinolar yetkazilganda Bauntys brendi va to'g'ri oqim bilan yuborilishi."""
+    """Kinolar yetkazilganda Bauntys brendi va to'g'ri video oqim bilan yuborilishi."""
     bot_mock = AsyncMock()
     sent_mock = MagicMock()
-    sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_SAMPLE_REAL_717", duration=90, file_size=12000000)
+    sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE9TestRealTelegramVideoId123456", duration=90, file_size=12000000)
     bot_mock.send_video = AsyncMock(return_value=sent_mock)
     bot_mock.send_photo = AsyncMock()
     bot_mock.send_message = AsyncMock()
@@ -120,13 +127,13 @@ async def test_movie_delivery_branding_and_sources():
     res = await movie_service.deliver_movie(
         bot=bot_mock,
         chat_id=12345678,
-        code="284",
-        part=1
+        code="103",
+        part=1,
+        require_video=True
     )
     assert res is True
-    #send_video yoki send_photo chaqirilgan
-    assert bot_mock.send_video.called or bot_mock.send_photo.called
-    kwargs = bot_mock.send_video.call_args.kwargs if bot_mock.send_video.called else bot_mock.send_photo.call_args.kwargs
+    assert bot_mock.send_video.called
+    kwargs = bot_mock.send_video.call_args.kwargs
     caption = kwargs.get("caption", "")
     assert config.CHANNEL_USERNAME in caption
     assert config.BOT_USERNAME.lstrip("@") in caption
@@ -184,6 +191,7 @@ def test_tv_hls_high_res_and_smooth():
     """TV playerda 1440p / 1080p yuqori sifat va silliq (smooth) buferlash sozlamalari tekshiruvi."""
     index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
     app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+    bundle_js = (BASE_DIR / "webapp" / "bundle.min.js").read_text(encoding="utf-8")
 
     # 1. 1440p QHD nishonlari
     assert "1440p QHD" in index_html
@@ -193,16 +201,14 @@ def test_tv_hls_high_res_and_smooth():
     assert "if (h <= 720) targetIdx = i;" not in index_html
     assert "if (h <= 720) targetIdx = i;" not in app_js
 
-    # 3. autoLevelCapping -1
-    assert "hls.autoLevelCapping = -1;" in index_html
-    assert "hls.currentLevel = -1;" in index_html
+    # 3. autoLevelCapping -1 va adaptive currentLevel -1
+    assert "hls.autoLevelCapping = -1;" in app_js
+    assert "hls.currentLevel = -1;" in app_js
+    assert ("autoLevelCapping = -1" in bundle_js or "autoLevelCapping=-1" in bundle_js)
 
     # 4. Fast & smooth buffering sozlamalari
-    assert "liveSyncDurationCount: 3" in index_html
-    assert "liveMaxLatencyDurationCount: 8" in index_html
-    assert "maxBufferLength: 30" in index_html
-    assert "maxMaxBufferLength: 60" in index_html
     assert "liveSyncDurationCount: 3" in app_js
-    assert "maxBufferLength: 30" in app_js
-    assert "maxMaxBufferLength: 60" in app_js
+    assert "liveMaxLatencyDurationCount: 8" in app_js
+    assert "maxBufferLength: 15" in app_js
+    assert "maxMaxBufferLength: 30" in app_js
 

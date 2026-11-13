@@ -28,18 +28,15 @@ def test_two_designs_coexistence_and_switching():
     assert "document.body.classList.remove(\"splashing\");" in zk_js
     assert "window.ZK_LITE" in zk_js
 
-    # 3. index.html va app.js da dizayn tanlash/almashtirish modal va tugmalari
-    assert "✨ Kreativ" in index_html
-    assert "⚡ Oddiy" in index_html
+    # 3. app.js da dizayn tanlash/almashtirish modal va tugmalari
     assert "✨ Kreativ" in app_js
     assert "⚡ Oddiy" in app_js
-    assert 'data-ui="kr"' in index_html
-    assert 'data-ui="lite"' in index_html
-    assert 'data-pick="kr"' in index_html
-    assert 'data-pick="lite"' in index_html
+    assert 'data-ui="kr"' in app_js
+    assert 'data-ui="lite"' in app_js
+    assert 'data-pick="kr"' in app_js
+    assert 'data-pick="lite"' in app_js
 
     # 4. setUI funksiyasi lite / oddiy / classic qiymatlarini qo'llab-quvvatlashi
-    assert "want = (v === \"lite\" || v === \"classic\" || v === \"oddy\" || v === \"oddiy\")" in index_html
     assert "want = (v === \"lite\" || v === \"classic\" || v === \"oddy\" || v === \"oddiy\")" in app_js
 
 
@@ -54,7 +51,7 @@ def test_tv_channel_icons_and_direct_stable_streams():
     js_app = js_app_file.read_text(encoding="utf-8")
 
     # 1. Telekanal kartochkalari ustida haqiqiy ico logotipi
-    assert 'class="ico tvl"' in index_html
+    assert 'class="ico tvl"' in app_js
     assert 'class="ico tvl"' in app_js
     assert 'class="ico tvl"' in js_app
 
@@ -69,7 +66,7 @@ def test_tv_channel_icons_and_direct_stable_streams():
 
     # 4. attempt funksiyasida boshlang'ich majburiy playlist almashtirish olib tashlangan
     # (birlamchi to'g'ridan-to'g'ri oqim darhol o'ynaydi)
-    assert 'let streamTarget = url;' in index_html
+    assert 'let streamTarget = url;' in app_js
     assert 'let streamTarget = url;' in app_js
     assert 'let targetUrl = streamUrl;' in js_app
 
@@ -95,8 +92,8 @@ def test_cartoons_and_anime_categories_and_delivery():
     assert 'Anime' in index_html
 
     # 2. render funksiyasida mult va anime saralash logikasi
-    assert 'tab === "mult"' in index_html
-    assert 'tab === "anime"' in index_html
+    assert 'tab === "mult"' in app_js
+    assert 'tab === "anime"' in app_js
     assert 'tab === "mult"' in app_js
     assert 'tab === "anime"' in app_js
 
@@ -132,11 +129,8 @@ async def test_tv_icon_vector_endpoint_and_2mbps_resilience():
         app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
         zk_css = (BASE_DIR / "webapp" / "zk.css").read_text(encoding="utf-8")
 
-        assert "1800000" in index_html
         assert "1800000" in app_js
-        assert "h <= 720" in index_html
         assert "h <= 720" in app_js
-        assert "playlist.m3u8" in index_html
         assert "playlist.m3u8" in app_js
 
         # 3. zk-lite stillari mavjudligi

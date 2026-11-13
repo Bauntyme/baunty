@@ -211,7 +211,8 @@ async def test_asil_send_validation_and_delivery():
                     bot=mock_bot,
                     chat_id=12345678,
                     code="123",
-                    part=1
+                    part=1,
+                    require_video=True
                 )
         ws._bot_instance = orig_bot
     finally:
@@ -266,15 +267,26 @@ def test_webapp_assets_and_index_structure():
     index_html = index_path.read_text(encoding="utf-8")
     app_js = app_js_path.read_text(encoding="utf-8")
 
-    # 1. index.html dagi segmented bar tartibi (kino < music < books < games < story < docs < tv)
+    # 1. index.html dagi Space ("Samarqand tuni") segmented bar tartibi
     assert (
         index_html.find('data-m="kino"') <
-        index_html.find('data-m="music"') <
+        index_html.find('data-m="tv"') <
+        index_html.find('data-m="tvroom"') <
+        index_html.find('data-m="bunker"') <
+        index_html.find('data-m="deliv"') <
+        index_html.find('data-m="food"') <
         index_html.find('data-m="books"') <
-        index_html.find('data-m="games"') <
-        index_html.find('data-m="story"') <
+        index_html.find('data-m="music"') <
         index_html.find('data-m="docs"') <
-        index_html.find('data-m="tv"')
+        index_html.find('data-m="prava"') <
+        index_html.find('data-m="mafia"') <
+        index_html.find('data-m="kal"') <
+        index_html.find('data-m="rasxod"') <
+        index_html.find('data-m="quiz"') <
+        index_html.find('data-m="duel"') <
+        index_html.find('data-m="story"') <
+        index_html.find('data-m="fx"') <
+        index_html.find('data-m="games"')
     ), "Segmented bar tartibi buzilgan"
 
     # 2. Yangi bo'limlar seg va sectionlari
@@ -292,12 +304,14 @@ def test_webapp_assets_and_index_structure():
         assert (BASE_DIR / "webapp" / js).exists(), f"webapp/{js} fayli mavjud emas"
 
     # 4. ASIL integratsiyasi app.js va index.html da
-    for code in [index_html, app_js]:
-        assert "ASIL" in code
-        assert "ZAsil.render" in code
-        assert "ZAsil.random" in code
-        assert "ZAsil.chips" in code
-        assert "ZAsil.busy" in code
+    combined_ui = f"{index_html}\n{app_js}"
+    assert "app.js" in index_html
+    assert "asil.js" in index_html
+    assert "ASIL" in combined_ui
+    assert "ZAsil.render" in combined_ui
+    assert "ZAsil.random" in combined_ui
+    assert "ZAsil.chips" in combined_ui
+    assert "ZAsil.busy" in combined_ui
 
     # 5. Oq brending tekshiruvi: barcha yangi webapp fayllarida 0 ta yot brend
     for fname in ["asil.js", "asil.css", "rasxod.js", "rasxod.css", "kaloriya.js", "kaloriya.css", "mafia.js", "mafia.css", "kattalar.js", "kattalar.css", "i18n.js"]:
@@ -359,7 +373,8 @@ async def test_asil_send_slot_to_part_resolution():
                     bot=mock_bot,
                     chat_id=12345678,
                     code="11637",
-                    part=2
+                    part=2,
+                    require_video=True
                 )
 
                 # 2. Aniq part=5 yuboriladi -> part=5 chaqirilishi shart
@@ -377,7 +392,8 @@ async def test_asil_send_slot_to_part_resolution():
                     bot=mock_bot,
                     chat_id=12345678,
                     code="11637",
-                    part=5
+                    part=5,
+                    require_video=True
                 )
         ws._bot_instance = orig_bot
     finally:
@@ -385,10 +401,13 @@ async def test_asil_send_slot_to_part_resolution():
 
 
 @pytest.mark.asyncio
-async def test_movie_service_sync_catalog_and_fastpath():
+async def test_movie_service_sync_catalog_and_fastpath(tmp_path, monkeypatch):
     """movie_service.sync_catalog_from_upstream real-time va fast-path sync testi."""
+    import sys
+    import services.movie_service  # noqa: F401
     from services.movie_service import movie_service, MovieService
     from database.session import get_session
+    ms_mod = sys.modules["services.movie_service"]
 
     # 1. sync_catalog_from_upstream
     async with get_session() as session:
@@ -398,31 +417,37 @@ async def test_movie_service_sync_catalog_and_fastpath():
         assert cat_718 is not None
         assert "Taksi" in cat_718["t"]
 
-    # 2. Fast-path sync_movie_from_asilmedia
-    fake_item_resp = {
-        "ok": True,
-        "item": {
-            "id": 99991,
-            "t": "Test Film Premyera",
-            "desc": "Tavsif @Zakirovsfilms_bot",
-            "watch": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
-            "p": "https://example.com/poster.webp",
-            "y": 2026,
-            "g": ["Jangari"],
-            "type": "film",
-            "files": [{"s": 1, "q": "1080p", "ok": True}]
-        }
-    }
-    with patch("aiohttp.ClientSession.get") as mock_get:
-        mock_resp = AsyncMock()
-        mock_resp.status = 200
-        mock_resp.json = AsyncMock(return_value=fake_item_resp)
-        mock_get.return_value.__aenter__.return_value = mock_resp
+    # 2. Fast-path sync_movie_from_asilmedia (Asilmedia HTML sahifa parse va brend sanitizatsiyasi)
+    fake_html = (
+        "<html><head><title>Test Film Premyera (2026)</title></head><body>"
+        "<h1>Test Film Premyera (2026)</h1>"
+        "<div class='fs-description'>Tavsif @Zakirovsfilms_bot</div>"
+        "<i id='amh' data-id='99991' data-n='test'></i>"
+        "<pre id='tg-data'>kino_url1=1080p HD=https://fayllar.com/test_99991.mp4?token=sig99991</pre>"
+        "</body></html>"
+    )
+    (tmp_path / "data").mkdir(exist_ok=True)
+    (tmp_path / "data" / "video_sources.json").write_text('{"items": {}}', encoding="utf-8")
+    monkeypatch.setattr("config.BASE_DIR", tmp_path)
+    monkeypatch.setattr(ms_mod, "BASE_DIR", tmp_path)
 
-        async with get_session() as session:
-            res = await MovieService.sync_movie_from_asilmedia(code="99991", session=session)
-            assert res.get("success") is True
-            assert "Baunty" in res.get("title", "") or "Test Film Premyera" in res.get("title", "")
-            # Katalog keshiga ham qo'shilganini tekshiramiz
-            cached = movie_service.get_catalog_item("99991")
-            assert cached is not None
+    orig_cache_items = list(ms_mod._CATALOG_CACHE.get("items", [])) if isinstance(ms_mod._CATALOG_CACHE, dict) else None
+    try:
+        with patch("aiohttp.ClientSession.get") as mock_get:
+            mock_resp = AsyncMock()
+            mock_resp.status = 200
+            mock_resp.text = AsyncMock(return_value=fake_html)
+            mock_resp.json = AsyncMock(return_value={})
+            mock_get.return_value.__aenter__.return_value = mock_resp
+
+            async with get_session() as session:
+                res = await MovieService.sync_movie_from_asilmedia(code="99991", session=session)
+                assert res.get("success") is True
+                assert "Baunty" in res.get("title", "") or "Test Film" in res.get("title", "")
+                cached = movie_service.get_catalog_item("99991")
+                assert cached is not None
+                assert "@Zakirovsfilms_bot" not in cached.get("d", "")
+                assert "@BauntyCinemabot" in cached.get("d", "")
+    finally:
+        if orig_cache_items is not None and isinstance(ms_mod._CATALOG_CACHE, dict):
+            ms_mod._CATALOG_CACHE["items"] = orig_cache_items

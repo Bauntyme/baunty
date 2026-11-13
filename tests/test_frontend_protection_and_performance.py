@@ -45,7 +45,7 @@ def test_production_index_html_consolidation():
     # DevTools va console shield mavjudligi
     assert "Bauntys Production Security Shield" in prod_html
     assert "contextmenu" in prod_html
-    assert "debugger" in prod_html
+    assert "antiDebugCheck" in prod_html
 
 
 def test_bundle_files_exist_and_no_sourcemaps():

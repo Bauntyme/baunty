@@ -46,9 +46,51 @@ const ERR = (e) => ({network: T("Internet bilan muammo", "Проблема с и
   busy: T("Hozir navbat ko'p — 1 daqiqadan keyin", "Сейчас очередь — через минуту", "Busy right now — try in a minute"),
   not_ready: T("Bu fayl hali tayyor emas — keyinroq", "Файл ещё не готов — позже", "This file isn't ready yet"),
   not_found: T("Kino topilmadi", "Фильм не найден", "Movie not found"),
+  too_big: T("⚠️ Fayl 50 MB dan katta — onlayn pleyerda tomosha qiling", "⚠️ Файл больше 50 МБ — смотрите онлайн", "⚠️ File is over 50 MB — watch online"),
+  file_too_large: T("⚠️ Fayl 50 MB dan katta — onlayn pleyerda tomosha qiling", "⚠️ Файл больше 50 МБ — смотрите онлайн", "⚠️ File is over 50 MB — watch online"),
+  video_unavailable: T("⚠️ Video oqimi vaqtincha mavjud emas", "⚠️ Видеопоток временно недоступен", "⚠️ Video stream temporarily unavailable"),
   paused: T("🎬 Kino yuborish vaqtincha ishlamayapti — 10–15 daqiqadan keyin urinib ko'ring", "🎬 Отправка временно не работает — попробуйте через 10–15 минут", "🎬 Sending is temporarily unavailable — try again in 10–15 min"),
   auth: T("Ilovani bot ichida oching", "Откройте приложение в боте", "Open the app inside the bot"),
   banned: T("Siz botdan bloklangansiz", "Вы заблокированы", "You are blocked")}[e] || T("Xatolik — qayta urinib ko'ring", "Ошибка — попробуйте снова", "Error — try again"));
+
+async function openStreamModal(url, title) {
+  if (!url) { toast(ERR("video_unavailable")); return; }
+  try {
+    const chk = await fetch(url, {method: "HEAD", headers: {"X-Init-Data": INIT || ""}});
+    const ct = (chk.headers.get("content-type") || "").toLowerCase();
+    if (!chk.ok || ct.includes("text/html") || ct.includes("application/json")) {
+      toast(ERR("video_unavailable"));
+      return;
+    }
+  } catch (e) {}
+  let modal = document.getElementById("zkVModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "zkVModal";
+    modal.className = "zk-vmodal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-modal", "true");
+    modal.innerHTML = `<div class="zk-vbox"><div class="zk-vh"><b id="zkVTtl"></b><button type="button" id="zkVX" aria-label="Yopish">✕</button></div><video id="zkVVid" class="zk-vvid" controls playsinline preload="metadata"></video><div class="zk-vfoot"><span>Bauntys Player</span><a id="zkVExt" href="#" target="_blank" rel="noopener" style="color:var(--zk-acc,#F2B84B);text-decoration:none;font-weight:700">↗</a></div></div>`;
+    document.body.appendChild(modal);
+    const close = () => {
+      const v = document.getElementById("zkVVid");
+      if (v) { try { v.pause(); } catch (e) {} v.removeAttribute("src"); v.load(); }
+      modal.hidden = true;
+    };
+    modal.addEventListener("click", (ev) => { if (ev.target === modal || ev.target.closest("#zkVX")) close(); });
+    addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !modal.hidden) close(); });
+  }
+  const ttl = document.getElementById("zkVTtl"), vid = document.getElementById("zkVVid"), ext = document.getElementById("zkVExt");
+  if (ttl) ttl.textContent = title || "Bauntys";
+  if (ext) { ext.href = url; ext.textContent = T("Yangi oynada", "Открыть отдельно", "Open externally") + " ↗"; }
+  modal.hidden = false;
+  if (vid) {
+    vid.onerror = () => toast(ERR("video_unavailable"));
+    vid.src = url;
+    try { await vid.play(); } catch (e) {}
+  }
+}
+window.ZK_openStreamModal = openStreamModal;
 
 // ------------------------------------------------------------------ janr / davlat ko'rinishi (emoji + rang)
 const GEN = [
@@ -511,7 +553,7 @@ function closeDet() {
   return true;
 }
 const fileBtn = (f, label, ep) => `<button class="as-f${f.ok ? "" : " off"}" data-slot="${f.s}"${ep ? ` data-part="${ep}"` : ""}${f.ok ? "" : " disabled"}>
-  <b>📥 ${esc(f.q || label || T("Fayl", "Файл", "File"))}</b><small>${f.mb ? (f.mb >= 1024 ? (f.mb / 1024).toFixed(1) + " GB" : f.mb + " MB") : ""}${f.parts > 1 ? ` · ${f.parts} ${T("bo'lak", "частей", "parts")}` : ""}${f.tr ? " · " + esc(f.tr) : ""}${f.ok ? "" : " · " + T("tayyorlanmoqda", "готовится", "preparing")}</small></button>`;
+  <b>📥 ${esc(f.q || label || T("Fayl", "Файл", "File"))}</b><small>${f.mb ? (f.mb >= 1024 ? (f.mb / 1024).toFixed(1) + " GB" : f.mb + " MB") : ""}${f.parts > 1 ? ` · ${f.parts} ${T("bo'lak", "частей", "parts")}` : ""}${f.tr ? " · " + esc(f.tr) : ""}${f.ok ? "" : " · " + T("tayyorlanmoqda", "готовится", "preparing")}</small></button>${f.stream_url ? `<button class="as-f" data-stream="${esc(f.stream_url)}"><b>🎬 ${T("Onlayn ko'rish", "Смотреть онлайн", "Watch online")}</b><small>${esc(f.q || label || "MP4")}</small></button>` : ""}`;
 function paintDet() {
   const x = det.it;
   const meta = [x.y, x.dur, x.lang].filter(Boolean).map(esc).join(" · ");
@@ -530,6 +572,7 @@ function paintDet() {
     <div class="as-tags">${(x.g || []).concat(x.c || []).map((t) => `<span>${esc(t)}</span>`).join("")}</div>
     <div class="as-lbl">📥 ${T("Telegram'ga yuborish", "Отправить в Telegram", "Send to Telegram")} <small>${T("— bot sizga faylni yuboradi", "— бот пришлёт файл", "— the bot sends you the file")}</small></div>
     ${files}
+    ${x.stream_url ? `<button class="as-watch" data-stream="${esc(x.stream_url)}">🎬 ${T("Onlayn ko'rish", "Смотреть онлайн", "Watch online")}</button>` : ""}
     ${x.watch ? `<button class="as-watch" data-as="watch">▶️ ${T("Saytda tomosha qilish", "Смотреть на сайте", "Watch on the website")}</button>` : ""}
     ${x.desc ? `<p class="as-desc">${esc(x.desc)}</p>` : ""}
     <p class="as-src">${T("Kino kodi", "Код фильма", "Movie code")}: <b>${x.id}</b> · Bauntys Films</p></div>`;
@@ -557,11 +600,22 @@ async function send(slot, btn, recheck, part) {
     $("asdet").scrollTop = 0;
     return;
   }
+  if ((r.error === "too_big" || r.error === "file_too_large") && r.stream_url) {
+    toast(r.message || ERR(r.error));
+    openStreamModal(r.stream_url, det.it.t);
+    return;
+  }
   if (r.error === "rate") { toast(T(`⏳ Limit — ${Math.ceil((r.retry || 600) / 60)} daqiqadan keyin`, `⏳ Лимит — через ${Math.ceil((r.retry || 600) / 60)} мин`, `⏳ Limit — try in ${Math.ceil((r.retry || 600) / 60)} min`)); return; }
-  toast(ERR(r.error));
+  toast(r.message || ERR(r.error));
 }
 function onDetClick(e) {
   const t = e.target;
+  const st = t.closest("[data-stream]");
+  if (st) {
+    haptic();
+    openStreamModal(st.dataset.stream, det && det.it ? det.it.t : "Bauntys");
+    return;
+  }
   const sl = t.closest("[data-slot]");
   if (sl) {
     haptic();

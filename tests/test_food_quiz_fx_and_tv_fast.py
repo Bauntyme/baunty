@@ -105,8 +105,9 @@ def test_webapp_index_has_all_10_navigation_modules():
     for s in ["zk.js", "music.js", "docs.js", "games.js", "story.js", "books.js", "food.js", "quiz.js", "fx.js"]:
         assert f'src="{s}"' in html, f"Script {s} ulanmagan"
 
-    # 4. TV 4K va tezlik optimallashuvi
-    assert "startFragPrefetch: true" in html
-    assert "image-rendering: -webkit-optimize-contrast" in html
-    assert "BUFFER_STALLED_ERROR" in html
+    # 4. TV QHD va tezlik optimallashuvi
+    app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+    assert "startFragPrefetch: true" in app_js
+    assert "image-rendering:-webkit-optimize-contrast" in html.replace(" ", "")
+    assert "BUFFER_STALLED_ERROR" in app_js
     assert "preconnect" in html

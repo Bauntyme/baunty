@@ -534,8 +534,8 @@ async def test_legitimate_webapp_modules_and_uzbek_queries_unaffected():
         "/api/prava/home",
         # 8. O'yinlar
         "/api/games",
-        # 9. Story
-        "/api/story",
+        # 9. Story (?u= talab qilinmaydigan user profili endpointi)
+        "/api/story/me",
         # 10. SubGate & Donat
         "/api/sub",
         "/api/donate",
@@ -770,6 +770,41 @@ async def test_tv_endpoints_and_movie_part1_streaming_delivery():
 
         # 2. 1-qism va serial qismlarini haqiqiy video bilan yetkazish testi
         from services.movie_service import movie_service
+        from services.asilmedia_service import asilmedia_service
+
+        mp4_payload = b"\x00\x00\x00\x18ftypmp42" + (b"\x00" * 150000)
+
+        class _FakeContent:
+            async def iter_chunked(self, _size):
+                yield mp4_payload
+
+        class _FakeResp:
+            status = 200
+            headers = {"Content-Type": "video/mp4", "Content-Length": str(len(mp4_payload))}
+            content = _FakeContent()
+
+            async def json(self, content_type=None):
+                return {}
+
+            async def text(self):
+                return ""
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        class _FakeSession:
+            def get(self, *args, **kwargs):
+                return _FakeResp()
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
         bot_mock = AsyncMock()
         sent_mock = MagicMock()
         sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_SAMPLE_REAL_717", duration=90, file_size=12000000)
@@ -777,63 +812,65 @@ async def test_tv_endpoints_and_movie_part1_streaming_delivery():
         bot_mock.send_photo = AsyncMock()
         bot_mock.send_message = AsyncMock()
 
-        # Serial (masalan 717 - Attack on Titan 1-qism)
-        res_part1 = await movie_service.deliver_movie(
-            bot=bot_mock,
-            chat_id=12345678,
-            code="717",
-            part=1
-        )
-        assert res_part1 is True
-        assert bot_mock.send_video.called
-        call_kwargs = bot_mock.send_video.call_args.kwargs
-        assert call_kwargs.get("supports_streaming") is True
-        caption = call_kwargs.get("caption", "")
-        assert "1-qism" in caption
-        assert config.CHANNEL_USERNAME in caption
-        assert config.BOT_USERNAME.lstrip("@") in caption
-        assert "Zakirov" not in caption
+        with patch.object(asilmedia_service, "resolve_stream_url", new_callable=AsyncMock, return_value="https://fayllar.com/stream_sec.mp4?token=sigsec"), \
+             patch("aiohttp.ClientSession", return_value=_FakeSession()):
+            # Serial (masalan 717 - Attack on Titan 1-qism)
+            res_part1 = await movie_service.deliver_movie(
+                bot=bot_mock,
+                chat_id=12345678,
+                code="717",
+                part=1
+            )
+            assert res_part1 is True
+            assert bot_mock.send_video.called
+            call_kwargs = bot_mock.send_video.call_args_list[0].kwargs
+            assert call_kwargs.get("supports_streaming") is True
+            caption = call_kwargs.get("caption", "")
+            assert "1-qism" in caption
+            assert config.CHANNEL_USERNAME in caption
+            assert config.BOT_USERNAME.lstrip("@") in caption
+            assert "Zakirov" not in caption
 
-        # Serial "Chuqur" (code 287) 1-qism yetkazish testi
-        bot_mock.send_video.reset_mock()
-        res_chuqur = await movie_service.deliver_movie(
-            bot=bot_mock,
-            chat_id=12345678,
-            code="287",
-            part=1
-        )
-        assert res_chuqur is True
-        assert bot_mock.send_video.called
-        call_kwargs2 = bot_mock.send_video.call_args.kwargs
-        assert call_kwargs2.get("supports_streaming") is True
-        caption2 = call_kwargs2.get("caption", "")
-        assert "1-qism" in caption2
-        assert config.CHANNEL_USERNAME in caption2
+            # Serial "Chuqur" (code 287) 1-qism yetkazish testi
+            bot_mock.send_video.reset_mock()
+            res_chuqur = await movie_service.deliver_movie(
+                bot=bot_mock,
+                chat_id=12345678,
+                code="287",
+                part=1
+            )
+            assert res_chuqur is True
+            assert bot_mock.send_video.called
+            call_kwargs2 = bot_mock.send_video.call_args_list[0].kwargs
+            assert call_kwargs2.get("supports_streaming") is True
+            caption2 = call_kwargs2.get("caption", "")
+            assert "1-qism" in caption2
+            assert config.CHANNEL_USERNAME in caption2
 
-        # 3. extract_movie_code_and_part orqali 'taksi', 'taksi 2', 'taksi 1ci qismini kormochiman' va boshqa so'rovlar
-        from handlers.movies import extract_movie_code_and_part
-        assert extract_movie_code_and_part("taksi") == ("718", 1)
-        assert extract_movie_code_and_part("taksi 1") == ("718", 1)
-        assert extract_movie_code_and_part("taksi 2") == ("718", 2)
-        assert extract_movie_code_and_part("taksi 1ci") == ("718", 1)
-        assert extract_movie_code_and_part("taksi 2ci") == ("718", 2)
-        assert extract_movie_code_and_part("taksi kinosini 1ci qismini kormochiman") == ("718", 1)
-        assert extract_movie_code_and_part("taksi 2ci qismini korish") == ("718", 2)
-        assert extract_movie_code_and_part("taksi kinosi 1-qism") == ("718", 1)
-        assert extract_movie_code_and_part("101 1-qism ko'rish") == ("101", 1)
-        assert extract_movie_code_and_part("101 1 qism korish") == ("101", 1)
-        assert extract_movie_code_and_part("717 2-qism tomosha") == ("717", 2)
-        assert extract_movie_code_and_part("Attack on Titan — 2-qism") == ("717", 2)
-        assert extract_movie_code_and_part("Attack on Titan 2 qism ko'rishni") == ("717", 2)
-        assert extract_movie_code_and_part("chuqur 1qism korish") == ("287", 1)
-        assert extract_movie_code_and_part("chuqur 1-qism") == ("287", 1)
-        assert extract_movie_code_and_part("cukur 1-qism") == ("287", 1)
+            # 3. extract_movie_code_and_part orqali 'taksi', 'taksi 2', 'taksi 1ci qismini kormochiman' va boshqa so'rovlar
+            from handlers.movies import extract_movie_code_and_part
+            assert extract_movie_code_and_part("taksi") == ("718", 1)
+            assert extract_movie_code_and_part("taksi 1") == ("718", 1)
+            assert extract_movie_code_and_part("taksi 2") == ("718", 2)
+            assert extract_movie_code_and_part("taksi 1ci") == ("718", 1)
+            assert extract_movie_code_and_part("taksi 2ci") == ("718", 2)
+            assert extract_movie_code_and_part("taksi kinosini 1ci qismini kormochiman") == ("718", 1)
+            assert extract_movie_code_and_part("taksi 2ci qismini korish") == ("718", 2)
+            assert extract_movie_code_and_part("taksi kinosi 1-qism") == ("718", 1)
+            assert extract_movie_code_and_part("101 1-qism ko'rish") == ("101", 1)
+            assert extract_movie_code_and_part("101 1 qism korish") == ("101", 1)
+            assert extract_movie_code_and_part("717 2-qism tomosha") == ("717", 2)
+            assert extract_movie_code_and_part("Attack on Titan — 2-qism") == ("717", 2)
+            assert extract_movie_code_and_part("Attack on Titan 2 qism ko'rishni") == ("717", 2)
+            assert extract_movie_code_and_part("chuqur 1qism korish") == ("287", 1)
+            assert extract_movie_code_and_part("chuqur 1-qism") == ("287", 1)
+            assert extract_movie_code_and_part("cukur 1-qism") == ("287", 1)
 
-        # 4. Taksi (718) 1-qism va 2-qismni yetkazish testi
-        res_t1 = await movie_service.deliver_movie(bot=bot_mock, chat_id=12345678, code="718", part=1)
-        assert res_t1 is True
-        res_t2 = await movie_service.deliver_movie(bot=bot_mock, chat_id=12345678, code="718", part=2)
-        assert res_t2 is True
+            # 4. Taksi (718) 1-qism va 2-qismni yetkazish testi
+            res_t1 = await movie_service.deliver_movie(bot=bot_mock, chat_id=12345678, code="718", part=1)
+            assert res_t1 is True
+            res_t2 = await movie_service.deliver_movie(bot=bot_mock, chat_id=12345678, code="718", part=2)
+            assert res_t2 is True
     finally:
         await client.close()
 
@@ -870,11 +907,47 @@ async def test_cmd_browser_integration():
     assert msg_mock.reply.called
 
     # 3. /browser chuqur 1-qism
+    from services.asilmedia_service import asilmedia_service
+    mp4_payload = b"\x00\x00\x00\x18ftypmp42" + (b"\x00" * 150000)
+
+    class _FakeContent:
+        async def iter_chunked(self, _size):
+            yield mp4_payload
+
+    class _FakeResp:
+        status = 200
+        headers = {"Content-Type": "video/mp4", "Content-Length": str(len(mp4_payload))}
+        content = _FakeContent()
+
+        async def json(self, content_type=None):
+            return {}
+
+        async def text(self):
+            return ""
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeSession:
+        def get(self, *args, **kwargs):
+            return _FakeResp()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
     sent_mock = MagicMock()
     sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_SAMPLE_REAL_287", duration=90, file_size=12000000)
     bot_mock.send_video = AsyncMock(return_value=sent_mock)
     msg_mock.reply.reset_mock()
     msg_mock.text = "/browser chuqur 1-qism"
-    await cmd_browser(msg_mock)
+    with patch.object(asilmedia_service, "resolve_stream_url", new_callable=AsyncMock, return_value="https://fayllar.com/287_1.mp4?token=sig287"), \
+         patch("aiohttp.ClientSession", return_value=_FakeSession()):
+        await cmd_browser(msg_mock)
     assert bot_mock.send_video.called
 

@@ -42,7 +42,7 @@ async def test_cmd_browser_zakirovs_ai_main_portal():
 
     # Sarlavha va matn tekshiruvi
     assert "Bauntys — Kinolar va Kitoblar Portali" in portal_text
-    assert "@Zakirovs_ai integratsiyasi" in portal_text
+    assert "Bauntys Media integratsiyasi" in portal_text
     assert "Kinolar Portali" in portal_text
     assert "Kutubxona Portali" in portal_text
     assert config.CHANNEL_USERNAME in portal_text

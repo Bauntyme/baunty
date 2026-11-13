@@ -286,19 +286,32 @@ def test_user_id_format_validation():
 # 4. SOXTA ID (SPOOFING) VA SOXTA BOT HUJUMLARINI TO'XTATISH
 # =====================================================================
 @pytest.mark.asyncio
-async def test_spoofed_user_id_blocked_in_send_to_chat():
+async def test_spoofed_user_id_blocked_in_send_to_chat(tmp_path):
     """InitData da User A ko'rsatilgan bo'lsa-yu, bodyda User B yuborilsa (spoofing) 403 bilan rad etilishi kerak."""
+    from types import SimpleNamespace
+    from services.music_service import music_service
+
     app = create_web_app()
     server = TestServer(app)
     client = TestClient(server)
     await client.start_server()
 
+    mp3_file = tmp_path / "spoof_test.mp3"
+    mp3_file.write_bytes(b"ID3" + b"\x00" * 2048)
+
     mock_bot = MagicMock()
     mock_bot.send_message = AsyncMock(return_value=True)
+    mock_bot.send_audio = AsyncMock(return_value=True)
     set_bot_instance(mock_bot)
 
     test_token = "999999999:TEST_BOT_TOKEN_FOR_SECURITY_SUITE"
-    with patch.object(config, "BOT_TOKEN", test_token):
+    with patch.object(config, "BOT_TOKEN", test_token), \
+         patch.object(
+             music_service,
+             "download_track_mp3",
+             new_callable=AsyncMock,
+             return_value=SimpleNamespace(success=True, file_path=str(mp3_file), duration=180),
+         ):
         # Alice (ID: 10001) uchun haqiqiy imzolangan initData
         alice_init_data = generate_telegram_init_data(
             user_data={"id": 10001, "first_name": "Alice"},

@@ -353,16 +353,33 @@ def test_webapp_index_structure_and_order():
     assert index_path.exists()
     content = index_path.read_text(encoding="utf-8")
 
-    # 1. Segmented bar ketma-ketligi: kino -> music -> books -> games -> story -> docs -> tv
-    seg_match = content.find('data-m="kino"') < content.find('data-m="music"') < \
-                content.find('data-m="books"') < content.find('data-m="games"') < \
-                content.find('data-m="story"') < content.find('data-m="docs"') < \
-                content.find('data-m="tv"')
-    assert seg_match, "Segmented bar tartibi: Kinolar -> Musiqa -> Kitoblar -> O'yinlar -> Story -> Hujjatlar -> TV bo'lishi shart"
+    # 1. Segmented bar ketma-ketligi: Space Hub tartibi
+    seg_match = (
+        0 <= content.find('data-m="kino"')
+        < content.find('data-m="tv"')
+        < content.find('data-m="tvroom"')
+        < content.find('data-m="bunker"')
+        < content.find('data-m="deliv"')
+        < content.find('data-m="food"')
+        < content.find('data-m="books"')
+        < content.find('data-m="music"')
+        < content.find('data-m="docs"')
+        < content.find('data-m="prava"')
+        < content.find('data-m="mafia"')
+        < content.find('data-m="kal"')
+        < content.find('data-m="rasxod"')
+        < content.find('data-m="quiz"')
+        < content.find('data-m="duel"')
+        < content.find('data-m="story"')
+        < content.find('data-m="fx"')
+        < content.find('data-m="games"')
+    )
+    assert seg_match, "Segmented bar tartibi Space Hub bo'limlar tartibiga mos bo'lishi shart"
 
-    # 2. Random kubik (dice) tugmasi mavjudligi
+    # 2. Random kubik (dice) tugmasi va app.js da openDetail mavjudligi
+    app_js = (book_service.BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
     assert "zkDice" in content or "zk-dice" in content
-    assert "openDetail(rnd)" in content or "openDetail(" in content
+    assert "openDetail(" in app_js
 
 
 def test_books_cyrillic_search_transliteration():
@@ -398,9 +415,11 @@ def test_books_js_and_css_quality_invariants():
     assert "Zakirovs" not in js_code
     assert "Zakirovs" not in css_code
 
-    # 2. BackButton listener books.js da mavjud bo'lishi kerak
+    # 2. BackButton listener books.js va ZBooks busy holati app.js/books.js da mavjudligi
+    app_js = (book_service.BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
     assert "tg.BackButton.onClick" in js_code
-    assert "ZBooks.busy" in html_code
+    assert "ZBooks" in app_js
+    assert "busy()" in js_code
 
     # 3. Reader matni A+/A- bosilganda bkReaderText orqali shrifti o'zgarishi kerak
     assert "bkReaderText" in js_code
@@ -426,9 +445,10 @@ def test_webapp_books_tab_attributes():
     """index.html da '📚 Kitoblar' tugmasi data-tab='books' va id='tab-books' ga ega bo'lishini tekshirish."""
     html_path = book_service.BASE_DIR / "webapp" / "index.html"
     content = html_path.read_text(encoding="utf-8")
+    app_js = (book_service.BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
     assert 'data-tab="books"' in content
     assert 'id="tab-books"' in content
-    assert '/#(?:tab-)?(?:books|kitob)/i' in content
+    assert '/#(?:tab-)?(?:books|kitob)/i' in app_js
 
 
 @pytest.mark.asyncio

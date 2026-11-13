@@ -676,7 +676,8 @@ def test_f15_05_tv_catalog_categories_integrity():
 
 def test_f16_01_webapp_index_html_contains_hls_library():
     index_html = (BASE_DIR / "webapp" / "index.html").read_text(encoding="utf-8")
-    assert "hls" in index_html.lower()
+    app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+    assert "hls" in (index_html + app_js).lower()
 
 
 def test_f16_02_webapp_index_html_has_buffer_or_player_config():

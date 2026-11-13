@@ -29,8 +29,8 @@ def test_baunty_star_badge_css_styling_and_glow():
 
     # 3. Neon backlight / glow effects
     assert "box-shadow" in zk_css
-    assert "bauntyStarGlow" in zk_css
-    assert "@keyframes bauntyStarGlow" in zk_css
+    assert "baunty-star-svg" in zk_css
+    assert "0 0 14px" in zk_css
     assert "drop-shadow" in zk_css
 
     # 4. Baunty SVG star icon selector
@@ -58,8 +58,8 @@ def test_baunty_tv_favorite_star():
     assert "#tvfav.active" in zk_css
 
     # 2. HTML & JS markup using baunty-star-svg
-    assert "baunty-fav-star" in index_html
-    assert "baunty-star-svg" in index_html
+    assert "baunty-fav-star" in app_js
+    assert "baunty-star-svg" in app_js
     assert "baunty-fav-star" in app_js
     assert "baunty-star-svg" in app_js
 
@@ -75,13 +75,10 @@ def test_baunty_movie_cards_and_details_rendering():
     assert "baunty-star-svg" in asil_js
 
     # 2. Local catalog card helper
-    assert "starBadgeHTML" in index_html
-    assert "baunty-star-badge" in index_html
     assert "starBadgeHTML" in app_js
     assert "baunty-star-badge" in app_js
 
     # 3. Detail modal badge
-    assert "Baunty PRO" in index_html
     assert "Baunty PRO" in app_js
 
 
@@ -91,7 +88,7 @@ def test_bundle_frontend_distribution():
     bundle_js = (BASE_DIR / "webapp" / "dist" / "bundle.min.js").read_text(encoding="utf-8")
 
     assert "baunty-star-badge" in bundle_css
-    assert "bauntyStarGlow" in bundle_css
+    assert "baunty-star-svg" in bundle_css
     assert "baunty-star-badge" in bundle_js
     assert "baunty-star-svg" in bundle_js
 

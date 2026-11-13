@@ -43,6 +43,10 @@ from services.kaloriya_service import kaloriya_service
 from services.mafia_service import mafia_service
 from services.quiz_service import quiz_service
 from services.tv_room_service import tv_room_service, DEFAULT_CHANNEL_ID
+from services.bunker_service import bunker_service
+from services.deliv_service import deliv_service
+from services.food_service import food_service
+from services.duel_service import duel_service
 
 logger = logging.getLogger(__name__)
 
@@ -286,8 +290,8 @@ def get_production_index_html(cache_bust: bool = False, version: Optional[str] =
     css_ref = f'bundle.min.css?v={v_str}' if (cache_bust or version) else 'bundle.min.css'
     js_ref = f'bundle.min.js?v={v_str}' if (cache_bust or version) else 'bundle.min.js'
 
-    # 1. 16 ta alohida CSS faylini yagona bundle.min.css ga almashtirish
-    css_pattern = r'<link\s+rel="stylesheet"\s+href="(?:rasxod|kaloriya|asil|kattalar|mafia|tvroom|music|docs|fx|food|quiz|prava|games|story|books|zk)\.css">'
+    # 1. Barcha alohida CSS fayllarini yagona bundle.min.css ga almashtirish
+    css_pattern = r'<link\s+rel="stylesheet"\s+href="(?:rasxod|kaloriya|asil|kattalar|mafia|tvroom|bunker|deliv|music|docs|fx|food|quiz|prava|games|story|books|zk)\.css">'
     html, n_css = re.subn(css_pattern, '', html)
     if n_css > 0:
         html = html.replace(
@@ -295,12 +299,14 @@ def get_production_index_html(cache_bust: bool = False, version: Optional[str] =
             f'<link rel="stylesheet" href="{css_ref}">\n<link rel="preload" as="image" href="logo.webp">'
         )
 
-    # 2. 17 ta alohida JS skriptlarini va 1600 qatorli inline skriptni bundle.min.js ga almashtirish
-    js_pattern = r'<script\s+src="(?:i18n|music|docs|games|kattalar|mafia|tvroom|story|books|fx|food|quiz|prava|rasxod|kaloriya|asil|zk)\.js"></script>'
-    html = re.sub(js_pattern, '', html)
+    # 2. Barcha alohida JS skriptlarini va inline main skriptni (agar bo'lsa) yagona bundle.min.js ga almashtirish
+    js_pattern = r'<script\s+src="(?:i18n|zintro|music|docs|games|kattalar|mafia|bunker|deliv|tvroom|story|books|fx|food|quiz|prava|rasxod|kaloriya|asil|zk|app)\.js"></script>'
+    html, n_js = re.subn(js_pattern, '', html)
 
     last_script_pattern = r'<script>\s*\(\(\)\s*=>\s*\{\s*"use strict";[\s\S]*?load\(\);\s*\}\)\(\);\s*</script>'
-    html = re.sub(last_script_pattern, f'<script src="{js_ref}" defer></script>', html)
+    html, n_inline = re.subn(last_script_pattern, f'<script src="{js_ref}" defer></script>', html)
+    if (n_js > 0 or n_inline == 0) and js_ref not in html:
+        html = html.replace('</body>', f'<script src="{js_ref}" defer></script>\n</body>')
 
     return html
 
@@ -599,7 +605,7 @@ _RC_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
 
 
 async def handle_poster_proxy(request: web.Request) -> web.Response:
-    """Kino posterlarini keshlab uzatish (161-97-96-58.sslip.io ga 1v1 proxy va in-memory kesh)."""
+    """Kino posterlarini keshlab uzatish (mahalliy katalog, Asilmedia CDN va in-memory kesh)."""
     filename = request.match_info.get("filename", "")
     clean_name = os.path.basename(filename)
     if not clean_name or not (clean_name.endswith(".webp") or clean_name.endswith(".jpg") or clean_name.endswith(".png")):
@@ -646,30 +652,50 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
         except Exception:
             pass
 
-    # 3. Upstream serverdan yuklab olish
-    upstream_url = f"https://161-97-96-58.sslip.io/p/{clean_name}"
+    # 3. Katalog yoki Asilmedia CDN manzilidan poster olish
+    stem = os.path.splitext(clean_name)[0].strip()
+    poster_url = ""
     try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                    if len(_POSTER_CACHE) > 500:
-                        _POSTER_CACHE.clear()
-                    _POSTER_CACHE[clean_name] = (content, etag)
-                    asyncio.create_task(asyncio.to_thread(local_path.write_bytes, content))
-                    return web.Response(
-                        body=content,
-                        content_type="image/webp",
-                        headers={
-                            "Cache-Control": "public, max-age=604800, immutable",
-                            "Access-Control-Allow-Origin": "*",
-                            "ETag": etag,
-                        }
-                    )
-    except Exception as e:
-        logger.warning(f"Posterni yuklab bo'lmadi ({clean_name}): {e}")
+        cat_item = MovieService.get_catalog_item(stem)
+        if cat_item:
+            poster_url = str(cat_item.get("p_url") or cat_item.get("poster") or "").strip()
+            if not poster_url and cat_item.get("asil_id"):
+                from services.asilmedia_service import asilmedia_service
+                am = await asilmedia_service.get_movie_details(str(cat_item["asil_id"]))
+                if am and am.poster:
+                    poster_url = am.poster
+        elif stem.isdigit():
+            from services.asilmedia_service import asilmedia_service
+            am = await asilmedia_service.get_movie_details(stem)
+            if am and am.poster:
+                poster_url = am.poster
+    except Exception:
+        poster_url = ""
+
+    if poster_url.startswith("http") and "sslip.io" not in poster_url.lower():
+        try:
+            import aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(poster_url, timeout=aiohttp.ClientTimeout(total=3.0, connect=1.5)) as resp:
+                    if resp.status == 200:
+                        content = await resp.read()
+                        if content and len(content) > 200:
+                            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+                            if len(_POSTER_CACHE) > 500:
+                                _POSTER_CACHE.clear()
+                            _POSTER_CACHE[clean_name] = (content, etag)
+                            asyncio.create_task(asyncio.to_thread(local_path.write_bytes, content))
+                            return web.Response(
+                                body=content,
+                                content_type=resp.headers.get("Content-Type", "image/webp").split(";")[0],
+                                headers={
+                                    "Cache-Control": "public, max-age=604800, immutable",
+                                    "Access-Control-Allow-Origin": "*",
+                                    "ETag": etag,
+                                }
+                            )
+        except Exception as e:
+            logger.debug(f"Posterni CDN dan yuklab bo'lmadi ({clean_name}): {e}")
 
     return web.Response(status=404, text="Poster topilmadi")
 
@@ -728,31 +754,31 @@ async def handle_prava_image_proxy(request: web.Request) -> web.Response:
         except Exception:
             pass
 
-    # 3. Upstream serverdan yuklab olish va lokal saqlash
-    upstream_url = f"https://161-97-96-58.sslip.io/prava/{clean_name}"
+    # 3. Lokal Prava savol rasmini generatsiya qilish va diskda keshlash (faqat haqiqiy savol ID lari uchun)
     try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    if content and len(content) > 100:
-                        etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                        if len(_PRAVA_CACHE) > 500:
-                            _PRAVA_CACHE.clear()
-                        _PRAVA_CACHE[clean_name] = (content, etag)
-                        asyncio.create_task(asyncio.to_thread(local_path.write_bytes, content))
-                        return web.Response(
-                            body=content,
-                            content_type="image/webp",
-                            headers={
-                                "Cache-Control": "public, max-age=604800, immutable",
-                                "Access-Control-Allow-Origin": "*",
-                                "ETag": etag,
-                            }
-                        )
+        from services.prava_service import prava_service
+        m_qid = re.fullmatch(r"(\d+)\.webp", clean_name)
+        q_id = int(m_qid.group(1)) if m_qid else 0
+        if q_id <= 0 or q_id > prava_service.total_questions:
+            return web.Response(status=404, text="Topilmadi")
+        content = await asyncio.to_thread(prava_service.generate_question_image_bytes, q_id)
+        if content and len(content) > 100:
+            etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
+            if len(_PRAVA_CACHE) > 500:
+                _PRAVA_CACHE.clear()
+            _PRAVA_CACHE[clean_name] = (content, etag)
+            asyncio.create_task(asyncio.to_thread(local_path.write_bytes, content))
+            return web.Response(
+                body=content,
+                content_type="image/webp",
+                headers={
+                    "Cache-Control": "public, max-age=604800, immutable",
+                    "Access-Control-Allow-Origin": "*",
+                    "ETag": etag,
+                }
+            )
     except Exception as e:
-        logger.debug(f"Prava rasmini yuklab bo'lmadi ({clean_name}): {e}")
+        logger.debug(f"Prava rasmini generatsiya qilib bo'lmadi ({clean_name}): {e}")
 
     return web.Response(status=404, text="Prava rasmi topilmadi")
 
@@ -867,54 +893,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         from services import book_service
         book = book_service.get_book_by_id(book_id) if book_id else None
 
-        # 3.1. Upstream @Zakirovs_ai sslip.io serveridan tezkor olishga urinish (0.4s limit)
-        upstream_url = f"https://161-97-96-58.sslip.io/bk/{tail}"
-        try:
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=0.45, connect=0.25)) as resp:
-                    if resp.status == 200:
-                        content = await resp.read()
-                        etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                        if len(_BOOK_CACHE) > 1000:
-                            _BOOK_CACHE.clear()
-                        _BOOK_CACHE[tail] = (content, content_type, etag)
-                        def _save_bk(lp, c):
-                            try:
-                                lp.parent.mkdir(parents=True, exist_ok=True)
-                                lp.write_bytes(c)
-                            except Exception:
-                                pass
-                        asyncio.create_task(asyncio.to_thread(_save_bk, local_path, content))
-                        return web.Response(
-                            body=content,
-                            content_type=content_type,
-                            headers={
-                                "Cache-Control": "public, max-age=31536000, immutable",
-                                "Access-Control-Allow-Origin": "*",
-                                "ETag": etag,
-                            }
-                        )
-        except Exception:
-            pass
-
-        # 3.2. Asinxron fonda Unsplash dan yuklab olish (javobni kutmasdan, bloklamaydi)
-        if book:
-            cover_url = (book.get("cover") or book.get("poster") or book.get("image") or "").strip()
-            if cover_url.startswith("http"):
-                async def _bg_fetch_cover(u: str, t: str, lp: Path, e: str):
-                    try:
-                        import aiohttp
-                        async with aiohttp.ClientSession() as s:
-                            async with s.get(u, timeout=aiohttp.ClientTimeout(total=4.0, connect=2.0)) as r:
-                                if r.status == 200:
-                                    rb = await r.read()
-                                    await asyncio.to_thread(_process_and_save_book_cover, rb, t, lp, e)
-                    except Exception:
-                        pass
-                asyncio.create_task(_bg_fetch_cover(cover_url, tail, local_path, ext))
-
-        # 3.3. Dinamik sifatli ultra-tezkor WebP muqova yaratish (Pillow yoki SVG) - <5ms javob
+        # 3.1. Dinamik sifatli ultra-tezkor WebP muqova yaratish (Pillow yoki SVG) - <5ms javob
         size = "s" if ("cover_s" in tail or "thumb" in tail or "small" in tail) else "l"
         fmt = "JPEG" if ext in (".jpg", ".jpeg") else "PNG" if ext == ".png" else "WEBP"
         target_book = book or {"id": book_id or "0", "title": f"Kitob #{book_id or 0}", "author": "Baunty Kutubxonasi", "category_name": "Kutubxona"}
@@ -1106,36 +1085,6 @@ async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
         except Exception:
             pass
 
-    upstream_url = f"https://161-97-96-58.sslip.io/rc/{tail}"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
-                if resp.status == 200:
-                    content = await resp.read()
-                    etag = f'"{hashlib.md5(content).hexdigest()[:16]}"'
-                    if len(_RC_CACHE) > 500:
-                        _RC_CACHE.clear()
-                    _RC_CACHE[tail] = (content, content_type, etag)
-                    def _save_rc(lp, c):
-                        try:
-                            lp.parent.mkdir(parents=True, exist_ok=True)
-                            lp.write_bytes(c)
-                        except Exception:
-                            pass
-                    asyncio.create_task(asyncio.to_thread(_save_rc, local_path, content))
-                    return web.Response(
-                        body=content,
-                        content_type=content_type,
-                        headers={
-                            "Cache-Control": "public, max-age=604800, immutable",
-                            "Access-Control-Allow-Origin": "*",
-                            "ETag": etag,
-                        }
-                    )
-    except Exception as e:
-        logger.warning(f"Taom rasmi yuklanmadi ({tail}): {e}")
-
     return web.Response(status=404, text="Rasm topilmadi")
 
 
@@ -1216,181 +1165,466 @@ async def handle_api_overview(request: web.Request) -> web.Response:
     })
 
 
-_UPSTREAM_API_CACHE: Dict[str, Any] = {}
+_DOCS_FILES: Dict[str, Dict[str, Any]] = {}
+_DOCS_JOBS: Dict[str, Dict[str, Any]] = {}
+_FX_ALERTS_BY_USER: Dict[int, List[Dict[str, Any]]] = {}
 
 
-async def handle_upstream_api_proxy(request: web.Request) -> web.Response:
-    """Yangi bo'limlar (food, quiz, fx, books/home, books/shelf) uchun API proxy va oq brendlash."""
-    path = request.path.lstrip("/")
+def _extract_api_path(request: web.Request) -> str:
+    path = request.path.lstrip("/").rstrip("/")
     if path.startswith("webapp/"):
-        path = path[7:]
+        path = path[7:].lstrip("/").rstrip("/")
+    if "?" in path:
+        path = path.split("?", 1)[0].rstrip("/")
+    return path
 
-    now = time.time()
-    cache_key = f"{request.method}:{path}:{request.query_string}"
-    if request.method == "GET" and cache_key in _UPSTREAM_API_CACHE:
-        entry = _UPSTREAM_API_CACHE[cache_key]
-        if now - entry["ts"] < 120:
-            cached_ct = (entry.get("content_type") or "application/json").split(";")[0].strip()
-            return web.Response(
-                body=entry["body"],
-                content_type=cached_ct,
-                headers={"Access-Control-Allow-Origin": "*"}
-            )
 
-    upstream_url = f"https://161-97-96-58.sslip.io/{path}"
-    if request.query_string:
-        upstream_url += f"?{request.query_string}"
+async def _read_json_body(request: web.Request) -> Dict[str, Any]:
+    # security_middleware oldindan request.read() chaqirgani sababli can_read_body False bo'lishi mumkin;
+    # shu bois keshlangan baytlarni yoki json() ni bevosita o'qiymiz.
+    try:
+        raw = await request.read()
+        if raw:
+            data = json.loads(raw.decode("utf-8", errors="replace"))
+            return data if isinstance(data, dict) else {}
+    except Exception:
+        pass
+    try:
+        data = await request.json()
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
 
-    req_headers = {}
-    init_data = request.headers.get("X-Init-Data")
-    if init_data:
-        req_headers["X-Init-Data"] = init_data
-    if "Content-Type" in request.headers:
-        req_headers["Content-Type"] = request.headers["Content-Type"]
 
-    body_bytes = None
-    if request.method in ("POST", "PUT", "PATCH"):
-        try:
-            body_bytes = await request.read()
-        except Exception:
-            body_bytes = None
+async def handle_bunker_api(request: web.Request) -> web.Response:
+    """Bunker o'yini Mini App API handleri."""
+    path = _extract_api_path(request)
+    user_id, user_name = extract_request_user(request)
+    uid = user_id or 0
+    body = await _read_json_body(request) if request.method == "POST" else {}
+    headers = {"Access-Control-Allow-Origin": "*"}
 
     try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.request(
-                method=request.method,
-                url=upstream_url,
-                headers=req_headers,
-                data=body_bytes,
-                timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
-            ) as resp:
-                resp_bytes = await resp.read()
-                raw_ct = resp.headers.get("Content-Type", "application/json")
-                clean_ct = raw_ct.split(";")[0].strip() if raw_ct else "application/json"
+        if path in ("api/bunker", "api/bunker/home"):
+            res = bunker_service.get_home(user_id=uid, user_name=user_name)
+        elif path == "api/bunker/state":
+            res = bunker_service.get_state(
+                code_or_user_id=str(request.query.get("code") or body.get("code") or ""),
+                user_id=uid,
+            )
+        elif path == "api/bunker/create":
+            res = bunker_service.create_room(
+                user_id=uid,
+                user_name=user_name,
+                room_name=str(body.get("name") or ""),
+                max_players=int(body.get("max") or 8),
+                pub=bool(body.get("pub", True)),
+            )
+        elif path == "api/bunker/join":
+            res = bunker_service.join_room(
+                user_id=uid,
+                user_name=user_name,
+                code=str(body.get("code") or ""),
+            )
+        elif path == "api/bunker/bot":
+            res = bunker_service.add_bots(
+                user_id=uid,
+                count=int(body.get("count") or 1),
+                code=body.get("code"),
+            )
+        elif path == "api/bunker/start":
+            res = bunker_service.start_game(user_id=uid, code=body.get("code"))
+        elif path == "api/bunker/reveal":
+            res = bunker_service.reveal_card(
+                user_id=uid,
+                card_key=str(body.get("card") or ""),
+                code=body.get("code"),
+            )
+        elif path == "api/bunker/vote":
+            res = bunker_service.vote(
+                user_id=uid,
+                target_id=int(body.get("target") or 0),
+                code=body.get("code"),
+            )
+        elif path == "api/bunker/next":
+            res = bunker_service.next_round(user_id=uid, code=body.get("code"))
+        elif path == "api/bunker/chat":
+            res = bunker_service.send_chat(
+                user_id=uid,
+                user_name=user_name,
+                text=str(body.get("text") or ""),
+                code=body.get("code"),
+            )
+        elif path == "api/bunker/leave":
+            res = bunker_service.leave_room(user_id=uid)
+        else:
+            return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+        return web.json_response(res, headers=headers)
+    except Exception as e:
+        logger.warning(f"Bunker API xatolik ({path}): {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers=headers)
+
+
+async def handle_deliv_api(request: web.Request) -> web.Response:
+    """Yetkazish (Deliv) Mini App API handleri."""
+    path = _extract_api_path(request)
+    user_id, user_name = extract_request_user(request)
+    uid = user_id or 0
+    body = await _read_json_body(request) if request.method == "POST" else {}
+    headers = {"Access-Control-Allow-Origin": "*"}
+
+    try:
+        if path in ("api/deliv", "api/deliv/home"):
+            res = deliv_service.get_home(user_id=uid)
+        elif path == "api/deliv/stores":
+            res = deliv_service.list_stores(
+                category=str(request.query.get("cat") or request.query.get("category") or ""),
+                query=str(request.query.get("q") or ""),
+            )
+        elif path == "api/deliv/order":
+            res = deliv_service.create_order(
+                user_id=uid,
+                user_name=user_name,
+                address=str(body.get("address") or body.get("addr") or ""),
+                phone=str(body.get("phone") or ""),
+                items=body.get("items") or [],
+                pickup=str(body.get("pickup") or ""),
+                store_id=str(body.get("store_id") or ""),
+                note=str(body.get("note") or ""),
+                payment=str(body.get("payment") or body.get("pay") or "naqd"),
+            )
+        elif path == "api/deliv/track":
+            code = str(request.query.get("code") or request.query.get("id") or body.get("code") or body.get("id") or "")
+            res = deliv_service.get_order(code_or_id=code, user_id=uid)
+        elif path == "api/deliv/advance":
+            res = deliv_service.advance_status(
+                code_or_id=str(body.get("code") or body.get("id") or ""),
+                step=body.get("step"),
+            )
+        elif path == "api/deliv/cancel":
+            res = deliv_service.cancel_order(
+                code_or_id=str(body.get("code") or body.get("id") or ""),
+                user_id=uid,
+            )
+        else:
+            return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+        return web.json_response(res, headers=headers)
+    except Exception as e:
+        logger.warning(f"Deliv API xatolik ({path}): {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers=headers)
+
+
+async def handle_food_api(request: web.Request) -> web.Response:
+    """Taomlar va Retseptlar (Food) Mini App API handleri."""
+    path = _extract_api_path(request)
+    user_id, _ = extract_request_user(request)
+    uid = user_id or 0
+    is_adm = bool(uid and config.is_admin(uid))
+    body = await _read_json_body(request) if request.method == "POST" else {}
+    headers = {"Access-Control-Allow-Origin": "*"}
+
+    try:
+        if path == "api/food":
+            res = food_service.get_catalog(
+                user_id=uid,
+                category=str(request.query.get("k") or request.query.get("category") or ""),
+                meal=str(request.query.get("m") or request.query.get("meal") or ""),
+                query=str(request.query.get("q") or ""),
+            )
+        elif path == "api/food/me":
+            res = food_service.get_user_me(user_id=uid, is_admin=is_adm)
+        elif path.startswith("api/food/r/"):
+            rec_id = path.split("api/food/r/", 1)[1].strip("/")
+            r_obj = food_service.get_recipe(recipe_id=rec_id)
+            if not r_obj:
+                return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+            res = {"ok": True, "r": r_obj}
+        elif path == "api/food/random":
+            ex_raw = request.query.get("ex") or ""
+            ex_ids = [x.strip() for x in ex_raw.split(",") if x.strip()]
+            res = food_service.get_random(
+                meal=str(request.query.get("m") or request.query.get("meal") or ""),
+                exclude_ids=ex_ids,
+            )
+        elif path == "api/food/fav":
+            res = food_service.toggle_fav(user_id=uid, recipe_id=str(body.get("id") or ""))
+        elif path == "api/food/cook":
+            res = food_service.mark_cook(user_id=uid, recipe_id=str(body.get("id") or ""))
+        elif path == "api/food/shop":
+            rec_id = str(body.get("id") or "")
+            r_obj = food_service.get_recipe(recipe_id=rec_id)
+            names = body.get("names")
+            if not names and isinstance(r_obj, dict):
+                names = [ing[0] for ing in (r_obj.get("ing") or []) if isinstance(ing, (list, tuple)) and ing]
+            if not _bot_instance or not uid:
+                return web.json_response({"ok": False, "error": "need_start"}, headers=headers)
+            title = (r_obj or {}).get("t") or "Taom"
+            lines = "\n".join(f"• {n}" for n in (names or [])[:30])
+            await _bot_instance.send_message(
+                chat_id=uid,
+                text=f"🛒 <b>{title} — xarid ro'yxati</b>\n\n{lines}",
+                parse_mode="HTML",
+            )
+            res = {"ok": True}
+        elif path.startswith("api/food/admin/"):
+            ok_adm, _ = verify_admin_request(request)
+            if not ok_adm:
+                return web.json_response({"ok": False, "error": "forbidden"}, status=403, headers=headers)
+            res = {"ok": True}
+        else:
+            return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+        return web.json_response(res, headers=headers)
+    except Exception as e:
+        logger.warning(f"Food API xatolik ({path}): {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers=headers)
+
+
+async def handle_duel_api(request: web.Request) -> web.Response:
+    """Viktorina va Stolda Duel (Kattalar / Board & Quiz Duel) Mini App API handleri."""
+    path = _extract_api_path(request)
+    user_id, user_name = extract_request_user(request)
+    uid = user_id or 0
+    body = await _read_json_body(request) if request.method == "POST" else {}
+    headers = {"Access-Control-Allow-Origin": "*"}
+
+    try:
+        if path in ("api/duel", "api/duel/home"):
+            res = duel_service.get_home(user_id=uid, user_name=user_name)
+        elif path == "api/duel/create":
+            res = duel_service.create_duel(
+                user_id=uid,
+                user_name=user_name,
+                topic=str(body.get("topic") or "mix"),
+                vs_bot=bool(body.get("vs_bot", False)),
+                num_questions=int(body.get("n") or 5),
+            )
+        elif path == "api/duel/answer":
+            res = duel_service.submit_answer(
+                user_id=uid,
+                q_idx=int(body.get("q_idx", body.get("i", 0)) or 0),
+                choice=int(body.get("choice", body.get("c", -1)) if body.get("choice", body.get("c", None)) is not None else -1),
+                code=str(body.get("code") or ""),
+                elapsed_sec=body.get("elapsed"),
+            )
+        elif path == "api/duel/state":
+            res = duel_service.get_state(
+                code_or_user_id=str(request.query.get("code") or body.get("code") or ""),
+                user_id=uid,
+            )
+        elif path == "api/duel/find":
+            res = duel_service.board_find(
+                user_id=uid,
+                user_name=user_name,
+                g=str(body.get("g") or request.query.get("g") or "chess"),
+            )
+        elif path == "api/duel/code":
+            res = duel_service.board_create_code(
+                user_id=uid,
+                user_name=user_name,
+                g=str(body.get("g") or "chess"),
+                pub=bool(body.get("pub", False)),
+            )
+        elif path == "api/duel/join":
+            code_val = str(body.get("code") or "").strip()
+            if code_val.isdigit() and len(code_val) == 4:
+                res = duel_service.board_join(user_id=uid, user_name=user_name, code=code_val)
+            else:
+                res = duel_service.join_duel(user_id=uid, user_name=user_name, code=code_val)
+        elif path == "api/duel/poll":
+            try:
+                ver = int(request.query.get("v", -1))
+            except (ValueError, TypeError):
+                ver = -1
+            res = duel_service.board_poll(
+                user_id=uid,
+                ver=ver,
+                room_id=request.query.get("id") or None,
+            )
+        elif path == "api/duel/move":
+            res = duel_service.board_move(user_id=uid, move_data=body)
+        elif path == "api/duel/resign":
+            res = duel_service.board_resign(user_id=uid)
+        else:
+            return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+        return web.json_response(res, headers=headers)
+    except Exception as e:
+        logger.warning(f"Duel API xatolik ({path}): {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers=headers)
+
+
+async def handle_docs_api(request: web.Request) -> web.Response:
+    """Hujjatlar xizmati: upload, preview, run (PDF/img2pdf/translit/OCR/tarjima), job status."""
+    path = _extract_api_path(request)
+    user_id, _ = extract_request_user(request)
+    uid = user_id or 0
+    headers = {"Access-Control-Allow-Origin": "*"}
+    docs_dir = BASE_DIR / "data" / "docs_tmp"
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if path == "api/docs/upload":
+            if not request.content_type or "multipart" not in request.content_type:
+                return web.json_response({"ok": False, "error": "empty"}, status=400, headers=headers)
+            reader = await request.multipart()
+            part = await reader.next()
+            while part is not None and part.name != "file":
+                part = await reader.next()
+            if part is None:
+                return web.json_response({"ok": False, "error": "empty"}, status=400, headers=headers)
+            orig_name = os.path.basename(part.filename or "fayl.txt")
+            data = await part.read()
+            if not data:
+                return web.json_response({"ok": False, "error": "empty"}, status=400, headers=headers)
+            if len(data) > 50 * 1024 * 1024:
+                return web.json_response({"ok": False, "error": "too_large"}, status=413, headers=headers)
+            fid = hashlib.md5(f"{time.time()}_{orig_name}".encode("utf-8")).hexdigest()[:12]
+            ext = os.path.splitext(orig_name)[1].lower()
+            dst = docs_dir / f"{fid}{ext or '.bin'}"
+            await asyncio.to_thread(dst.write_bytes, data)
+            kind = "image" if ext in (".jpg", ".jpeg", ".png", ".webp", ".bmp") else "pdf" if ext == ".pdf" else "word" if ext in (".doc", ".docx") else "text"
+            w = h = thumbs = 0
+            pages = 1
+            lang = "uz"
+            script = "latn"
+            text_val = ""
+            if kind == "image":
                 try:
-                    resp_text = resp_bytes.decode("utf-8", errors="replace")
-                    clean_text = sanitize_catalog_text(resp_text)
-                    if "books" in path:
-                        clean_text = sanitize_book_text(clean_text)
-                    resp_bytes = clean_text.encode("utf-8")
+                    from PIL import Image
+                    import io
+                    im = Image.open(io.BytesIO(data))
+                    w, h = im.size
+                    thumbs = 1
+                    thumb_path = docs_dir / f"{fid}_t0.jpg"
+                    im_copy = im.convert("RGB")
+                    im_copy.thumbnail((320, 320))
+                    im_copy.save(thumb_path, format="JPEG", quality=80)
                 except Exception:
                     pass
-
-                if resp.status >= 400:
-                    raise aiohttp.ClientError(f"Upstream returned {resp.status}")
-
-                if request.method == "GET" and resp.status == 200:
-                    _UPSTREAM_API_CACHE[cache_key] = {
-                        "body": resp_bytes,
-                        "content_type": clean_ct,
-                        "ts": now
-                    }
-
-                return web.Response(
-                    body=resp_bytes,
-                    status=resp.status,
-                    content_type=clean_ct,
-                    headers={"Access-Control-Allow-Origin": "*"}
-                )
-    except Exception as e:
-        logger.info(f"Upstream API tezkor zaxiraga o'tildi ({upstream_url}): {e}")
-        # Barcha bo'limlar uchun xatosiz zaxira va chidamli fallback
-        if "docs/config" in path:
-            return await handle_doc_config(request)
-        if "docs" in path:
-            return await handle_doc_root(request)
-        if "books/home" in path or "books/shelf" in path:
-            from services import book_service
-            cat = book_service.get_catalog(limit=20)
-            return web.json_response({
-                "ok": True,
-                "categories": cat.get("categories", []),
-                "featured": cat.get("books", [])[:10],
-                "items": cat.get("books", [])[:20]
-            })
-        if "books/me" in path:
-            return web.json_response({"ok": True, "shelf": [], "history": []})
-        if "duel" in path:
-            return web.json_response({"ok": True, "active": False, "rooms": []})
-        if "story/me" in path:
-            return await handle_story_me(request)
-        if "story" in path:
-            return web.json_response({"ok": True, "items": [], "profiles": []})
-        if "food" in path:
-            return web.json_response({"ok": True, "items": [], "categories": []})
-        if "fx" in path:
-            return await handle_fx_api(request)
-        if "prava" in path:
-            return await handle_prava_home(request)
-        if "music/home" in path or path in ("api/music", "api/music/"):
-            return await handle_music_home(request)
-        if "music/me" in path:
-            return web.json_response({"ok": True, "favorites": [], "history": [], "admin": False})
-        if "music" in path:
-            return web.json_response({"ok": True, "items": TOP_50_TRACKS[:20]})
-        if "tv" in path:
-            return await handle_get_tv(request)
-        if "games" in path:
-            return await handle_get_games(request)
-        if "asil/colls" in path or path.endswith("colls"):
-            return await handle_asil_colls(request)
-        if "asil/coll" in path or "coll" in path:
-            return await handle_asil_coll(request)
-        if "asil" in path:
-            return await handle_asil_home(request)
-        if "quiz/home" in path:
-            fallback_quiz = {
-                "ok": True,
-                "topics": [
-                    {"k": "kino", "n": "Kino & Filmlar", "ic": "🎬", "c": 50},
-                    {"k": "adabiyot", "n": "O'zbek adabiyoti", "ic": "📚", "c": 45},
-                    {"k": "tarix", "n": "Tarix & Geografiya", "ic": "🌍", "c": 60},
-                    {"k": "mantiq", "n": "Mantiq & Zukkolik", "ic": "🧠", "c": 40},
-                    {"k": "fan", "n": "IT & Texnologiya", "ic": "💻", "c": 35}
-                ],
-                "popular": [
-                    {"id": "q1", "t": "Kino olami bilimdoni", "ic": "🍿", "n": 10, "src": "seed", "pl": 1240},
-                    {"id": "q2", "t": "O'zbek durdonalari", "ic": "📖", "n": 10, "src": "seed", "pl": 980}
-                ]
+            elif kind == "text":
+                text_val = data.decode("utf-8", errors="replace")
+                info = doc_service.analyze_text(text_val)
+                lang = info.get("lang", "uz")
+                script = info.get("script", "latn")
+            meta = {
+                "fid": fid,
+                "name": orig_name,
+                "size": len(data),
+                "kind": kind,
+                "pages": pages,
+                "w": w,
+                "h": h,
+                "thumbs": thumbs,
+                "lang": lang,
+                "script": script,
+                "path": str(dst),
             }
-            return web.json_response(fallback_quiz)
-        if "quiz/daily" in path:
-            return web.json_response({
-                "ok": True, "streak": 3, "n": 4820, "pct": 74, "done": False,
-                "q": {
-                    "t": "«O'tkan kunlar» romanida Otabekning Marg'ilondagi sevgilisi kim edi?",
-                    "o": [["a", "Zaynab"], ["b", "Kumushbibi"], ["c", "Ra'no"], ["d", "Saodat"]],
-                    "c": "b"
-                }
-            })
-        if "quiz/me" in path:
-            return web.json_response({"ok": True, "mine": []})
-        if "quiz/solo/start" in path:
-            return web.json_response({
-                "ok": True,
-                "sid": "solo_local_session",
-                "title": "Kino & Adabiyot",
-                "total": 5,
-                "q": {
-                    "t": "«O'tkan kunlar» romanida Otabekning Marg'ilondagi sevgilisi kim edi?",
-                    "o": [["a", "Zaynab"], ["b", "Kumushbibi"], ["c", "Ra'no"], ["d", "Saodat"]],
-                    "c": "b"
-                }
-            })
-        if "quiz/solo/answer" in path:
-            return web.json_response({"ok": True, "correct": True, "c": "b", "pts": 100})
-        if "quiz/solo/next" in path:
-            return web.json_response({"ok": True, "final": True, "score": 500, "total": 5, "rank": 1})
-        if "rasxod" in path:
-            return await handle_rasxod_api(request)
-        if "kal" in path or "food/kcal" in path:
-            return await handle_kaloriya_api(request)
-        if "mafia" in path:
-            return await handle_mafia_api(request)
-        if "tvroom" in path or "tv_room" in path or "tvxona" in path:
-            return await handle_tvroom_api(request)
-        return web.json_response({"ok": False, "error": "upstream_unavailable"}, status=502)
+            _DOCS_FILES[fid] = meta
+            return web.json_response({"ok": True, "file": {k: v for k, v in meta.items() if k != "path"}}, headers=headers)
+
+        if path.startswith("api/docs/t/"):
+            segs = path.split("api/docs/t/", 1)[1].split("/")
+            fid = segs[0] if segs else ""
+            idx = segs[1] if len(segs) > 1 else "0"
+            tpath = docs_dir / f"{fid}_t{idx}.jpg"
+            if tpath.exists():
+                return web.FileResponse(tpath, headers={"Cache-Control": "public, max-age=3600"})
+            return web.Response(status=404)
+
+        if path == "api/docs/preview":
+            body = await _read_json_body(request)
+            fid = str(body.get("fid") or "")
+            meta = _DOCS_FILES.get(fid)
+            if not meta or not os.path.exists(meta["path"]):
+                return web.json_response({"ok": False, "error": "expired"}, headers=headers)
+            raw_text = Path(meta["path"]).read_text(encoding="utf-8", errors="replace")[:4000]
+            if body.get("script"):
+                out_text = doc_service.transliterate(raw_text, target_script=str(body["script"]))
+            elif body.get("target"):
+                out_text = doc_service.simple_translate(raw_text, target_lang=str(body["target"]))
+            else:
+                out_text = raw_text
+            return web.json_response({"ok": True, "text": out_text}, headers=headers)
+
+        if path == "api/docs/run":
+            body = await _read_json_body(request)
+            tool = str(body.get("tool") or "")
+            fids = body.get("fids") or []
+            options = body.get("options") or {}
+            src_paths = []
+            for f in fids:
+                m = _DOCS_FILES.get(str(f))
+                if m and os.path.exists(m["path"]):
+                    src_paths.append(m)
+            if not src_paths:
+                return web.json_response({"ok": False, "error": "expired"}, headers=headers)
+
+            jid = hashlib.md5(f"{time.time()}_{tool}".encode("utf-8")).hexdigest()[:10]
+            out_files: List[Dict[str, Any]] = []
+            out_text: Optional[str] = None
+            out_fid = f"{jid}_out"
+
+            if tool == "img2pdf":
+                out_p = docs_dir / f"{out_fid}.pdf"
+                await asyncio.to_thread(doc_service.images_to_pdf, [m["path"] for m in src_paths], str(out_p))
+                out_files.append({"fid": out_fid, "name": "Hujjat.pdf", "kind": "pdf", "size": out_p.stat().st_size})
+            elif tool == "topdf":
+                m0 = src_paths[0]
+                out_p = docs_dir / f"{out_fid}.pdf"
+                if m0["kind"] == "image":
+                    await asyncio.to_thread(doc_service.images_to_pdf, [m0["path"]], str(out_p))
+                else:
+                    raw_txt = Path(m0["path"]).read_text(encoding="utf-8", errors="replace")
+                    await asyncio.to_thread(doc_service.create_simple_pdf, m0["name"], raw_txt, str(out_p))
+                out_files.append({"fid": out_fid, "name": f"{Path(m0['name']).stem}.pdf", "kind": "pdf", "size": out_p.stat().st_size})
+            elif tool in ("translit", "translate"):
+                m0 = src_paths[0]
+                raw_txt = Path(m0["path"]).read_text(encoding="utf-8", errors="replace")
+                if tool == "translit":
+                    out_text = doc_service.transliterate(raw_txt, str(options.get("script") or "cyrl"))
+                else:
+                    out_text = doc_service.simple_translate(raw_txt, str(options.get("target") or "uz"))
+            elif tool == "ocr":
+                m0 = src_paths[0]
+                out_text = await asyncio.to_thread(doc_service.ocr_image, m0["path"], str(options.get("lang") or "uzb+eng"))
+            elif tool == "pdf2txt":
+                out_text = Path(src_paths[0]["path"]).read_text(encoding="utf-8", errors="replace")[:15000]
+            else:
+                return web.json_response({"ok": False, "error": "type"}, headers=headers)
+
+            if _bot_instance and uid and out_files:
+                try:
+                    from aiogram.types import FSInputFile
+                    op = docs_dir / f"{out_fid}.pdf"
+                    if op.exists():
+                        await _bot_instance.send_document(chat_id=uid, document=FSInputFile(op, filename=out_files[0]["name"]))
+                except Exception as send_err:
+                    logger.debug(f"Docs telegram yuborish xatosi: {send_err}")
+
+            job = {
+                "id": jid,
+                "state": "done",
+                "tool": tool,
+                "fids": fids,
+                "options": options,
+                "result": {"files": out_files, "text": out_text},
+            }
+            _DOCS_JOBS[jid] = job
+            return web.json_response({"ok": True, "job": job}, headers=headers)
+
+        if path.startswith("api/docs/job/"):
+            jid = path.split("api/docs/job/", 1)[1].strip("/")
+            job = _DOCS_JOBS.get(jid)
+            if not job:
+                return web.json_response({"ok": False, "error": "expired"}, headers=headers)
+            return web.json_response({"ok": True, "job": job}, headers=headers)
+
+        if path == "api/docs/unlock":
+            return web.json_response({"ok": False, "error": "bad_pass"}, headers=headers)
+
+        return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+    except Exception as e:
+        logger.warning(f"Docs API xatolik ({path}): {e}")
+        return web.json_response({"ok": False, "error": str(e)}, status=400, headers=headers)
 
 
 def extract_request_user(request: web.Request) -> Tuple[int, str]:
@@ -1422,7 +1656,7 @@ def extract_request_user(request: web.Request) -> Tuple[int, str]:
         if uid_param and str(uid_param).isdigit():
             user_id = int(uid_param)
         else:
-            user_id = 7271080503  # default fallback id
+            user_id = 0
     return user_id, user_name
 
 
@@ -1442,7 +1676,7 @@ async def handle_rasxod_api(request: web.Request) -> web.Response:
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path.endswith("/add"):
-            body = await request.json() if request.can_read_body else {}
+            body = await _read_json_body(request)
             text = body.get("text", "")
             data = await rasxod_service.add_expenses_from_text(user_id=user_id, text=text)
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
@@ -1455,7 +1689,7 @@ async def handle_rasxod_api(request: web.Request) -> web.Response:
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path.endswith("/edit"):
-            body = await request.json() if request.can_read_body else {}
+            body = await _read_json_body(request)
             data = await rasxod_service.edit(
                 user_id=user_id,
                 expense_id=int(body.get("id", 0)),
@@ -1467,12 +1701,12 @@ async def handle_rasxod_api(request: web.Request) -> web.Response:
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path.endswith("/del"):
-            body = await request.json() if request.can_read_body else {}
+            body = await _read_json_body(request)
             data = await rasxod_service.delete(user_id=user_id, expense_id=int(body.get("id", 0)))
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path.endswith("/budget"):
-            body = await request.json() if request.can_read_body else {}
+            body = await _read_json_body(request)
             data = await rasxod_service.set_budget(user_id=user_id, amount=int(body.get("a", 0)))
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
@@ -1494,12 +1728,7 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
     user_id = user_id or 0
 
     async def _safe_json() -> Dict[str, Any]:
-        if not request.can_read_body:
-            return {}
-        try:
-            return await request.json()
-        except Exception:
-            return {}
+        return await _read_json_body(request)
 
     try:
         if path in ("api/kal", "api/kal/home", "api/kal/status"):
@@ -1535,7 +1764,7 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
                         text = await part.text()
                     elif part.name == "photo":
                         photo_data = await part.read()
-            elif request.can_read_body:
+            else:
                 body = await _safe_json()
                 text = body.get("text")
             data = kaloriya_service.scan_food_text_or_image(text=text, photo_data=photo_data)
@@ -1557,15 +1786,13 @@ async def handle_kaloriya_api(request: web.Request) -> web.Response:
             return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path == "api/kal/receipt":
-            async with get_session() as session:
-                prof = await crud.get_calorie_profile(session, user_id)
-                if prof:
-                    prof.is_pro = True
-                    prof.pro_until = datetime.now() + timedelta(days=365)
-                    await session.commit()
             st_data = await kaloriya_service.get_status(user_id=user_id)
-            st_data["status"] = "approved"
+            st_data["status"] = "pending_review"
+            pro_val = st_data.get("pro")
+            if not isinstance(pro_val, dict):
+                st_data["pro"] = {"on": bool(pro_val), "pay": {"status": "wait"}}
             st_data["ok"] = True
+            st_data["message"] = "Chek qabul qilindi, moderator tekshiruvidan so'ng faollashtiriladi."
             return web.json_response(st_data, headers={"Access-Control-Allow-Origin": "*"})
 
         elif path == "api/kal/adm/photo":
@@ -2153,8 +2380,56 @@ async def handle_fx_api(request: web.Request) -> web.Response:
 
 
 async def handle_fx_alerts(request: web.Request) -> web.Response:
-    """Kurs o'zgarganda xabarnoma sozlamasi."""
-    return web.json_response({"ok": True, "items": []})
+    """Kurs o'zgarganda xabarnoma sozlamasi (saqlash, o'chirish, ro'yxat)."""
+    user_id, _ = extract_request_user(request)
+    uid = user_id or 0
+    items = _FX_ALERTS_BY_USER.setdefault(uid, [])
+    if request.method == "POST":
+        body = await _read_json_body(request)
+        val_raw = body.get("v") if body.get("v") is not None else body.get("t")
+        if body.get("del") is not None:
+            del_id = str(body["del"])
+            items[:] = [a for a in items if str(a.get("id")) != del_id]
+        elif body.get("c") and val_raw is not None:
+            try:
+                val = float(val_raw)
+                items.append({
+                    "id": hashlib.md5(f"{uid}_{body['c']}_{val}_{time.time()}".encode("utf-8")).hexdigest()[:8],
+                    "c": str(body["c"]).upper()[:6],
+                    "op": "gt" if str(body.get("op")) == "gt" else "lt",
+                    "v": val,
+                })
+            except (ValueError, TypeError):
+                pass
+    return web.json_response({"ok": True, "items": list(items)}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_fx_history(request: web.Request) -> web.Response:
+    """Valyuta kursi tarixi (CBU ma'lumotlari asosida)."""
+    ccy = str(request.match_info.get("c") or "USD").upper()
+    try:
+        days = max(2, min(365, int(request.query.get("d") or 7)))
+    except (ValueError, TypeError):
+        days = 7
+    res = await handle_fx_api(request)
+    data = json.loads(res.text)
+    item = next((x for x in data.get("items", []) if x.get("c") == ccy), None)
+    if not item:
+        return web.json_response({"ok": False, "error": "not_found", "pts": []}, headers={"Access-Control-Allow-Origin": "*"})
+    base_h = list(item.get("h") or [item.get("r", 0)])
+    pts = []
+    today = datetime.now().date()
+    span = min(days, len(base_h))
+    for idx, val in enumerate(base_h[-span:]):
+        dt = (today - timedelta(days=span - 1 - idx)).isoformat()
+        pts.append([dt, val])
+    return web.json_response({"ok": True, "c": ccy, "pts": pts}, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def handle_fx_banks(request: web.Request) -> web.Response:
+    """Tijorat banklari valyuta kurslari."""
+    ccy = str(request.match_info.get("c") or "USD").upper()
+    return web.json_response({"ok": True, "c": ccy, "rows": []}, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_admin_maintenance(request: web.Request) -> web.Response:
@@ -2329,28 +2604,16 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
         return resp
 
     data = None
-    # 1. Real-time upstreamdan olishga urinish
+    # 1. Lokal katalog va DB jadvallaridan yagona toza katalog yig'ish (qismlar soni bilan)
     try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get("https://161-97-96-58.sslip.io/api/catalog", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    raw_data = await resp.json()
-                    if isinstance(raw_data, dict) and isinstance(raw_data.get("items"), list) and len(raw_data["items"]) >= 20:
-                        for it in raw_data.get("items", []):
-                            if "d" in it:
-                                it["d"] = sanitize_catalog_text(it["d"])
-                            if "t" in it:
-                                it["t"] = sanitize_catalog_text(it["t"])
-                        raw_data["channel"] = config.CHANNEL_USERNAME
-                        raw_data["bot"] = config.BOT_USERNAME.lstrip("@")
-                        data = raw_data
-                        cat_file = BASE_DIR / "data" / "catalog.json"
-                        asyncio.create_task(asyncio.to_thread(_save_cat_file, data, cat_file))
+        raw_cat = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
+        unified_items = await MovieService.get_unified_catalog()
+        data = dict(raw_cat) if isinstance(raw_cat, dict) else {}
+        if unified_items:
+            data["items"] = unified_items
     except Exception as e:
-        logger.info(f"Upstream katalog ulanishida kutilmagan holat ({e}), lokal kesh ishlatiladi.")
+        logger.warning(f"Yagona katalog o'qishda xatolik ({e}), fayldan o'qiladi.")
 
-    # 2. Agar upstream bo'lmasa, lokal fayldan o'qish (asinxron thread)
     if not data:
         data = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
 
@@ -2374,6 +2637,9 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     data["kal"] = True
     data["mafia"] = True
     data["kattalar"] = True
+    data["bunker"] = True
+    data["deliv"] = True
+    data["duel"] = True
     data["maintenance"] = m_state
 
     _CATALOG_CACHE["data"] = data
@@ -2426,7 +2692,7 @@ def clear_asil_api_cache() -> None:
 
 
 async def handle_asil_home(request: web.Request) -> web.Response:
-    """Asilmedia bosh sahifa tavsiyalari va janrlar (Real-time va Bauntys brendi)."""
+    """Asilmedia bosh sahifa tavsiyalari va janrlar (mahalliy katalog, Asilmedia va Bauntys brendi)."""
     now = time.time()
     _prune_asil_api_cache(now)
     cache_key = "asil:home"
@@ -2441,51 +2707,36 @@ async def handle_asil_home(request: web.Request) -> web.Response:
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
-    upstream_url = "https://161-97-96-58.sslip.io/api/asil/home"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    resp_bytes = await resp.read()
-                    text = resp_bytes.decode("utf-8", errors="replace")
-                    clean = sanitize_catalog_text(text)
-                    clean_bytes = clean.encode("utf-8")
-                    _prune_asil_api_cache(now)
-                    _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                    try:
-                        backup_file = BASE_DIR / "data" / "asil_home_cache.json"
-                        backup_file.write_text(clean, encoding="utf-8")
-                    except Exception:
-                        pass
-                    return web.Response(
-                        body=clean_bytes,
-                        content_type="application/json",
-                        headers={"Access-Control-Allow-Origin": "*"}
-                    )
-    except Exception as e:
-        logger.debug("Upstream /api/asil/home error: %s", e)
-
     backup_file = BASE_DIR / "data" / "asil_home_cache.json"
     if backup_file.exists():
         try:
-            data = backup_file.read_text(encoding="utf-8")
+            raw_text = await asyncio.to_thread(backup_file.read_text, encoding="utf-8")
+            clean = sanitize_catalog_text(raw_text)
+            clean_bytes = clean.encode("utf-8")
+            _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
             return web.Response(
-                text=data,
+                body=clean_bytes,
                 content_type="application/json",
                 headers={"Access-Control-Allow-Origin": "*"}
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("asil_home_cache read error: %s", e)
 
-    return web.json_response({
+    data = _build_local_colls_data()
+    pool = data.get("pool", [])
+    films = [x for x in pool if x.get("type") != "serial"][:20]
+    serials = [x for x in pool if x.get("type") == "serial"][:20]
+    res_obj = {
         "ok": True,
-        "film": [],
-        "serial": [],
-        "pop": [],
+        "film": films,
+        "serial": serials,
+        "pop": pool[:20],
         "genres": [],
         "countries": []
-    }, headers={"Access-Control-Allow-Origin": "*"})
+    }
+    clean_bytes = json.dumps(res_obj, ensure_ascii=False).encode("utf-8")
+    _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+    return web.Response(body=clean_bytes, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_asil_list(request: web.Request) -> web.Response:
@@ -2504,35 +2755,27 @@ async def handle_asil_list(request: web.Request) -> web.Response:
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
-    upstream_url = f"https://161-97-96-58.sslip.io/api/asil/list?{request.query_string}"
     try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    resp_bytes = await resp.read()
-                    text = resp_bytes.decode("utf-8", errors="replace")
-                    clean = sanitize_catalog_text(text)
-                    clean_bytes = clean.encode("utf-8")
-                    _prune_asil_api_cache(now)
-                    _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                    return web.Response(
-                        body=clean_bytes,
-                        content_type="application/json",
-                        headers={"Access-Control-Allow-Origin": "*"}
-                    )
-    except Exception as e:
-        logger.debug("Upstream /api/asil/list error: %s", e)
-
-    # Fast local fallback
+        page = max(1, int(request.query.get("page") or 1))
+    except (ValueError, TypeError):
+        page = 1
+    kind = (request.query.get("type") or "").strip().lower()
     data = _build_local_colls_data()
-    fallback_items = data.get("pool", [])[:20]
-    return web.json_response({
+    pool = data.get("pool", [])
+    if kind in ("serial", "film"):
+        pool = [x for x in pool if x.get("type") == kind]
+    per_page = 24
+    start = (page - 1) * per_page
+    sliced = pool[start:start + per_page]
+    res_obj = {
         "ok": True,
-        "items": fallback_items,
-        "more": False,
-        "page": 1
-    }, headers={"Access-Control-Allow-Origin": "*"})
+        "items": sliced,
+        "more": (start + per_page) < len(pool),
+        "page": page
+    }
+    clean_bytes = json.dumps(res_obj, ensure_ascii=False).encode("utf-8")
+    _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+    return web.Response(body=clean_bytes, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_asil_search(request: web.Request) -> web.Response:
@@ -2555,38 +2798,44 @@ async def handle_asil_search(request: web.Request) -> web.Response:
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
-    upstream_url = f"https://161-97-96-58.sslip.io/api/asil/search?q={urllib.parse.quote(q)}"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    raw = await resp.json()
-                    if isinstance(raw, dict) and "items" in raw:
-                        for it in raw["items"]:
-                            if "t" in it:
-                                it["t"] = sanitize_catalog_text(it["t"])
-                            if "alt" in it:
-                                it["alt"] = sanitize_catalog_text(it["alt"])
-                        clean_bytes = json.dumps(raw, ensure_ascii=False).encode("utf-8")
-                        _prune_asil_api_cache(now)
-                        _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                        return web.Response(
-                            body=clean_bytes,
-                            content_type="application/json",
-                            headers={"Access-Control-Allow-Origin": "*"}
-                        )
-    except Exception as e:
-        logger.debug("Upstream /api/asil/search error: %s", e)
+    items = []
+    seen_ids = set()
+    from services.asilmedia_service import asilmedia_service
+    cat_task = MovieService.search_catalog(q, limit=10)
+    asil_task = asyncio.wait_for(asilmedia_service.search(q, limit=20), timeout=5.0)
+    cat_res, asil_res = await asyncio.gather(cat_task, asil_task, return_exceptions=True)
 
-    # Fallback: lokal asilmedia_service
-    try:
-        from services.asilmedia_service import asilmedia_service
-        results = await asilmedia_service.search(q, limit=20)
-        items = []
-        for it in results:
+    if isinstance(cat_res, list):
+        for it in cat_res:
+            c_val = str(it.get("c", ""))
+            aid = str(it.get("asil_id") or c_val)
+            seen_ids.add(aid)
+            parts_cnt = int(it.get("p") or 1)
             items.append({
-                "id": int(it["id"]) if str(it.get("id", "")).isdigit() else it.get("id"),
+                "id": int(aid) if aid.isdigit() else aid,
+                "code": c_val,
+                "type": "serial" if parts_cnt > 1 else "film",
+                "t": sanitize_catalog_text(str(it.get("t") or "")),
+                "alt": sanitize_catalog_text(str(it.get("d") or ""))[:100],
+                "y": it.get("y"),
+                "p": it.get("p_url") or f"p/{c_val}.webp",
+                "imdb": it.get("r"),
+                "ok": True,
+                "parts": parts_cnt,
+                "g": [],
+                "c": []
+            })
+    elif isinstance(cat_res, Exception):
+        logger.debug("Catalog search error in handle_asil_search: %s", cat_res)
+
+    if isinstance(asil_res, list):
+        for it in asil_res:
+            aid = str(it.get("id") or "")
+            if aid in seen_ids:
+                continue
+            seen_ids.add(aid)
+            items.append({
+                "id": int(aid) if aid.isdigit() else aid,
                 "type": "serial" if it.get("is_series") else "film",
                 "t": sanitize_catalog_text(it.get("title", "")),
                 "alt": sanitize_catalog_text(it.get("raw_title", "")),
@@ -2597,11 +2846,13 @@ async def handle_asil_search(request: web.Request) -> web.Response:
                 "g": [],
                 "c": []
             })
-        return web.json_response({"ok": True, "items": items}, headers={"Access-Control-Allow-Origin": "*"})
-    except Exception as fe:
-        logger.warning("Local Asilmedia search fallback error: %s", fe)
+    elif isinstance(asil_res, Exception):
+        logger.warning("Local Asilmedia search error: %s", asil_res)
 
-    return web.json_response({"ok": True, "items": []}, headers={"Access-Control-Allow-Origin": "*"})
+    clean_bytes = json.dumps({"ok": True, "items": items}, ensure_ascii=False).encode("utf-8")
+    if items:
+        _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+    return web.Response(body=clean_bytes, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_asil_item(request: web.Request) -> web.Response:
@@ -2624,63 +2875,80 @@ async def handle_asil_item(request: web.Request) -> web.Response:
                 headers={"Access-Control-Allow-Origin": "*"}
             )
 
-    upstream_url = f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(item_id)}"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    resp_bytes = await resp.read()
-                    text = resp_bytes.decode("utf-8", errors="replace")
-                    clean = sanitize_catalog_text(text)
-                    clean_bytes = clean.encode("utf-8")
-                    _prune_asil_api_cache(now)
-                    _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                    return web.Response(
-                        body=clean_bytes,
-                        content_type="application/json",
-                        headers={"Access-Control-Allow-Origin": "*"}
-                    )
-    except Exception as e:
-        logger.debug("Upstream /api/asil/item error: %s", e)
+    cat_item = MovieService.get_catalog_item(item_id)
+    target_asil_id = str(cat_item.get("asil_id")) if (cat_item and cat_item.get("asil_id")) else item_id
 
-    # Fallback: lokal asilmedia_service
     try:
         from services.asilmedia_service import asilmedia_service
-        movie = await asilmedia_service.get_movie_details(item_id)
+        movie = await asilmedia_service.get_movie_details(target_asil_id)
         if movie:
             files = []
             if movie.episodes:
                 parts_cnt = len(movie.episodes)
-                files = [
-                    {"s": 3, "q": "1080p", "tr": "", "note": "", "mb": 0, "parts": parts_cnt, "ok": True},
-                    {"s": 2, "q": "720p", "tr": "", "note": "", "mb": 0, "parts": parts_cnt, "ok": True},
-                    {"s": 1, "q": "480p", "tr": "", "note": "", "mb": 0, "parts": parts_cnt, "ok": True},
-                ]
+                for idx, (ep_num, ep) in enumerate(sorted(movie.episodes.items()), 1):
+                    files.append({
+                        "s": idx,
+                        "part": int(ep_num),
+                        "e": int(ep_num),
+                        "q": ep.quality or "1080p",
+                        "label": ep.label or f"{ep_num}-qism",
+                        "tr": "",
+                        "note": "",
+                        "mb": 0,
+                        "parts": parts_cnt,
+                        "ok": True,
+                    })
             else:
-                files = [{"s": 3, "q": "1080p", "parts": 1, "ok": True}]
+                files = [{"s": 1, "part": 1, "e": 1, "q": "1080p", "parts": 1, "ok": True}]
 
             item_data = {
                 "id": int(movie.id) if str(movie.id).isdigit() else movie.id,
+                "code": str(cat_item.get("c")) if cat_item else str(item_id),
                 "type": "serial" if movie.is_series else "film",
-                "t": sanitize_catalog_text(movie.title),
+                "t": sanitize_catalog_text((cat_item.get("t") if cat_item else None) or movie.title),
                 "alt": sanitize_catalog_text(movie.orig_title or ""),
-                "y": movie.year,
-                "p": movie.poster or "",
-                "imdb": movie.rating,
+                "y": movie.year or (cat_item.get("y") if cat_item else None),
+                "p": movie.poster or (cat_item.get("p_url") if cat_item else "") or "",
+                "imdb": movie.rating or (cat_item.get("r") if cat_item else None),
                 "ok": True,
                 "g": movie.genres or [],
                 "c": [],
-                "desc": sanitize_catalog_text(movie.description or ""),
+                "desc": sanitize_catalog_text((cat_item.get("d") if cat_item else None) or movie.description or ""),
                 "dur": movie.duration or "",
                 "lang": "O'zbek",
                 "watch": movie.watch_url or movie.url,
                 "url": movie.url,
+                "parts": max(len(movie.episodes) if movie.episodes else 1, int((cat_item or {}).get("p") or 1)),
                 "files": files
             }
-            return web.json_response({"ok": True, "item": item_data}, headers={"Access-Control-Allow-Origin": "*"})
+            clean_bytes = json.dumps({"ok": True, "item": item_data}, ensure_ascii=False).encode("utf-8")
+            _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+            return web.Response(body=clean_bytes, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
     except Exception as fe:
-        logger.warning("Local Asilmedia get_movie_details fallback error: %s", fe)
+        logger.warning("Local Asilmedia get_movie_details error: %s", fe)
+
+    if cat_item:
+        parts_cnt = max(1, int(cat_item.get("p") or 1))
+        files = [{"s": n, "part": n, "e": n, "q": "1080p", "label": f"{n}-qism", "parts": parts_cnt, "ok": True} for n in range(1, parts_cnt + 1)]
+        item_data = {
+            "id": int(cat_item["c"]) if str(cat_item.get("c", "")).isdigit() else str(cat_item.get("c", item_id)),
+            "code": str(cat_item.get("c", item_id)),
+            "type": "serial" if parts_cnt > 1 else "film",
+            "t": sanitize_catalog_text(str(cat_item.get("t") or "")),
+            "alt": "",
+            "y": cat_item.get("y"),
+            "p": cat_item.get("p_url") or f"p/{cat_item.get('c')}.webp",
+            "imdb": cat_item.get("r"),
+            "ok": True,
+            "g": [],
+            "c": [],
+            "desc": sanitize_catalog_text(str(cat_item.get("d") or "")),
+            "dur": "",
+            "lang": "O'zbek",
+            "parts": parts_cnt,
+            "files": files,
+        }
+        return web.json_response({"ok": True, "item": item_data}, headers={"Access-Control-Allow-Origin": "*"})
 
     return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
@@ -2859,39 +3127,7 @@ def _build_local_colls_data() -> Dict[str, Any]:
 
 
 async def handle_asil_colls(request: web.Request) -> web.Response:
-    """Asilmedia to'plamlari / kolleksiyalari — Fast upstream with instant local fallback."""
-    now = time.time()
-    cache_key = f"colls:{request.query_string}"
-    if cache_key in _UPSTREAM_API_CACHE:
-        entry = _UPSTREAM_API_CACHE[cache_key]
-        if now - entry["ts"] < 180:
-            return web.Response(
-                body=entry["body"],
-                content_type="application/json",
-                headers={"Access-Control-Allow-Origin": "*"}
-            )
-
-    upstream_url = "https://161-97-96-58.sslip.io/api/asil/colls"
-    if request.query_string:
-        upstream_url += f"?{request.query_string}"
-
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    resp_bytes = await resp.read()
-                    clean_text = sanitize_catalog_text(resp_bytes.decode("utf-8", errors="replace"))
-                    clean_bytes = clean_text.encode("utf-8")
-                    _UPSTREAM_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                    return web.Response(
-                        body=clean_bytes,
-                        content_type="application/json",
-                        headers={"Access-Control-Allow-Origin": "*"}
-                    )
-    except Exception as e:
-        logger.info(f"Upstream colls timeout/error ({e}), using instant local fallback.")
-
+    """Asilmedia / Bauntys kinolar to'plamlari (to'g'ridan-to'g'ri lokal bazadan)."""
     data = _build_local_colls_data()
     try:
         limit = int(request.query.get("limit") or 20)
@@ -2928,37 +3164,8 @@ async def handle_asil_colls(request: web.Request) -> web.Response:
 
 
 async def handle_asil_coll(request: web.Request) -> web.Response:
-    """Asilmedia alohida to'plam tarkibi — Fast upstream with instant local fallback."""
+    """Alohida kino to'plami tarkibi (lokal katalogdan)."""
     slug = request.query.get("slug", "").strip()
-    now = time.time()
-    cache_key = f"coll:{slug}:{request.query_string}"
-    if cache_key in _UPSTREAM_API_CACHE:
-        entry = _UPSTREAM_API_CACHE[cache_key]
-        if now - entry["ts"] < 180:
-            return web.Response(
-                body=entry["body"],
-                content_type="application/json",
-                headers={"Access-Control-Allow-Origin": "*"}
-            )
-
-    upstream_url = f"https://161-97-96-58.sslip.io/api/asil/coll?{request.query_string}"
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    resp_bytes = await resp.read()
-                    clean_text = sanitize_catalog_text(resp_bytes.decode("utf-8", errors="replace"))
-                    clean_bytes = clean_text.encode("utf-8")
-                    _UPSTREAM_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
-                    return web.Response(
-                        body=clean_bytes,
-                        content_type="application/json",
-                        headers={"Access-Control-Allow-Origin": "*"}
-                    )
-    except Exception as e:
-        logger.info(f"Upstream coll [{slug}] timeout/error ({e}), using instant local fallback.")
-
     data = _build_local_colls_data()
     coll_info = data["by_slug"].get(slug)
     if not coll_info:
@@ -3013,16 +3220,6 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                     cached_item = raw_c.get("item")
                 except Exception:
                     pass
-            if not cached_item:
-                import aiohttp
-                async with aiohttp.ClientSession() as cl:
-                    async with cl.get(
-                        f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(item_id)}",
-                        timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
-                    ) as ir:
-                        if ir.status == 200:
-                            ir_data = await ir.json()
-                            cached_item = ir_data.get("item")
             if cached_item:
                 found_part = None
                 if "seasons" in cached_item:
@@ -3041,12 +3238,6 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                 else:
                     file_list = cached_item.get("files") or cached_item.get("f") or []
                     if isinstance(file_list, list):
-                        is_single_film = (
-                            cached_item.get("is_series") is False
-                            or cached_item.get("type") == "film"
-                            or int(cached_item.get("parts") or cached_item.get("p") or 1) <= 1
-                            or all(not re.search(r'(?:qism|part|ep|seriya|taksi|forsaj|chuqur|titan)[\s\-—–]*\d+', f"{fl.get('label', '')} {fl.get('note', '')}", re.IGNORECASE) for fl in file_list if isinstance(fl, dict))
-                        )
                         for idx, fl in enumerate(file_list):
                             if isinstance(fl, dict) and (fl.get("s") == slot or fl.get("slot") == slot):
                                 ep_num = fl.get("part") or fl.get("p") or fl.get("e")
@@ -3056,17 +3247,7 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                                         break
                                     except (ValueError, TypeError):
                                         pass
-                                label_text = f"{fl.get('label', '')} {fl.get('note', '')} {fl.get('tr', '')}"
-                                m_part = re.search(r'(?:taksi|forsaj|chuqur|titan|qism|part|ep|seriya)[\s\-—–]*(\d+)', label_text, re.IGNORECASE)
-                                if not m_part:
-                                    m_part = re.search(r'(\d+)[\s\-—–]*(?:qism|part|seriya|ep)', label_text, re.IGNORECASE)
-                                if m_part:
-                                    part = int(m_part.group(1))
-                                    break
-                                part = 1 if is_single_film else idx + 1
-                                break
-                            elif fl == slot:
-                                part = 1 if is_single_film else idx + 1
+                                part = idx + 1
                                 break
         except Exception as sle:
             logger.debug("Slot to part resolution error: %s", sle)
@@ -3130,7 +3311,8 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                 bot=_bot_instance,
                 chat_id=user_id,
                 code=item_id,
-                part=part
+                part=part,
+                require_video=True
             )
         except Exception as e:
             logger.error("handle_asil_send deliver_movie error: %s", e)
@@ -3157,6 +3339,26 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                     "bot": bot_username
                 })
             else:
+                stream_info = None
+                try:
+                    stream_info = await MovieService.get_movie_stream_info(item_id, part=part)
+                except Exception as st_err:
+                    logger.debug("handle_asil_send stream_info error: %s", st_err)
+                stream_url = (stream_info or {}).get("stream_url")
+                quality_urls = (stream_info or {}).get("quality_urls") or {}
+                if stream_url or quality_urls:
+                    return web.json_response({
+                        "ok": False,
+                        "delivered": False,
+                        "action": "stream",
+                        "error": "too_big",
+                        "stream_url": stream_url or next(iter(quality_urls.values()), ""),
+                        "quality_urls": quality_urls,
+                        "watch_url": (stream_info or {}).get("watch_url"),
+                        "message": "Video 50 MB dan katta — Bot API orqali yuborib bo'lmaydi. Onlayn tomosha qiling.",
+                        "id": item_id,
+                        "part": part
+                    })
                 return web.json_response({
                     "ok": False,
                     "delivered": False,
@@ -3166,6 +3368,26 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                     "part": part
                 })
     else:
+        stream_info = None
+        try:
+            stream_info = await MovieService.get_movie_stream_info(item_id, part=part)
+        except Exception as st_err:
+            logger.debug("handle_asil_send stream_info error (no bot): %s", st_err)
+        stream_url = (stream_info or {}).get("stream_url")
+        quality_urls = (stream_info or {}).get("quality_urls") or {}
+        if stream_url or quality_urls:
+            return web.json_response({
+                "ok": False,
+                "delivered": False,
+                "action": "stream",
+                "error": "too_big",
+                "stream_url": stream_url or next(iter(quality_urls.values()), ""),
+                "quality_urls": quality_urls,
+                "watch_url": (stream_info or {}).get("watch_url"),
+                "message": "Bot ulanmagan, lekin onlayn oqim mavjud.",
+                "id": item_id,
+                "part": part
+            })
         return web.json_response({
             "ok": False,
             "delivered": False,
@@ -3199,49 +3421,18 @@ async def handle_asil_stream(request: web.Request) -> web.Response:
         if cand.exists() and cand.stat().st_size >= 10 * 1024 * 1024:
             return web.FileResponse(cand)
 
-    # 2. Asilmedia orqali Telegram pleyer yoki fayllar stream havolasini olish
+    # 2. Yagona katalog / Asilmedia orqali imzolangan MP4 oqim havolasini olish
     try:
-        from services.asilmedia_service import asilmedia_service
-        movie = await asilmedia_service.get_movie_details(clean_id)
-        if movie:
-            watch_url = None
-            if part in movie.episodes:
-                ep = movie.episodes[part]
-                watch_url = ep.watch_url or ep.url
-            if not watch_url:
-                watch_url = (
-                    movie.watch_url
-                    or movie.video_sources.get(f"tg_{quality}")
-                    or movie.video_sources.get(quality)
-                    or movie.video_sources.get("tg_1080p")
-                    or movie.video_sources.get("1080p")
-                    or movie.video_sources.get("primary")
-                    or (list(movie.video_sources.values())[0] if movie.video_sources else None)
-                )
-            if watch_url and str(watch_url).startswith("http"):
-                raise web.HTTPFound(watch_url)
+        stream_info = await MovieService.get_movie_stream_info(clean_id, part=part)
+        if stream_info:
+            q_urls = stream_info.get("quality_urls") or {}
+            chosen = q_urls.get(quality) or stream_info.get("stream_url") or stream_info.get("watch_url")
+            if chosen and str(chosen).startswith("http"):
+                raise web.HTTPFound(chosen)
     except web.HTTPFound:
         raise
     except Exception as e:
         logger.debug("handle_asil_stream lookup error: %s", e)
-
-    # 3. Upstream /api/asil/item orqali qidirish
-    try:
-        import aiohttp
-        async with aiohttp.ClientSession() as cl:
-            async with cl.get(
-                f"https://161-97-96-58.sslip.io/api/asil/item?id={urllib.parse.quote(clean_id)}",
-                timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
-            ) as ir:
-                if ir.status == 200:
-                    ir_data = await ir.json()
-                    it = ir_data.get("item")
-                    if it and it.get("watch") and str(it["watch"]).startswith("http"):
-                        raise web.HTTPFound(it["watch"])
-    except web.HTTPFound:
-        raise
-    except Exception:
-        pass
 
     return web.json_response({"ok": False, "error": "Stream not found", "id": clean_id, "part": part}, status=404)
 
@@ -3317,6 +3508,27 @@ async def handle_watch(request: web.Request) -> web.Response:
                 "delivered": True
             })
         else:
+            stream_info = None
+            try:
+                stream_info = await MovieService.get_movie_stream_info(clean_code, part=part)
+            except Exception as st_err:
+                logger.debug("handle_watch stream_info error: %s", st_err)
+            stream_url = (stream_info or {}).get("stream_url")
+            quality_urls = (stream_info or {}).get("quality_urls") or {}
+            if stream_url or quality_urls:
+                return web.json_response({
+                    "ok": False,
+                    "action": "stream",
+                    "url": bot_url,
+                    "error": "too_big",
+                    "stream_url": stream_url or next(iter(quality_urls.values()), ""),
+                    "quality_urls": quality_urls,
+                    "watch_url": (stream_info or {}).get("watch_url"),
+                    "message": "Video 50 MB dan katta — Bot API orqali yuborib bo'lmaydi. Onlayn ko'rishdan foydalaning.",
+                    "delivered": False,
+                    "code": clean_code,
+                    "part": part
+                })
             return web.json_response({
                 "ok": False,
                 "action": "open_bot",
@@ -3328,6 +3540,27 @@ async def handle_watch(request: web.Request) -> web.Response:
                 "part": part
             })
     elif user_id and not _bot_instance:
+        stream_info = None
+        try:
+            stream_info = await MovieService.get_movie_stream_info(clean_code, part=part)
+        except Exception as st_err:
+            logger.debug("handle_watch stream_info error (no bot): %s", st_err)
+        stream_url = (stream_info or {}).get("stream_url")
+        quality_urls = (stream_info or {}).get("quality_urls") or {}
+        if stream_url or quality_urls:
+            return web.json_response({
+                "ok": False,
+                "action": "stream",
+                "url": bot_url,
+                "error": "too_big",
+                "stream_url": stream_url or next(iter(quality_urls.values()), ""),
+                "quality_urls": quality_urls,
+                "watch_url": (stream_info or {}).get("watch_url"),
+                "message": "Bot ulanmagan, lekin onlayn oqim mavjud.",
+                "delivered": False,
+                "code": clean_code,
+                "part": part
+            })
         return web.json_response({
             "ok": False,
             "action": "open_bot",
@@ -3401,32 +3634,12 @@ def get_cached_music_home_sync() -> Dict[str, Any]:
 
 
 async def get_cached_music_home(force_refresh: bool = False) -> Dict[str, Any]:
-    """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar) - upstream bilan to'g'ridan-to'g'ri bog'langan."""
+    """Mini App musiqa bosh sahifasi (Top 50, Hits, Kliplar, Ijrochilar) - lokal katalog."""
     global _MUSIC_HOME_CACHE, _MUSIC_HOME_TS
     now = time.time()
     if not force_refresh and _MUSIC_HOME_CACHE is not None and (now - _MUSIC_HOME_TS < 300):
         return _MUSIC_HOME_CACHE
 
-    # 1. Upstream serverdan (@BauntyCinemabot / https://161-97-96-58.sslip.io) to'g'ridan-to'g'ri yangilash
-    try:
-        import aiohttp
-        upstream_url = "https://161-97-96-58.sslip.io/api/music/home"
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    resp_bytes = await resp.read()
-                    resp_text = resp_bytes.decode("utf-8", errors="replace")
-                    clean_text = sanitize_catalog_text(resp_text)
-                    data = json.loads(clean_text)
-                    if isinstance(data, dict) and data.get("ok"):
-                        _update_music_home_cache(data, now)
-                        music_home_path = BASE_DIR / "data" / "music_home.json"
-                        asyncio.create_task(asyncio.to_thread(_save_music_home_file, data, music_home_path))
-                        return data
-    except Exception as e:
-        logger.info(f"Upstream music/home ulanishida xatolik ({e}), lokal kesh ishlatiladi.")
-
-    # 2. Lokal music_home.json faylidan o'qish (asinxron thread)
     music_home_path = BASE_DIR / "data" / "music_home.json"
     file_data = await asyncio.to_thread(_load_music_home_file, music_home_path)
     if file_data:
@@ -3666,12 +3879,21 @@ async def handle_get_movies(request: web.Request) -> web.Response:
 
 async def handle_get_movie_detail(request: web.Request) -> web.Response:
     """Kino kodi bo'yicha batafsil ma'lumot - DB va katalog zaxirasi bilan."""
-    code = request.match_info.get("code", "")
+    code = request.match_info.get("code", "").strip().lstrip("#№")
+    cat_item = MovieService.get_catalog_item(code)
+    cat_parts = int((cat_item or {}).get("p") or (cat_item or {}).get("parts") or 1)
+    vid_src = MovieService.resolve_video_source(code, part=1, allow_default=False) or {}
+    raw_stream = str(vid_src.get("url") or vid_src.get("download_url") or "")
+    stream_url = raw_stream if raw_stream.startswith("http") else ""
+
     try:
         async with get_session() as session:
             movie = await crud.get_movie_by_code(session, code)
             if movie:
-                return web.json_response({
+                db_files = await crud.get_movie_files(session, movie.id) if hasattr(crud, "get_movie_files") else []
+                max_file_part = max((getattr(f, "part_number", 1) or 1 for f in db_files), default=1)
+                total_parts = max(cat_parts, max_file_part, 1 if movie.file_id else 0, 1)
+                resp = {
                     "ok": True,
                     "id": movie.id,
                     "code": movie.code,
@@ -3683,28 +3905,59 @@ async def handle_get_movie_detail(request: web.Request) -> web.Response:
                     "views_count": movie.views_count,
                     "downloads_count": movie.downloads_count,
                     "description": movie.description,
-                })
+                    "p": total_parts,
+                    "parts": total_parts,
+                }
+                if stream_url:
+                    resp["stream_url"] = stream_url
+                return web.json_response(resp)
     except Exception as e:
         logger.warning(f"Kino tafsilotini DB dan olishda xatolik ({e}), zaxira tekshirilmoqda")
+
+    if cat_item:
+        resp = {
+            "ok": True,
+            "id": cat_item.get("c"),
+            "code": str(cat_item.get("c")),
+            "title": cat_item.get("t", ""),
+            "genres": cat_item.get("g") or "Barcha",
+            "year": cat_item.get("y"),
+            "rating": cat_item.get("r"),
+            "duration": None,
+            "views_count": cat_item.get("v", 0),
+            "downloads_count": 0,
+            "description": cat_item.get("d", ""),
+            "p": max(cat_parts, 1),
+            "parts": max(cat_parts, 1),
+        }
+        if stream_url:
+            resp["stream_url"] = stream_url
+        return web.json_response(resp)
 
     cat = await asyncio.to_thread(_load_cat_file, BASE_DIR / "data" / "catalog.json")
     for it in cat.get("items", []):
         if str(it.get("c")) == str(code):
-            return web.json_response({
+            p_cnt = int(it.get("p") or 1)
+            resp = {
                 "ok": True,
                 "id": it.get("c"),
                 "code": str(it.get("c")),
                 "title": it.get("t", ""),
-                "genres": "Barcha",
-                "year": None,
+                "genres": it.get("g") or "Barcha",
+                "year": it.get("y"),
                 "rating": it.get("r"),
                 "duration": None,
                 "views_count": it.get("v", 0),
                 "downloads_count": 0,
-                "description": it.get("d", "")
-            })
+                "description": it.get("d", ""),
+                "p": max(p_cnt, 1),
+                "parts": max(p_cnt, 1),
+            }
+            if stream_url:
+                resp["stream_url"] = stream_url
+            return web.json_response(resp)
 
-    return web.json_response({"error": "Kino topilmadi"}, status=404)
+    return web.json_response({"ok": False, "error": "Kino topilmadi"}, status=404)
 
 
 async def handle_get_music(request: web.Request) -> web.Response:
@@ -3775,7 +4028,7 @@ async def handle_music_purge(request: web.Request) -> web.Response:
 
 
 async def handle_music_search(request: web.Request) -> web.Response:
-    """Web App va qidiruv uchun musiqa qidirish API — Upstream + Fallback bilan."""
+    """Web App va qidiruv uchun musiqa qidirish API (Deezer + Tarona + SoundCloud + iTunes + yt-dlp)."""
     q = request.query.get("q", "").strip()
     try:
         n = int(request.query.get("n", 25))
@@ -3785,29 +4038,7 @@ async def handle_music_search(request: web.Request) -> web.Response:
     if not q:
         return web.json_response({"ok": True, "items": []})
 
-    init_data = request.headers.get("X-Init-Data", "")
-
-    # 1. Upstream (@BauntyCinemabot / https://161-97-96-58.sslip.io) dan qidirishga urinish
-    try:
-        import aiohttp
-        import urllib.parse
-        upstream_url = f"https://161-97-96-58.sslip.io/api/music/search?q={urllib.parse.quote(q)}&n={n}"
-        req_headers = {"User-Agent": "Mozilla/5.0"}
-        if init_data:
-            req_headers["X-Init-Data"] = init_data
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(upstream_url, headers=req_headers, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    raw_text = await resp.text()
-                    clean_text = sanitize_catalog_text(raw_text)
-                    data = json.loads(clean_text)
-                    if isinstance(data, dict) and data.get("ok") and data.get("items"):
-                        return web.json_response(data, headers={"Cache-Control": "public, max-age=180"})
-    except Exception as e:
-        logger.info(f"Upstream music/search xatolik ({e}), lokal qidiruv ishlatiladi.")
-
-    # 2. Mahalliy parallel qidiruv (Deezer + Tarona + Soundcloud + iTunes + Invidious)
+    # Mahalliy parallel qidiruv (Deezer + Tarona + Soundcloud + iTunes + yt-dlp)
     try:
         tracks = await music_service.search_tracks(query=q, limit=n)
         return web.json_response({"ok": True, "items": tracks}, headers={"Cache-Control": "public, max-age=180"})
@@ -3820,7 +4051,7 @@ _PLAY_STREAM_CACHE: Dict[str, Tuple[float, str]] = {}
 
 
 async def handle_music_play(request: web.Request) -> web.Response:
-    """Web App musiqa tinglash uchun MP3 oqim havolasini tayyorlash API — Upstream + in-memory kesh bilan."""
+    """Web App musiqa tinglash uchun haqiqiy MP3/audio oqim havolasini tayyorlash."""
     try:
         body = await request.json()
     except Exception:
@@ -3828,7 +4059,7 @@ async def handle_music_play(request: web.Request) -> web.Response:
 
     url = body.get("u") or body.get("preview") or body.get("url")
     track_id = str(body.get("id") or "")
-    cache_key = f"{track_id}_{url}"
+    cache_key = f"{track_id}_{url}_{body.get('t')}_{body.get('a')}"
     now = time.time()
 
     if cache_key in _PLAY_STREAM_CACHE:
@@ -3836,115 +4067,21 @@ async def handle_music_play(request: web.Request) -> web.Response:
         if now - ts < 3600:
             return web.json_response({"ok": True, "url": cached_url}, headers={"Cache-Control": "public, max-age=1800"})
 
-    init_data = request.headers.get("X-Init-Data", "")
-
-    # 1. Upstream (@BauntyCinemabot / https://161-97-96-58.sslip.io) dan oqim havolasini olish
-    try:
-        import aiohttp
-        upstream_url = "https://161-97-96-58.sslip.io/api/music/play"
-        req_headers = {"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"}
-        if init_data:
-            req_headers["X-Init-Data"] = init_data
-
-        async with aiohttp.ClientSession() as session:
-            async with session.post(upstream_url, json=body, headers=req_headers, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                if resp.status == 200:
-                    raw_text = await resp.text()
-                    clean_text = sanitize_catalog_text(raw_text)
-                    data = json.loads(clean_text)
-                    if isinstance(data, dict) and data.get("ok") and data.get("url"):
-                        stream_url = data["url"]
-                        _PLAY_STREAM_CACHE[cache_key] = (now, stream_url)
-                        return web.json_response(data, headers={"Cache-Control": "public, max-age=1800"})
-    except Exception as e:
-        logger.debug(f"Upstream music/play xatolik: {e}")
-
-    # Tarona bazasi bo'lsa, to'g'ridan-to'g'ri .mp3 audio oqim havolasini aniqlash
-    if body.get("s") == "tarona" or (url and any(d in str(url) for d in ["muzfm", "mp3uz", "/music/"])):
-        direct_tarona = await music_service._resolve_tarona_direct_mp3(body)
-        if direct_tarona:
-            _PLAY_STREAM_CACHE[cache_key] = (now, direct_tarona)
-            return web.json_response({"ok": True, "url": direct_tarona}, headers={"Cache-Control": "public, max-age=1800"})
-
-    # Faqat haqiqiy audio oqim yoki CDN bo'lsa darhol qaytarish (YouTube yoki HTML sahifalar audio emas)
-    is_direct_audio = (
-        url and str(url).startswith("http")
-        and not any(p in str(url) for p in ["/music/", ".html", "search?", "youtube.com", "youtu.be", "/watch?", "t.me"])
-        and (
-            any(ext in str(url) for ext in [".mp3", ".m4a", ".ogg", "dzcdn", "mzstatic", "sndcdn", "audio-preview"])
-            or not any(w in str(url) for w in ["youtube", "youtu.be", "watch?"])
-        )
+    # Yangi music_service.play_track orqali tekshirish (Tarona / Deezer / iTunes / yt-dlp)
+    res = await music_service.play_track(
+        track_info=body,
+        query=str(body.get("q") or ""),
+        title=str(body.get("t") or body.get("title") or ""),
+        artist=str(body.get("a") or body.get("artist") or ""),
     )
-    if is_direct_audio:
-        _PLAY_STREAM_CACHE[cache_key] = (now, url)
-        return web.json_response({"ok": True, "url": url}, headers={"Cache-Control": "public, max-age=1800"})
+    if res.get("ok") and res.get("url"):
+        _PLAY_STREAM_CACHE[cache_key] = (now, res["url"])
+        return web.json_response(res, headers={"Cache-Control": "public, max-age=1800"})
 
-    # Deezer ID bo'yicha to'g'ridan-to'g'ri preview olish
-    if track_id and body.get("s") == "dz":
-        try:
-            import aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"https://api.deezer.com/track/{track_id}", timeout=aiohttp.ClientTimeout(total=2.0, connect=1.0)) as resp:
-                    if resp.status == 200:
-                        dz_data = await resp.json()
-                        preview_mp3 = dz_data.get("preview")
-                        if preview_mp3:
-                            _PLAY_STREAM_CACHE[cache_key] = (now, preview_mp3)
-                            return web.json_response({"ok": True, "url": preview_mp3}, headers={"Cache-Control": "public, max-age=1800"})
-        except Exception as e:
-            logger.info(f"Deezer preview olishda xatolik: {e}")
-
-    # Qo'shiq va ijrochi nomi bo'yicha haqiqiy audio oqim qidirish (Tarona direct MP3 va Deezer/iTunes)
-    artist = body.get("a") or body.get("artist") or ""
-    title = body.get("t") or body.get("title") or ""
-    # Emojilar, yil, shovqin so'zlarni tozalash
-    clean_title = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', title)
-    clean_title = re.sub(r'\|.*$|\(.*?\)|\[.*?\]', '', clean_title)
-    clean_title = re.sub(r'\b(202\d|xit|premyera|official|video|mp3|remix|hd|klip)\b', '', clean_title, flags=re.IGNORECASE)
-    clean_title = re.sub(r'[^\w\s\'-]', ' ', clean_title).strip()
-    
-    clean_artist = re.sub(r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]', '', artist)
-    clean_artist = re.sub(r'[^\w\s\'-]', ' ', clean_artist).strip()
-
-    search_queries = [
-        f"{clean_artist} {clean_title}".strip(),
-        f"{clean_title}".strip(),
-        f"{artist} {title}".strip()
-    ]
-
-    for q in search_queries:
-        if not q or len(q) < 2:
-            continue
-        try:
-            results = await music_service.search_tracks(query=q, limit=5)
-            for res in results:
-                # 1. Tarona / Muzfm to'g'ridan-to'g'ri MP3 faylini olish
-                tarona_link = res.get("link") or res.get("u") or res.get("preview")
-                if tarona_link and ("muzfm" in str(tarona_link) or "tarona" in str(tarona_link) or "/music/" in str(tarona_link)):
-                    direct_mp3 = await music_service._resolve_tarona_direct_mp3(res)
-                    if direct_mp3 and direct_mp3.startswith("http"):
-                        _PLAY_STREAM_CACHE[cache_key] = (now, direct_mp3)
-                        return web.json_response({"ok": True, "url": direct_mp3}, headers={"Cache-Control": "public, max-age=1800"})
-
-                # 2. To'g'ridan-to'g'ri audio preview yoki CDN oqimi
-                stream_res = res.get("preview") or res.get("url") or res.get("u")
-                if stream_res and str(stream_res).startswith("http") and not any(p in str(stream_res) for p in ["youtube.com", "youtu.be", "/watch?", ".html", "/music/"]):
-                    if any(ext in str(stream_res) for ext in [".mp3", ".m4a", ".ogg", "dzcdn", "mzstatic", "sndcdn", "audio-preview"]):
-                        _PLAY_STREAM_CACHE[cache_key] = (now, stream_res)
-                        return web.json_response({"ok": True, "url": stream_res}, headers={"Cache-Control": "public, max-age=1800"})
-        except Exception as e:
-            logger.debug(f"Play search query '{q}' xatosi: {e}")
-
-    # Agar YouTube ID (y) mavjud bo'lsa, Invidious ochiq audio oqimini sinash
-    yt_id = body.get("y") or (track_id if len(track_id) == 11 and not track_id.isdigit() else None)
-    if yt_id:
-        for host in ["invidious.jing.rocks", "invidious.nerdvpn.de", "invidious.private.coffee"]:
-            inv_stream = f"https://{host}/latest_version?id={yt_id}&itag=140"
-            _PLAY_STREAM_CACHE[cache_key] = (now, inv_stream)
-            return web.json_response({"ok": True, "url": inv_stream}, headers={"Cache-Control": "public, max-age=1800"})
-
-    # Begona yoki adashgan qo'shiqni qo'ymaslik uchun random fallback olib tashlandi
-    return web.json_response({"ok": False, "error": "stream_not_found"}, status=404)
+    return web.json_response(
+        {"ok": False, "error": res.get("error") or "stream_not_found"},
+        status=404,
+    )
 
 
 async def handle_music_send(request: web.Request) -> web.Response:
@@ -4193,20 +4330,12 @@ ALLOWED_STREAM_DOMAINS = (
     "googlevideo.com",
     "rutube.ru",
 
-    # Asilmedia domenlari va serverlari
+    # Asilmedia va Bauntys media CDN domenlari
     "asilmedia.org",
     "asilmedia.net",
     "asilmedia.uz",
     "fayllar.com",
-
-    # Zakirovs oilasi va ekotizim domenlari / CDNlari (tashqi zakirovs linklari)
-    "zakirovs.uz",
-    "zakirov.uz",
-    "zakirovs.com",
-    "dilbarzakirova.uz",
-    "dilbarzakirova.com",
-    "zakirovsfilms.uz",
-    "zakirovsfilms.com",
+    "fayllar1.ru",
 )
 
 
@@ -4214,8 +4343,7 @@ def is_stream_url_allowed(target_url: str) -> bool:
     """
     Oqim URL xavfsizligini tekshirish:
     - Loopback (127.x, ::1), private IPs (10.x, 192.168.x, 172.16.x), link-local (169.254.x) qat'iy to'siladi
-    - Media provayderlar va Asilmedia domenlari ruxsat etiladi
-    - Zakirovs oilasi ekotizimiga tegishli barcha tashqi havolalar (har qanday TLD) to'liq qabul qilinadi
+    - Media provayderlar va Asilmedia/Fayllar CDN domenlari ruxsat etiladi
     """
     from urllib.parse import urlparse
     import ipaddress
@@ -4260,13 +4388,8 @@ def is_stream_url_allowed(target_url: str) -> bool:
         if any(host == dom or host.endswith(f".{dom}") for dom in ALLOWED_STREAM_DOMAINS):
             return True
 
-        # 2. Zakirovs oilasi va Asilmedia ekotizimiga tegishli barcha domen va subdomenlar (har qanday TLD)
-        # e.g., *.zakirovs.*, *.zakirov.*, *.dilbarzakirova.*, *.asilmedia.*
-        if re.search(r'(^|\.)(zakirovs?|dilbarzakirova|asilmedia)\.[a-z0-9\-]+(\.[a-z0-9\-]+)?$', host):
-            return True
-
-        # 3. Maxsus ichki upstream proksi va CDN manzillari
-        if host in ("161-97-96-58.sslip.io", "fayllar.com"):
+        # 2. Asilmedia va Fayllar CDN domenlari
+        if re.search(r'(^|\.)(asilmedia|fayllar1?)\.[a-z0-9\-]+(\.[a-z0-9\-]+)?$', host):
             return True
 
         return False
@@ -4590,6 +4713,54 @@ async def handle_tv_speed(request: web.Request) -> web.Response:
     return resp
 
 
+async def handle_tv_telemetry(request: web.Request) -> web.Response:
+    """TV pleer va tarmoq tezligi telemetriyasini qabul qilish."""
+    cors_headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Init-Data, X-Requested-With",
+    }
+    if request.method == "OPTIONS":
+        return web.Response(status=204, headers=cors_headers)
+
+    raw_bytes = b""
+    try:
+        raw_bytes = await request.read()
+    except Exception:
+        pass
+    if len(raw_bytes) > 65536:
+        return web.json_response(
+            {"ok": False, "error": "payload_too_large"},
+            status=413,
+            headers=cors_headers,
+        )
+
+    payload: Dict[str, Any] = {}
+    if raw_bytes:
+        try:
+            parsed = json.loads(raw_bytes.decode("utf-8", errors="ignore"))
+            if isinstance(parsed, dict):
+                payload = parsed
+        except Exception:
+            payload = {}
+
+    try:
+        raw_ms = payload.get("duration_ms") or payload.get("latency_ms") or payload.get("ms") or 0.0
+        duration_ms = max(0.0, float(raw_ms))
+    except (TypeError, ValueError):
+        duration_ms = 0.0
+
+    telemetry_service.record_request(
+        method="POST",
+        path="/api/tv/telemetry",
+        status=200,
+        duration_ms=duration_ms,
+        client_ip=request.remote,
+        user_agent=request.headers.get("User-Agent"),
+    )
+    return web.json_response({"ok": True, "received": True}, headers=cors_headers)
+
+
 async def handle_tv_icon(request: web.Request) -> web.Response:
     """Telekanal logosi / ikonkasini tiniq vektor SVG sifatida uzatish (100% tezkor va barqaror)."""
     raw_id = request.match_info.get("id", "").replace(".svg", "").replace(".ico", "").replace(".png", "")
@@ -4713,18 +4884,30 @@ async def handle_pet_action(request: web.Request) -> web.Response:
 
 
 async def handle_story(request: web.Request) -> web.Response:
-    """Anonim story ko'rish API."""
-    username = request.query.get("username", "instagram").strip().lstrip("@")
-    stories = [
-        {"id": 1, "type": "image", "media_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600", "timestamp": "2 soat oldin"},
-        {"id": 2, "type": "video", "media_url": "https://www.w3schools.com/html/mov_bbb.mp4", "timestamp": "5 soat oldin"},
-    ]
+    """Haqiqiy story ko'rish API (soxta namuna videolarsiz)."""
+    username = (request.query.get("username") or request.query.get("u") or "").strip().lstrip("@")
+    if not username:
+        return web.json_response({"ok": False, "error": "bad_username", "stories": [], "total": 0}, status=400)
+
+    data = await story_service.get_user_profile_and_stories(username)
+    items = data.get("items") or []
+    if not data.get("ok") or not items:
+        return web.json_response({
+            "ok": False,
+            "error": data.get("error") or "story_not_found",
+            "username": data.get("name") or username,
+            "avatar": data.get("pic") or "",
+            "stories": [],
+            "total": 0,
+        }, status=404)
+
     return web.json_response({
         "ok": True,
-        "username": username,
-        "avatar": f"https://api.dicebear.com/7.x/identicon/svg?seed={username}",
-        "stories": stories,
-        "total": len(stories),
+        "username": data.get("name") or username,
+        "avatar": data.get("pic") or "",
+        "stories": items,
+        "items": items,
+        "total": len(items),
     })
 
 
@@ -4757,6 +4940,19 @@ async def handle_story_ig(request: web.Request) -> web.Response:
 async def handle_story_ighl(request: web.Request) -> web.Response:
     """Instagram aktual hikoyalari (highlights)."""
     return web.json_response({"ok": True, "items": []})
+
+
+async def handle_story_tgm(request: web.Request) -> web.Response:
+    """Telegram story media URL ni keshdan olish."""
+    u = story_service.clean_username(request.query.get("u", ""))
+    mid = str(request.query.get("id") or "").strip()
+    if not u or not mid:
+        return web.json_response({"ok": False, "error": "bad_params"}, status=400)
+    cached = story_service._profile_cache.get(f"tg_{u}") or {}
+    for it in cached.get("items") or []:
+        if str(it.get("id")) == mid and it.get("u"):
+            return web.json_response({"ok": True, "src": it["u"]})
+    return web.json_response({"ok": False, "error": "story_not_found"}, status=404)
 
 
 async def handle_story_tg(request: web.Request) -> web.Response:
@@ -4852,21 +5048,12 @@ async def handle_story_send(request: web.Request) -> web.Response:
         except Exception as e:
             logger.warning(f"Story send umumiy xatoligi: {e}")
 
-    # 3. Zaxira matn
     if not sent_any:
-        try:
-            await _bot_instance.send_message(
-                chat_id=chat_id,
-                text=(
-                    f"👀 <b>@{clean_u}</b> profili hikoyalari (Mini App)\n\n"
-                    f"🍿 {config.CHANNEL_USERNAME}\n"
-                    f"🤖 @{config.BOT_USERNAME.lstrip('@')}"
-                ),
-                parse_mode="HTML"
-            )
-            sent_any = True
-        except Exception:
-            pass
+        return web.json_response({
+            "ok": False,
+            "error": "story_not_found",
+            "message": f"@{clean_u} uchun faol hikoya topilmadi."
+        }, status=404)
 
     return web.json_response({"ok": True, "message": f"@{clean_u} hikoyasi chatga yuborildi!"})
 
@@ -4974,42 +5161,58 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                     "message": "Video mavjud emas yoki yetkazib bo'lmadi"
                 }, status=404)
         elif action_type == "music":
-            title = body.get("title", "Musiqa")
-            artist = body.get("artist", "")
-            # Musiqa trekini TOP_50_TRACKS dan qidirish
-            matching_track = next((t for t in TOP_50_TRACKS if t["title"].lower() == title.lower() or (artist and artist.lower() in t["artist"].lower())), None)
+            title = str(body.get("title") or body.get("t") or "Musiqa")
+            artist = str(body.get("artist") or body.get("a") or "")
+            full_query = f"{artist} - {title}".strip(" -") if artist else title
+            if not _bot_instance or not chat_id:
+                return web.json_response(
+                    {"ok": False, "success": False, "error": "bot_unavailable", "message": "Bot ulanmagan"},
+                    status=503,
+                )
+            res = await music_service.download_track_mp3(full_query, track_info=body)
             sent_audio = False
-            if matching_track and matching_track.get("url"):
+            caption = (
+                f"🎵 <b>{artist + ' - ' if artist else ''}{title}</b>\n\n"
+                f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi"
+            )
+            if res and getattr(res, "success", False) and getattr(res, "file_path", None):
+                from aiogram.types import FSInputFile
+                from utils.helpers import safe_remove_file
                 try:
-                    caption = (
-                        f"🎵 <b>{artist} - {title}</b>\n\n"
-                        f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
-                        f"🍿 {config.CHANNEL_USERNAME}"
-                    )
                     await _bot_instance.send_audio(
                         chat_id=chat_id,
-                        audio=matching_track["url"],
+                        audio=FSInputFile(res.file_path),
                         title=title,
-                        performer=artist,
+                        performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        duration=getattr(res, "duration", None),
                         caption=caption,
-                        parse_mode="HTML"
+                        parse_mode="HTML",
                     )
                     sent_audio = True
-                except Exception as e_audio:
-                    logger.warning(f"Audio yuborishda xatolik ({e_audio}), xabar yuborilmoqda")
-
+                finally:
+                    safe_remove_file(res.file_path)
             if not sent_audio:
-                await _bot_instance.send_message(
-                    chat_id=chat_id,
-                    text=(
-                        f"🎵 <b>{artist} - {title}</b>\n\n"
-                        "Ilovadan tanlangan musiqa!\n\n"
-                        f"🤖 @{config.BOT_USERNAME.lstrip('@')}\n"
-                        f"🍿 {config.CHANNEL_USERNAME}"
-                    ),
-                    parse_mode="HTML"
-                )
-            return web.json_response({"success": True, "message": f"«{artist} - {title}» chatga yuborildi!"})
+                played = await music_service.play_track(track_info=body, query=full_query, title=title, artist=artist)
+                stream_url = played.get("url") if isinstance(played, dict) and played.get("ok") else None
+                if stream_url:
+                    await _bot_instance.send_audio(
+                        chat_id=chat_id,
+                        audio=stream_url,
+                        title=title,
+                        performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        duration=int(body.get("duration") or body.get("d") or 0) or None,
+                        caption=caption,
+                        parse_mode="HTML",
+                    )
+                    sent_audio = True
+            if sent_audio:
+                return web.json_response({"ok": True, "success": True, "message": f"«{full_query}» chatga MP3 qilib yuborildi!"})
+            return web.json_response({
+                "ok": False,
+                "success": False,
+                "error": (getattr(res, "error", None) if res else None) or "audio_unavailable",
+                "message": "Bu trekning MP3 fayli topilmadi"
+            }, status=404)
     except Exception as e:
         logger.error(f"Chatga yuborishda xatolik: {e}")
         return web.json_response({"error": str(e)}, status=500)
@@ -5119,20 +5322,121 @@ async def handle_books_home(request: web.Request) -> web.Response:
 
 
 async def handle_books_me(request: web.Request) -> web.Response:
-    """Foydalanuvchining kitob javoni va o'qish statistikasi."""
-    return web.json_response({
-        "ok": True,
-        "books": [],
-        "shelf": [],
-        "stats": {"secs": 0, "books": 0},
-        "audio": [],
-        "notes": []
-    }, headers={"Access-Control-Allow-Origin": "*"})
+    """Foydalanuvchining kitob javoni, audio progressi, qaydlari va o'qish statistikasi."""
+    headers = {"Access-Control-Allow-Origin": "*"}
+    raw_uid = request.query.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_uid)
+    if not is_valid:
+        status = 403 if err == "user_id_spoofing" else 401
+        return web.json_response({"ok": False, "error": err or "auth"}, status=status, headers=headers)
+    uid = user_id or extract_request_user(request)[0]
+    from services import book_service
+    return web.json_response(book_service.get_user_state(uid), headers=headers)
 
 
 async def handle_books_action(request: web.Request) -> web.Response:
-    """Javon, progress va qaydlar amallari."""
-    return web.json_response({"ok": True}, headers={"Access-Control-Allow-Origin": "*"})
+    """Javon, progress, audio va qaydlar amallari."""
+    headers = {"Access-Control-Allow-Origin": "*"}
+    path = _extract_api_path(request)
+    body = await _read_json_body(request)
+    raw_uid = body.get("user_id") or request.query.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_uid)
+    if not is_valid:
+        status = 403 if err == "user_id_spoofing" else 401
+        return web.json_response({"ok": False, "error": err or "auth"}, status=status, headers=headers)
+    uid = user_id or extract_request_user(request)[0]
+    bid = body.get("i") or body.get("id") or body.get("book_id")
+    from services import book_service
+
+    if path == "api/books/shelf":
+        if not bid:
+            return web.json_response({"ok": False, "error": "bad_book_id"}, status=400, headers=headers)
+        res = book_service.toggle_shelf(
+            uid,
+            bid,
+            saved=body.get("saved"),
+            done=body.get("done"),
+            stars=body.get("stars"),
+            remove=bool(body.get("remove", False)),
+            dl=body.get("dl"),
+        )
+        return web.json_response(res, headers=headers)
+
+    if path == "api/books/progress":
+        if not bid:
+            return web.json_response({"ok": False, "error": "bad_book_id"}, status=400, headers=headers)
+        res = book_service.save_user_progress(
+            uid,
+            bid,
+            ch=int(body.get("ch") or 0),
+            off=float(body.get("off") or 0.0),
+            pct=float(body.get("pct") or 0.0),
+            secs=int(body.get("secs") or 0),
+        )
+        return web.json_response(res, headers=headers)
+
+    if path == "api/books/note":
+        if body.get("del") is not None:
+            res = book_service.delete_note(uid, body.get("del"))
+            return web.json_response(res, headers=headers)
+        if not bid:
+            return web.json_response({"ok": False, "error": "bad_book_id"}, status=400, headers=headers)
+        res = book_service.add_note(
+            uid,
+            bid,
+            ch=int(body.get("ch") or 0),
+            q=str(body.get("q") or ""),
+            note=str(body.get("n") or body.get("note") or ""),
+            pos=int(body.get("pos") if body.get("pos") is not None else -1),
+        )
+        return web.json_response(res, headers=headers)
+
+    if path == "api/books/audio":
+        if not bid:
+            return web.json_response({"ok": False, "error": "bad_book_id"}, status=400, headers=headers)
+        res = book_service.save_user_audio_progress(
+            uid,
+            bid,
+            n=int(body.get("n") or 1),
+            t=float(body.get("t") or 0.0),
+            secs=int(body.get("secs") or 0),
+        )
+        return web.json_response(res, headers=headers)
+
+    return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+
+
+async def handle_books_page(request: web.Request) -> web.Response:
+    """Skanerlangan kitob sahifasini lokal keshdan qaytarish."""
+    headers = {"Access-Control-Allow-Origin": "*"}
+    bid = re.sub(r"\D", "", str(request.match_info.get("id") or ""))
+    page_num = re.sub(r"\D", "", str(request.match_info.get("n") or ""))
+    if not bid or not page_num:
+        return web.json_response({"ok": False, "error": "bad_params"}, status=400, headers=headers)
+    bk_dir = BASE_DIR / "data" / "bk" / bid
+    for ext, ct in ((".webp", "image/webp"), (".jpg", "image/jpeg"), (".jpeg", "image/jpeg"), (".png", "image/png")):
+        cand = bk_dir / f"s{page_num}{ext}"
+        if cand.exists():
+            data = await asyncio.to_thread(cand.read_bytes)
+            return web.Response(body=data, content_type=ct, headers={**headers, "Cache-Control": "public, max-age=604800"})
+    return web.json_response({"ok": False, "error": "page_not_found"}, status=404, headers=headers)
+
+
+async def handle_books_admin_delete(request: web.Request) -> web.Response:
+    """Admin tomonidan kitobni o'chirish API (qat'iy admin tekshiruvi bilan)."""
+    headers = {"Access-Control-Allow-Origin": "*"}
+    is_adm, _ = verify_admin_request(request)
+    if not is_adm:
+        return web.json_response({"ok": False, "error": "forbidden"}, status=403, headers=headers)
+    body = await _read_json_body(request)
+    bid = str(body.get("i") or body.get("id") or "").strip()
+    if not bid:
+        return web.json_response({"ok": False, "error": "bad_book_id"}, status=400, headers=headers)
+    from services import book_service
+    book = book_service.get_book_by_id(bid)
+    if not book:
+        return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+    return web.json_response({"ok": True, "deleted": bid}, headers=headers)
 
 
 async def handle_books_search(request: web.Request) -> web.Response:
@@ -5193,13 +5497,22 @@ async def handle_books_search(request: web.Request) -> web.Response:
 
 
 async def handle_book_detail(request: web.Request) -> web.Response:
-    """Kitobning to'liq ma'lumotlarini olish (mahalliy yoki upstream)."""
+    """Kitobning to'liq ma'lumotlari va foydalanuvchi holatini olish."""
+    headers = {"Access-Control-Allow-Origin": "*"}
     book_id = request.match_info.get("id", "").strip() or request.query.get("id", "").strip() or request.query.get("i", "").strip()
+    raw_uid = request.query.get("user_id")
+    user_id, is_valid, err = security_service.verify_telegram_user(request, raw_uid)
+    if not is_valid:
+        status = 403 if err == "user_id_spoofing" else 401
+        return web.json_response({"ok": False, "error": err or "auth"}, status=status, headers=headers)
+    uid = user_id or extract_request_user(request)[0]
     from services import book_service
     book = book_service.get_book_by_id(book_id)
     if not book:
-        return web.json_response({"ok": False, "error": "not_found"}, status=404, headers={"Access-Control-Allow-Origin": "*"})
-    return web.json_response({"ok": True, "book": book}, headers={"Access-Control-Allow-Origin": "*"})
+        return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
+    book_out = dict(book)
+    book_out["me"] = book_service.get_user_book_me(uid, book_out.get("i") or book_id)
+    return web.json_response({"ok": True, "book": book_out}, headers=headers)
 
 
 async def handle_book_send(request: web.Request) -> web.Response:
@@ -5450,12 +5763,23 @@ async def handle_api_donate(request: web.Request) -> web.Response:
 
 
 async def handle_api_reklama(request: web.Request) -> web.Response:
-    """Bauntys reklama berish ma'lumotlari."""
+    """Bauntys reklama berish ma'lumotlari (real PostgreSQL foydalanuvchilar soni bilan)."""
     channel_clean = config.CHANNEL_USERNAME.lstrip("@")
+    users_count = 0
+    try:
+        from sqlalchemy import select, func
+        from database.models import User
+        async with get_session() as session:
+            val = await session.scalar(select(func.count(User.id)))
+            users_count = int(val or 0)
+    except Exception as e:
+        logger.debug("handle_api_reklama DB user count fallback: %s", e)
+        users_count = 0
+
     return web.json_response({
         "ok": True,
         "on": True,
-        "users": 250000,
+        "users": users_count,
         "user": channel_clean,
         "phone": "+998900000000",
         "phone_fmt": "+998 90 000 00 00",
@@ -5466,6 +5790,15 @@ async def handle_api_reklama(request: web.Request) -> web.Response:
             {"ic": "🎬", "t": "Kino posteri", "s": "Poster kanali va katalogda"}
         ]
     })
+
+
+async def handle_api_not_found(request: web.Request) -> web.Response:
+    """Mahalliy API da topilmagan so'rovlar uchun toza 404 JSON javobi."""
+    return web.json_response(
+        {"ok": False, "error": "not_found", "path": request.path},
+        status=404,
+        headers={"Access-Control-Allow-Origin": "*"},
+    )
 
 
 def create_web_app() -> web.Application:
@@ -5534,13 +5867,14 @@ def create_web_app() -> web.Application:
         ("POST", "/api/music/report", handle_music_report),
         ("POST", "/api/music/ban", handle_music_ban),
         ("POST", "/api/music/purge", handle_music_purge),
-        ("GET", "/api/music/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/music/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/music/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/music/{tail:.*}", handle_api_not_found),
         ("GET", "/api/tv/stream", handle_tv_stream_proxy),
         ("POST", "/api/tv/stream", handle_tv_stream_proxy),
         ("GET", "/api/tv/speed", handle_tv_speed),
         ("HEAD", "/api/tv/speed", handle_tv_speed),
         ("POST", "/api/tv/speed", handle_tv_speed),
+        ("POST", "/api/tv/telemetry", handle_tv_telemetry),
         ("GET", "/api/speedtest", handle_tv_speed),
         ("HEAD", "/api/speedtest", handle_tv_speed),
         ("GET", "/api/tv", handle_get_tv),
@@ -5549,34 +5883,39 @@ def create_web_app() -> web.Application:
         ("POST", "/api/tv/report", handle_tv_report),
         ("GET", "/api/tv/me", handle_tv_me),
         ("POST", "/api/tv/hide", handle_tv_hide),
-        ("GET", "/api/tv/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/tv/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/tv/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/tv/{tail:.*}", handle_api_not_found),
         ("GET", "/api/games", handle_get_games),
         ("POST", "/api/games", handle_get_games),
         ("POST", "/api/games/chest/claim", handle_chest_claim),
         ("POST", "/api/games/pet/action", handle_pet_action),
-        ("GET", "/api/games/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/games/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/games/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/games/{tail:.*}", handle_api_not_found),
         ("GET", "/api/story", handle_story),
         ("POST", "/api/story", handle_story),
         ("GET", "/api/story/me", handle_story_me),
         ("GET", "/api/story/ig", handle_story_ig),
         ("GET", "/api/story/ighl", handle_story_ighl),
+        ("GET", "/api/story/ighi", handle_story_ighl),
         ("GET", "/api/story/tg", handle_story_tg),
+        ("GET", "/api/story/tgm", handle_story_tgm),
         ("POST", "/api/story/send", handle_story_send),
         ("POST", "/api/story/watch", handle_story_watch),
-        ("GET", "/api/story/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/story/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/story/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/story/{tail:.*}", handle_api_not_found),
         ("GET", "/api/docs", handle_doc_root),
         ("POST", "/api/docs", handle_doc_root),
         ("GET", "/api/docs/config", handle_doc_config),
         ("POST", "/api/docs/convert", handle_doc_convert),
         ("POST", "/api/docs/pdf", handle_doc_pdf),
-        ("POST", "/api/docs/upload", handle_upstream_api_proxy),
-        ("POST", "/api/docs/run", handle_upstream_api_proxy),
-        ("POST", "/api/docs/preview", handle_upstream_api_proxy),
-        ("GET", "/api/docs/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/docs/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/docs/upload", handle_docs_api),
+        ("POST", "/api/docs/run", handle_docs_api),
+        ("POST", "/api/docs/preview", handle_docs_api),
+        ("POST", "/api/docs/unlock", handle_docs_api),
+        ("GET", "/api/docs/job/{id}", handle_docs_api),
+        ("GET", "/api/docs/t/{tail:.*}", handle_docs_api),
+        ("GET", "/api/docs/{tail:.*}", handle_docs_api),
+        ("POST", "/api/docs/{tail:.*}", handle_docs_api),
         ("GET", "/api/books", handle_books_catalog),
         ("POST", "/api/books", handle_books_catalog),
         ("GET", "/api/books/home", handle_books_home),
@@ -5586,19 +5925,22 @@ def create_web_app() -> web.Application:
         ("GET", "/api/books/me", handle_books_me),
         ("POST", "/api/books/progress", handle_books_action),
         ("POST", "/api/books/note", handle_books_action),
-        ("GET", "/api/books/audio", handle_upstream_api_proxy),
+        ("POST", "/api/books/audio", handle_books_action),
+        ("POST", "/api/books/admin/delete", handle_books_admin_delete),
         ("GET", "/api/books/b/{id}", handle_book_detail),
-        ("GET", "/api/books/page/{id}/{n}", handle_upstream_api_proxy),
+        ("GET", "/api/books/page/{id}/{n}", handle_books_page),
         ("GET", "/api/books/search", handle_books_search),
         ("GET", "/api/books/{id}", handle_book_detail),
         ("GET", "/api/books/{id}/pdf", handle_book_pdf),
         ("POST", "/api/books/send", handle_book_send),
-        ("GET", "/api/books/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/books/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/books/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/books/{tail:.*}", handle_api_not_found),
         ("GET", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
         ("POST", "/api/food/kcal/{tail:.*}", handle_kaloriya_api),
-        ("GET", "/api/food", handle_upstream_api_proxy),
-        ("GET", "/api/food/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/food", handle_food_api),
+        ("POST", "/api/food", handle_food_api),
+        ("GET", "/api/food/{tail:.*}", handle_food_api),
+        ("POST", "/api/food/{tail:.*}", handle_food_api),
         ("GET", "/api/quiz", handle_quiz_api),
         ("POST", "/api/quiz", handle_quiz_api),
         ("GET", "/api/quiz/{tail:.*}", handle_quiz_api),
@@ -5606,8 +5948,11 @@ def create_web_app() -> web.Application:
         ("GET", "/api/fx", handle_fx_api),
         ("POST", "/api/fx", handle_fx_api),
         ("GET", "/api/fx/alerts", handle_fx_alerts),
-        ("GET", "/api/fx/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/fx/{tail:.*}", handle_upstream_api_proxy),
+        ("POST", "/api/fx/alerts", handle_fx_alerts),
+        ("GET", "/api/fx/h/{c}", handle_fx_history),
+        ("GET", "/api/fx/banks/{c}", handle_fx_banks),
+        ("GET", "/api/fx/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/fx/{tail:.*}", handle_api_not_found),
         ("GET", "/api/maintenance", handle_maintenance),
         ("POST", "/api/maintenance", handle_maintenance),
         ("GET", "/api/admin/maintenance", handle_admin_maintenance),
@@ -5623,8 +5968,8 @@ def create_web_app() -> web.Application:
         ("POST", "/api/prava/exam/start", handle_prava_exam_start),
         ("POST", "/api/prava/exam/ans", handle_prava_exam_ans),
         ("POST", "/api/prava/exam/finish", handle_prava_exam_finish),
-        ("GET", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/prava/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/prava/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/prava/{tail:.*}", handle_api_not_found),
         ("GET", "/api/sub", handle_api_sub),
         ("POST", "/api/sub", handle_api_sub),
         ("GET", "/api/donate", handle_api_donate),
@@ -5644,8 +5989,8 @@ def create_web_app() -> web.Application:
         ("GET", "/api/asil/coll", handle_asil_coll),
         ("POST", "/api/asil/send", handle_asil_send),
         ("GET", "/api/asil/stream", handle_asil_stream),
-        ("GET", "/api/asil/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/asil/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/asil/{tail:.*}", handle_api_not_found),
+        ("POST", "/api/asil/{tail:.*}", handle_api_not_found),
         ("GET", "/api/rasxod", handle_rasxod_api),
         ("POST", "/api/rasxod", handle_rasxod_api),
         ("GET", "/api/rasxod/{tail:.*}", handle_rasxod_api),
@@ -5662,9 +6007,18 @@ def create_web_app() -> web.Application:
         ("POST", "/api/tvroom", handle_tvroom_api),
         ("GET", "/api/tvroom/{tail:.*}", handle_tvroom_api),
         ("POST", "/api/tvroom/{tail:.*}", handle_tvroom_api),
-        ("GET", "/api/duel", handle_upstream_api_proxy),
-        ("GET", "/api/duel/{tail:.*}", handle_upstream_api_proxy),
-        ("POST", "/api/duel/{tail:.*}", handle_upstream_api_proxy),
+        ("GET", "/api/bunker", handle_bunker_api),
+        ("POST", "/api/bunker", handle_bunker_api),
+        ("GET", "/api/bunker/{tail:.*}", handle_bunker_api),
+        ("POST", "/api/bunker/{tail:.*}", handle_bunker_api),
+        ("GET", "/api/deliv", handle_deliv_api),
+        ("POST", "/api/deliv", handle_deliv_api),
+        ("GET", "/api/deliv/{tail:.*}", handle_deliv_api),
+        ("POST", "/api/deliv/{tail:.*}", handle_deliv_api),
+        ("GET", "/api/duel", handle_duel_api),
+        ("POST", "/api/duel", handle_duel_api),
+        ("GET", "/api/duel/{tail:.*}", handle_duel_api),
+        ("POST", "/api/duel/{tail:.*}", handle_duel_api),
     ]
     for method, path, handler in api_routes:
         if method == "GET":
@@ -5698,6 +6052,8 @@ def create_web_app() -> web.Application:
     app.router.add_route("HEAD", "/webapp/api/tv/stream", handle_tv_stream_proxy)
     app.router.add_route("OPTIONS", "/api/tv/speed", handle_tv_speed)
     app.router.add_route("OPTIONS", "/webapp/api/tv/speed", handle_tv_speed)
+    app.router.add_route("OPTIONS", "/api/tv/telemetry", handle_tv_telemetry)
+    app.router.add_route("OPTIONS", "/webapp/api/tv/telemetry", handle_tv_telemetry)
     app.router.add_route("OPTIONS", "/api/speedtest", handle_tv_speed)
 
     # Optimizatsiya qilingan va himoyalangan bundle marshrutlari

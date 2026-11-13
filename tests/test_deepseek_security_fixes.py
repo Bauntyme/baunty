@@ -54,25 +54,28 @@ def test_stream_url_whitelist_and_ssrf_rules():
     for u in disallowed_urls:
         assert is_stream_url_allowed(u) is False, f"Taqiqlangan URL o'tib ketdi: {u}"
 
-    # 2. Ruxsat etilgan media provayderlar va tashqi Zakirovs/Asilmedia linklari
+    # 2. Ruxsat etilgan media provayderlar va Bauntys/Asilmedia CDN domenlari
     allowed_urls = [
         "https://stream3.cinerama.uz/1016/tracks-v1a1/mono.ts.m3u8",
-        "https://zakirovs.uz/live/stream.m3u8",
-        "https://cdn.zakirovs.uz/tracks.m3u8",
-        "https://stream.zakirov.uz/live.m3u8",
-        "https://media.zakirovs.com/hls/test.m3u8",
-        "https://video.dilbarzakirova.uz/stream.m3u8",
-        "https://stream.dilbarzakirova.com/live.m3u8",
-        "https://zakirovsfilms.uz/kino/stream.m3u8",
+        "https://fl.biztv.media/cinema_720/index.m3u8",
+        "https://cdn.mediabay.uz/live/milliy.m3u8",
         "https://media.asilmedia.org/video.mp4",
         "https://stream.asilmedia.net/hls/mono.m3u8",
         "https://cdn.asilmedia.uz/tracks.m3u8",
-        "https://live.asilmedia.tv/stream.m3u8",
         "https://fayllar.com/stream/file.mp4",
-        "https://161-97-96-58.sslip.io/bk/101/cover.jpg",
+        "https://cdn.fayllar1.ru/stream/file.mp4",
     ]
     for u in allowed_urls:
         assert is_stream_url_allowed(u) is True, f"Ruxsat etilgan URL bloklandi: {u}"
+
+    # 3. Eskirgan / begona domenlar endi ruxsat etilmasligi kerak
+    blocked_legacy_urls = [
+        "https://zakirovs.uz/live/stream.m3u8",
+        "https://video.dilbarzakirova.uz/stream.m3u8",
+        "https://161-97-96-58.sslip.io/bk/101/cover.jpg",
+    ]
+    for u in blocked_legacy_urls:
+        assert is_stream_url_allowed(u) is False, f"Eskirgan/begona URL bloklanmadi: {u}"
 
 
 @pytest.mark.asyncio
@@ -95,7 +98,7 @@ async def test_tv_stream_proxy_blocks_redirect_ssrf():
             mock_session.request = AsyncMock(return_value=mock_resp_302)
             mock_sess_getter.return_value = mock_session
 
-            target = "https://zakirovs.uz/stream_redirect.m3u8"
+            target = "https://fayllar.com/stream_redirect.m3u8"
             r = await client.get(f"/api/tv/stream?url={quote(target, safe='')}", headers=BROWSER_HEADERS)
             assert r.status == 403
             text = await r.text()

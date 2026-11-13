@@ -26,22 +26,20 @@ def test_samarqand_tuni_design_tokens_and_keyframes():
     assert "--zk-ink: #2A1500" in css or "--zk-ink" in css
     assert "--zk-line: rgba(246, 238, 220, 0.14)" in css or "--zk-line" in css
 
-    # 2. Dot-matrix fon teksturasi
-    assert "body.zk::after" in css
+    # 2. Space ("Samarqand tuni") yulduzli fon
+    assert "#zkbg" in css
     assert "radial-gradient" in css
 
     # 3. Barcha talab qilingan @keyframes animatsiyalari
     assert "@keyframes zkroll" in css, "zkroll animatsiyasi mavjud bo'lishi shart"
     assert "@keyframes zkin" in css, "zkin animatsiyasi mavjud bo'lishi shart"
-    assert "@keyframes sh" in css, "sh animatsiyasi mavjud bo'lishi shart"
-    assert "@keyframes msh" in css, "msh animatsiyasi mavjud bo'lishi shart"
     assert "@keyframes zkspin" in css, "zkspin animatsiyasi mavjud bo'lishi shart"
     assert "@keyframes zkeq" in css, "zkeq animatsiyasi mavjud bo'lishi shart"
-    assert "@keyframes zkdraw" in css, "zkdraw animatsiyasi mavjud bo'lishi shart"
-    assert "@keyframes zkturn" in css, "zkturn animatsiyasi mavjud bo'lishi shart"
     assert "@keyframes zslogo" in css, "zslogo animatsiyasi mavjud bo'lishi shart"
+    assert "@keyframes zspTw" in css, "zspTw animatsiyasi mavjud bo'lishi shart"
+    assert "@keyframes zspStar" in css, "zspStar animatsiyasi mavjud bo'lishi shart"
+    assert "@keyframes zspMet" in css, "zspMet animatsiyasi mavjud bo'lishi shart"
     assert "@keyframes zsshine" in css, "zsshine animatsiyasi mavjud bo'lishi shart"
-    assert "@keyframes zkring" in css, "zkring animatsiyasi mavjud bo'lishi shart"
     assert "@keyframes zkdrop" in css, "zkdrop animatsiyasi mavjud bo'lishi shart"
 
 
@@ -55,15 +53,15 @@ def test_top10_coverflow_and_3d_cards():
     assert ".zk-flow" in zk_css
     assert ".zk-flow .card" in zk_css
     assert ".zk-flow .card.zk-mid" in zk_css
-    assert ".zk-flow .rank" in zk_css
+    assert ".zk .rank" in zk_css
     assert "Unbounded" in zk_css
     assert "-webkit-text-stroke" in zk_css
 
-    # 2. index.html da Coverflow elementlari va sarlavha
-    assert "zk-flow" in index_html
-    assert "zk-top10-h" in index_html
-    assert "🔥 Top" in index_html
-    assert "eng ko'p ko'rilgan" in index_html
+    # 2. app.js va zk.js da Coverflow elementlari va sarlavha
+    app_js = (BASE_DIR / "webapp" / "app.js").read_text(encoding="utf-8")
+    assert "zk-flow" in zk_js
+    assert "🔥 Top" in app_js
+    assert "eng ko'p ko'rilgan" in app_js
 
     # 3. zk.js da Coverflow center kalkulyatsiyasi
     assert "updateFlowCenter" in zk_js
@@ -114,11 +112,11 @@ def test_header_bauntys_branding_and_indicator():
     assert ".zk-ind" in zk_css
     assert "updateIndicator" in zk_js
 
-    # 4. Splash ekrani (#zksplash)
-    assert 'id="zksplash"' in index_html
+    # 4. Splash ekrani (#zkintro + #zksplash fallback)
+    assert 'id="zkintro"' in index_html
     assert ".zk-splash" in zk_css
-    assert "zk-splash-rings" in index_html
-    assert "zk-splash-shine" in index_html
+    assert 'id="zi-cap"' in index_html
+    assert 'class="zi-st"' in index_html
     assert "initSplash" in zk_js
 
 
@@ -156,7 +154,7 @@ def test_4k_tv_preserved():
     assert 'id="tvp"' in index_html
     assert 'id="fsbar"' in index_html
     assert 'id="vboxfs"' in index_html
-    assert "4K UHD" in index_html
+    assert "1440p QHD" in index_html
 
 
 def test_white_label_no_branding_leaks():
@@ -241,11 +239,11 @@ def test_slim_top_player_and_webgl_octagram():
     assert ".m-top" in zk_css
     assert "paintTop" in music_js
 
-    # 2. Splash octagram girih yulduzi (8 burchakli girih yulduzi: rect + rotate(45))
-    assert 'viewBox="-60 -60 120 120"' in index_html
-    assert 'rotate(45)' in index_html
-    assert "zkdraw" in zk_css
-    assert "zkturn" in zk_css
+    # 2. Splash Bauntys yulduz vektor belgisi
+    assert 'viewBox="-8 -10 116 132"' in index_html
+    assert 'id="zs"' in index_html
+    assert "zsspin" in zk_css
+    assert "zslogo" in zk_css
 
     # 3. WebGL jonli ipak-girih shaderi
     assert 'cv.id = "zkbg"' in zk_js or 'getElementById("zkbg")' in zk_js

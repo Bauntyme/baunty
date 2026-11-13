@@ -4,13 +4,23 @@ Onlayn Mafia o'yini (3–20 kishi), xonalar, rollar (Don, Mafia, Shifokor, Komis
 tungi harakatlar, kunduzgi ovoz berish, chat va ovozli xabarlar.
 100% Bauntys brendi.
 """
+import os
+import json
 import time
 import random
 import logging
-from typing import Dict, Any, Optional, List, Set
+import threading
+from typing import Dict, Any, Optional, List, Set, Callable
 from config import config
 
 logger = logging.getLogger(__name__)
+
+_MAFIA_STATS_LOCK = threading.RLock()
+_MAFIA_STATS_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data",
+    "mafia_stats.json",
+)
 
 LOOKS = ["bozor", "novvoy", "taksi", "talaba", "ustoz", "sport", "dehqon"]
 
@@ -36,7 +46,8 @@ class MafiaRoom:
         code: Optional[str] = None,
         pub: bool = False,
         lk: Optional[str] = None,
-        c: int = 0
+        c: int = 0,
+        on_game_end: Optional[Callable[["MafiaRoom", str], None]] = None,
     ):
         self.id = room_id
         self.code = code or str(random.randint(1000, 9999))
@@ -44,6 +55,9 @@ class MafiaRoom:
         self.host = host_id
         self.max_players = max(3, min(20, max_players))
         self.pub = pub
+        self.on_game_end = on_game_end
+        self.stats_recorded = False
+        self.last_activity = time.time()
         self.group = False
         self.phase = "lobby"  # lobby, night, morning, day, vote, last, end
         self.day = 1
@@ -212,14 +226,22 @@ class MafiaRoom:
             self.winner = "civ"
             self.left = 0
             self.ver += 1
+            self.last_activity = time.time()
             self.add_msg(0, "Tizim", "🎉 Tinch aholi g'alaba qozondi! Shahardagi barcha mafiozlar zararsizlantirildi!")
+            if not self.stats_recorded and self.on_game_end:
+                self.stats_recorded = True
+                self.on_game_end(self, "civ")
             return True
         if len(alive_maf) >= len(alive_civ):
             self.phase = "end"
             self.winner = "maf"
             self.left = 0
             self.ver += 1
+            self.last_activity = time.time()
             self.add_msg(0, "Tizim", "🔪 Mafia g'alaba qozondi! Shahar to'liq mafiyalar nazoratiga o'tdi!")
+            if not self.stats_recorded and self.on_game_end:
+                self.stats_recorded = True
+                self.on_game_end(self, "maf")
             return True
         return False
 
@@ -425,6 +447,94 @@ class MafiaService:
             "url": f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}",
             "title": "Bauntys Mafia Guruhi"
         }
+        self._stats_cache: Dict[str, Any] = self._load_stats()
+
+    def _load_stats(self) -> Dict[str, Any]:
+        """Mafia reytingi va o'yin statistikasini diskdan yuklash."""
+        with _MAFIA_STATS_LOCK:
+            if not os.path.exists(_MAFIA_STATS_PATH):
+                return {"users": {}, "matches_total": 0}
+            try:
+                with open(_MAFIA_STATS_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and isinstance(data.get("users"), dict):
+                    data.setdefault("matches_total", 0)
+                    return data
+            except Exception as e:
+                logger.warning(f"Mafia statistikasi yuklanmadi: {e}")
+            return {"users": {}, "matches_total": 0}
+
+    def _save_stats(self) -> None:
+        """Mafia statistikasini JSON faylga atomik saqlash."""
+        with _MAFIA_STATS_LOCK:
+            os.makedirs(os.path.dirname(_MAFIA_STATS_PATH), exist_ok=True)
+            tmp_path = f"{_MAFIA_STATS_PATH}.tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(self._stats_cache, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, _MAFIA_STATS_PATH)
+
+    def _record_game_end(self, room: MafiaRoom, winner: str) -> None:
+        """Tugagan o'yin natijasini barcha ishtirokchilar uchun saqlash."""
+        with _MAFIA_STATS_LOCK:
+            users = self._stats_cache.setdefault("users", {})
+            self._stats_cache["matches_total"] = int(self._stats_cache.get("matches_total", 0)) + 1
+            for p in room.players:
+                uid = int(p.get("u") or 0)
+                if uid <= 0:
+                    continue
+                role = p.get("role", "civ")
+                won = (winner == "maf" and role in ("don", "maf")) or (winner == "civ" and role not in ("don", "maf"))
+                u_key = str(uid)
+                rec = users.setdefault(u_key, {"id": uid, "name": p.get("n", "O'yinchi"), "games": 0, "wins": 0, "rating": 1000})
+                rec["name"] = p.get("n", rec.get("name", "O'yinchi"))
+                rec["games"] = int(rec.get("games", 0)) + 1
+                if won:
+                    rec["wins"] = int(rec.get("wins", 0)) + 1
+                    rec["rating"] = int(rec.get("rating", 1000)) + 25
+                else:
+                    rec["rating"] = max(800, int(rec.get("rating", 1000)) - 15)
+            self._save_stats()
+
+    def get_user_stats(self, user_id: int, user_name: str = "O'yinchi") -> Dict[str, Any]:
+        """Foydalanuvchining haqiqiy Mafia statistikasini olish."""
+        with _MAFIA_STATS_LOCK:
+            rec = self._stats_cache.get("users", {}).get(str(user_id))
+            if not rec:
+                return {"games": 0, "wins": 0, "rating": 1000}
+            return {
+                "games": int(rec.get("games", 0)),
+                "wins": int(rec.get("wins", 0)),
+                "rating": int(rec.get("rating", 1000)),
+            }
+
+    def get_leaderboard(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Reyting bo'yicha yetakchi Mafia o'yinchilar ro'yxati."""
+        with _MAFIA_STATS_LOCK:
+            users = list(self._stats_cache.get("users", {}).values())
+            users.sort(key=lambda u: (int(u.get("rating", 1000)), int(u.get("wins", 0))), reverse=True)
+            return users[:limit]
+
+    def cleanup_stale_rooms(self, lobby_ttl: int = 3600, end_ttl: int = 600, active_ttl: int = 7200) -> int:
+        """Faoliyatsiz qolib ketgan eski xonalarni tozalash."""
+        now = time.time()
+        to_remove: List[str] = []
+        for rid, room in list(self.rooms.items()):
+            last_act = getattr(room, "last_activity", None) or getattr(room, "left_at", now)
+            age = now - float(last_act)
+            if not room.players:
+                to_remove.append(rid)
+            elif room.phase == "end" and age > end_ttl:
+                to_remove.append(rid)
+            elif room.phase == "lobby" and age > lobby_ttl:
+                to_remove.append(rid)
+            elif age > active_ttl:
+                to_remove.append(rid)
+        for rid in to_remove:
+            self.rooms.pop(rid, None)
+            for uid, mapped in list(self.user_room_map.items()):
+                if mapped == rid:
+                    self.user_room_map.pop(uid, None)
+        return len(to_remove)
 
     def get_room(self, room_id_or_code: str) -> Optional[MafiaRoom]:
         """Xonani ID yoki 4 xonali code bo'yicha olish."""
@@ -438,6 +548,7 @@ class MafiaService:
 
     def get_home_data(self, user_id: int, user_name: str = "O'yinchi", is_admin: bool = False) -> Dict[str, Any]:
         """Mafia bosh sahifasi ma'lumotlari."""
+        self.cleanup_stale_rooms()
         active_rooms = []
         for r in self.rooms.values():
             if r.phase == "lobby":
@@ -453,7 +564,7 @@ class MafiaService:
         user_info = {
             "id": user_id,
             "name": user_name,
-            "stats": {"games": 3, "wins": 2, "rating": 1200}
+            "stats": self.get_user_stats(user_id, user_name=user_name),
         }
 
         current_room_id = self.user_room_map.get(user_id)
@@ -472,6 +583,8 @@ class MafiaService:
             "cur": current_room_data,
             "room": current_room_data,
             "pub": pub_count,
+            "leaderboard": self.get_leaderboard(),
+            "matches_total": int(self._stats_cache.get("matches_total", 0)),
             "grp": self.group_info,
             "admin": is_admin
         }
@@ -487,6 +600,7 @@ class MafiaService:
         c: int = 0
     ) -> Dict[str, Any]:
         """Yangi xona ochish."""
+        self.cleanup_stale_rooms()
         code = str(random.randint(1000, 9999))
         while any(r.code == code for r in self.rooms.values()):
             code = str(random.randint(1000, 9999))
@@ -502,7 +616,8 @@ class MafiaService:
             code=code,
             pub=pub,
             lk=lk,
-            c=c
+            c=c,
+            on_game_end=self._record_game_end,
         )
         self.rooms[room_id] = room
         self.user_room_map[user_id] = room_id
@@ -532,11 +647,13 @@ class MafiaService:
         if not success:
             return {"ok": False, "error": "full"}
 
+        room.last_activity = time.time()
         self.user_room_map[user_id] = room.id
         return {"ok": True, "room": room.to_dict_for_user(user_id)}
 
     def quick_play(self, user_id: int, user_name: str, lk: Optional[str] = None) -> Dict[str, Any]:
         """Tezkor o'yinga ulanish: eng to'lgan kutish xonasiga ulaydi yoki yangi ochadi."""
+        self.cleanup_stale_rooms()
         # Agar foydalanuvchi allaqachon ochiq lobby xonasida bo'lsa, o'sha xonani qaytarish
         existing_room_id = self.user_room_map.get(user_id)
         if existing_room_id and existing_room_id in self.rooms:

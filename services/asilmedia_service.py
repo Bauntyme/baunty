@@ -37,6 +37,7 @@ class AsilmediaEpisode:
     quality: str = "1080p"
     watch_url: Optional[str] = None
     download_url: Optional[str] = None
+    quality_urls: Dict[str, str] = field(default_factory=dict)
     file_type: str = "video"
     file_size: Optional[int] = None
     duration: Optional[int] = None
@@ -65,6 +66,8 @@ class AsilmediaMovie:
     video_sources: Dict[str, str] = field(default_factory=dict)
     watch_url: Optional[str] = None
     download_url: Optional[str] = None
+    amh_id: Optional[str] = None
+    amh_n: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         d = asdict(self)
@@ -92,11 +95,14 @@ class AsilmediaService:
         self._details_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
 
     def _get_headers(self, referer: Optional[str] = None) -> Dict[str, str]:
+        ref = referer or f"{self.BASE_URL}/"
+        if ref == self.BASE_URL:
+            ref = f"{self.BASE_URL}/"
         return {
             "User-Agent": self.USER_AGENT,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
             "Accept-Language": "uz,ru;q=0.9,en;q=0.8",
-            "Referer": referer or self.BASE_URL,
+            "Referer": ref,
         }
 
     @staticmethod
@@ -173,8 +179,9 @@ class AsilmediaService:
         if m_part:
             return 1, int(m_part.group(1)), quality
 
-        # 5. Fallback raqam
-        m_any = re.search(r"\b(\d+)\b", label)
+        # 5. Fallback raqam (360p/480p/720p/1080p kabi sifat belgilarini chiqarib tashlab)
+        label_no_q = re.sub(r"\b(?:360|480|720|1080|2160)p\b|\b4k\b", "", label, flags=re.I)
+        m_any = re.search(r"\b(\d+)\b", label_no_q)
         if m_any:
             val = int(m_any.group(1))
             if 1 <= val <= 2000:
@@ -356,51 +363,7 @@ class AsilmediaService:
             })
 
         async with aiohttp.ClientSession(headers=self._get_headers()) as session:
-            # 1. Upstream /api/asil/home (pop, film, serial)
-            try:
-                async with session.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                    if resp.status == 200:
-                        h_data = await resp.json()
-                        if isinstance(h_data, dict):
-                            for sec in ["pop", "film", "serial"]:
-                                for it in h_data.get(sec, []):
-                                    iid = it.get("id")
-                                    if iid:
-                                        add_item(
-                                            iid=iid,
-                                            title=it.get("t", ""),
-                                            poster=it.get("p", ""),
-                                            year=it.get("y"),
-                                            genres=it.get("g", []),
-                                            is_series=(it.get("type") == "serial") or (sec == "serial"),
-                                            desc=it.get("desc", ""),
-                                        )
-            except Exception as e:
-                logger.debug(f"fetch_catalog_batch upstream home error: {e}")
-
-            # 2. Upstream /api/asil/list?page=1..pages
-            for p in range(1, max(2, pages + 1)):
-                try:
-                    async with session.get(f"https://161-97-96-58.sslip.io/api/asil/list?page={p}", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                        if resp.status == 200:
-                            l_data = await resp.json()
-                            if isinstance(l_data, dict) and isinstance(l_data.get("items"), list):
-                                for it in l_data.get("items", []):
-                                    iid = it.get("id")
-                                    if iid:
-                                        add_item(
-                                            iid=iid,
-                                            title=it.get("t", ""),
-                                            poster=it.get("p", ""),
-                                            year=it.get("y"),
-                                            genres=it.get("g", []),
-                                            is_series=(it.get("type") == "serial"),
-                                            desc=it.get("desc", ""),
-                                        )
-                except Exception as e:
-                    logger.debug(f"fetch_catalog_batch upstream list page {p} error: {e}")
-
-            # 3. Asilmedia ochiq sahifalari (sayt.php, /page/{p}/, /tarjima-kinolar/page/{p}/, /seriallar/page/{p}/)
+            # Asilmedia ochiq sahifalari (sayt.php, /page/{p}/, /tarjima-kinolar/page/{p}/, /seriallar/page/{p}/)
             direct_urls = []
             for p in range(1, pages + 1):
                 p_suffix = f"/page/{p}/" if p > 1 else "/"
@@ -432,23 +395,165 @@ class AsilmediaService:
 
         return items
 
-    async def sign_fayllar_urls(self, urls: List[str]) -> Dict[str, str]:
-        """Fayllar.com video havolalarini Asilmedia tokeni bilan imzolash."""
+    @staticmethod
+    def is_html_wrapper_url(url: Optional[str]) -> bool:
+        """URL video oqimi emas, HTML sahifa yoki watch/download wrapper ekanligini tekshirish."""
+        if not url:
+            return False
+        low = str(url).strip().lower()
+        if not low:
+            return False
+        if "sslip.io" in low or "sayt.php" in low:
+            return True
+        if re.search(r"server\.asilmedia\.org/(?:watch|download|embed)", low):
+            return True
+        if re.search(r"\.html?(?:$|[?#])", low):
+            return True
+        return False
+
+    @staticmethod
+    def needs_fayllar_sign(url: Optional[str]) -> bool:
+        """am:<id>:<hash> yoki tokensiz fayllar havolasi imzolashga muhtojligini aniqlash."""
+        if not url:
+            return False
+        s = str(url).strip()
+        if re.match(r"^am:\d+:", s, re.I):
+            return True
+        low = s.lower()
+        return ("fayllar.com" in low or "fayllar1.ru" in low or "fayllar" in low) and "token=" not in low
+
+    @staticmethod
+    def extract_amh_params(html: str) -> Tuple[Optional[str], Optional[str]]:
+        """HTML sahifadagi <i id='amh' data-id='...' data-n='...'> parametrlarini ajratish."""
+        if not html:
+            return None, None
+        m_tag = re.search(r"<(?:i|span|div|b)\b[^>]*\bid=[\"']amh[\"'][^>]*>", html, re.I)
+        if not m_tag:
+            return None, None
+        tag_str = m_tag.group(0)
+        m_id = re.search(r"\bdata-id=[\"']([^\"']+)[\"']", tag_str, re.I)
+        m_n = re.search(r"\bdata-n=[\"']([^\"']+)[\"']", tag_str, re.I)
+        amh_id = m_id.group(1).strip() if m_id else None
+        amh_n = m_n.group(1).strip() if m_n else None
+        return amh_id, amh_n
+
+    async def sign_fayllar_urls(
+        self,
+        urls: List[str],
+        amh_id: Optional[Union[str, int]] = None,
+        amh_n: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """am:<id>:<hash> va tokensiz fayllar havolalarini Asilmedia tokeni bilan imzolash."""
         if not urls:
             return {}
-        fayllar_urls = [u for u in urls if "fayllar" in str(u) and "token=" not in str(u)]
-        if not fayllar_urls:
+        seen: set[str] = set()
+        sign_candidates: List[str] = []
+        for u in urls:
+            su = str(u or "").strip()
+            if not su or su in seen:
+                continue
+            if self.needs_fayllar_sign(su):
+                seen.add(su)
+                sign_candidates.append(su)
+        if not sign_candidates:
             return {}
-        qs = "&".join(f"u[]={urllib.parse.quote(str(u))}" for u in fayllar_urls)
-        sign_url = f"{self.BASE_URL}/fayllar-sign.php?{qs}"
-        try:
-            async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
-                async with session.get(sign_url, timeout=aiohttp.ClientTimeout(total=4)) as resp:
-                    if resp.status == 200:
-                        return await resp.json()
-        except Exception as e:
-            logger.debug(f"fayllar-sign error: {e}")
-        return {}
+
+        resolved_id = str(amh_id).strip() if amh_id is not None else None
+        if not resolved_id:
+            for su in sign_candidates:
+                m_am = re.match(r"^am:(\d+):", su, re.I)
+                if m_am:
+                    resolved_id = m_am.group(1)
+                    break
+
+        signed_map: Dict[str, str] = {}
+        batch_size = 35
+        async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
+            for i in range(0, len(sign_candidates), batch_size):
+                chunk = sign_candidates[i:i + batch_size]
+                qs_parts = [f"u[]={urllib.parse.quote(u, safe='')}" for u in chunk]
+                if resolved_id:
+                    qs_parts.append(f"id={urllib.parse.quote(resolved_id, safe='')}")
+                if amh_n:
+                    qs_parts.append(f"n={urllib.parse.quote(str(amh_n), safe='')}")
+                qs = "&".join(qs_parts)
+
+                for mirror in self.MIRRORS:
+                    sign_url = f"{mirror}/fayllar-sign.php?{qs}"
+                    req_headers = {"Referer": f"{mirror}/"}
+                    try:
+                        async with session.get(sign_url, headers=req_headers, timeout=aiohttp.ClientTimeout(total=6)) as resp:
+                            if resp.status == 200:
+                                data = await resp.json(content_type=None)
+                                if isinstance(data, dict) and data:
+                                    for k, v in data.items():
+                                        sv = str(v or "").strip()
+                                        if sv.startswith("http") and not self.is_html_wrapper_url(sv) and not sv.startswith("am:"):
+                                            signed_map[str(k)] = sv
+                                    if any(u in signed_map for u in chunk):
+                                        break
+                    except Exception as e:
+                        logger.debug(f"fayllar-sign error ({mirror}): {e}")
+        return signed_map
+
+    async def resolve_stream_url(
+        self,
+        raw_url: str,
+        news_id: Optional[Union[str, int]] = None,
+        amh_id: Optional[str] = None,
+        amh_n: Optional[str] = None,
+    ) -> Optional[str]:
+        """am:... yoki tokensiz fayllar havolasini bevosita imzolangan MP4 CDN URL ga aylantirish."""
+        raw = str(raw_url or "").strip()
+        if not raw or self.is_html_wrapper_url(raw):
+            return None
+
+        nid = str(news_id).strip() if news_id is not None else None
+        if not nid:
+            m_am = re.match(r"^am:(\d+):", raw, re.I)
+            if m_am:
+                nid = m_am.group(1)
+
+        if self.needs_fayllar_sign(raw):
+            if (not amh_id or not amh_n) and nid:
+                # Keshdan amh_id / amh_n bor-yo'qligini tekshirish
+                clean_nid = re.search(r"(\d+)", nid)
+                nid_num = clean_nid.group(1) if clean_nid else None
+                if nid_num:
+                    for _, cached_dict in self._details_cache.values():
+                        if isinstance(cached_dict, dict) and str(cached_dict.get("id")) == nid_num:
+                            amh_id = amh_id or cached_dict.get("amh_id")
+                            amh_n = amh_n or cached_dict.get("amh_n")
+                            if amh_id and amh_n:
+                                break
+                if (not amh_id or not amh_n) and nid_num:
+                    page_candidates: List[str] = []
+                    for m in self.MIRRORS:
+                        page_candidates.append(f"{m}/{nid_num}-kino.html")
+                        page_candidates.append(f"{m}/bot/sayt.php?id={nid_num}&k=hamkor")
+                    async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
+                        for purl in page_candidates:
+                            try:
+                                async with session.get(purl, timeout=aiohttp.ClientTimeout(total=6)) as resp:
+                                    if resp.status == 200:
+                                        html = await resp.text()
+                                        f_id, f_n = self.extract_amh_params(html)
+                                        if f_id or f_n:
+                                            amh_id = amh_id or f_id
+                                            amh_n = amh_n or f_n
+                                            break
+                            except Exception as e:
+                                logger.debug(f"resolve_stream_url HTML fetch error ({purl}): {e}")
+
+            signed_map = await self.sign_fayllar_urls([raw], amh_id=amh_id or nid, amh_n=amh_n)
+            resolved = signed_map.get(raw)
+            if resolved and resolved.startswith("http") and not self.is_html_wrapper_url(resolved) and not resolved.startswith("am:"):
+                return resolved
+            return None
+
+        if raw.startswith("http") and not self.is_html_wrapper_url(raw):
+            return raw
+        return None
 
     async def get_telegram_media_info(self, news_id: Union[str, int]) -> Optional[Dict[str, Any]]:
         """d.asilmedia.org orqali kinoning Telegram kanaldagi oqim va post ma'lumotlarini olish."""
@@ -505,26 +610,57 @@ class AsilmediaService:
                             html = await resp.text()
                             movie = self.extract_sources_from_html(html, page_url=u)
                             if movie:
-                                # Fayllar.com havolalarini avtomatik imzolash
-                                unsigned_list = []
-                                for qk, qurl in movie.video_sources.items():
-                                    if "fayllar" in str(qurl) and "token=" not in str(qurl):
+                                # Barcha am:... va tokensiz fayllar havolalarini amh_id / amh_n bilan imzolash
+                                unsigned_list: List[str] = []
+                                for qurl in movie.video_sources.values():
+                                    if self.needs_fayllar_sign(qurl):
                                         unsigned_list.append(qurl)
                                 for ep in movie.episodes.values():
-                                    if "fayllar" in str(ep.url) and "token=" not in str(ep.url):
-                                        unsigned_list.append(ep.url)
+                                    for cand_u in [ep.url, ep.download_url] + list(ep.quality_urls.values()):
+                                        if self.needs_fayllar_sign(cand_u):
+                                            unsigned_list.append(cand_u)
 
                                 if unsigned_list:
-                                    signed_map = await self.sign_fayllar_urls(unsigned_list)
+                                    sign_id = movie.amh_id or extracted_id or movie.id
+                                    signed_map = await self.sign_fayllar_urls(
+                                        unsigned_list,
+                                        amh_id=sign_id,
+                                        amh_n=movie.amh_n,
+                                    )
                                     if signed_map:
                                         for qk, qurl in list(movie.video_sources.items()):
                                             if qurl in signed_map:
                                                 movie.video_sources[qk] = signed_map[qurl]
                                         for ep in movie.episodes.values():
+                                            for qk, qurl in list(ep.quality_urls.items()):
+                                                if qurl in signed_map:
+                                                    ep.quality_urls[qk] = signed_map[qurl]
                                             if ep.url in signed_map:
-                                                signed_val = signed_map[ep.url]
-                                                ep.url = signed_val
-                                                ep.download_url = signed_val
+                                                ep.url = signed_map[ep.url]
+                                            if ep.download_url in signed_map:
+                                                ep.download_url = signed_map[ep.download_url]
+                                            if (not ep.url or ep.url.startswith("am:")) and ep.quality_urls:
+                                                best_ep_q = next(
+                                                    (q for q in ["1080p", "720p", "480p", "4K", "360p"] if q in ep.quality_urls and not str(ep.quality_urls[q]).startswith("am:")),
+                                                    next(iter(ep.quality_urls), None),
+                                                )
+                                                if best_ep_q:
+                                                    ep.quality = best_ep_q
+                                                    ep.url = ep.quality_urls[best_ep_q]
+                                                    ep.download_url = ep.quality_urls[best_ep_q]
+                                        if movie.download_url and movie.download_url in signed_map:
+                                            movie.download_url = signed_map[movie.download_url]
+                                        if not movie.download_url or str(movie.download_url).startswith("am:"):
+                                            movie.download_url = None
+                                            for qk in ["1080p", "720p", "480p", "primary"]:
+                                                cand_d = movie.video_sources.get(qk)
+                                                if cand_d and not self.is_html_wrapper_url(cand_d) and not str(cand_d).startswith("am:"):
+                                                    movie.download_url = cand_d
+                                                    break
+                                        if (not movie.download_url or str(movie.download_url).startswith("am:")) and 1 in movie.episodes:
+                                            ep1_dl = movie.episodes[1].download_url
+                                            if ep1_dl and not str(ep1_dl).startswith("am:"):
+                                                movie.download_url = ep1_dl
 
                                 # Telegram kanaldagi oqim va davomiylik ma'lumotlari bilan boyitish
                                 target_mid = extracted_id or movie.id
@@ -533,23 +669,24 @@ class AsilmediaService:
                                     for fld in tg_info["fields"]:
                                         q = fld.get("quality", "1080p")
                                         w = fld.get("watch")
-                                        d_url = fld.get("download_joined") or fld.get("download") or w
+                                        d_url = fld.get("download_joined") or fld.get("download")
                                         if w:
-                                            movie.video_sources[f"tg_{q}"] = w
-                                            if not movie.video_sources.get(q):
-                                                movie.video_sources[q] = w
                                             if not movie.watch_url:
                                                 movie.watch_url = w
+                                            if 1 in movie.episodes and not movie.episodes[1].watch_url:
+                                                movie.episodes[1].watch_url = w
+                                        if d_url and not self.is_html_wrapper_url(d_url):
+                                            if not movie.video_sources.get(q):
+                                                movie.video_sources[q] = d_url
                                             if not movie.download_url:
                                                 movie.download_url = d_url
+                                            if 1 in movie.episodes and not movie.episodes[1].download_url:
+                                                movie.episodes[1].download_url = d_url
                                         dur = fld.get("total_duration")
                                         if dur:
                                             movie.duration = f"{dur // 60} daqiqa"
                                             if 1 in movie.episodes:
                                                 movie.episodes[1].duration = dur
-                                                if w:
-                                                    movie.episodes[1].watch_url = w
-                                                    movie.episodes[1].download_url = d_url
 
                                 self._details_cache[cache_key] = (now, movie.to_dict())
                                 return movie
@@ -622,13 +759,99 @@ class AsilmediaService:
         if poster and not poster.startswith("http"):
             poster = f"{self.BASE_URL}{poster}"
 
-        # 3. Video oqimlarini qazib olish (Multi-tier parser)
-        episodes: Dict[int, AsilmediaEpisode] = {}
+        # 3. Video oqimlarini qazib olish (Multi-tier parser + sifat bo'yicha qism deduplikatsiyasi)
+        amh_id, amh_n = self.extract_amh_params(html)
+        if not amh_id and movie_id.isdigit():
+            amh_id = movie_id
+
+        quality_rank = {"360p": 0, "480p": 1, "720p": 2, "1080p": 3, "4K": 4}
+        ep_groups: Dict[Tuple[int, int], AsilmediaEpisode] = {}
         video_sources: Dict[str, str] = {}
+        top_watch_url: Optional[str] = None
         is_series = False
 
+        def _detect_quality(text: str, default_q: str = "1080p") -> str:
+            low = (text or "").lower()
+            if "2160p" in low or "4k" in low:
+                return "4K"
+            if "1080p" in low:
+                return "1080p"
+            if "720p" in low:
+                return "720p"
+            if "480p" in low:
+                return "480p"
+            if "360p" in low:
+                return "360p"
+            return default_q
+
+        def _pick_best_stream(q_urls: Dict[str, str]) -> Tuple[str, str]:
+            best_q, best_u, best_score = "1080p", "", -1
+            for qk, qu in q_urls.items():
+                score = quality_rank.get(qk, 1)
+                if score > best_score:
+                    best_q, best_u, best_score = qk, qu, score
+            return best_q, best_u
+
+        def _register_episode(
+            season: int,
+            ep_num: int,
+            quality: str,
+            label: str,
+            stream_url: str,
+        ) -> None:
+            s_u = (stream_url or "").strip()
+            if not s_u:
+                return
+            key = (int(season), int(ep_num))
+            if key not in ep_groups:
+                ep_groups[key] = AsilmediaEpisode(
+                    part=int(ep_num),
+                    label=label or f"{ep_num}-qism",
+                    url="",
+                    season=int(season),
+                    episode=int(ep_num),
+                    quality=quality,
+                    watch_url=None,
+                    download_url="",
+                    quality_urls={},
+                )
+            ep = ep_groups[key]
+            if self.is_html_wrapper_url(s_u):
+                if not ep.watch_url:
+                    ep.watch_url = s_u
+                return
+
+            # Haqiqiy oqim URL: sifat bo'yicha saqlash va eng yaxshi oqimni tanlash
+            existing_q_u = ep.quality_urls.get(quality)
+            if not existing_q_u or ("token=" in s_u and "token=" not in existing_q_u):
+                ep.quality_urls[quality] = s_u
+            best_q, best_u = _pick_best_stream(ep.quality_urls)
+            if best_u:
+                ep.quality = best_q
+                ep.url = best_u
+                ep.download_url = best_u
+                if label:
+                    clean_lbl = re.sub(r"\s*\b(?:360|480|720|1080|2160)p\b", "", label, flags=re.I).strip()
+                    ep.label = clean_lbl or label
+
+        def _set_movie_source(q_name: str, src_url: str) -> None:
+            nonlocal top_watch_url
+            s_u = (src_url or "").strip()
+            if not s_u:
+                return
+            if self.is_html_wrapper_url(s_u):
+                if not top_watch_url:
+                    top_watch_url = s_u
+                return
+            video_sources[q_name] = s_u
+            best_q, best_u = _pick_best_stream(
+                {k: v for k, v in video_sources.items() if k in quality_rank}
+            )
+            if best_u:
+                video_sources["primary"] = best_u
+
         # Tier 1: id="tg-data" (Telegram stream/download serveri havolalari)
-        tg_data_el = soup.find(id="tg-data")
+        tg_data_el = soup.find(id="tg-data") if soup else None
         if tg_data_el:
             tg_lines = tg_data_el.get_text().strip().split("\n")
             for line in tg_lines:
@@ -637,7 +860,6 @@ class AsilmediaService:
                     continue
                 parts = line.split("=", 2)
                 if len(parts) == 3:
-                    # Masalan: serialpart1=1-fasl 1-qism 1080p=https://server.asilmedia.org/watch/...
                     slot_name, label_str, stream_url = parts[0].strip(), parts[1].strip(), parts[2].strip()
                 elif len(parts) == 2:
                     slot_name, stream_url = parts[0].strip(), parts[1].strip()
@@ -645,61 +867,28 @@ class AsilmediaService:
                 else:
                     continue
 
-                # serialpart yoki kino_url ni ajratish
                 if slot_name.startswith("serialpart"):
                     is_series = True
-                    # serialpart1 -> 1
                     s_idx_m = re.search(r"serialpart(\d+)", slot_name)
-                    fallback_idx = int(s_idx_m.group(1)) if s_idx_m else len(episodes) + 1
-
+                    fallback_idx = int(s_idx_m.group(1)) if s_idx_m else len(ep_groups) + 1
                     season, ep_num, q_val = self.parse_episode_label(label_str, fallback_index=fallback_idx)
-                    # Ketma-ket qism raqami sifatida fallback_idx yoki ep_num ni ishlatamiz
-                    part_num = fallback_idx if fallback_idx > 0 else ep_num
-
-                    watch_u = stream_url
-                    down_u = stream_url.replace("/watch/", "/download/") if "/watch/" in stream_url else stream_url
-                    ep = AsilmediaEpisode(
-                        part=part_num,
-                        label=label_str,
-                        url=down_u,
-                        season=season,
-                        episode=ep_num,
-                        quality=q_val,
-                        watch_url=watch_u,
-                        download_url=down_u,
-                    )
-                    # Agar bu qism avval saqlangan bo'lsa va yangisi yuqoriroq sifatda bo'lsa yangilaymiz
-                    if part_num not in episodes or q_val == "1080p":
-                        episodes[part_num] = ep
+                    _register_episode(season, ep_num, q_val, label_str, stream_url)
 
                 elif slot_name.startswith("kino_url"):
-                    # Masalan: kino_url1=480p=https://... yoki kino_url1=720p Taksi-1 / HD=https://...
-                    # Agar label ichida qism raqami bo'lsa (masalan Taksi-1, Taksi-2)
-                    m_multi = re.search(r"[-_\s](\d+)\s*(?:/|qism|hd|$)", label_str, re.I)
+                    is_quality_only = bool(re.match(r"^(?:360p|480p|720p|1080p|2160p|4k)(?:\s*[/|]?\s*hd)?$", label_str.strip(), re.I))
+                    m_multi = None if is_quality_only else re.search(r"(?:qism\s*[-_]?\s*(\d+)|(\d+)\s*[-_]?\s*qism|[-_\s](\d+)\s*(?:/|qism|hd|$))", label_str, re.I)
                     if m_multi:
                         is_series = True
-                        part_num = int(m_multi.group(1))
-                        season, ep_num, q_val = self.parse_episode_label(label_str, fallback_index=part_num)
-                        watch_u = stream_url
-                        down_u = stream_url.replace("/watch/", "/download/") if "/watch/" in stream_url else stream_url
-                        episodes[part_num] = AsilmediaEpisode(
-                            part=part_num,
-                            label=label_str,
-                            url=down_u,
-                            season=season,
-                            episode=ep_num,
-                            quality=q_val,
-                            watch_url=watch_u,
-                            download_url=down_u,
-                        )
+                        part_hint = int(next(g for g in m_multi.groups() if g))
+                        season, ep_num, q_val = self.parse_episode_label(label_str, fallback_index=part_hint)
+                        _register_episode(season, ep_num, q_val, label_str, stream_url)
                     else:
-                        # Bir qismli kino uchun sifat bo'yicha manba
-                        q_name = "1080p" if "1080p" in label_str else ("720p" if "720p" in label_str else "480p")
-                        video_sources[q_name] = stream_url
+                        q_name = _detect_quality(label_str, default_q="480p")
+                        _set_movie_source(q_name, stream_url)
 
-        # Tier 2: id="episodes-raw-data" va id="serial-dl-data" (Direct MP4 / CDN fayllar)
+        # Tier 2: id="episodes-raw-data" va id="serial-dl-data" (Direct MP4 / am:... CDN fayllar)
         for section_id in ["episodes-raw-data", "serial-dl-data"]:
-            sec_el = soup.find(id=section_id)
+            sec_el = soup.find(id=section_id) if soup else None
             if sec_el:
                 is_series = True
                 links = sec_el.find_all("a", href=True)
@@ -707,87 +896,100 @@ class AsilmediaService:
                     href = a_tag["href"].strip()
                     lbl = a_tag.get("data-label", "").strip() or a_tag.get_text(strip=True) or f"{idx}-qism"
                     season, ep_num, q_val = self.parse_episode_label(lbl, fallback_index=idx)
-                    part_num = idx
-
-                    if part_num not in episodes:
-                        episodes[part_num] = AsilmediaEpisode(
-                            part=part_num,
-                            label=lbl,
-                            url=href,
-                            season=season,
-                            episode=ep_num,
-                            quality=q_val,
-                            watch_url=href,
-                            download_url=href,
-                        )
-                    else:
-                        # Agar avvalgi manbaga direct MP4 qo'shish kerak bo'lsa
-                        if href.endswith(".mp4") and q_val in ["1080p", "720p"]:
-                            episodes[part_num].url = href
+                    _register_episode(season, ep_num, q_val, lbl, href)
 
         # Tier 3: Player tabs (data-url), iframe yoki video teglari
         if soup:
             for btn in soup.find_all(attrs={"data-url": True}):
                 d_url = btn.get("data-url", "").strip()
-                d_name = btn.get("data-name", "").strip()
-                q_name = "1080p" if "1080p" in f"{d_url} {d_name}" else ("720p" if "720p" in f"{d_url} {d_name}" else "480p")
-                if d_url:
-                    video_sources[q_name] = d_url
-                    if "primary" not in video_sources or q_name == "1080p":
-                        video_sources["primary"] = d_url
+                if not d_url:
+                    continue
+                d_name = (btn.get("data-name") or btn.get_text(" ", strip=True) or "").strip()
+                has_part_marker = bool(re.search(
+                    r"(?:\d+\s*[-_]?\s*qism|qism\s*[-_]?\s*\d+|taksi\s*[-_]?\s*\d+|\b(?:part|ep|seriya)\s*[-_]?\s*\d+)",
+                    d_name,
+                    re.I,
+                ))
+                if has_part_marker:
+                    is_series = True
+                    season, ep_num, q_val = self.parse_episode_label(d_name, fallback_index=len(ep_groups) + 1)
+                    _register_episode(season, ep_num, q_val, d_name, d_url)
+                else:
+                    q_name = _detect_quality(f"{d_name} {d_url}", default_q="480p")
+                    _set_movie_source(q_name, d_url)
 
             for ifr in soup.find_all("iframe"):
                 src = ifr.get("data-player-src") or ifr.get("src") or ifr.get("data-src")
                 if src:
                     src = src.strip()
-                    if "primary" not in video_sources and ("fayllar.com" in src or src.endswith(".mp4") or "server.asilmedia.org" in src):
-                        video_sources["primary"] = src
-                        if "1080p" not in video_sources:
-                            video_sources["1080p"] = src
+                    if self.is_html_wrapper_url(src):
+                        if not top_watch_url and "server.asilmedia.org" in src.lower():
+                            top_watch_url = src
+                    elif "fayllar" in src.lower() or src.lower().endswith(".mp4") or src.startswith("am:"):
+                        q_name = _detect_quality(src, default_q="1080p")
+                        _set_movie_source(q_name, src)
 
         # Regex fallback: agar soup topilmagan yoki tabs aniqlanmagan bo'lsa
-        if not video_sources:
-            for m in re.finditer(r'data-url=["\'](https?://[^"\']+)["\']', html):
+        if not video_sources and not ep_groups:
+            for m in re.finditer(r'data-url=["\']((?:https?://|am:)[^"\']+)["\']', html):
                 d_url = m.group(1).strip()
-                q_name = "1080p" if "1080p" in d_url else ("720p" if "720p" in d_url else "480p")
-                video_sources[q_name] = d_url
-                if "primary" not in video_sources or q_name == "1080p":
-                    video_sources["primary"] = d_url
+                q_name = _detect_quality(d_url, default_q="480p")
+                _set_movie_source(q_name, d_url)
 
-        # Tier 4: Script teglari ichidan server.asilmedia.org yoki direct mp4 oqimlarni qidirish
-        if not episodes and not video_sources and soup:
+        # Tier 4: Script teglari ichidan direct mp4 oqimlarni qidirish
+        if not ep_groups and not video_sources and soup:
             for sc in soup.find_all("script"):
                 sc_text = sc.string or sc.get_text() or ""
                 if not sc_text:
                     continue
-                found_urls = re.findall(r'https?://server\.asilmedia\.org/(?:watch|download)/\d+/\d+', sc_text)
-                if not found_urls:
-                    found_urls = re.findall(r'https?://[^\s"\'<>]+\.mp4', sc_text)
-                for f_url in found_urls:
-                    if "primary" not in video_sources:
-                        video_sources["primary"] = f_url
-                    if "1080p" not in video_sources:
-                        video_sources["1080p"] = f_url
+                for f_url in re.findall(r'https?://[^\s"\'<>]+\.mp4(?:\?[^\s"\'<>]*)?', sc_text):
+                    if not self.is_html_wrapper_url(f_url):
+                        q_name = _detect_quality(f_url, default_q="1080p")
+                        _set_movie_source(q_name, f_url)
 
-        # Agar na episodes, na video_sources bo'lsa yoki Asilmedia umumiy bosh sahifasi bo'lsa - kino emas
-        if not episodes and not video_sources:
+        # Guruhlangan qismlarni (season, episode) bo'yicha tartiblash va 1..N raqamlash
+        episodes: Dict[int, AsilmediaEpisode] = {}
+        for seq_idx, key in enumerate(sorted(ep_groups.keys()), start=1):
+            ep = ep_groups[key]
+            ep.part = seq_idx
+            if not ep.label:
+                ep.label = f"{seq_idx}-qism"
+            episodes[seq_idx] = ep
+
+        # Agar na episodes, na video_sources, na top_watch_url bo'lsa - kino emas
+        if not episodes and not video_sources and not top_watch_url:
             return None
         if re.search(r"asilmedia\s*[-—–]\s*(?:kinolar|bosh)", raw_title, re.I) and not episodes:
             return None
 
         # Agar serial bo'lmasa va bitta video manbasi bo'lsa, 1-qism sifatida shakllantiramiz
         if not episodes and video_sources:
-            best_url = video_sources.get("1080p") or video_sources.get("720p") or video_sources.get("primary") or list(video_sources.values())[0]
+            best_q, best_url = _pick_best_stream(
+                {k: v for k, v in video_sources.items() if k in quality_rank}
+            )
+            if not best_url:
+                best_url = video_sources.get("primary") or next(iter(video_sources.values()), "")
+            q_map = {
+                k: v for k, v in video_sources.items()
+                if k in quality_rank and not self.is_html_wrapper_url(v)
+            }
             episodes[1] = AsilmediaEpisode(
                 part=1,
                 label="To'liq film",
                 url=best_url,
                 season=1,
                 episode=1,
-                quality="1080p",
-                watch_url=best_url,
+                quality=best_q if best_q in quality_rank else "1080p",
+                watch_url=top_watch_url,
                 download_url=best_url,
+                quality_urls=q_map,
             )
+
+        if not top_watch_url and 1 in episodes:
+            top_watch_url = episodes[1].watch_url
+        best_dl = None
+        if 1 in episodes and episodes[1].download_url and not self.is_html_wrapper_url(episodes[1].download_url):
+            best_dl = episodes[1].download_url
 
         total_parts = len(episodes) if episodes else 1
 
@@ -804,6 +1006,10 @@ class AsilmediaService:
             total_parts=total_parts,
             episodes=episodes,
             video_sources=video_sources,
+            watch_url=top_watch_url,
+            download_url=best_dl,
+            amh_id=amh_id,
+            amh_n=amh_n,
         )
 
     async def find_best_match(
@@ -837,29 +1043,63 @@ class AsilmediaService:
             return None
 
         # Eng yaxshi moslikni aniqlash (scoring)
+        from difflib import SequenceMatcher
+        generic_noise = {
+            "kino", "film", "serial", "multfilm", "anime", "qism", "qismlar",
+            "barcha", "fasl", "uzbek", "tilida", "tarjima", "hd", "fhd", "uhd",
+            "test", "premyera", "yangi", "part", "season", "episode",
+        }
+        q_lower = clean_q.lower()
+        q_words = [w for w in re.findall(r"[a-z0-9а-яёғқўҳ]+", q_lower) if w not in generic_noise and len(w) >= 2]
+        if not q_words:
+            q_words = re.findall(r"[a-z0-9а-яёғқўҳ]+", q_lower)
+
         def score_candidate(cand: Dict[str, Any]) -> int:
             score = 0
+            title_relevance = 0
             c_title = cand["title"].lower()
-            q_lower = clean_q.lower()
             raw_t = cand.get("raw_title", "").lower()
             c_id = str(cand.get("id"))
 
             # Kanonik franshizalar uchun to'g'ridan-to'g'ri prioritet
             if ("taksi" in q_lower or "taxi" in q_lower) and c_id == "9165":
-                score += 300
+                title_relevance += 300
             elif "titan" in q_lower and c_id in ("16913", "14075"):
-                score += 300
+                title_relevance += 300
             elif ("forsaj" in q_lower or "fast" in q_lower) and c_id in ("14902", "13087", "8563"):
-                score += 250
+                title_relevance += 250
             elif "chuqur" in q_lower and ("cukur" in raw_t or "serial" in raw_t or cand.get("is_series")):
-                score += 200
+                title_relevance += 200
 
             if c_title == q_lower:
-                score += 150
-            elif c_title.startswith(q_lower) or raw_t.startswith(q_lower):
-                score += 80
-            elif q_lower in c_title or c_title in q_lower:
-                score += 50
+                title_relevance += 150
+            elif len(q_lower) >= 3 and (c_title.startswith(q_lower) or raw_t.startswith(q_lower)):
+                title_relevance += 80
+            elif len(q_lower) >= 3 and len(c_title) >= 3 and (q_lower in c_title or c_title in q_lower):
+                title_relevance += 50
+
+            c_tokens = set(re.findall(r"[a-z0-9а-яёғқўҳ]+", f"{c_title} {raw_t}"))
+            matched_words = [
+                w for w in q_words
+                if w in c_tokens or (len(w) >= 4 and any(ct.startswith(w) or w.startswith(ct) for ct in c_tokens))
+            ]
+            segments = [s.strip() for s in re.split(r"[/|()]+", c_title) if len(s.strip()) >= 2] or [c_title]
+            best_sim = max(
+                (SequenceMatcher(None, re.sub(r"[^a-z0-9а-яёғқўҳ ]+", "", q_lower).strip(),
+                                 re.sub(r"[^a-z0-9а-яёғқўҳ ]+", "", seg).strip()).ratio()
+                 for seg in segments),
+                default=0.0,
+            )
+
+            # Mutlaqo aloqasiz kino qaytmasligi uchun (masalan, "Faylsiz Test Kino" -> "Alfa test")
+            if title_relevance == 0:
+                if not matched_words:
+                    return -1
+                if len(matched_words) < len(q_words) and best_sim < 0.6:
+                    return -1
+                title_relevance = int(best_sim * 40) + len(matched_words) * 15
+
+            score += title_relevance
 
             # Ko'p qismli serial yoki kolleksiya talab qilinganda
             if (is_series or target_parts > 1):
@@ -882,11 +1122,15 @@ class AsilmediaService:
 
             return score
 
-        candidates.sort(key=score_candidate, reverse=True)
+        relevant_candidates = [c for c in candidates if score_candidate(c) > 0]
+        if not relevant_candidates:
+            return None
+
+        relevant_candidates.sort(key=score_candidate, reverse=True)
 
         # Yuqori ball to'plagan dastlabki nomzodlardan mosini ko'rib chiqish
         best_candidate_movie = None
-        for cand in candidates[:6]:
+        for cand in relevant_candidates[:6]:
             movie_det = await self.get_movie_details(cand["url"])
             if movie_det:
                 if (is_series or target_parts > 1):
@@ -897,10 +1141,7 @@ class AsilmediaService:
                 else:
                     return movie_det
 
-        if best_candidate_movie:
-            return best_candidate_movie
-
-        return await self.get_movie_details(candidates[0]["url"])
+        return best_candidate_movie
 
     @staticmethod
     def is_valid_video_header(data: bytes) -> bool:
@@ -956,17 +1197,25 @@ class AsilmediaService:
         """
         try:
             destination_path.parent.mkdir(parents=True, exist_ok=True)
-            target_url = url
-            if "fayllar" in target_url and "token=" not in target_url:
-                try:
-                    signed_map = await self.sign_fayllar_urls([target_url])
-                    if target_url in signed_map:
-                        target_url = signed_map[target_url]
-                except Exception as se:
-                    logger.debug(f"Auto-sign fayllar url error: {se}")
+            target_url = str(url or "").strip()
+            if self.is_html_wrapper_url(target_url):
+                logger.warning(f"HTML/watch sahifa video sifatida yuklanmaydi: {target_url}")
+                return None
+
+            if self.needs_fayllar_sign(target_url):
+                resolved = await self.resolve_stream_url(target_url)
+                if not resolved:
+                    logger.warning(f"Asilmedia oqim URL imzolanmadi: {target_url}")
+                    return None
+                target_url = resolved
+
+            if self.is_html_wrapper_url(target_url) or not target_url.startswith("http"):
+                logger.warning(f"Yaroqsiz video URL rad etildi: {target_url}")
+                return None
 
             encoded_url = urllib.parse.quote(target_url, safe=":/%?=&-._~")
             headers = self._get_headers(referer=self.BASE_URL)
+            valid_header = False
 
             async with aiohttp.ClientSession(headers=headers) as session:
                 client_timeout = aiohttp.ClientTimeout(total=None, sock_connect=15, sock_read=30)
@@ -991,7 +1240,6 @@ class AsilmediaService:
                     downloaded = 0
                     temp_file = destination_path.with_suffix(".tmp")
                     first_chunk = True
-                    valid_header = False
 
                     with open(temp_file, "wb") as f:
                         async for chunk in resp.content.iter_chunked(64 * 1024):
@@ -1027,7 +1275,7 @@ class AsilmediaService:
             temp_file = destination_path.with_suffix(".tmp")
             if temp_file.exists():
                 try:
-                    if temp_file.stat().st_size >= 512 * 1024:
+                    if valid_header and temp_file.stat().st_size >= 512 * 1024:
                         if destination_path.exists():
                             destination_path.unlink()
                         temp_file.rename(destination_path)
@@ -1054,6 +1302,7 @@ class AsilmediaService:
                     quality=v.get("quality", "1080p"),
                     watch_url=v.get("watch_url"),
                     download_url=v.get("download_url"),
+                    quality_urls=dict(v.get("quality_urls") or {}),
                     file_type=v.get("file_type", "video"),
                     file_size=v.get("file_size"),
                     duration=v.get("duration"),
@@ -1076,6 +1325,8 @@ class AsilmediaService:
             video_sources=d.get("video_sources", {}),
             watch_url=d.get("watch_url"),
             download_url=d.get("download_url"),
+            amh_id=d.get("amh_id"),
+            amh_n=d.get("amh_n"),
         )
 
 

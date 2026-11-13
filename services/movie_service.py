@@ -24,52 +24,19 @@ logger = logging.getLogger(__name__)
 
 # Kesh
 _CATALOG_CACHE: Optional[dict] = None
+_UNIFIED_CATALOG_CACHE: Optional[Tuple[str, float, List[Dict[str, Any]]]] = None
 _LAST_SYNC_TS: float = time.time()
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(1)
 
-# 100% ishonchli, tezkor va Telegram Bot API limitlariga (<=25MB) to'liq mos keladigan kinolar/treylerlar video oqimlari (200 OK)
-VERIFIED_CDN_VIDEO_POOL = [
-    {
-        "url": "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
-        "duration": 5,
-        "file_size": 2848208
-    },
-    {
-        "url": "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
-        "duration": 10,
-        "file_size": 5485935
-    },
-    {
-        "url": "https://samplelib.com/lib/preview/mp4/sample-15s.mp4",
-        "duration": 15,
-        "file_size": 11916526
-    },
-    {
-        "url": "https://samplelib.com/lib/preview/mp4/sample-20s.mp4",
-        "duration": 20,
-        "file_size": 11815175
-    },
-    {
-        "url": "https://samplelib.com/lib/preview/mp4/sample-30s.mp4",
-        "duration": 30,
-        "file_size": 21657943
-    },
-    {
-        "url": "https://www.w3schools.com/html/mov_bbb.mp4",
-        "duration": 10,
-        "file_size": 788493
-    },
-    {
-        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-        "duration": 5,
-        "file_size": 1128375
-    },
-    {
-        "url": "https://vjs.zencdn.net/v/oceans.mp4",
-        "duration": 47,
-        "file_size": 23014356
-    },
-]
+MAX_TELEGRAM_UPLOAD_BYTES = 50 * 1024 * 1024
+
+ASILMEDIA_ID_MAP: Dict[str, str] = {
+    "101": "17638",
+    "718": "9165",
+    "717": "16913",
+    "287": "18281",
+    "1500": "14902",
+}
 
 
 CUSTOM_CATALOG_ITEMS = [
@@ -159,164 +126,163 @@ class MovieService:
         return text
 
     @staticmethod
+    def _is_rejected_media_url(url: Optional[str]) -> bool:
+        """Demo/mock videolarni va HTML wrapper sahifalarni video manba sifatida rad etish."""
+        if not url:
+            return True
+        low = str(url).strip().lower()
+        if not low:
+            return True
+        bad_tokens = (
+            "samplelib",
+            "sample-5s",
+            "sample-10s",
+            "sample-15s",
+            "sample-20s",
+            "sample-30s",
+            "mov_bbb",
+            "flower.mp4",
+            "oceans.mp4",
+            "default.mp4",
+            "sslip.io",
+            "sayt.php",
+        )
+        if any(tok in low for tok in bad_tokens):
+            return True
+        if re.search(r"server\.asilmedia\.org/(?:watch|download|embed)", low):
+            return True
+        if re.search(r"\.html?(?:$|[?#])", low):
+            return True
+        return False
+
+    @staticmethod
+    def _is_valid_local_video(path: Path, min_size: int = 500 * 1024) -> bool:
+        """Lokal video fayli hajmi va boshlang'ich binar headerini tekshirish."""
+        try:
+            if not path.exists() or not path.is_file():
+                return False
+            if path.stat().st_size < min_size:
+                return False
+            from services.asilmedia_service import asilmedia_service
+            with open(path, "rb") as vf:
+                head = vf.read(64)
+            return asilmedia_service.is_valid_video_header(head)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _resolve_asilmedia_id_hint(clean_code: str, cat_item: Optional[dict] = None) -> Optional[str]:
+        """Kino kodi yoki katalog kartochkasidan ishonchli Asilmedia ID ni ajratish."""
+        if cat_item and cat_item.get("asil_id"):
+            val = str(cat_item["asil_id"]).strip()
+            if val.isdigit():
+                return val
+        if clean_code in ASILMEDIA_ID_MAP:
+            return ASILMEDIA_ID_MAP[clean_code]
+        if cat_item and cat_item.get("a") is not None:
+            a_str = str(cat_item["a"]).strip()
+            if a_str.isdigit() and 1 <= int(a_str) <= 1_000_000:
+                return a_str
+        return None
+
+    @staticmethod
     async def sync_catalog_from_upstream(session: Optional[AsyncSession] = None) -> int:
         """
-        Upstream kino katalogi (https://161-97-96-58.sslip.io/api/catalog)
-        bilan to'liq avtomatik integratsiya va sinxronizatsiya.
-        Barcha ma'lumotlar @BauntyCinemabot va @BauntyFilms brendiga tozalangan holda
-        bizning 'movies' jadvalimizga va data/catalog.json ga kiritiladi.
+        Katalog ma'lumotlarini data/catalog.json, CUSTOM_CATALOG_ITEMS, Asilmedia.org va
+        mahalliy DB bilan @BauntyCinemabot va @BauntyFilms brendi asosida sinxronlash.
         """
-        global _CATALOG_CACHE, _LAST_SYNC_TS
-        import aiohttp
+        global _CATALOG_CACHE, _UNIFIED_CATALOG_CACHE, _LAST_SYNC_TS
         from database.session import get_session
+        from services.asilmedia_service import asilmedia_service
         _LAST_SYNC_TS = time.time()
+        _UNIFIED_CATALOG_CACHE = None
 
-        raw_items = []
-        upstream_url = "https://161-97-96-58.sslip.io/api/catalog"
-        catalog_file = BASE_DIR / "data" / "catalog.json"
+        raw_items: List[Dict[str, Any]] = []
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        catalog_file = base_dir / "data" / "catalog.json"
 
-        # 1. Upstream API dan eng yangi kinolar ro'yxatini olish
-        try:
-            async with aiohttp.ClientSession() as client:
-                async with client.get(upstream_url, timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as resp:
-                    if resp.status == 200:
-                        cat_json = await resp.json()
-                        if isinstance(cat_json, dict) and "items" in cat_json and isinstance(cat_json["items"], list):
-                            for it in cat_json.get("items", []):
-                                if "d" in it:
-                                    it["d"] = MovieService.sanitize_branding(it["d"])
-                                if "t" in it:
-                                    it["t"] = MovieService.sanitize_branding(it["t"])
-                            raw_items = list(cat_json.get("items", []))
-
-                # Real-time AsilMedia bo'limidan kinolar (/api/asil/home)
-                try:
-                    async with client.get("https://161-97-96-58.sslip.io/api/asil/home", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as h_resp:
-                        if h_resp.status == 200:
-                            h_data = await h_resp.json()
-                            if isinstance(h_data, dict):
-                                seen_codes = {str(it.get("c")) for it in raw_items}
-                                for sec in ["pop", "film", "serial"]:
-                                    for it in h_data.get(sec, []):
-                                        iid = it.get("id")
-                                        if iid and str(iid) not in seen_codes:
-                                            seen_codes.add(str(iid))
-                                            t_clean = MovieService.sanitize_branding(it.get("t", ""))
-                                            y_val = it.get("y", "")
-                                            g_val = ", ".join(it.get("g", []))
-                                            desc = (
-                                                f"🎬 <b>{t_clean}</b>"
-                                                + (f" ({y_val})" if y_val else "")
-                                                + "\n\n"
-                                                + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
-                                                + f"📺 <b>Sifati:</b> 1080p | Full HD\n"
-                                                + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
-                                                + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
-                                                + "👇 Ko'rish uchun quyidagi tugmani bosing!"
-                                            )
-                                            raw_items.append({
-                                                "c": int(iid) if str(iid).isdigit() else iid,
-                                                "t": t_clean,
-                                                "p": 1 if it.get("type") == "film" else 10,
-                                                "v": 2500,
-                                                "d": desc,
-                                                "a": iid,
-                                                "i": iid,
-                                                "p_url": it.get("p", ""),
-                                                "type": it.get("type", "film"),
-                                            })
-                except Exception as he:
-                    logger.debug("Asil home sync error in sync_catalog_from_upstream: %s", he)
-
-                # Real-time AsilMedia saralangan yangi premyeralar (/api/asil/list?page=1)
-                try:
-                    async with client.get("https://161-97-96-58.sslip.io/api/asil/list?page=1", timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)) as l_resp:
-                        if l_resp.status == 200:
-                            l_data = await l_resp.json()
-                            if isinstance(l_data, dict) and "items" in l_data and isinstance(l_data["items"], list):
-                                seen_codes = {str(it.get("c")) for it in raw_items}
-                                for it in l_data.get("items", []):
-                                    iid = it.get("id")
-                                    if iid and str(iid) not in seen_codes:
-                                        seen_codes.add(str(iid))
-                                        t_clean = MovieService.sanitize_branding(it.get("t", ""))
-                                        y_val = it.get("y", "")
-                                        g_val = ", ".join(it.get("g", []))
-                                        desc = (
-                                            f"🎬 <b>{t_clean}</b>"
-                                            + (f" ({y_val})" if y_val else "")
-                                            + "\n\n"
-                                            + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
-                                            + f"📺 <b>Sifati:</b> 1080p | Full HD\n"
-                                            + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
-                                            + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
-                                            + "👇 Ko'rish uchun quyidagi tugmani bosing!"
-                                        )
-                                        raw_items.append({
-                                            "c": int(iid) if str(iid).isdigit() else iid,
-                                            "t": t_clean,
-                                            "p": 1 if it.get("type") == "film" else 10,
-                                            "v": 2000,
-                                            "d": desc,
-                                            "a": iid,
-                                            "i": iid,
-                                            "p_url": it.get("p", ""),
-                                            "type": it.get("type", "film"),
-                                        })
-                except Exception as le:
-                    logger.debug("Asil list sync error in sync_catalog_from_upstream: %s", le)
-
-                # Mavjud catalog.json dagi barcha kinolarni saqlab qolamiz (hech qachon o'chirilmaydi)
-                if catalog_file.exists():
-                    try:
-                        with open(catalog_file, "r", encoding="utf-8") as f:
-                            local_cat = json.load(f)
-                            if isinstance(local_cat, dict) and "items" in local_cat and isinstance(local_cat["items"], list):
-                                existing_codes = {str(it.get("c")) for it in raw_items}
-                                for loc_it in local_cat["items"]:
-                                    c_key = str(loc_it.get("c"))
-                                    if c_key not in existing_codes:
-                                        existing_codes.add(c_key)
-                                        raw_items.append(loc_it)
-                    except Exception as me:
-                        logger.debug("Merge with existing catalog.json error: %s", me)
-
-                # Custom muhim kinolar (718 - Taksi, 717 - Attack on Titan, 287 - Chuqur, 1500 - Forsaj)
-                # hech qachon o'chib ketmasligi uchun ularni kiritamiz
-                existing_codes = {str(it.get("c")) for it in raw_items}
-                for c_item in reversed(CUSTOM_CATALOG_ITEMS):
-                    if str(c_item.get("c")) not in existing_codes:
-                        raw_items.insert(0, c_item)
-
-                cat_json = {
-                    "items": raw_items,
-                    "channel": config.CHANNEL_USERNAME,
-                    "bot": config.BOT_USERNAME.lstrip("@"),
-                }
-                if len(raw_items) >= 20:
-                    _CATALOG_CACHE = cat_json
-                    try:
-                        with open(catalog_file, "w", encoding="utf-8") as f:
-                            json.dump(cat_json, f, ensure_ascii=False, indent=2)
-                    except Exception as fe:
-                        logger.warning(f"catalog.json fayliga yozishda xatolik: {fe}")
-        except Exception as e:
-            logger.info(f"Upstream katalog yuklashda xatolik ({e}), lokal kesh ishlatiladi.")
-
-        # 2. Agar upstream bo'lmasa, lokal catalog.json dan o'qish
-        if not raw_items and catalog_file.exists():
+        # 1. Lokal catalog.json dan mavjud kinolarni yuklash
+        if catalog_file.exists():
             try:
                 with open(catalog_file, "r", encoding="utf-8") as f:
                     local_cat = json.load(f)
-                    _CATALOG_CACHE = local_cat
-                    raw_items = local_cat.get("items", [])
-            except Exception as e:
-                logger.warning(f"Lokal catalog.json o'qishda xatolik: {e}")
+                    if isinstance(local_cat, dict) and isinstance(local_cat.get("items"), list):
+                        for it in local_cat["items"]:
+                            if not isinstance(it, dict):
+                                continue
+                            item_copy = dict(it)
+                            if "d" in item_copy:
+                                item_copy["d"] = MovieService.sanitize_branding(item_copy["d"])
+                            if "t" in item_copy:
+                                item_copy["t"] = MovieService.sanitize_branding(item_copy["t"])
+                            raw_items.append(item_copy)
+            except Exception as me:
+                logger.debug("Merge with existing catalog.json error: %s", me)
+
+        # 2. Agar lokal katalog juda kichik bo'lsa Asilmedia ochiq sahifalaridan to'ldirish
+        if len(raw_items) < 10:
+            try:
+                batch_items = await asilmedia_service.fetch_catalog_batch(pages=1)
+                seen_codes = {str(it.get("c")) for it in raw_items}
+                for bit in batch_items:
+                    iid = bit.get("id")
+                    if not iid or str(iid) in seen_codes:
+                        continue
+                    seen_codes.add(str(iid))
+                    t_clean = MovieService.sanitize_branding(bit.get("title", ""))
+                    y_val = bit.get("year")
+                    genres = bit.get("genres", [])
+                    g_val = ", ".join(genres) if isinstance(genres, list) else str(genres or "")
+                    desc = (
+                        f"🎬 <b>{t_clean}</b>"
+                        + (f" ({y_val})" if y_val else "")
+                        + "\n\n"
+                        + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
+                        + "📺 <b>Sifati:</b> 1080p | Full HD\n"
+                        + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+                        + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
+                        + "👇 Ko'rish uchun quyidagi tugmani bosing!"
+                    )
+                    raw_items.append({
+                        "c": int(iid) if str(iid).isdigit() else iid,
+                        "t": t_clean,
+                        "p": int(bit.get("total_parts", 1)),
+                        "v": int(bit.get("views", 1)),
+                        "d": desc,
+                        "a": iid,
+                        "i": iid,
+                        "asil_id": int(iid) if str(iid).isdigit() else iid,
+                        "p_url": bit.get("poster", ""),
+                        "type": "serial" if bit.get("is_series") else "film",
+                    })
+            except Exception as ae:
+                logger.debug("Asilmedia catalog fallback error: %s", ae)
+
+        # 3. Custom asosiy kinolar (718, 717, 287, 1500) doim katalogda saqlanadi
+        existing_codes = {str(it.get("c")) for it in raw_items}
+        for c_item in reversed(CUSTOM_CATALOG_ITEMS):
+            if str(c_item.get("c")) not in existing_codes:
+                raw_items.insert(0, dict(c_item))
 
         if not raw_items:
             return 0
 
-        # 3. Bazaga sinxronlash
+        cat_json = {
+            "items": raw_items,
+            "channel": config.CHANNEL_USERNAME,
+            "bot": config.BOT_USERNAME.lstrip("@"),
+        }
+        if len(raw_items) >= 20 or not (_CATALOG_CACHE and len(_CATALOG_CACHE.get("items", [])) >= 20):
+            _CATALOG_CACHE = cat_json
+        if len(raw_items) >= 20:
+            try:
+                catalog_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(catalog_file, "w", encoding="utf-8") as f:
+                    json.dump(cat_json, f, ensure_ascii=False, indent=2)
+            except Exception as fe:
+                logger.warning(f"catalog.json fayliga yozishda xatolik: {fe}")
+
+        # 4. Bazaga sinxronlash
         if session:
             count = await crud.sync_movies_from_catalog_data(session, raw_items)
         else:
@@ -349,13 +315,7 @@ class MovieService:
             if c_str in alias_codes or a_str in alias_codes or i_str in alias_codes:
                 return it
 
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
-            try:
-                with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
-            except Exception:
-                pass
+        MovieService._ensure_catalog_cache()
 
         if _CATALOG_CACHE:
             for it in _CATALOG_CACHE.get("items", []):
@@ -367,18 +327,26 @@ class MovieService:
         return None
 
     @staticmethod
-    def search_catalog_by_title(title_query: str) -> Optional[dict]:
-        """Katalog keshidan sarlavha bo'yicha kino qidirish (Lotin + Kirill, apostrof tolerant, xavfsiz kalit so'zlar)."""
+    def _ensure_catalog_cache() -> Optional[dict]:
+        """Kesh bo'sh yoki to'liq bo'lmaganda diskdagi haqiqiy catalog.json ni yuklash."""
         global _CATALOG_CACHE
-        if not title_query:
-            return None
         catalog_path = BASE_DIR / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
+        if (_CATALOG_CACHE is None or len(_CATALOG_CACHE.get("items", [])) < 20) and catalog_path.exists():
             try:
                 with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
+                    loaded_cat = json.load(f)
+                    if isinstance(loaded_cat, dict) and loaded_cat.get("items"):
+                        _CATALOG_CACHE = loaded_cat
             except Exception:
                 pass
+        return _CATALOG_CACHE
+
+    @staticmethod
+    def search_catalog_by_title(title_query: str) -> Optional[dict]:
+        """Katalog keshidan sarlavha bo'yicha kino qidirish (Lotin + Kirill, apostrof tolerant, xavfsiz kalit so'zlar)."""
+        if not title_query:
+            return None
+        MovieService._ensure_catalog_cache()
 
         from utils.translit import get_both_scripts
 
@@ -487,6 +455,352 @@ class MovieService:
                     return it
 
         return None
+
+    @staticmethod
+    async def get_unified_catalog(session: Optional[AsyncSession] = None) -> List[Dict[str, Any]]:
+        """
+        CUSTOM_CATALOG_ITEMS, data/catalog.json va DB 'movies' / 'movie_files' jadvallarini
+        birlashtiruvchi yagona katalog ro'yxati.
+        code_part kabi qism qatorlarini alohida yuqori daraja kartochkasi sifatida chiqarmaydi,
+        aksincha asosiy kino kodi uchun aniq 'p' (qismlar soni) ni hisoblaydi.
+        """
+        global _CATALOG_CACHE, _UNIFIED_CATALOG_CACHE
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        base_key = str(base_dir)
+        now_ts = time.time()
+        if (
+            session is None
+            and _UNIFIED_CATALOG_CACHE is not None
+            and _UNIFIED_CATALOG_CACHE[0] == base_key
+            and (now_ts - _UNIFIED_CATALOG_CACHE[1]) < 45.0
+        ):
+            return [dict(x) for x in _UNIFIED_CATALOG_CACHE[2]]
+        catalog_path = base_dir / "data" / "catalog.json"
+        if _CATALOG_CACHE is None and catalog_path.exists():
+            try:
+                with open(catalog_path, "r", encoding="utf-8") as f:
+                    _CATALOG_CACHE = json.load(f)
+            except Exception:
+                pass
+
+        unified: Dict[str, Dict[str, Any]] = {}
+        order: List[str] = []
+        max_parts_by_base: Dict[str, int] = {}
+
+        def _add_entry(raw_it: Dict[str, Any]) -> None:
+            c_val = raw_it.get("c")
+            if c_val is None:
+                return
+            c_str = str(c_val).strip()
+            if not c_str:
+                return
+            m_child = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", c_str, re.I)
+            if m_child:
+                b_code, p_num = m_child.group(1), int(m_child.group(2))
+                if p_num > max_parts_by_base.get(b_code, 1):
+                    max_parts_by_base[b_code] = p_num
+                return
+
+            item_copy = dict(raw_it)
+            p_val = int(item_copy.get("p") or 1)
+            if p_val > max_parts_by_base.get(c_str, 1):
+                max_parts_by_base[c_str] = p_val
+
+            if c_str not in unified:
+                unified[c_str] = item_copy
+                order.append(c_str)
+            else:
+                cur = unified[c_str]
+                if not cur.get("t") and item_copy.get("t"):
+                    cur["t"] = item_copy["t"]
+                if not cur.get("d") and item_copy.get("d"):
+                    cur["d"] = item_copy["d"]
+                if not cur.get("p_url") and item_copy.get("p_url"):
+                    cur["p_url"] = item_copy["p_url"]
+                if not cur.get("asil_id") and item_copy.get("asil_id"):
+                    cur["asil_id"] = item_copy["asil_id"]
+                cur["v"] = max(int(cur.get("v") or 0), int(item_copy.get("v") or 0))
+
+        for it in CUSTOM_CATALOG_ITEMS:
+            _add_entry(it)
+        if _CATALOG_CACHE and isinstance(_CATALOG_CACHE.get("items"), list):
+            for it in _CATALOG_CACHE["items"]:
+                if isinstance(it, dict):
+                    _add_entry(it)
+
+        async def _merge_db(db_sess: AsyncSession) -> None:
+            from sqlalchemy import select, func
+            from database.models import MovieFile
+
+            res_m = await db_sess.execute(select(Movie))
+            for m in res_m.scalars().all():
+                c_str = str(m.code or "").strip()
+                if not c_str:
+                    continue
+                m_child = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", c_str, re.I)
+                if m_child:
+                    b_code, p_num = m_child.group(1), int(m_child.group(2))
+                    if p_num > max_parts_by_base.get(b_code, 1):
+                        max_parts_by_base[b_code] = p_num
+                    continue
+                _add_entry({
+                    "c": int(c_str) if c_str.isdigit() else c_str,
+                    "t": MovieService.sanitize_branding(m.title or f"Kino #{c_str}"),
+                    "p": 1,
+                    "v": int(m.views_count or 0),
+                    "d": MovieService.sanitize_branding(m.description or ""),
+                    "g": m.genres or "",
+                    "y": m.year,
+                    "type": "film",
+                })
+
+            res_mf = await db_sess.execute(
+                select(MovieFile.movie_code, func.max(MovieFile.part)).group_by(MovieFile.movie_code)
+            )
+            for m_code, max_p in res_mf.all():
+                if m_code and max_p:
+                    b_str = str(m_code).strip()
+                    if int(max_p) > max_parts_by_base.get(b_str, 1):
+                        max_parts_by_base[b_str] = int(max_p)
+
+        async def _merge_db_default() -> None:
+            from database.session import get_session
+            async with get_session() as s:
+                await _merge_db(s)
+
+        try:
+            if session is not None:
+                await _merge_db(session)
+            else:
+                await asyncio.wait_for(_merge_db_default(), timeout=2.5)
+        except Exception as dbe:
+            logger.debug(f"get_unified_catalog DB merge skipped: {dbe}")
+
+        result: List[Dict[str, Any]] = []
+        for c_str in order:
+            it = unified[c_str]
+            parts_cnt = max(int(it.get("p") or 1), max_parts_by_base.get(c_str, 1))
+            it["p"] = parts_cnt
+            if parts_cnt > 1:
+                it["type"] = "serial"
+            elif not it.get("type"):
+                it["type"] = "film"
+            result.append(it)
+        if session is None:
+            _UNIFIED_CATALOG_CACHE = (base_key, time.time(), [dict(x) for x in result])
+        return result
+
+    @staticmethod
+    async def search_catalog(
+        query: str,
+        session: Optional[AsyncSession] = None,
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Kod (101, 718, ...) va Lotin/Kirill sarlavha bo'yicha yagona katalogdan qidirish."""
+        clean_q = (query or "").strip().lstrip("#№")
+        if not clean_q:
+            return []
+
+        items = await MovieService.get_unified_catalog(session=session)
+        from utils.translit import get_both_scripts
+
+        def _norm(txt: str) -> str:
+            t_n = (
+                txt.lower()
+                .replace("‘", "'").replace("’", "'").replace("ʻ", "'").replace("`", "'")
+                .replace("ç", "ch").replace("ş", "sh").replace("ğ", "g'").replace("ö", "o'")
+                .replace("ü", "u").replace("ı", "i")
+            )
+            return " ".join(re.sub(r"[^\w\s']|_", " ", t_n).split())
+
+        q_variants = list(get_both_scripts(clean_q))
+        if clean_q not in q_variants:
+            q_variants.insert(0, clean_q)
+        norm_queries: List[str] = []
+        for qv in q_variants:
+            nq = _norm(qv)
+            for cand_q in (nq, nq.replace("'", ""), nq.replace("cukur", "chuqur"), nq.replace("chuqur", "cukur")):
+                if cand_q and cand_q not in norm_queries:
+                    norm_queries.append(cand_q)
+
+        scored: List[Tuple[int, int, Dict[str, Any]]] = []
+        for it in items:
+            c_str = str(it.get("c", "")).strip()
+            t_raw = str(it.get("t", "") or "")
+            t_norm = _norm(t_raw)
+            t_strip = t_norm.replace("'", "")
+            score = 0
+
+            if clean_q.isdigit():
+                if c_str == clean_q:
+                    score = max(score, 1000)
+                elif c_str.startswith(clean_q):
+                    score = max(score, 500)
+
+            for nq in norm_queries:
+                if not nq:
+                    continue
+                if nq == t_norm or nq == t_strip:
+                    score = max(score, 850)
+                elif len(nq) >= 2 and (nq in t_norm or nq in t_strip):
+                    score = max(score, 450)
+                else:
+                    q_words = [w for w in nq.split() if len(w) >= 3]
+                    t_words = [w for w in t_strip.split() if len(w) >= 3]
+                    if q_words and t_words:
+                        matched = sum(1 for qw in q_words if any(qw in tw or tw in qw for tw in t_words))
+                        if matched == len(q_words):
+                            score = max(score, 320)
+                        elif matched > 0 and matched / len(q_words) >= 0.6:
+                            score = max(score, 180)
+
+            if score > 0:
+                scored.append((score, int(it.get("v") or 0), it))
+
+        scored.sort(key=lambda row: (row[0], row[1]), reverse=True)
+        return [row[2] for row in scored[:limit]]
+
+    @staticmethod
+    async def get_movie_stream_info(
+        code: str,
+        part: int = 1,
+        session: Optional[AsyncSession] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Kino/serial qismi uchun WebApp va to'g'ridan-to'g'ri yuklashda foydalaniladigan
+        imzolangan MP4 oqim URL lari va sifatlarini qaytarish.
+        """
+        from services.asilmedia_service import asilmedia_service
+
+        clean_code = str(code).strip().lstrip("#№")
+        m_part_code = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.I)
+        if m_part_code and part == 1:
+            clean_code = m_part_code.group(1)
+            part = int(m_part_code.group(2))
+
+        cat_item = MovieService.get_catalog_item(clean_code)
+        db_movie = None
+        if session:
+            try:
+                db_movie = await crud.get_movie_by_code(session, clean_code)
+            except Exception:
+                pass
+
+        title = (cat_item.get("t") if cat_item else None) or (db_movie.title if db_movie else None) or ""
+        total_parts = int(cat_item.get("p", 1)) if cat_item else 1
+        poster = cat_item.get("p_url") if cat_item else None
+        asil_id = MovieService._resolve_asilmedia_id_hint(clean_code, cat_item)
+
+        resolved_src = MovieService.resolve_video_source(clean_code, part=part, allow_default=False)
+        quality_urls: Dict[str, str] = {}
+        watch_url: Optional[str] = None
+        candidate_raws: Dict[str, str] = {}
+
+        if resolved_src:
+            w_cand = resolved_src.get("watch_url")
+            if w_cand and str(w_cand).startswith("http"):
+                watch_url = str(w_cand)
+            if isinstance(resolved_src.get("quality_urls"), dict):
+                for qk, qu in resolved_src["quality_urls"].items():
+                    if qu:
+                        candidate_raws[str(qk)] = str(qu)
+            src_q = str(resolved_src.get("quality") or "1080p")
+            for u_key in ("download_url", "url"):
+                u_val = resolved_src.get(u_key)
+                if u_val and not MovieService._is_rejected_media_url(u_val):
+                    candidate_raws.setdefault(src_q, str(u_val))
+
+        for qk, raw_u in list(candidate_raws.items()):
+            if MovieService._is_rejected_media_url(raw_u):
+                continue
+            if asilmedia_service.needs_fayllar_sign(raw_u):
+                signed_u = await asilmedia_service.resolve_stream_url(raw_u, news_id=asil_id)
+                if signed_u and not MovieService._is_rejected_media_url(signed_u):
+                    quality_urls[qk] = signed_u
+            elif str(raw_u).startswith("http"):
+                quality_urls[qk] = str(raw_u)
+
+        asil_det = None
+        if not quality_urls:
+            if asil_id:
+                asil_det = await asilmedia_service.get_movie_details(asil_id)
+            if not asil_det and title and not title.lower().startswith("kino #"):
+                asil_det = await asilmedia_service.find_best_match(title, target_parts=total_parts)
+            if not asil_det and clean_code.isdigit() and int(clean_code) >= 10:
+                cand_det = await asilmedia_service.get_movie_details(clean_code)
+                if cand_det:
+                    if not title or title.lower().startswith("kino #"):
+                        asil_det = cand_det
+                    else:
+                        t_words = {w for w in re.sub(r"[^\w\s]", " ", title.lower()).split() if len(w) >= 3}
+                        c_words = {w for w in re.sub(r"[^\w\s]", " ", cand_det.title.lower()).split() if len(w) >= 3}
+                        if not t_words or (t_words & c_words):
+                            asil_det = cand_det
+
+            if asil_det:
+                asil_id = asil_det.id
+                total_parts = max(total_parts, int(asil_det.total_parts or 1))
+                poster = poster or asil_det.poster
+                if not title or title.lower().startswith("kino #"):
+                    title = asil_det.title
+                ep = asil_det.episodes.get(part)
+                raw_q_map: Dict[str, str] = {}
+                if ep:
+                    watch_url = watch_url or ep.watch_url or asil_det.watch_url
+                    for qk, qu in (ep.quality_urls or {}).items():
+                        if qu and not MovieService._is_rejected_media_url(qu):
+                            raw_q_map[str(qk)] = str(qu)
+                    for cand_u in (ep.download_url, ep.url):
+                        if cand_u and not MovieService._is_rejected_media_url(cand_u):
+                            raw_q_map.setdefault(ep.quality or "1080p", str(cand_u))
+                elif part == 1:
+                    watch_url = watch_url or asil_det.watch_url
+                    for qk, qu in (asil_det.video_sources or {}).items():
+                        if qk == "primary" or str(qk).startswith("tg_"):
+                            continue
+                        if qu and not MovieService._is_rejected_media_url(qu):
+                            raw_q_map[str(qk)] = str(qu)
+
+                to_sign = [u for u in raw_q_map.values() if asilmedia_service.needs_fayllar_sign(u)]
+                signed_map = {}
+                if to_sign:
+                    signed_map = await asilmedia_service.sign_fayllar_urls(
+                        to_sign,
+                        amh_id=asil_det.amh_id or asil_det.id,
+                        amh_n=asil_det.amh_n,
+                    )
+                for qk, qu in raw_q_map.items():
+                    final_u = signed_map.get(qu, qu)
+                    if (
+                        final_u
+                        and str(final_u).startswith("http")
+                        and not str(final_u).startswith("am:")
+                        and not MovieService._is_rejected_media_url(final_u)
+                    ):
+                        quality_urls[qk] = str(final_u)
+
+        if not title and not db_movie and not cat_item and not asil_det and not quality_urls:
+            return None
+
+        stream_url = None
+        for pref_q in ("1080p", "720p", "480p", "4K", "360p"):
+            if pref_q in quality_urls:
+                stream_url = quality_urls[pref_q]
+                break
+        if not stream_url and quality_urls:
+            stream_url = next(iter(quality_urls.values()))
+
+        return {
+            "code": clean_code,
+            "title": title or f"Kino #{clean_code}",
+            "part": part,
+            "total_parts": total_parts,
+            "stream_url": stream_url,
+            "quality_urls": quality_urls,
+            "watch_url": watch_url,
+            "poster": poster,
+            "asil_id": asil_id,
+        }
 
     @staticmethod
     def search_catalog_by_actor(actor_query: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -676,11 +990,11 @@ class MovieService:
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
         v_dir = base_dir / "data" / "videos"
 
-        # 1. Lokal fayllar tekshiruvi (aniq kod va franchise alias bo'yicha)
+        # 1. Lokal fayllar tekshiruvi (aniq kod va franchise alias bo'yicha, binar header bilan)
         for k in keys_to_check:
             for ext in [".mp4", ".mkv", ".mov"]:
                 candidate = v_dir / f"{k}{ext}"
-                if candidate.exists() and candidate.stat().st_size >= 10 * 1024 * 1024:
+                if MovieService._is_valid_local_video(candidate):
                     return {
                         "file_path": str(candidate),
                         "file_type": "video",
@@ -701,40 +1015,44 @@ class MovieService:
                     for k in keys_to_check:
                         if k in items_dict:
                             entry = items_dict[k]
+                            res: Dict[str, Any] = {}
                             if isinstance(entry, str):
-                                if entry.startswith("http://") or entry.startswith("https://"):
+                                if entry.startswith("http://") or entry.startswith("https://") or entry.startswith("am:"):
                                     res = {"url": entry, "file_type": "video"}
-                                else:
+                                elif MovieService.is_valid_telegram_file_id(entry):
                                     res = {"file_id": entry, "file_type": "video"}
                             elif isinstance(entry, dict):
                                 res = dict(entry)
 
-                            # Agar fayl yo'li ko'rsatilgan bo'lsa (faqat >= 10MB haqiqiy video fayllar)
+                            if not res:
+                                continue
+
+                            for u_k in ("url", "download_url"):
+                                u_v = res.get(u_k)
+                                if u_v and not str(u_v).startswith("am:") and MovieService._is_rejected_media_url(u_v):
+                                    res.pop(u_k, None)
+                            if res.get("file_id") and not MovieService.is_valid_telegram_file_id(res.get("file_id")):
+                                res.pop("file_id", None)
+
                             if "file_path" in res:
                                 fp = Path(res["file_path"])
-                                if not fp.exists() or fp.stat().st_size < 10 * 1024 * 1024:
+                                if not MovieService._is_valid_local_video(fp):
                                     rel_cand = v_dir / fp.name
-                                    if rel_cand.exists() and rel_cand.stat().st_size >= 10 * 1024 * 1024:
+                                    if MovieService._is_valid_local_video(rel_cand):
                                         res["file_path"] = str(rel_cand)
                                     else:
                                         del res["file_path"]
 
-                            # Agar file_path bo'lmasa, diskdagi mos keluvchi faylni bog'lash
                             if "file_path" not in res:
                                 for c in alias_codes:
                                     cand_p = v_dir / f"{c}_{part}.mp4"
-                                    if cand_p.exists() and cand_p.stat().st_size >= 10 * 1024 * 1024:
+                                    if MovieService._is_valid_local_video(cand_p):
                                         res["file_path"] = str(cand_p)
                                         res["file_size"] = cand_p.stat().st_size
                                         break
 
-                            return res
-
-                    # Standart "default" manba tekshiruvi (soxta samplelib va dummy fayllarsiz)
-                    if allow_default and "default" in items_dict:
-                        entry = items_dict["default"]
-                        if isinstance(entry, dict) and not any(k in str(entry.get("url", "")) for k in ["samplelib", "sample-", "default.mp4"]):
-                            return dict(entry)
+                            if any(res.get(x) for x in ("file_path", "file_id", "url", "download_url", "quality_urls")):
+                                return res
             except Exception as e:
                 logger.debug(f"video_sources.json o'qishda xatolik: {e}")
 
@@ -748,14 +1066,13 @@ class MovieService:
                 for k in keys_to_check:
                     for ext in [".mp4", ".mkv", ".mov"]:
                         cand = sdir / f"{k}{ext}"
-                        if cand.exists() and cand.stat().st_size >= 10 * 1024 * 1024:
+                        if MovieService._is_valid_local_video(cand):
                             return {
                                 "file_path": str(cand),
                                 "file_type": "video",
                                 "file_size": cand.stat().st_size
                             }
 
-        # 4. Hech qachon 33KB default.mp4 yoki samplelib videoni qaytarmaslik
         return None
 
     @staticmethod
@@ -767,7 +1084,7 @@ class MovieService:
     ) -> Optional[Path]:
         """
         Kino uchun yaroqli MP4 video faylini tekshirish va tayyorlash.
-        Hech qachon 33KB qora ekranli dummy videolarni yubormaydi yoki ko'chirmaydi.
+        Hech qachon soxta yoki demo videolarni ko'chirmaydi.
         """
         import shutil
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
@@ -775,10 +1092,9 @@ class MovieService:
         v_dir.mkdir(parents=True, exist_ok=True)
         dest = destination_path or (v_dir / f"{code}_{part}.mp4")
 
-        if dest.exists() and dest.stat().st_size >= 10 * 1024 * 1024:
+        if MovieService._is_valid_local_video(dest):
             return dest
 
-        # Franchise alias bo'yicha tayyor haqiqiy faylni qidirish
         clean_code = str(code).strip().lstrip("#№")
         alias_codes = [clean_code]
         if clean_code in FRANCHISE_CODE_MAP:
@@ -787,22 +1103,13 @@ class MovieService:
         for c in alias_codes:
             for cand_name in [f"{c}_{part}.mp4", f"{c}_1.mp4", f"{c}.mp4"]:
                 cand_path = v_dir / cand_name
-                if cand_path.exists() and cand_path.stat().st_size >= 10 * 1024 * 1024:
+                if MovieService._is_valid_local_video(cand_path):
                     try:
                         shutil.copyfile(str(cand_path), str(dest))
-                        if dest.exists() and dest.stat().st_size >= 10 * 1024 * 1024:
+                        if MovieService._is_valid_local_video(dest):
                             return dest
                     except Exception:
                         pass
-
-        default_mp4 = v_dir / "default.mp4"
-        if default_mp4.exists() and default_mp4.stat().st_size >= 1024:
-            try:
-                shutil.copyfile(str(default_mp4), str(dest))
-                if dest.exists() and dest.stat().st_size >= 1024:
-                    return dest
-            except Exception:
-                pass
 
         return None
 
@@ -854,6 +1161,8 @@ class MovieService:
         if (
             tf_lower.startswith("http://")
             or tf_lower.startswith("https://")
+            or tf_lower.startswith("am:")
+            or tf_lower.startswith("baacagiaaxkbaaib_")
             or tf_lower.startswith("mov_")
             or "_mov_" in tf_lower
             or tf_lower.endswith("_vid")
@@ -866,6 +1175,7 @@ class MovieService:
             or "baacagiaaxk_test_real_id" in tf_lower
             or "_verified_fid" in tf_lower
             or "_sample_real_persisted" in tf_lower
+            or any(bad in tf_lower for bad in ("samplelib", "mov_bbb", "default.mp4", "server.asilmedia.org", "sayt.php", ".html", "sslip.io"))
             or "<" in tf
             or len(tf) < 20
         ):
@@ -887,28 +1197,30 @@ class MovieService:
         display_title: Optional[str] = None
     ) -> Optional[Any]:
         """
-        URL manbasidan xavfsiz navbat (asyncio.Semaphore(1)) va oqimli yuklab olish (<=1MB bo'laklar)
+        URL manbasidan xavfsiz navbat (asyncio.Semaphore(1)) va oqimli yuklab olish (<=50MB TG limiti)
         orqali videoni yuklab, foydalanuvchiga yuborish va Telegram file_id ni bazaga keshlab qo'yish.
         RAM yoki diskni to'ldirmaslik uchun vaqtinchalik fayl finally blokida 100% o'chiriladi.
         """
+        from services.asilmedia_service import asilmedia_service
+
         async with _DOWNLOAD_SEMAPHORE:
             # 1. Navbat ichida keshni qayta tekshirish (agar parallel so'rov allaqachon yuklagan bo'lsa)
             if session:
                 try:
                     cached_mf = await crud.get_movie_file(session, code, part)
                     if cached_mf and MovieService.is_valid_telegram_file_id(cached_mf.file_id):
-                        ftype = cached_mf.file_type or "video"
-                        if ftype == "document":
-                            return await bot.send_document(
-                                chat_id=chat_id,
-                                document=cached_mf.file_id,
-                                caption=caption,
-                                parse_mode="HTML",
-                                reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id,
-                                protect_content=True
-                            )
-                        else:
+                        try:
+                            ftype = cached_mf.file_type or "video"
+                            if ftype == "document":
+                                return await bot.send_document(
+                                    chat_id=chat_id,
+                                    document=cached_mf.file_id,
+                                    caption=caption,
+                                    parse_mode="HTML",
+                                    reply_markup=reply_markup,
+                                    reply_to_message_id=reply_to_message_id,
+                                    protect_content=True
+                                )
                             return await bot.send_video(
                                 chat_id=chat_id,
                                 video=cached_mf.file_id,
@@ -920,22 +1232,26 @@ class MovieService:
                                 reply_to_message_id=reply_to_message_id,
                                 protect_content=True
                             )
+                        except Exception as cache_send_err:
+                            logger.warning(f"Cached movie_file file_id yuborilmadi ({cache_send_err}), tozalanmoqda.")
+                            cached_mf.file_id = ""
+                            await session.commit()
 
                     p_code = f"{code}_{part}" if part > 1 else code
                     cached_m = await crud.get_movie_by_code(session, p_code)
                     if cached_m and MovieService.is_valid_telegram_file_id(cached_m.file_id):
-                        m_ftype = getattr(cached_m, "file_type", "video") or "video"
-                        if m_ftype == "document":
-                            return await bot.send_document(
-                                chat_id=chat_id,
-                                document=cached_m.file_id,
-                                caption=caption,
-                                parse_mode="HTML",
-                                reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id,
-                                protect_content=True
-                            )
-                        else:
+                        try:
+                            m_ftype = getattr(cached_m, "file_type", "video") or "video"
+                            if m_ftype == "document":
+                                return await bot.send_document(
+                                    chat_id=chat_id,
+                                    document=cached_m.file_id,
+                                    caption=caption,
+                                    parse_mode="HTML",
+                                    reply_markup=reply_markup,
+                                    reply_to_message_id=reply_to_message_id,
+                                    protect_content=True
+                                )
                             return await bot.send_video(
                                 chat_id=chat_id,
                                 video=cached_m.file_id,
@@ -947,8 +1263,30 @@ class MovieService:
                                 reply_to_message_id=reply_to_message_id,
                                 protect_content=True
                             )
+                        except Exception as db_send_err:
+                            logger.warning(f"Cached db movie file_id yuborilmadi ({db_send_err}), tozalanmoqda.")
+                            cached_m.file_id = ""
+                            await session.commit()
                 except Exception as ce:
                     logger.debug(f"Double-check cache error: {ce}")
+
+            # Manba URL ni imzolash va HTML / mock sahifalardan himoyalash
+            resolved_url = str(source_url or "").strip()
+            if MovieService._is_rejected_media_url(resolved_url):
+                logger.warning(f"Video yuklash manbasi rad etildi (demo/HTML): {resolved_url}")
+                return None
+
+            if asilmedia_service.needs_fayllar_sign(resolved_url):
+                cat_hint = MovieService.get_catalog_item(code)
+                nid_hint = MovieService._resolve_asilmedia_id_hint(str(code).strip(), cat_hint)
+                signed_url = await asilmedia_service.resolve_stream_url(resolved_url, news_id=nid_hint)
+                if not signed_url or MovieService._is_rejected_media_url(signed_url):
+                    logger.warning(f"Asilmedia havolasini imzolab bo'lmadi: {resolved_url}")
+                    return None
+                resolved_url = signed_url
+
+            if not resolved_url.startswith("http") or MovieService._is_rejected_media_url(resolved_url):
+                return None
 
             # 2. Vaqtinchalik fayl yo'li
             v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
@@ -958,27 +1296,64 @@ class MovieService:
 
             try:
                 headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Referer": "https://asilmedia.org/",
+                    "User-Agent": asilmedia_service.USER_AGENT,
+                    "Referer": f"{asilmedia_service.BASE_URL}/",
                 }
                 timeout = aiohttp.ClientTimeout(total=300, connect=30)
                 async with aiohttp.ClientSession(headers=headers, timeout=timeout) as client:
-                    async with client.get(source_url) as resp:
+                    async with client.get(resolved_url) as resp:
                         if resp.status not in (200, 206):
-                            logger.warning(f"Download URL returned status {resp.status}: {source_url}")
+                            logger.warning(f"Download URL returned status {resp.status}: {resolved_url}")
                             return None
+
+                        resp_headers = getattr(resp, "headers", None) or {}
+                        ctype = str(resp_headers.get("Content-Type") or "").lower()
+                        if any(t in ctype for t in ("text/html", "text/plain", "application/json", "application/xml")):
+                            logger.warning(f"Yuklash manzili HTML/matn ({ctype}): {resolved_url}")
+                            return None
+
+                        clen_raw = resp_headers.get("Content-Length")
+                        if clen_raw is not None and str(clen_raw).isdigit():
+                            cl_bytes = int(clen_raw)
+                            if cl_bytes > MAX_TELEGRAM_UPLOAD_BYTES:
+                                logger.info(
+                                    f"Kino #{code} (qism={part}) hajmi {cl_bytes // (1024 * 1024)} MB > 50 MB TG limiti, WebApp/direct oqimga yo'naltiriladi."
+                                )
+                                return None
+
+                        first_chunk = True
+                        valid_header = False
+                        total_bytes = 0
                         with open(temp_file, "wb") as f:
                             async for chunk in resp.content.iter_chunked(1024 * 1024):
-                                if chunk:
-                                    f.write(chunk)
+                                if not chunk:
+                                    continue
+                                if first_chunk:
+                                    first_chunk = False
+                                    if not asilmedia_service.is_valid_video_header(chunk):
+                                        logger.warning(f"Video boshlang'ich baytlari yaroqsiz (HTML/matn): {resolved_url}")
+                                        break
+                                    valid_header = True
+                                total_bytes += len(chunk)
+                                if total_bytes > MAX_TELEGRAM_UPLOAD_BYTES:
+                                    logger.info(f"Yuklanayotgan oqim 50 MB TG limitidan oshdi, to'xtatildi: {resolved_url}")
+                                    valid_header = False
+                                    break
+                                f.write(chunk)
 
-                if not temp_file.exists() or temp_file.stat().st_size < 100 * 1024:
-                    logger.warning(f"Downloaded file invalid or too small: {source_url}")
+                        if not valid_header:
+                            temp_file.unlink(missing_ok=True)
+                            return None
+
+                if not temp_file.exists() or temp_file.stat().st_size < 100 * 1024 or temp_file.stat().st_size > MAX_TELEGRAM_UPLOAD_BYTES:
+                    logger.warning(f"Downloaded file invalid size: {resolved_url}")
+                    temp_file.unlink(missing_ok=True)
                     return None
 
                 file_size = temp_file.stat().st_size
                 media_input = FSInputFile(temp_file)
                 sent_msg = None
+                user_delivered = False
                 try:
                     sent_msg = await bot.send_video(
                         chat_id=chat_id,
@@ -991,6 +1366,8 @@ class MovieService:
                         reply_to_message_id=reply_to_message_id,
                         protect_content=True
                     )
+                    if sent_msg:
+                        user_delivered = True
                 except Exception as ve:
                     logger.warning(f"send_video with FSInputFile failed ({ve}), attempting send_document fallback")
                     media_input = FSInputFile(temp_file)
@@ -1004,38 +1381,43 @@ class MovieService:
                             reply_to_message_id=reply_to_message_id,
                             protect_content=True
                         )
+                        if sent_msg:
+                            user_delivered = True
                     except Exception as de:
                         logger.error(f"send_document fallback failed: {de}")
 
-                if not sent_msg and config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
+                storage_msg = None
+                if not user_delivered and config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
                     storage_id = str(config.STORAGE_CHANNEL_ID).strip()
-                    try:
-                        media_input = FSInputFile(temp_file)
-                        sent_msg = await bot.send_video(
-                            chat_id=storage_id,
-                            video=media_input,
-                            caption=f"🎬 #{code} - {display_title or code} (Part {part})",
-                            duration=duration,
-                            supports_streaming=True,
-                            protect_content=True
-                        )
-                    except Exception as se_vid:
-                        logger.debug(f"Direct storage channel send_video error: {se_vid}")
+                    if storage_id != str(chat_id):
                         try:
                             media_input = FSInputFile(temp_file)
-                            sent_msg = await bot.send_document(
+                            storage_msg = await bot.send_video(
                                 chat_id=storage_id,
-                                document=media_input,
+                                video=media_input,
                                 caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                duration=duration,
+                                supports_streaming=True,
                                 protect_content=True
                             )
-                        except Exception as se_doc:
-                            logger.debug(f"Direct storage channel send_document error: {se_doc}")
+                        except Exception as se_vid:
+                            logger.debug(f"Direct storage channel send_video error: {se_vid}")
+                            try:
+                                media_input = FSInputFile(temp_file)
+                                storage_msg = await bot.send_document(
+                                    chat_id=storage_id,
+                                    document=media_input,
+                                    caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                    protect_content=True
+                                )
+                            except Exception as se_doc:
+                                logger.debug(f"Direct storage channel send_document error: {se_doc}")
 
-                if sent_msg:
+                persisted_msg = sent_msg or storage_msg
+                if persisted_msg:
                     sent_media = (
-                        getattr(sent_msg, "video", None)
-                        or getattr(sent_msg, "document", None)
+                        getattr(persisted_msg, "video", None)
+                        or getattr(persisted_msg, "document", None)
                     )
                     if sent_media:
                         new_fid = getattr(sent_media, "file_id", None)
@@ -1045,7 +1427,7 @@ class MovieService:
                             fsize = getattr(sent_media, "file_size", None)
                             fsize_val = int(fsize) if isinstance(fsize, (int, float)) else file_size
                             p_code = f"{code}_{part}" if part > 1 else code
-                            ftype = "video" if getattr(sent_msg, "video", None) else "document"
+                            ftype = "video" if getattr(persisted_msg, "video", None) else "document"
 
                             if session:
                                 try:
@@ -1072,7 +1454,7 @@ class MovieService:
                                 except Exception as pe:
                                     logger.debug(f"Persist new file_id error: {pe}")
 
-                            if config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
+                            if user_delivered and config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
                                 try:
                                     storage_id = str(config.STORAGE_CHANNEL_ID).strip()
                                     if storage_id != str(chat_id):
@@ -1095,9 +1477,11 @@ class MovieService:
                                 except Exception as sce:
                                     logger.debug(f"Storage channel backup error: {sce}")
 
+                if user_delivered:
                     return sent_msg
+                return None
             except Exception as ex:
-                logger.error(f"download_and_upload_media_on_demand error for {source_url}: {ex}")
+                logger.error(f"download_and_upload_media_on_demand error for {resolved_url}: {ex}")
                 return None
             finally:
                 try:
@@ -1536,7 +1920,7 @@ class MovieService:
             target_file_id = cached_fid if has_cached_mf else (db_movie.file_id if db_movie else None)
             target_file_type = cached_ftype if has_cached_mf else (getattr(db_movie, "file_type", "video") if db_movie else "video")
             target_duration = getattr(cached_mf, "duration", None) or (db_movie.duration if db_movie else None)
-            if target_file_id:
+            if target_file_id and MovieService.is_valid_telegram_file_id(target_file_id):
                 try:
                     if target_file_type == "document":
                         await bot.send_document(
@@ -1566,47 +1950,58 @@ class MovieService:
                     video_sent = True
                     return True
                 except Exception as e:
-                    logger.warning(f"Baza/Cloud videosini yuborib bo'lmadi ({e}), zaxira video manbasi tekshiriladi.")
+                    logger.warning(f"Baza/Cloud videosini yuborib bo'lmadi ({e}), eskirgan file_id tozalanib zaxira tekshiriladi.")
+                    try:
+                        if cached_mf and cached_mf.file_id == target_file_id:
+                            cached_mf.file_id = ""
+                        if db_movie and db_movie.file_id == target_file_id:
+                            db_movie.file_id = ""
+                        await session.commit()
+                    except Exception:
+                        pass
 
         if not video_sent:
-            candidates = []
+            from services.asilmedia_service import asilmedia_service
+            asil_nid_hint = MovieService._resolve_asilmedia_id_hint(clean_code, cat_item)
+            candidates: List[Dict[str, Any]] = []
             if not resolved_source:
                 resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
             if resolved_source:
-                # Agar lokal fayl bo'lsa (faqat >= 10MB haqiqiy video fayllar)
                 res_fp = resolved_source.get("file_path")
                 if res_fp:
                     fp = Path(res_fp)
-                    if fp.exists() and fp.stat().st_size >= 10 * 1024 * 1024:
+                    if MovieService._is_valid_local_video(fp):
                         candidates.append(resolved_source)
                     else:
                         v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
                         rel_cand = v_dir / fp.name
-                        if rel_cand.exists() and rel_cand.stat().st_size >= 10 * 1024 * 1024:
+                        if MovieService._is_valid_local_video(rel_cand):
                             resolved_source["file_path"] = str(rel_cand)
                             candidates.append(resolved_source)
                 elif resolved_source.get("file_id") and MovieService.is_valid_telegram_file_id(resolved_source.get("file_id")):
                     candidates.append(resolved_source)
-                elif resolved_source.get("url") and str(resolved_source["url"]).startswith("http") and not any(h in resolved_source["url"] for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
-                    candidates.append(resolved_source)
-                    alt_url = resolved_source.get("watch_url") if resolved_source.get("url") != resolved_source.get("watch_url") else resolved_source.get("download_url")
-                    if alt_url and alt_url != resolved_source.get("url") and not any(h in alt_url for h in ["sayt.php", ".html", "default.mp4", "samplelib"]):
-                        alt_cand = dict(resolved_source)
-                        alt_cand["url"] = alt_url
-                        candidates.append(alt_cand)
-                    elif "server.asilmedia.org" in resolved_source["url"]:
-                        u = resolved_source["url"]
-                        alt_u = u.replace("/download/", "/watch/") if "/download/" in u else u.replace("/watch/", "/download/")
-                        if alt_u != u:
-                            alt_c = dict(resolved_source)
-                            alt_c["url"] = alt_u
-                            candidates.append(alt_c)
+                else:
+                    q_urls_map = resolved_source.get("quality_urls")
+                    if isinstance(q_urls_map, dict):
+                        for qk in ("1080p", "720p", "480p", "360p", "4K"):
+                            qu = q_urls_map.get(qk)
+                            if qu and not MovieService._is_rejected_media_url(qu):
+                                candidates.append({"url": qu, "duration": resolved_source.get("duration"), "quality": qk})
+                    for uk in ("download_url", "url"):
+                        uv = resolved_source.get(uk)
+                        if uv and not MovieService._is_rejected_media_url(uv):
+                            if not any(c.get("url") == uv for c in candidates):
+                                candidates.append({
+                                    "url": uv,
+                                    "duration": resolved_source.get("duration"),
+                                    "file_size": resolved_source.get("file_size"),
+                                })
 
             # 2. data/videos papkasidagi tayyorlangan haqiqiy lokal fayllar (kod va franchise aliaslar)
             v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
             for c in alias_codes:
                 a_cand = v_dir / f"{c}_{part}.mp4"
-                if a_cand.exists() and a_cand.stat().st_size >= 10 * 1024 * 1024:
+                if MovieService._is_valid_local_video(a_cand):
                     if not any(cand.get("file_path") == str(a_cand) for cand in candidates):
                         candidates.insert(0, {
                             "file_path": str(a_cand),
@@ -1616,14 +2011,27 @@ class MovieService:
                         })
                     break
 
-            if not candidates and (download_online_url or watch_online_url):
-                cand_url = download_online_url or watch_online_url
-                if cand_url and str(cand_url).startswith("http") and not any(h in str(cand_url) for h in ["sayt.php", ".html"]):
-                    candidates.append({
-                        "url": str(cand_url),
-                        "duration": None,
-                        "file_size": None
-                    })
+            if not candidates and download_online_url and not MovieService._is_rejected_media_url(download_online_url):
+                candidates.append({
+                    "url": str(download_online_url),
+                    "duration": None,
+                    "file_size": None
+                })
+
+            # 3. Agar lokal yoki direct nomzod topilmagan bo'lsa, Asilmediadan jonli MP4 oqimlarini yechib olish
+            if not candidates:
+                try:
+                    s_info = await MovieService.get_movie_stream_info(clean_code, part=part, session=session)
+                    if s_info and s_info.get("quality_urls"):
+                        for qk in ("1080p", "720p", "480p", "4K", "360p"):
+                            qu = s_info["quality_urls"].get(qk)
+                            if qu and not MovieService._is_rejected_media_url(qu):
+                                candidates.append({"url": qu, "duration": None, "quality": qk})
+                        for qk, qu in s_info["quality_urls"].items():
+                            if qu and not any(c.get("url") == qu for c in candidates) and not MovieService._is_rejected_media_url(qu):
+                                candidates.append({"url": qu, "duration": None, "quality": qk})
+                except Exception as sie:
+                    logger.debug(f"Live stream fallback lookup error for #{clean_code}: {sie}")
 
             if not candidates:
                 logger.info(f"Kino #{clean_code} (qism={part}) uchun haqiqiy video manbasi mavjud emas, silent poster downgrade bekor qilinadi.")
@@ -1631,47 +2039,42 @@ class MovieService:
 
             for cand in candidates:
                 try:
-                    target_video = (
-                        FSInputFile(cand["file_path"])
-                        if "file_path" in cand
-                        else (cand.get("file_id") if MovieService.is_valid_telegram_file_id(cand.get("file_id")) else None) or cand.get("url")
-                    )
-                    if isinstance(target_video, str) and target_video.startswith("http") and "server.asilmedia.org" in target_video and ".mp4" not in target_video:
-                        sep = "&" if "?" in target_video else "?"
-                        target_video = f"{target_video}{sep}file=video.mp4"
+                    target_video: Optional[Any] = None
+                    if "file_path" in cand:
+                        target_video = FSInputFile(cand["file_path"])
+                    elif cand.get("file_id") and MovieService.is_valid_telegram_file_id(cand.get("file_id")):
+                        target_video = cand.get("file_id")
+                    elif cand.get("url"):
+                        raw_cand_u = str(cand["url"]).strip()
+                        if MovieService._is_rejected_media_url(raw_cand_u):
+                            continue
+                        if asilmedia_service.needs_fayllar_sign(raw_cand_u):
+                            signed_u = await asilmedia_service.resolve_stream_url(raw_cand_u, news_id=asil_nid_hint)
+                            if not signed_u or MovieService._is_rejected_media_url(signed_u):
+                                continue
+                            raw_cand_u = signed_u
+                        if raw_cand_u.startswith("http") and not MovieService._is_rejected_media_url(raw_cand_u):
+                            target_video = raw_cand_u
+
                     if not target_video:
                         continue
 
                     sent_msg = None
                     if isinstance(target_video, str) and target_video.startswith("http"):
-                        # Avval Telegram URL orqali to'g'ridan-to'g'ri yuborishga urinadi
-                        try:
-                            sent_msg = await bot.send_video(
-                                chat_id=chat_id,
-                                video=target_video,
-                                caption=caption,
-                                parse_mode="HTML",
-                                duration=cand.get("duration"),
-                                supports_streaming=True,
-                                reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id,
-                                protect_content=True
-                            )
-                        except Exception as direct_err:
-                            logger.info(f"Direct send_video via URL failed ({direct_err}), using on-demand stream downloader...")
-                            sent_msg = await MovieService.download_and_upload_media_on_demand(
-                                bot=bot,
-                                chat_id=chat_id,
-                                code=clean_code,
-                                part=part,
-                                source_url=target_video,
-                                caption=caption,
-                                duration=cand.get("duration"),
-                                reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id,
-                                session=session,
-                                display_title=display_title
-                            )
+                        # 50MB limit va HTML/binar header tekshiruvi bilan xavfsiz oqimli yuklash va yuborish
+                        sent_msg = await MovieService.download_and_upload_media_on_demand(
+                            bot=bot,
+                            chat_id=chat_id,
+                            code=clean_code,
+                            part=part,
+                            source_url=target_video,
+                            caption=caption,
+                            duration=cand.get("duration"),
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id,
+                            session=session,
+                            display_title=display_title
+                        )
                     else:
                         sent_msg = await bot.send_video(
                             chat_id=chat_id,
@@ -1693,7 +2096,7 @@ class MovieService:
                         )
                         if sent_media:
                             new_fid = getattr(sent_media, "file_id", None)
-                            if isinstance(new_fid, str) and not new_fid.startswith("<") and len(new_fid) > 10:
+                            if isinstance(new_fid, str) and MovieService.is_valid_telegram_file_id(new_fid):
                                 dur = getattr(sent_media, "duration", None)
                                 dur_val = int(dur) if isinstance(dur, (int, float)) else cand.get("duration")
                                 fsize = getattr(sent_media, "file_size", None)
@@ -1701,7 +2104,6 @@ class MovieService:
                                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
                                 ftype = "video" if getattr(sent_msg, "video", None) else "document"
 
-                                # Hech qachon 120 soniyadan kam (treyler/sample) yoki 100KB dan kichik (dummy) videolarni keshlamaslik
                                 if (dur_val is None or dur_val >= 120) and (fsize_val is None or fsize_val >= 100 * 1024):
                                     try:
                                         saved_m = await crud.set_movie_video(
@@ -1743,26 +2145,24 @@ class MovieService:
             logger.info(f"Kino #{clean_code} uchun video yetkazilmadi (require_video={require_video}), False qaytariladi.")
             return False
 
-        # 2. HD Poster rasmi orqali yuborish (faqat tarmoq xatoligi bo'lganda favqulodda zaxira)
+        # 2. HD Poster rasmi orqali yuborish (faqat require_video=False bo'lganda)
         posters_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "posters"
         posters_dir.mkdir(parents=True, exist_ok=True)
         poster_path = posters_dir / f"{clean_code}_l.webp"
 
-        if not poster_path.exists():
-            for size in ["l", "s"]:
-                try:
-                    import aiohttp
-                    url = f"https://161-97-96-58.sslip.io/p/{clean_code}_{size}.webp"
+        if not poster_path.exists() and cat_item and cat_item.get("p_url"):
+            try:
+                p_u = str(cat_item["p_url"]).strip()
+                if p_u.startswith("http") and "sslip.io" not in p_u.lower():
                     async with aiohttp.ClientSession() as client:
-                        async with client.get(url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
+                        async with client.get(p_u, timeout=aiohttp.ClientTimeout(total=3)) as resp:
                             if resp.status == 200:
                                 pdata = await resp.read()
                                 if pdata and len(pdata) > 500:
                                     with open(poster_path, "wb") as pf:
                                         pf.write(pdata)
-                                    break
-                except Exception:
-                    pass
+            except Exception:
+                pass
 
         if poster_path.exists():
             try:
@@ -1806,7 +2206,8 @@ class MovieService:
         chat_id: int,
         movie: Movie,
         session: AsyncSession,
-        reply_to_message_id: Optional[int] = None
+        reply_to_message_id: Optional[int] = None,
+        require_video: bool = True
     ) -> bool:
         """Kino kodi orqali foydalanuvchiga yuborish."""
         return await MovieService.deliver_movie(
@@ -1815,7 +2216,8 @@ class MovieService:
             code=movie.code,
             part=1,
             session=session,
-            reply_to_message_id=reply_to_message_id
+            reply_to_message_id=reply_to_message_id,
+            require_video=require_video
         )
 
     @staticmethod
@@ -1844,87 +2246,15 @@ class MovieService:
                 pass
 
         target_parts = int(cat_item.get("p", 1)) if cat_item else 1
-
         asil_movie = None
-        # 1. Real-time upstream /api/asil/item API orqali tezkor tekshirish (0.2 soniyada javob)
-        if clean_code.isdigit() and len(clean_code) >= 2:
+
+        # 1. Katalogdagi asil_id / ASILMEDIA_ID_MAP / yaroqli 'a' maydoni bo'yicha to'g'ridan-to'g'ri olish
+        asil_hint = MovieService._resolve_asilmedia_id_hint(clean_code, cat_item)
+        if asil_hint:
             try:
-                import aiohttp
-                async with aiohttp.ClientSession() as cl:
-                    async with cl.get(
-                        f"https://161-97-96-58.sslip.io/api/asil/item?id={clean_code}",
-                        timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
-                    ) as i_resp:
-                        if i_resp.status == 200:
-                            i_raw = await i_resp.json()
-                            if isinstance(i_raw, dict) and i_raw.get("ok") and "item" in i_raw:
-                                it_data = i_raw["item"]
-                                it_title = MovieService.sanitize_branding(it_data.get("t") or "")
-                                it_desc = MovieService.sanitize_branding(it_data.get("desc") or "")
-                                it_watch = it_data.get("watch") or ""
-                                it_poster = it_data.get("p") or ""
-                                it_year = it_data.get("y")
-                                it_genres = it_data.get("g") or []
-                                is_ser = (it_data.get("type") == "serial") or bool(it_data.get("seasons"))
-
-                                from services.asilmedia_service import AsilmediaMovie, AsilmediaEpisode
-                                eps_dict = {}
-                                total_p = 1
-                                if it_data.get("seasons"):
-                                    for s_idx, season in enumerate(it_data["seasons"], 1):
-                                        for ep in season.get("eps", []):
-                                            ep_num = int(ep.get("e") or 1)
-                                            if ep_num > total_p:
-                                                total_p = ep_num
-                                            ep_label = ep.get("name") or f"{ep_num}-qism"
-                                            best_q = "1080p"
-                                            for fl in ep.get("f", []):
-                                                if fl.get("ok"):
-                                                    best_q = fl.get("q", "1080p")
-                                                    break
-                                            eps_dict[ep_num] = AsilmediaEpisode(
-                                                part=ep_num,
-                                                label=ep_label,
-                                                url=it_watch,
-                                                season=s_idx,
-                                                episode=ep_num,
-                                                quality=best_q,
-                                                watch_url=it_watch,
-                                                download_url=it_watch
-                                            )
-                                elif it_data.get("files"):
-                                    for fl in it_data["files"]:
-                                        if fl.get("parts", 1) > total_p:
-                                            total_p = int(fl["parts"])
-
-                                # Agar target_title berilgan bo'lsa, olingan film nomi unga mos kelishi kerak
-                                matches_target = True
-                                if target_title and not target_title.lower().startswith("kino #"):
-                                    t_words = [w for w in re.sub(r"[^\w\s]", " ", target_title.lower()).split() if len(w) >= 3]
-                                    it_words = [w for w in re.sub(r"[^\w\s]", " ", it_title.lower()).split() if len(w) >= 3]
-                                    matches_target = (
-                                        (target_title.lower() in it_title.lower())
-                                        or (it_title.lower() in target_title.lower())
-                                        or any(w in it_words for w in t_words)
-                                    )
-
-                                if matches_target:
-                                    asil_movie = AsilmediaMovie(
-                                        id=clean_code,
-                                        title=it_title or target_title or f"Kino #{clean_code}",
-                                        url=it_watch or f"https://asilmedia.org/{clean_code}-kino.html",
-                                        orig_title=it_data.get("alt"),
-                                        year=it_year,
-                                        genres=it_genres,
-                                        description=it_desc,
-                                        poster=it_poster,
-                                        is_series=is_ser,
-                                        total_parts=total_p,
-                                        episodes=eps_dict,
-                                        video_sources={"primary": it_watch} if it_watch else {}
-                                    )
-            except Exception as ue:
-                logger.debug(f"Upstream api/asil/item sync failed for {clean_code}: {ue}")
+                asil_movie = await asilmedia_service.get_movie_details(asil_hint)
+            except Exception as he:
+                logger.debug(f"Asilmedia hint id lookup failed for {clean_code} -> {asil_hint}: {he}")
 
         # 2. Target_title bo'yicha lokal asilmedia_service.find_best_match
         if not asil_movie and target_title and not target_title.startswith("Kino "):
@@ -1934,51 +2264,20 @@ class MovieService:
                 if len(words) > 1:
                     asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
 
-        # 3. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa (lokal asilmedia_service fallback)
-        if not asil_movie and clean_code.isdigit() and len(clean_code) >= 2:
+        # 3. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa
+        if not asil_movie and clean_code.isdigit() and int(clean_code) >= 10:
             try:
-                asil_movie = await asilmedia_service.get_movie_details(clean_code)
+                cand_movie = await asilmedia_service.get_movie_details(clean_code)
+                if cand_movie:
+                    if not target_title or target_title.startswith("Kino "):
+                        asil_movie = cand_movie
+                    else:
+                        t_words = {w for w in re.sub(r"[^\w\s]", " ", target_title.lower()).split() if len(w) >= 3}
+                        c_words = {w for w in re.sub(r"[^\w\s]", " ", cand_movie.title.lower()).split() if len(w) >= 3}
+                        if not t_words or (t_words & c_words):
+                            asil_movie = cand_movie
             except Exception as ge:
                 logger.debug(f"Asilmedia direct id lookup failed for {clean_code}: {ge}")
-
-        # 4. Mashhur franchise kodlari bo'yicha kanonik xaritalash
-        if not asil_movie:
-            franchise_map = {
-                "718": ("9165", "Taksi"),
-                "717": ("16913", "Titanlar hujumi"),
-                "287": ("18281", "Chuqur"),
-                "1500": ("14902", "Forsaj"),
-            }
-            if clean_code in franchise_map:
-                f_id, f_query = franchise_map[clean_code]
-                try:
-                    asil_movie = await asilmedia_service.get_movie_details(f_id)
-                except Exception:
-                    pass
-                if not asil_movie:
-                    asil_movie = await asilmedia_service.find_best_match(f_query, target_parts=target_parts)
-
-        # 5. Agar hali topilmasa, upstream /api/asil/search orqali qidirish
-        if not asil_movie and target_title and not target_title.startswith("Kino "):
-            try:
-                import urllib.parse, aiohttp
-                async with aiohttp.ClientSession() as cl:
-                    async with cl.get(
-                        f"https://161-97-96-58.sslip.io/api/asil/search?q={urllib.parse.quote(target_title)}",
-                        timeout=aiohttp.ClientTimeout(total=1.8, connect=1.0)
-                    ) as s_resp:
-                        if s_resp.status == 200:
-                            s_raw = await s_resp.json()
-                            if isinstance(s_raw, dict) and s_raw.get("items"):
-                                first_it = s_raw["items"][0]
-                                found_id = str(first_it.get("id"))
-                                if found_id:
-                                    try:
-                                        asil_movie = await asilmedia_service.get_movie_details(found_id)
-                                    except Exception:
-                                        pass
-            except Exception as se:
-                logger.debug(f"Upstream search in sync_movie_from_asilmedia error: {se}")
 
         if not asil_movie:
             return {
@@ -2009,22 +2308,33 @@ class MovieService:
         if asil_movie.episodes:
             for part_num, ep in asil_movie.episodes.items():
                 p_code = f"{clean_code}_{part_num}" if int(part_num) > 1 else clean_code
-                ep_url = ep.url or ep.download_url or ep.watch_url
+                clean_q_urls = {
+                    qk: qu for qk, qu in (ep.quality_urls or {}).items()
+                    if qu and not MovieService._is_rejected_media_url(qu)
+                }
+                ep_url = None
+                for cand_u in (ep.url, ep.download_url):
+                    if cand_u and not MovieService._is_rejected_media_url(cand_u):
+                        ep_url = cand_u
+                        break
+                if not ep_url and clean_q_urls:
+                    ep_url = next(iter(clean_q_urls.values()))
                 display_t = f"{asil_movie.title} — {part_num}-qism" if total_parts > 1 else asil_movie.title
-                source_entry = {
+                source_entry: Dict[str, Any] = {
                     "url": ep_url,
                     "watch_url": ep.watch_url,
-                    "download_url": ep.download_url,
+                    "download_url": ep.download_url if ep.download_url and not MovieService._is_rejected_media_url(ep.download_url) else ep_url,
                     "quality": ep.quality,
+                    "quality_urls": clean_q_urls,
                     "label": ep.label,
                     "file_type": "video",
                     "source": "asilmedia",
+                    "asil_id": str(asil_movie.id),
                     "title": display_t
                 }
 
                 if download_files:
                     v_dir = base_dir / "data" / "videos"
-                    v_path = v_dir / f"{clean_code}_{part_num}.mp4"
                     downloaded_path = await MovieService.download_movie_from_asilmedia(
                         code=clean_code,
                         part=int(part_num),
@@ -2045,27 +2355,34 @@ class MovieService:
 
                 if session:
                     try:
-                        await crud.set_movie_video(
+                        await crud.upsert_movie(
                             session=session,
                             code=p_code,
-                            file_id=ep_url,
-                            file_type="video",
-                            title=display_t
+                            title=display_t,
+                            views_count=1500
                         )
                     except Exception as de:
-                        logger.debug(f"DB set_movie_video error: {de}")
+                        logger.debug(f"DB upsert part error: {de}")
         else:
-            primary_url = (
-                asil_movie.video_sources.get("1080p")
-                or asil_movie.video_sources.get("720p")
-                or asil_movie.video_sources.get("primary")
-                or (list(asil_movie.video_sources.values())[0] if asil_movie.video_sources else None)
-            )
-            if primary_url:
+            primary_url = None
+            clean_q_urls = {}
+            for qk, qu in (asil_movie.video_sources or {}).items():
+                if qu and not MovieService._is_rejected_media_url(qu):
+                    if qk != "primary":
+                        clean_q_urls[qk] = qu
+            for qk in ("1080p", "720p", "480p", "primary"):
+                cand_u = asil_movie.video_sources.get(qk)
+                if cand_u and not MovieService._is_rejected_media_url(cand_u):
+                    primary_url = cand_u
+                    break
+            if primary_url or clean_q_urls:
+                primary_url = primary_url or next(iter(clean_q_urls.values()))
                 source_entry = {
                     "url": primary_url,
+                    "quality_urls": clean_q_urls,
                     "file_type": "video",
                     "source": "asilmedia",
+                    "asil_id": str(asil_movie.id),
                     "title": asil_movie.title
                 }
                 if download_files:
@@ -2082,17 +2399,6 @@ class MovieService:
                 items_dict[clean_code] = source_entry
                 items_dict[f"{clean_code}_1"] = source_entry
                 synced_parts.append(1)
-                if session:
-                    try:
-                        await crud.set_movie_video(
-                            session=session,
-                            code=clean_code,
-                            file_id=primary_url,
-                            file_type="video",
-                            title=asil_movie.title
-                        )
-                    except Exception as de:
-                        logger.debug(f"DB set_movie_video error: {de}")
 
         try:
             with open(sources_file, "w", encoding="utf-8") as f:
@@ -2100,13 +2406,20 @@ class MovieService:
         except Exception as fe:
             logger.warning(f"video_sources.json saqlashda xatolik: {fe}")
 
+        clean_synced_title = MovieService.sanitize_branding(asil_movie.title) if asil_movie else ""
+        clean_synced_desc = (
+            MovieService.sanitize_branding(asil_movie.description or f"🎬 {clean_synced_title}")
+            if asil_movie
+            else ""
+        )
+
         if session and asil_movie:
             try:
                 await crud.upsert_movie(
                     session=session,
                     code=clean_code,
-                    title=asil_movie.title,
-                    description=asil_movie.description,
+                    title=clean_synced_title,
+                    description=clean_synced_desc,
                     views_count=1500
                 )
                 await session.commit()
@@ -2118,17 +2431,20 @@ class MovieService:
             except Exception:
                 pass
 
+        global _UNIFIED_CATALOG_CACHE
+        _UNIFIED_CATALOG_CACHE = None
         if asil_movie and _CATALOG_CACHE and isinstance(_CATALOG_CACHE.get("items"), list):
             existing_codes = {str(it.get("c")) for it in _CATALOG_CACHE["items"]}
             if clean_code not in existing_codes:
                 _CATALOG_CACHE["items"].append({
                     "c": int(clean_code) if clean_code.isdigit() else clean_code,
-                    "t": asil_movie.title,
+                    "t": clean_synced_title,
                     "p": total_parts,
                     "v": 1500,
-                    "d": asil_movie.description or f"🎬 {asil_movie.title}",
+                    "d": clean_synced_desc,
                     "a": clean_code,
                     "i": clean_code,
+                    "asil_id": str(asil_movie.id),
                     "p_url": asil_movie.poster or "",
                     "type": "serial" if asil_movie.is_series else "film",
                 })
@@ -2189,24 +2505,22 @@ class MovieService:
         source = MovieService.resolve_video_source(code, part=part, allow_default=False)
         video_url = None
         if source:
-            u_cand = source.get("url") or source.get("download_url")
-            # HTML sahifalarni (sayt.php, .html) to'g'ridan-to'g'ri video oqimi deb hisoblamaslik
-            if u_cand and not any(h in u_cand for h in ["sayt.php", ".html", "server.asilmedia.org/watch"]):
-                video_url = u_cand
+            u_cand = source.get("download_url") or source.get("url")
+            if u_cand and not MovieService._is_rejected_media_url(u_cand):
+                video_url = str(u_cand)
 
         if not video_url:
-            movie_det = await asilmedia_service.get_movie_details(code)
-            if movie_det:
-                video_url = (
-                    movie_det.video_sources.get("480p")
-                    or movie_det.video_sources.get("720p")
-                    or movie_det.video_sources.get("1080p")
-                    or movie_det.video_sources.get("primary")
-                )
+            s_info = await MovieService.get_movie_stream_info(code, part=part)
+            if s_info:
+                video_url = s_info.get("stream_url")
 
         saved_file = None
-        if video_url and str(video_url).startswith("http") and "server.asilmedia.org" not in str(video_url):
-            saved_file = await asilmedia_service.download_video_stream(video_url, dest_path, max_bytes=2048 * 1024 * 1024)
+        if video_url:
+            if asilmedia_service.needs_fayllar_sign(video_url):
+                signed_v = await asilmedia_service.resolve_stream_url(video_url)
+                video_url = signed_v
+            if video_url and str(video_url).startswith("http") and not MovieService._is_rejected_media_url(video_url):
+                saved_file = await asilmedia_service.download_video_stream(video_url, dest_path, max_bytes=2048 * 1024 * 1024)
             if saved_file and saved_file.exists() and saved_file.stat().st_size >= 100 * 1024:
                 try:
                     import imageio_ffmpeg
@@ -2259,7 +2573,8 @@ class MovieService:
         Asilmedia.org ochiq API va sahifalari orqali batch sinxronlash, data/catalog.json va
         SQLite 'movies' jadvalini to'liq yangilash hamda video manbalarini boyitish.
         """
-        global _CATALOG_CACHE
+        global _CATALOG_CACHE, _UNIFIED_CATALOG_CACHE
+        _UNIFIED_CATALOG_CACHE = None
         from services.asilmedia_service import asilmedia_service
         from database.session import get_session
 

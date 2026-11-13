@@ -140,7 +140,23 @@ async def test_deliver_movie_protect_content_enforcement():
         mock_sent.document = None
         bot_mock.send_video = AsyncMock(return_value=mock_sent)
 
-        # 284 is in catalog
+        # 103 has real local MP4 asset (103_1.mp4) and must send_video with protect_content=True
+        res_local = await MovieService.deliver_movie(
+            bot=bot_mock,
+            chat_id=123456,
+            code="103",
+            part=1,
+            session=session
+        )
+        assert res_local is True
+        assert bot_mock.send_video.called
+        _, kwargs = bot_mock.send_video.call_args
+        assert kwargs.get("protect_content") is True
+
+        # 284 is in catalog; delivery enforces protect_content=True (video, poster, or message)
+        bot_mock.send_video.reset_mock()
+        bot_mock.send_photo.reset_mock()
+        bot_mock.send_message.reset_mock()
         res = await MovieService.deliver_movie(
             bot=bot_mock,
             chat_id=123456,
@@ -149,9 +165,13 @@ async def test_deliver_movie_protect_content_enforcement():
             session=session
         )
         assert res is True
-        assert bot_mock.send_video.called
-        _, kwargs = bot_mock.send_video.call_args
-        assert kwargs.get("protect_content") is True
+        assert bot_mock.send_video.called or bot_mock.send_photo.called or bot_mock.send_message.called
+        if bot_mock.send_video.called:
+            assert bot_mock.send_video.call_args.kwargs.get("protect_content") is True
+        if bot_mock.send_photo.called:
+            assert bot_mock.send_photo.call_args.kwargs.get("protect_content") is True
+        if bot_mock.send_message.called:
+            assert bot_mock.send_message.call_args.kwargs.get("protect_content") is True
 
     await test_engine.dispose()
 

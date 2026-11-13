@@ -6,6 +6,10 @@ Har xil narsalarni emas, aynan taomlar, shirinliklar va yeyiladigan mahsulotlarn
 """
 import re
 import io
+import os
+import json
+import base64
+import urllib.request
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timedelta
@@ -539,6 +543,79 @@ class KaloriyaService:
         return food["g"], food["kcal"], food["p"], food["f"], food["c"]
 
     @classmethod
+    def _recognize_food_with_vision(cls, photo_data: bytes) -> Optional[Dict[str, Any]]:
+        """OPENAI_API_KEY yoki GEMINI_API_KEY mavjud bo'lsa haqiqiy Vision API orqali taomni aniqlash."""
+        openai_key = os.getenv("OPENAI_API_KEY", "").strip()
+        gemini_key = os.getenv("GEMINI_API_KEY", "").strip()
+        if not openai_key and not gemini_key:
+            return None
+
+        b64_img = base64.b64encode(photo_data).decode("ascii")
+        prompt = (
+            "Analyze this image and decide if it depicts edible food/drink/dessert. "
+            "Respond strictly in JSON with keys: "
+            "is_food (bool), name_uz (string), name_ru (string), name_en (string), "
+            "grams (int), kcal (int), p (float), f (float), c (float), cat (dish|sweet|drink|fruit|pastry), rec (string in Uzbek)."
+        )
+
+        try:
+            if openai_key:
+                payload = json.dumps({
+                    "model": "gpt-4o-mini",
+                    "response_format": {"type": "json_object"},
+                    "messages": [{
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_img}"}},
+                        ],
+                    }],
+                    "max_tokens": 300,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    "https://api.openai.com/v1/chat/completions",
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {openai_key}",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                content = body["choices"][0]["message"]["content"]
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    return parsed
+
+            if gemini_key:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}"
+                payload = json.dumps({
+                    "contents": [{
+                        "parts": [
+                            {"text": prompt},
+                            {"inline_data": {"mime_type": "image/jpeg", "data": b64_img}},
+                        ]
+                    }],
+                    "generationConfig": {"responseMimeType": "application/json"},
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    url,
+                    data=payload,
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=8.0) as resp:
+                    body = json.loads(resp.read().decode("utf-8"))
+                txt = body["candidates"][0]["content"]["parts"][0]["text"]
+                parsed = json.loads(txt)
+                if isinstance(parsed, dict):
+                    return parsed
+        except Exception as e:
+            logger.debug(f"Vision API taom tahlilida xato: {e}")
+        return None
+
+    @classmethod
     def scan_food_text_or_image(cls, text: Optional[str] = None, photo_data: Optional[bytes] = None) -> Dict[str, Any]:
         """Ovqat yoki shirinlik nomi yoki surati bo'yicha to'liq Eda AI tahlili.
         
@@ -656,39 +733,81 @@ class KaloriyaService:
                                 "msg": "Kechirasiz, yuborilgan suratda taom yoki yeyiladigan mahsulot aniqlanmadi. Iltimos, faqat oziq-ovqat, taom yoki shirinlikning aniq suratini yuboring."
                             }
 
-                        # Ovqat profiliga mos kelganda, ranglar va vaqt bo'yicha mos taomni aniqlash
-                        if avg_g > avg_r and avg_g > avg_b:
-                            # Yashil rang ustun — yangi salat
-                            target_key = "salat"
-                        elif avg_r > 150 and avg_g > 110 and avg_b < 120:
-                            # Oltin-sariq / pishiriq rangi — shirinlik (medovik) yoki somsa
-                            target_key = "medovik" if now_hour >= 15 else "somsa"
-                        elif avg_r > avg_b * 1.2 and avg_g < 150:
-                            # Qovurilgan qizg'ish-jigarrang go'sht / osh
-                            target_key = "osh" if 11 <= now_hour < 16 else "shashlik"
-                        elif meal_type == "b" and avg_r > 140 and avg_g > 130:
-                            # Nonushta oqsil / tuxum
-                            target_key = "tuxum"
-                        elif avg_r < 110 and avg_g < 75 and avg_b < 65 and avg_r > avg_b:
-                            # To'q shokoladli shirinlik
-                            target_key = "shokolad"
-                        else:
-                            target_key = "osh" if meal_type == "l" else ("tuxum" if meal_type == "b" else "shashlik")
+                        # 3a. Agar OPENAI_API_KEY yoki GEMINI_API_KEY sozlangan bo'lsa — haqiqiy Vision AI chaqiruvi
+                        vision_res = cls._recognize_food_with_vision(photo_data)
+                        if isinstance(vision_res, dict):
+                            if vision_res.get("is_food") is False:
+                                return {
+                                    "ok": False,
+                                    "is_food": False,
+                                    "error": "not_food",
+                                    "msg": "Kechirasiz, suratda yeyiladigan taom yoki mahsulot aniqlanmadi.",
+                                }
+                            if vision_res.get("kcal"):
+                                items.append({
+                                    "n": str(vision_res.get("name_uz") or vision_res.get("name_en") or "Taom"),
+                                    "uz": str(vision_res.get("name_uz") or "Taom"),
+                                    "ru": str(vision_res.get("name_ru") or vision_res.get("name_uz") or "Блюдо"),
+                                    "en": str(vision_res.get("name_en") or "Dish"),
+                                    "g": max(10, int(vision_res.get("grams", 250))),
+                                    "kcal": max(1, int(vision_res.get("kcal", 350))),
+                                    "p": round(float(vision_res.get("p", 12.0)), 1),
+                                    "f": round(float(vision_res.get("f", 14.0)), 1),
+                                    "c": round(float(vision_res.get("c", 38.0)), 1),
+                                    "cat": str(vision_res.get("cat") or "dish"),
+                                    "rec": str(vision_res.get("rec") or "Vision AI orqali aniqlangan natija."),
+                                    "estimated": False,
+                                    "source": "vision_ai",
+                                })
 
-                        match_food = next((x for x in FOOD_DATABASE if target_key in x["keys"]), FOOD_DATABASE[0])
-                        items.append({
-                            "n": match_food["n"],
-                            "uz": match_food["uz"],
-                            "ru": match_food["ru"],
-                            "en": match_food["en"],
-                            "g": match_food["g"],
-                            "kcal": match_food["kcal"],
-                            "p": match_food["p"],
-                            "f": match_food["f"],
-                            "c": match_food["c"],
-                            "cat": match_food.get("cat", "dish"),
-                            "rec": match_food.get("rec", "")
-                        })
+                        # 3b. Vision kaliti bo'lmasa — RGB piksel bo'yicha "medovik/osh" deb uydirmaymiz!
+                        # Umumiy taom toifasi taxmini va tasdiqlash/tahrirlash so'rovi qaytariladi.
+                        if not items:
+                            if avg_g > avg_r and avg_g > avg_b:
+                                cat_uz, cat_ru, cat_en, cat_code = "Salat / ko'katli taom", "Салат (ориентировочно)", "Salad / greens", "salat"
+                                est_g, est_kcal, est_p, est_f, est_c = 220, 180, 5.0, 9.0, 18.0
+                            elif meal_type == "b":
+                                cat_uz, cat_ru, cat_en, cat_code = "Nonushta taomi", "Завтрак (ориентировочно)", "Breakfast meal", "dish"
+                                est_g, est_kcal, est_p, est_f, est_c = 250, 340, 14.0, 15.0, 36.0
+                            elif avg_r > 150 and avg_g > 110 and avg_b < 120:
+                                cat_uz, cat_ru, cat_en, cat_code = "Pishiriq / shirinlik toifasi", "Выпечка / десерт (ориентировочно)", "Pastry / dessert", "pastry"
+                                est_g, est_kcal, est_p, est_f, est_c = 160, 380, 7.0, 18.0, 46.0
+                            else:
+                                cat_uz, cat_ru, cat_en, cat_code = "Issiq taom / asosiy ovqat", "Горячее блюдо (ориентировочно)", "Main dish", "dish"
+                                est_g, est_kcal, est_p, est_f, est_c = 300, 440, 18.0, 19.0, 48.0
+
+                            items.append({
+                                "n": f"{cat_uz} (taxminiy)",
+                                "uz": f"{cat_uz} (taxminiy)",
+                                "ru": cat_ru,
+                                "en": f"{cat_en} (estimated)",
+                                "g": est_g,
+                                "kcal": est_kcal,
+                                "p": est_p,
+                                "f": est_f,
+                                "c": est_c,
+                                "cat": cat_code,
+                                "rec": "Aniq kaloriya uchun taom nomini yozib tasdiqlang (masalan: osh 300g, somsa 2 ta).",
+                                "estimated": True,
+                            })
+                            return {
+                                "ok": True,
+                                "is_food": True,
+                                "estimated": True,
+                                "needs_confirmation": True,
+                                "editable": True,
+                                "hint_prompt": "Tahrirlash / Aniq nom yozing",
+                                "source": "heuristic_hint",
+                                "meal": meal_type,
+                                "items": items,
+                                "total_g": est_g,
+                                "total_kcal": est_kcal,
+                                "total_p": est_p,
+                                "total_f": est_f,
+                                "total_c": est_c,
+                                "recommendation": "Vision AI kaliti ulanmaganligi sababli umumiy taxmin berildi. Tahrirlash / Aniq nom yozing.",
+                                "msg": "Surat tahlil qilindi (taxminiy). Aniq hisob uchun taom nomini tasdiqlang yoki tahrirlang.",
+                            }
                 except Exception as e:
                     logger.debug(f"Rasmni tahlil qilishda xato: {e}")
 

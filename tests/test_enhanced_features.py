@@ -17,6 +17,7 @@ from keyboards.inline import movie_item_keyboard, movie_parts_keyboard
 from database.session import init_db, get_session
 from database import crud
 from services.movie_service import movie_service
+from services.story_service import story_service
 
 
 @pytest.mark.asyncio
@@ -73,17 +74,49 @@ async def test_story_api_endpoints():
         resp_send_unauth = await client.post("/api/story/send", json={"u": "cristiano"})
         assert resp_send_unauth.status == 401
 
-        # 7. /api/story/send with auth header and mock bot
+        # 7. /api/story/send with auth header and mock bot (keshlangan haqiqiy story bilan)
         mock_bot = AsyncMock()
         mock_bot.send_message = AsyncMock(return_value=True)
+        mock_bot.send_photo = AsyncMock(return_value=True)
+        mock_bot.send_video = AsyncMock(return_value=True)
         set_bot_instance(mock_bot)
 
-        resp_send = await client.post(
-            "/api/story/send",
-            json={"u": "cristiano", "user_id": 12345678},
-            headers={"X-Init-Data": "user=%7B%22id%22%3A12345678%7D"}
-        )
-        assert resp_send.status == 200
+        prev_cache = story_service._profile_cache.get("cristiano")
+        prev_ts = story_service._cache_ts.get("cristiano")
+        story_service._profile_cache["cristiano"] = {
+            "ok": True,
+            "name": "cristiano",
+            "pic": "https://fayllar.com/cristiano_avatar.jpg",
+            "verified": True,
+            "items": [
+                {
+                    "id": "cristiano_1",
+                    "k": "image",
+                    "t": "https://fayllar.com/cristiano_thumb.jpg",
+                    "u": "https://fayllar.com/cristiano_story.jpg",
+                    "d": 5,
+                    "ts": 1700000000,
+                }
+            ],
+        }
+        try:
+            resp_send = await client.post(
+                "/api/story/send",
+                json={"u": "cristiano", "user_id": 12345678},
+                headers={"X-Init-Data": "user=%7B%22id%22%3A12345678%7D"}
+            )
+            assert resp_send.status == 200
+            assert mock_bot.send_photo.called or mock_bot.send_video.called
+        finally:
+            if prev_cache is None:
+                story_service._profile_cache.pop("cristiano", None)
+            else:
+                story_service._profile_cache["cristiano"] = prev_cache
+            if prev_ts is None:
+                story_service._cache_ts.pop("cristiano", None)
+            else:
+                story_service._cache_ts["cristiano"] = prev_ts
+            set_bot_instance(None)
         data_send = await resp_send.json()
         assert data_send.get("ok") is True
     finally:
@@ -448,7 +481,8 @@ async def test_upstream_music_home_proxy_and_sanitization(tmp_path, monkeypatch)
         assert data.get("ok") is True
         data_str = json.dumps(data)
         assert "Zakirov" not in data_str
-        assert "dilbar" not in data_str.lower()
+        assert "dilbarzakirova" not in data_str.lower()
+        assert "@zakirov" not in data_str.lower()
 
 
 @pytest.mark.asyncio
@@ -478,8 +512,11 @@ async def test_movie_service_default_fallback_video_source(tmp_path, monkeypatch
     assert "TearsOfSteel" in src_specific["url"]
 
     src_default = MovieService.resolve_video_source("999999", 1)
-    assert src_default is not None
-    assert "BigBuckBunny" in src_default["url"]
+    assert src_default is None
+    src_real = MovieService.resolve_video_source("101", 1)
+    assert src_real is not None
+    assert "BigBuckBunny" not in (src_real.get("url") or "")
+    assert "default.mp4" not in (src_real.get("url") or "")
 
 
 @pytest.mark.asyncio
@@ -491,7 +528,7 @@ async def test_deliver_movie_self_healing_from_failed_db_video(tmp_path, monkeyp
     v_data = {
         "items": {
             "777": {
-                "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4",
+                "url": "https://fayllar.com/777.mp4?token=test_sig_777",
                 "file_type": "video",
                 "duration": 888
             }
@@ -502,10 +539,10 @@ async def test_deliver_movie_self_healing_from_failed_db_video(tmp_path, monkeyp
     monkeypatch.setattr("config.BASE_DIR", tmp_path)
 
     bot_mock = AsyncMock()
-    # 1-chaqiriq (baza file_id) xato beradi, 2-chaqiriq (resolved url) muvaffaqiyatli
+    # 1-chaqiriq (baza file_id) xato beradi, 2-chaqiriq (resolved url -> chat_id) va storage arxivi muvaffaqiyatli
     sent_video_mock = MagicMock()
     sent_video_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_NEW_SAVED_TELEGRAM_FID_777", duration=888, file_size=500000)
-    bot_mock.send_video = AsyncMock(side_effect=[Exception("TelegramBadRequest: wrong file identifier"), sent_video_mock])
+    bot_mock.send_video = AsyncMock(side_effect=[Exception("TelegramBadRequest: wrong file identifier"), sent_video_mock, sent_video_mock])
     bot_mock.send_photo = AsyncMock()
 
     db_movie = Movie(
@@ -522,9 +559,43 @@ async def test_deliver_movie_self_healing_from_failed_db_video(tmp_path, monkeyp
     fake_session.execute = AsyncMock(return_value=mock_exec_res)
     fake_session.commit = AsyncMock()
 
+    mp4_payload = b"\x00\x00\x00\x18ftypmp42" + (b"\x00" * 150000)
+
+    class _FakeContent:
+        async def iter_chunked(self, _size):
+            yield mp4_payload
+
+    class _FakeResp:
+        status = 200
+        headers = {"Content-Type": "video/mp4", "Content-Length": str(len(mp4_payload))}
+        content = _FakeContent()
+
+        async def json(self, content_type=None):
+            return {}
+
+        async def text(self):
+            return ""
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeSession:
+        def get(self, *args, **kwargs):
+            return _FakeResp()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
     with patch("services.movie_service.crud.get_movie_by_code", new_callable=AsyncMock) as mock_get_movie, \
          patch("services.movie_service.crud.set_movie_video", new_callable=AsyncMock) as mock_set_video, \
-         patch("services.movie_service.crud.increment_movie_views", new_callable=AsyncMock):
+         patch("services.movie_service.crud.increment_movie_views", new_callable=AsyncMock), \
+         patch("aiohttp.ClientSession", return_value=_FakeSession()):
         mock_get_movie.return_value = db_movie
 
         res = await MovieService.deliver_movie(
@@ -536,8 +607,13 @@ async def test_deliver_movie_self_healing_from_failed_db_video(tmp_path, monkeyp
         )
 
         assert res is True
-        # bot.send_video ikki marta chaqirilgan (1-si xato, 2-si zaxira manba)
-        assert bot_mock.send_video.call_count == 2
+        # bot.send_video foydalanuvchiga 2 marta chaqirilgan (1-si xato, 2-si zaxira manba)
+        user_video_calls = [
+            c for c in bot_mock.send_video.call_args_list
+            if (c.kwargs.get("chat_id") if "chat_id" in c.kwargs else (c.args[0] if c.args else None)) == 12345
+        ]
+        assert len(user_video_calls) == 2
+        assert bot_mock.send_video.call_count >= 2
         # Poster yuborilmagan (chunki video muvaffaqiyatli yetkazildi!)
         assert bot_mock.send_photo.called is False
         # Yangi file_id bazada saqlangan

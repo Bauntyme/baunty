@@ -2,6 +2,7 @@
 Hujjatlar xizmati (Kirill-Lotin, PDF generatsiya, Matn tahlili va Tarjima)
 """
 import io
+import os
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -41,74 +42,176 @@ class DocService:
         }
 
     @staticmethod
+    def _find_ttf_font(bold: bool = False) -> Optional[str]:
+        """Kirill (а-я, ў, қ, ғ, ҳ) va lotin belgilarini qo'llab-quvvatlovchi TTF shriftni topish."""
+        candidates = (
+            [
+                "DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "C:/Windows/Fonts/arialbd.ttf",
+                "C:/Windows/Fonts/calibrib.ttf",
+                "C:/Windows/Fonts/segoeuib.ttf",
+                "arialbd.ttf",
+                "calibrib.ttf",
+            ]
+            if bold
+            else [
+                "DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "C:/Windows/Fonts/arial.ttf",
+                "C:/Windows/Fonts/calibri.ttf",
+                "C:/Windows/Fonts/segoeui.ttf",
+                "arial.ttf",
+                "calibri.ttf",
+                "segoeui.ttf",
+            ]
+        )
+        for fname in candidates:
+            if os.path.exists(fname):
+                return fname
+        return None
+
+    @staticmethod
     def create_simple_pdf(title: str, text: str, output_path: str) -> str:
         """
         Matndan to'liq valid, standart PDF fayl yaratadi.
-        Kirill va milliy harflar (ў, қ, ғ, ҳ, а-я, А-Я) bo'lsa Pillow orqali
-        to'liq formatlangan, yuqori sifatli PDF sahifa generatsiya qilinadi.
+        Avval ReportLab (TTFont bilan to'liq Unicode), bo'lmasa Pillow (TTF shrift bilan)
+        orqali kirill va lotin (ў, қ, ғ, ҳ, o', g') belgilarini aniq aks ettiradi.
         """
-        # Matnda kirill yoki kengaytirilgan (non-latin1) belgilar mavjudligini aniqlash
-        has_unicode = any(ord(c) > 127 for c in f"{title}\n{text}")
-        if has_unicode:
+        # 1. ReportLab orqali haqiqiy matnli va Unicode TTF shriftli PDF
+        reg_ttf = DocService._find_ttf_font(bold=False)
+        bold_ttf = DocService._find_ttf_font(bold=True) or reg_ttf
+        if reg_ttf:
             try:
-                import textwrap
-                from PIL import Image, ImageDraw, ImageFont
+                import html as _html
+                from reportlab.lib.pagesizes import A4
+                from reportlab.lib import colors
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
 
-                width, height = 1240, 1754
-                margin_x, margin_y = 80, 80
+                pdfmetrics.registerFont(TTFont("BauntyDoc", reg_ttf))
+                pdfmetrics.registerFont(TTFont("BauntyDocBold", bold_ttf))
+                pdfmetrics.registerFontFamily("BauntyDoc", normal="BauntyDoc", bold="BauntyDocBold")
 
-                font_title = None
-                font_body = None
-                for fname in ["arial.ttf", "calibri.ttf", "segoeui.ttf", "C:/Windows/Fonts/arial.ttf"]:
-                    try:
-                        font_title = ImageFont.truetype(fname, 36)
-                        font_body = ImageFont.truetype(fname, 22)
-                        break
-                    except Exception:
-                        continue
-                if not font_title:
-                    font_title = ImageFont.load_default()
-                    font_body = ImageFont.load_default()
-
-                pages = []
-                cur_img = Image.new("RGB", (width, height), (255, 255, 255))
-                cur_draw = ImageDraw.Draw(cur_img)
-                cur_y = margin_y
-
-                # Sarlavha
-                cur_draw.text((margin_x, cur_y), str(title)[:60], fill=(20, 20, 20), font=font_title)
-                cur_y += 60
-
-                # Chiziq (separator)
-                cur_draw.line([(margin_x, cur_y), (width - margin_x, cur_y)], fill=(210, 210, 210), width=2)
-                cur_y += 35
-
-                # Body matn
-                paragraphs = (text or "").split("\n")
-                for para in paragraphs:
+                doc = SimpleDocTemplate(
+                    output_path,
+                    pagesize=A4,
+                    rightMargin=48,
+                    leftMargin=48,
+                    topMargin=48,
+                    bottomMargin=48,
+                )
+                styles = getSampleStyleSheet()
+                t_style = ParagraphStyle(
+                    "DocTitle",
+                    parent=styles["Title"],
+                    fontName="BauntyDocBold",
+                    fontSize=18,
+                    leading=24,
+                    textColor=colors.HexColor("#141414"),
+                    spaceAfter=10,
+                )
+                b_style = ParagraphStyle(
+                    "DocBody",
+                    parent=styles["Normal"],
+                    fontName="BauntyDoc",
+                    fontSize=11,
+                    leading=16,
+                    textColor=colors.HexColor("#222222"),
+                    spaceAfter=8,
+                )
+                story = [
+                    Paragraph(_html.escape(str(title or "")), t_style),
+                    HRFlowable(width="100%", thickness=1, color=colors.HexColor("#D2D2D2"), spaceAfter=12),
+                ]
+                for para in str(text or "").split("\n"):
                     if not para.strip():
-                        cur_y += 18
-                        continue
-                    wrapped_lines = textwrap.wrap(para, width=70)
-                    for wline in wrapped_lines:
-                        if cur_y > height - margin_y - 40:
-                            pages.append(cur_img)
-                            cur_img = Image.new("RGB", (width, height), (255, 255, 255))
-                            cur_draw = ImageDraw.Draw(cur_img)
-                            cur_y = margin_y
-                        cur_draw.text((margin_x, cur_y), wline, fill=(40, 40, 40), font=font_body)
-                        cur_y += 32
-                    cur_y += 12
-
-                pages.append(cur_img)
-
-                if len(pages) == 1:
-                    pages[0].save(output_path, "PDF", resolution=150.0)
-                else:
-                    pages[0].save(output_path, "PDF", resolution=150.0, save_all=True, append_images=pages[1:])
+                        story.append(Spacer(1, 8))
+                    else:
+                        story.append(Paragraph(_html.escape(para), b_style))
+                doc.build(story)
                 return output_path
             except Exception:
                 pass
+
+        # 2. Pillow orqali Unicode TTF shriftli ko'p sahifali PDF (har doim tizim TTF izlaydi)
+        try:
+            import textwrap
+            from PIL import Image, ImageDraw, ImageFont
+
+            width, height = 1240, 1754
+            margin_x, margin_y = 80, 80
+
+            font_title = None
+            font_body = None
+            ttf_candidates = [
+                p for p in [
+                    bold_ttf,
+                    reg_ttf,
+                    "DejaVuSans.ttf",
+                    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    "C:/Windows/Fonts/arial.ttf",
+                    "C:/Windows/Fonts/calibri.ttf",
+                    "C:/Windows/Fonts/segoeui.ttf",
+                    "arial.ttf",
+                    "calibri.ttf",
+                    "segoeui.ttf",
+                ] if p
+            ]
+            for fname in ttf_candidates:
+                try:
+                    font_title = ImageFont.truetype(bold_ttf or fname, 36)
+                    font_body = ImageFont.truetype(reg_ttf or fname, 24)
+                    break
+                except Exception:
+                    continue
+            if not font_title:
+                font_title = ImageFont.load_default()
+                font_body = ImageFont.load_default()
+
+            pages = []
+            cur_img = Image.new("RGB", (width, height), (255, 255, 255))
+            cur_draw = ImageDraw.Draw(cur_img)
+            cur_y = margin_y
+
+            # Sarlavha
+            cur_draw.text((margin_x, cur_y), str(title)[:60], fill=(20, 20, 20), font=font_title)
+            cur_y += 60
+
+            # Chiziq (separator)
+            cur_draw.line([(margin_x, cur_y), (width - margin_x, cur_y)], fill=(210, 210, 210), width=2)
+            cur_y += 35
+
+            # Body matn
+            paragraphs = (text or "").split("\n")
+            for para in paragraphs:
+                if not para.strip():
+                    cur_y += 18
+                    continue
+                wrapped_lines = textwrap.wrap(para, width=68)
+                for wline in wrapped_lines:
+                    if cur_y > height - margin_y - 40:
+                        pages.append(cur_img)
+                        cur_img = Image.new("RGB", (width, height), (255, 255, 255))
+                        cur_draw = ImageDraw.Draw(cur_img)
+                        cur_y = margin_y
+                    cur_draw.text((margin_x, cur_y), wline, fill=(40, 40, 40), font=font_body)
+                    cur_y += 34
+                cur_y += 12
+
+            pages.append(cur_img)
+
+            if len(pages) == 1:
+                pages[0].save(output_path, "PDF", resolution=150.0)
+            else:
+                pages[0].save(output_path, "PDF", resolution=150.0, save_all=True, append_images=pages[1:])
+            return output_path
+        except Exception:
+            pass
 
         # Matnni qatorlarga ajratish va qochirish
         clean_title = title.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")

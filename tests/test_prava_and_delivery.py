@@ -359,9 +359,7 @@ def test_hub_and_ad_styles_in_zk_css_and_zk_js():
     assert "window.ZK_LITE" in js_content
     assert ".pv-seg" in js_content
 
-    # 3. index.html va app.js da ZHub va subGate mavjudligi
-    assert "ZHub" in html_content
-    assert "subGate" in html_content
+    # 3. app.js da ZHub va subGate mavjudligi
     assert "ZHub" in app_js_content
     assert "subGate" in app_js_content
     assert "startFragPrefetch: true" in app_js_content

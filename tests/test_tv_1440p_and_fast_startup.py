@@ -59,28 +59,22 @@ def test_webapp_hls_instant_startup_and_adaptive_bitrate():
     assert "hls.currentLevel = topLvl;" not in app_js
     assert "this.hls.loadLevel = bestIdx;" not in js_app
     assert "this.hls.nextLoadLevel = bestIdx;" not in js_app
-    assert "hls.currentLevel = -1;" in index_html
+    assert "hls.currentLevel = -1;" in app_js
     assert "hls.currentLevel = -1;" in app_js
     assert "this.hls.currentLevel = -1;" in js_app
 
     # 3. Past internetda ham zudlik bilan ochilish va xavfsiz bufer sozlamalari (30s/60s)
-    assert "startFragPrefetch: true" in index_html
-    assert "liveSyncDurationCount: 3" in index_html
-    assert "liveMaxLatencyDurationCount: 8" in index_html
-    assert "maxBufferLength: 30" in index_html
-    assert "maxMaxBufferLength: 60" in index_html
     assert "startFragPrefetch: true" in app_js
     assert "liveSyncDurationCount: 3" in app_js
+    assert "liveMaxLatencyDurationCount: 8" in app_js
     assert "maxBufferLength: 30" in app_js
     assert "maxMaxBufferLength: 60" in app_js
 
     # 4. Cinerama da playlist.m3u8 orqali ko'p darajali adaptiv oqim
-    assert 'tracks-v1a1/mono.ts.m3u8", "playlist.m3u8"' in index_html
     assert 'tracks-v1a1/mono.ts.m3u8", "playlist.m3u8"' in app_js
     assert 'tracks-v1a1/mono.ts.m3u8\', \'playlist.m3u8\'' in js_app
 
     # 5. Tasvir tiniqligi filtrlari
-    assert "contrast(1.06) saturate(1.05)" in index_html
     assert "-webkit-optimize-contrast" in index_html
     assert "contrast(1.06) saturate(1.05)" in app_js
     assert "contrast(1.06) saturate(1.05)" in js_app

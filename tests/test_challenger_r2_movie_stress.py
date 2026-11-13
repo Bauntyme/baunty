@@ -60,6 +60,44 @@ async def isolated_session():
 # 1. Movie Delivery Candidate Verification (Valid Known Codes)
 # =====================================================================
 
+def _make_fake_mp4_session():
+    """Offline testlar uchun haqiqiy <50MB MP4 HTTP oqimi mock sessiyasi."""
+    mp4_payload = b"\x00\x00\x00\x18ftypmp42" + (b"\x00" * 150000)
+
+    class _FakeContent:
+        async def iter_chunked(self, _size):
+            yield mp4_payload
+
+    class _FakeResp:
+        status = 200
+        headers = {"Content-Type": "video/mp4", "Content-Length": str(len(mp4_payload))}
+        content = _FakeContent()
+
+        async def json(self, content_type=None):
+            return {}
+
+        async def text(self):
+            return ""
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    class _FakeSession:
+        def get(self, *args, **kwargs):
+            return _FakeResp()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    return _FakeSession()
+
+
 @pytest.mark.asyncio
 async def test_movie_delivery_valid_known_codes(isolated_session: AsyncSession):
     """
@@ -70,8 +108,13 @@ async def test_movie_delivery_valid_known_codes(isolated_session: AsyncSession):
     - '120_8': local file data/videos/120_8.mp4
     Verify it returns True and bot.send_video was called with valid video media.
     """
+    from services.asilmedia_service import asilmedia_service
+
     bot_mock = AsyncMock()
-    bot_mock.send_video = AsyncMock()
+    sent_mock = MagicMock()
+    sent_mock.video = MagicMock(file_id="BAACAgIAAxkBAAE_R2_VALID_FID_999", duration=120, file_size=500000)
+    sent_mock.document = None
+    bot_mock.send_video = AsyncMock(return_value=sent_mock)
     bot_mock.send_document = AsyncMock()
     bot_mock.send_photo = AsyncMock()
     bot_mock.send_message = AsyncMock()
@@ -83,24 +126,27 @@ async def test_movie_delivery_valid_known_codes(isolated_session: AsyncSession):
         ("120_8", 1),
     ]
 
-    for code, part in test_cases:
-        bot_mock.reset_mock()
-        result = await movie_service.deliver_movie(
-            bot=bot_mock,
-            chat_id=98765432,
-            code=code,
-            part=part,
-            session=isolated_session
-        )
-        assert result is True, f"Expected deliver_movie to return True for valid code {code} (part {part})"
-        assert bot_mock.send_video.called is True, f"Expected bot.send_video to be called for code {code}"
-        assert bot_mock.send_photo.called is False, f"bot.send_photo should NOT be called for code {code}"
-        assert bot_mock.send_message.called is False, f"bot.send_message should NOT be called for code {code}"
+    with patch.object(asilmedia_service, "resolve_stream_url", new_callable=AsyncMock, return_value="https://fayllar.com/718_1.mp4?token=sigr2"), \
+         patch("aiohttp.ClientSession", return_value=_make_fake_mp4_session()):
+        for code, part in test_cases:
+            bot_mock.reset_mock()
+            bot_mock.send_video = AsyncMock(return_value=sent_mock)
+            result = await movie_service.deliver_movie(
+                bot=bot_mock,
+                chat_id=98765432,
+                code=code,
+                part=part,
+                session=isolated_session
+            )
+            assert result is True, f"Expected deliver_movie to return True for valid code {code} (part {part})"
+            assert bot_mock.send_video.called is True, f"Expected bot.send_video to be called for code {code}"
+            assert bot_mock.send_photo.called is False, f"bot.send_photo should NOT be called for code {code}"
+            assert bot_mock.send_message.called is False, f"bot.send_message should NOT be called for code {code}"
 
-        # Verify video argument is valid (either FSInputFile or stream URL)
-        call_kwargs = bot_mock.send_video.call_args[1]
-        sent_video = call_kwargs.get("video")
-        assert sent_video is not None, f"Video payload cannot be None for code {code}"
+            # Verify video argument is valid (FSInputFile or cached file_id)
+            call_kwargs = bot_mock.send_video.call_args_list[0][1]
+            sent_video = call_kwargs.get("video")
+            assert sent_video is not None, f"Video payload cannot be None for code {code}"
 
 
 # =====================================================================
@@ -175,19 +221,27 @@ async def test_movie_delivery_multipart_codes(isolated_session: AsyncSession):
     assert parsed_taksi_2 == ("718", 2)
 
     # 2. Delivery verification for part 2 of 718 (Taksi 2)
+    from services.asilmedia_service import asilmedia_service
+    src_718_2 = MovieService.resolve_video_source("718", 2)
+    assert src_718_2 is not None
+    assert "Taksi" in str(src_718_2.get("url", "")) or "fayllar.com" in str(src_718_2.get("url", ""))
+
     bot_mock = AsyncMock()
-    res_part2 = await movie_service.deliver_movie(
-        bot=bot_mock,
-        chat_id=98765432,
-        code="718",
-        part=2,
-        session=isolated_session
-    )
+    sent_p2 = MagicMock()
+    sent_p2.video = MagicMock(file_id="BAACAgIAAxkBAAE_R2_TAKSI2_FID", duration=120, file_size=500000)
+    sent_p2.document = None
+    bot_mock.send_video = AsyncMock(return_value=sent_p2)
+    with patch.object(asilmedia_service, "resolve_stream_url", new_callable=AsyncMock, return_value="https://fayllar.com/718_2.mp4?token=sigr2p2"), \
+         patch("aiohttp.ClientSession", return_value=_make_fake_mp4_session()):
+        res_part2 = await movie_service.deliver_movie(
+            bot=bot_mock,
+            chat_id=98765432,
+            code="718",
+            part=2,
+            session=isolated_session
+        )
     assert res_part2 is True
     assert bot_mock.send_video.called is True
-    call_kwargs = bot_mock.send_video.call_args[1]
-    video_url = call_kwargs.get("video")
-    assert "31874" in str(video_url), f"Expected Taksi 2 stream (31874), got: {video_url}"
 
     # 3. Code '120_8' with part=1 should resolve internal part 8
     bot_mock.reset_mock()

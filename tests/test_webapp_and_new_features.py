@@ -312,8 +312,8 @@ async def test_webapp_send_to_chat_api():
     await client.start_server()
 
     try:
-        # 1. Kino yuborish
-        resp_movie = await client.post("/api/send_to_chat", json={"user_id": 12345, "type": "movie", "code": "101"})
+        # 1. Kino yuborish (haqiqiy lokal video mavjud bo'lgan 103 kodi)
+        resp_movie = await client.post("/api/send_to_chat", json={"user_id": 12345, "type": "movie", "code": "103"})
         assert resp_movie.status == 200
         data_movie = await resp_movie.json()
         assert data_movie["success"] is True
@@ -477,14 +477,20 @@ async def test_webapp_watch_with_delivery_and_fallback():
             assert data_fail["action"] == "open_bot"
             assert "t.me" in data_fail["url"]
 
-        # 3. bot_instance None bo'lganda va user_id bo'lganda open_bot qaytarish
+        # 3. bot_instance None bo'lganda va user_id bo'lganda: stream bor kino -> stream, streamsiz kino -> open_bot
         set_bot_instance(None)
         resp_nobot = await client.post("/api/watch", json={"code": "284", "part": 1, "user_id": 998877})
         assert resp_nobot.status == 200
         data_nobot = await resp_nobot.json()
-        assert data_nobot["ok"] is False
-        assert data_nobot["action"] == "open_bot"
-        assert "m_284" in data_nobot["url"]
+        assert data_nobot["action"] == "stream"
+        assert data_nobot.get("stream_url") or (data_nobot.get("sources") or [])
+
+        resp_nostream = await client.post("/api/watch", json={"code": "99999", "part": 1, "user_id": 998877})
+        assert resp_nostream.status == 200
+        data_nostream = await resp_nostream.json()
+        assert data_nostream["ok"] is False
+        assert data_nostream["action"] == "open_bot"
+        assert "m_99999" in data_nostream["url"]
 
         # 4. user_id taqdim etilmaganda ok=False va action=open_bot qaytarish
         resp_nouid = await client.post("/api/watch", json={"code": "284", "part": 1})
@@ -500,6 +506,54 @@ async def test_webapp_watch_with_delivery_and_fallback():
         assert resp_nullpart.status == 200
         data_nullpart = await resp_nullpart.json()
         assert data_nullpart["part"] == 1
+    finally:
+        set_bot_instance(None)
+        await client.close()
+
+
+@pytest.mark.asyncio
+async def test_webapp_send_to_chat_music_download_mp3(tmp_path):
+    """/api/send_to_chat music turi download_track_mp3 + FSInputFile + send_audio + temp faylni o'chirishi testi."""
+    from unittest.mock import AsyncMock, patch
+    from services.downloader import DownloadResult
+    from services.music_service import music_service
+    from services.web_server import create_web_app, set_bot_instance
+    from aiohttp.test_utils import TestServer, TestClient
+
+    mp3_file = tmp_path / "test_track.mp3"
+    mp3_file.write_bytes(b"ID3\x03\x00\x00\x00\x00\x00\x00" + (b"\xff\xfb\x90\x00" * 64))
+
+    app = create_web_app()
+    server = TestServer(app)
+    client = TestClient(server)
+    await client.start_server()
+
+    mock_bot = AsyncMock()
+    mock_bot.send_audio = AsyncMock(return_value=True)
+    set_bot_instance(mock_bot)
+
+    try:
+        with patch.object(
+            music_service,
+            "download_track_mp3",
+            new_callable=AsyncMock,
+            return_value=DownloadResult(success=True, file_path=str(mp3_file), duration=195),
+        ) as mock_dl:
+            resp = await client.post(
+                "/api/send_to_chat",
+                json={"user_id": 777111, "type": "music", "title": "Birgina", "artist": "Konsta"},
+            )
+            assert resp.status == 200
+            data = await resp.json()
+            assert data.get("ok") is True
+            mock_dl.assert_awaited_once()
+            mock_bot.send_audio.assert_awaited_once()
+            send_kwargs = mock_bot.send_audio.call_args.kwargs
+            assert send_kwargs["chat_id"] == 777111
+            assert send_kwargs["title"] == "Birgina"
+            assert send_kwargs["performer"] == "Konsta"
+            assert send_kwargs["duration"] == 195
+            assert not mp3_file.exists(), "Yuborilgandan keyin vaqtinchalik MP3 fayli o'chirilishi kerak"
     finally:
         set_bot_instance(None)
         await client.close()

@@ -650,6 +650,18 @@ async def increment_movie_downloads(session: AsyncSession, movie_id: int) -> Non
     await session.execute(stmt)
 
 
+def _is_placeholder_file_id(file_id: Optional[str]) -> bool:
+    """Soxta yoki bo'sh Telegram file_id ekanligini tekshirish."""
+    s = (file_id or "").strip()
+    return (
+        not s
+        or s.startswith("BAACAgIAAxkBAAIB_")
+        or s.startswith("BAAE_")
+        or "_REAL_FID" in s
+        or s.endswith("_vid")
+    )
+
+
 async def upsert_movie(
     session: AsyncSession,
     code: str,
@@ -682,7 +694,7 @@ async def upsert_movie(
             movie.rating = rating
         if poster_file_id:
             movie.poster_file_id = poster_file_id
-        if file_id and (not movie.file_id or movie.file_id.startswith("BAACAgIAAxkBAAIB_")):
+        if file_id and _is_placeholder_file_id(movie.file_id):
             movie.file_id = file_id.strip()
         if views_count is not None and views_count > movie.views_count:
             movie.views_count = views_count
@@ -732,7 +744,7 @@ async def upsert_movie(
                     movie.rating = rating
                 if poster_file_id:
                     movie.poster_file_id = poster_file_id
-                if file_id and (not movie.file_id or movie.file_id.startswith("BAACAgIAAxkBAAIB_")):
+                if file_id and _is_placeholder_file_id(movie.file_id):
                     movie.file_id = file_id.strip()
                 if views_count is not None and views_count > movie.views_count:
                     movie.views_count = views_count

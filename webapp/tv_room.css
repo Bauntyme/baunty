@@ -1156,82 +1156,82 @@ body.tvr-on > main {
   border-radius: 999px;
 }
 
-@keyframes hwBtnFlameGrad {
+@keyframes zspBtnNebulaGrad {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-@keyframes hwBtnGlowPulse {
+@keyframes zspBtnGlowPulse {
   0%, 100% {
-    box-shadow: 0 4px 18px rgba(255, 117, 24, 0.5), 0 0 12px rgba(255, 84, 0, 0.35), inset 0 0 10px rgba(157, 78, 221, 0.35);
-    border: 1px solid rgba(255, 117, 24, 0.85);
+    box-shadow: 0 4px 18px rgba(242, 184, 75, 0.35), 0 0 12px rgba(31, 168, 174, 0.28), inset 0 0 10px rgba(36, 64, 200, 0.28);
+    border: 1px solid rgba(242, 184, 75, 0.55);
   }
   50% {
-    box-shadow: 0 4px 26px rgba(157, 78, 221, 0.6), 0 0 16px rgba(57, 255, 20, 0.45), inset 0 0 12px rgba(255, 117, 24, 0.4);
-    border: 1px solid rgba(57, 255, 20, 0.85);
+    box-shadow: 0 4px 24px rgba(36, 64, 200, 0.48), 0 0 16px rgba(31, 168, 174, 0.4), inset 0 0 12px rgba(242, 184, 75, 0.32);
+    border: 1px solid rgba(56, 189, 248, 0.65);
   }
 }
-@keyframes hwSheenSweep {
+@keyframes zspSheenSweep {
   0% { transform: translateX(-180%) skewX(-25deg); }
   30%, 100% { transform: translateX(280%) skewX(-25deg); }
 }
 
 .tvr-head {
-  border-bottom: 1px solid rgba(255, 117, 24, 0.22) !important;
-  box-shadow: 0 4px 20px rgba(255, 117, 24, 0.12) !important;
+  border-bottom: 1px solid rgba(242, 184, 75, 0.22) !important;
+  box-shadow: 0 4px 20px rgba(14, 19, 48, 0.45) !important;
 }
 .tvr-primary-btn, .tvr-btn-share, .tvr-send-btn, .tvr-btn-create, .tvr-join-btn, .tvr-btn-invite, .tvr-pbtn, .tvr-qbtn, .tvr-secondary-btn, .tvr-btn-guide, .tvr-btn-chswitch {
-  background: linear-gradient(135deg, #FF1E00 0%, #FF7518 20%, #9D4EDD 42%, #FF5400 65%, #39FF14 85%, #FF1E00 100%) !important;
-  background-size: 300% 300% !important;
-  animation: hwBtnFlameGrad 3.5s ease infinite, hwBtnGlowPulse 2.8s ease-in-out infinite !important;
-  box-shadow: 0 4px 18px rgba(255, 117, 24, 0.45) !important;
+  background: linear-gradient(135deg, #2440C8 0%, #1FA8AE 35%, #F2B84B 72%, #2440C8 100%) !important;
+  background-size: 280% 280% !important;
+  animation: zspBtnNebulaGrad 4.5s ease infinite, zspBtnGlowPulse 3.2s ease-in-out infinite !important;
+  box-shadow: 0 4px 18px rgba(36, 64, 200, 0.4) !important;
   border: none !important;
   color: #fff !important;
   position: relative !important;
   overflow: hidden !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6) !important;
 }
 .tvr-primary-btn::after, .tvr-btn-share::after, .tvr-send-btn::after, .tvr-btn-create::after, .tvr-join-btn::after, .tvr-btn-invite::after, .tvr-pbtn::after, .tvr-qbtn::after, .tvr-secondary-btn::after, .tvr-btn-guide::after, .tvr-btn-chswitch::after {
   content: "";
   position: absolute;
   inset: -20% -50%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.32), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
   transform: translateX(-180%) skewX(-25deg);
-  animation: hwSheenSweep 4s ease-in-out infinite;
+  animation: zspSheenSweep 4.5s ease-in-out infinite;
   pointer-events: none;
 }
 .tvr-primary-btn:hover, .tvr-btn-share:hover, .tvr-send-btn:hover, .tvr-btn-create:hover, .tvr-join-btn:hover, .tvr-btn-invite:hover, .tvr-pbtn:hover, .tvr-qbtn:hover, .tvr-secondary-btn:hover, .tvr-btn-guide:hover, .tvr-btn-chswitch:hover {
-  filter: brightness(1.15) contrast(1.08) !important;
+  filter: brightness(1.12) contrast(1.06) !important;
 }
 .tvr-primary-btn:active, .tvr-btn-share:active, .tvr-send-btn:active, .tvr-btn-create:active, .tvr-join-btn:active, .tvr-btn-invite:active, .tvr-pbtn:active, .tvr-qbtn:active, .tvr-secondary-btn:active, .tvr-btn-guide:active, .tvr-btn-chswitch:active {
   transform: scale(0.96) !important;
-  filter: brightness(1.25) contrast(1.15) !important;
+  filter: brightness(1.2) contrast(1.12) !important;
 }
 .tvr-ch-item.active, .tvr-ch-item:hover {
-  border-color: #FF7518 !important;
-  box-shadow: 0 0 14px rgba(255, 117, 24, 0.45), inset 0 0 8px rgba(157, 78, 221, 0.25) !important;
+  border-color: #F2B84B !important;
+  box-shadow: 0 0 14px rgba(242, 184, 75, 0.4), inset 0 0 8px rgba(31, 168, 174, 0.25) !important;
 }
 .tvr-room-item:hover, .tvr-room-item:active {
-  border-color: #FF7518 !important;
-  box-shadow: 0 4px 18px rgba(255, 117, 24, 0.3) !important;
+  border-color: #F2B84B !important;
+  box-shadow: 0 4px 18px rgba(242, 184, 75, 0.28) !important;
 }
 .tvr-badge-live {
-  background: linear-gradient(135deg, #FF7518, #EF4444) !important;
-  box-shadow: 0 0 10px rgba(255, 117, 24, 0.45) !important;
+  background: linear-gradient(135deg, #2440C8, #1FA8AE) !important;
+  box-shadow: 0 0 10px rgba(31, 168, 174, 0.45) !important;
 }
 .tvr-player-box {
-  border: 1px solid rgba(255, 117, 24, 0.25) !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(255, 117, 24, 0.18) !important;
+  border: 1px solid rgba(242, 184, 75, 0.24) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(36, 64, 200, 0.2) !important;
 }
 .tvr-mic-btn.active {
-  background: linear-gradient(135deg, #FF7518, #9D4EDD) !important;
-  box-shadow: 0 0 18px rgba(255, 117, 24, 0.6) !important;
+  background: linear-gradient(135deg, #F2B84B, #2440C8) !important;
+  box-shadow: 0 0 18px rgba(242, 184, 75, 0.5) !important;
 }
 .tvr-qbtn:hover, .tvr-qbtn:active {
   transform: scale(1.22) !important;
-  filter: drop-shadow(0 0 8px #FF7518) !important;
+  filter: drop-shadow(0 0 8px #F2B84B) !important;
 }
 .tvr-room-pill {
-  border-color: rgba(255, 117, 24, 0.3) !important;
-  box-shadow: 0 0 12px rgba(255, 117, 24, 0.15) !important;
+  border-color: rgba(242, 184, 75, 0.3) !important;
+  box-shadow: 0 0 12px rgba(36, 64, 200, 0.2) !important;
 }

@@ -260,7 +260,7 @@ async function loadList(v, more) {
   if (stack[stack.length - 1] === v) render(more);
 }
 function openList(p) {
-  const v = {v: "list", p, items: null, total: 0, grid: lsGet("zk_bk_grid", true)};
+  const v = {v: "list", p, items: null, total: 0, grid: lsGet("bnt_bk_grid", true)};
   stack.push(v); render(); loadList(v);
 }
 
@@ -280,7 +280,7 @@ function searchHTML() {
       <button class="bx-chip tog on" data-act="abclr">«${esc(S.ab)}» ✕</button>` : ""}</div>`;
   const filtered = S.q || S.l || S.f || S.g || S.ab;
   if (!filtered) {
-    const rec = lsGet("zk_bk_recent", []);
+    const rec = lsGet("bnt_bk_recent", []);
     if (rec.length) h += `<div class="bx-h"><h2>Oxirgi qidiruvlar</h2><button data-act="recclr">Tozalash</button></div>
       <div class="bx-recent">${rec.map((q) => `<button data-q="${esc(q)}">${I.clock}${esc(q)}</button>`).join("")}</div>`;
     if (home && (home.genres || []).length) h += `<div class="bx-h"><h2>Janr bo'yicha</h2></div><div class="bx-genres">${home.genres.slice(0, 9).map((g) =>
@@ -323,8 +323,8 @@ async function runSearch(reset, more) {
     if (r.ok) { S.items = more ? [...(S.items || []), ...r.items] : r.items; S.total = r.total; }
     else S.items = S.items || [];
     if (S.q.trim().length >= 3 && !more) {
-      const rec = lsGet("zk_bk_recent", []).filter((x) => x.toLowerCase() !== S.q.trim().toLowerCase());
-      rec.unshift(S.q.trim()); lsSet("zk_bk_recent", rec.slice(0, 8));
+      const rec = lsGet("bnt_bk_recent", []).filter((x) => x.toLowerCase() !== S.q.trim().toLowerCase());
+      rec.unshift(S.q.trim()); lsSet("bnt_bk_recent", rec.slice(0, 8));
     }
   } catch (e) { if (tok === S.tok) { S.items = S.items || []; toast("📶 Internet bilan muammo"); } }
   S.loading = false;
@@ -391,7 +391,7 @@ function bookHTML(id) {
   const langName = {uz: "lotin", ru: "rus", en: "ingliz"}[b.l] || b.l;
   const aud = b.m === "audio", trs = b.tracks || [];
   const here = A.b && A.b.i === b.i;
-  const ap = here ? {n: A.n} : st.ap || lsGet(`zk_bk_ap_${b.i}`, null);
+  const ap = here ? {n: A.n} : st.ap || lsGet(`bnt_bk_ap_${b.i}`, null);
   const listenTxt = here && !A.el.paused ? "Tinglanmoqda" : ap ? `Davom ettirish · ${ap.n}-bob` : aud ? `Tinglash · ${dur(b.au)}` : "Tinglash";
   let h = top + `<div class="bx-hero"><div class="cvw">${cover(b, "big")}</div><h1>${esc(b.t)}</h1>
     <p>${esc(b.a || "Muallif noma'lum")}${b.y ? " · " + b.y : ""} · ${esc(gname(b.g))}</p></div>
@@ -402,7 +402,7 @@ function bookHTML(id) {
       ${b.au ? `<button class="bx-btn sec" data-play="${b.i}">${I.head}${here && !A.el.paused ? "Tinglanmoqda" : "Tinglash"}</button><button class="bx-btn sec ic" data-dl="${b.i}" aria-label="Yuklab olish">${I.dl}</button>`
         : `<button class="bx-btn sec" data-dl="${b.i}">${I.dl}Yuklab olish</button>`}`}</div>`;
   if (b.desc) h += `<div class="bx-desc${b._full ? "" : " cut"}"><p>${esc(b.desc)}</p>${b.desc.length > 220 && !b._full ? `<button data-act="more-desc">Batafsil</button>` : ""}</div>`;
-  if ((st.pct > 0 || st.done || ap) && inTg) {
+  if (st.pct > 0 || st.done || ap) {
     h += `<div class="bx-h"><h2>Bahoyingiz</h2></div><div class="bx-stars">${[1, 2, 3, 4, 5].map((n) =>
       `<button class="${(st.stars || 0) >= n ? "on" : ""}" data-star="${n}" aria-label="${n} yulduz">★</button>`).join("")}</div>`;
   }
@@ -468,8 +468,7 @@ function shelfFilter(k) {
 }
 function shelfHTML() {
   let h = `<div class="bx-hello" style="padding-top:18px"><h1>Javonim</h1></div>`;
-  if (!inTg) return h + `<div class="bx-empty"><div class="big">🔖</div><b>Ilovani bot ichidan oching</b>Javon Telegram akkauntingizga bog'langan.</div>`;
-  if (!me) return h + skel(3);
+  if (!me) { loadMe(); return h + skel(3); }
   const st = me.stats || {};
   const hrs = (st.secs || 0) / 3600;
   const tm = hrs >= 1 ? `${Math.round(hrs)} s` : `${Math.round((st.secs || 0) / 60)} daq`;
@@ -512,7 +511,6 @@ function shelfHTML() {
   return h;
 }
 async function loadMe(force) {
-  if (!inTg) return;
   if (!force && me && Date.now() - meAt < 20000) return;
   try { const r = await api("api/books/me"); if (r.ok) { me = r; meAt = Date.now(); if (opened && !stack.length && tab !== "search") render(true); } } catch (e) {}
 }
@@ -540,7 +538,7 @@ async function openDownload(id) {
   const b = await ensureBookLite(id); if (!b) { toast("⚠️ Kitob topilmadi"); return; }
   const fm = (b.f || []).filter((f) => FMT[f]);
   if (!fm.length) { toast("Bu kitobni yuklab bo'lmaydi"); return; }
-  let pick = lsGet("zk_bk_fmt", "epub"); if (!fm.includes(pick)) pick = fm[0];
+  let pick = lsGet("bnt_bk_fmt", "epub"); if (!fm.includes(pick)) pick = fm[0];
   const draw = (sh, state = "") => {
     sh.innerHTML = `<div class="grip"></div><h3>Yuklab olish</h3><div class="sub">${esc(b.t)}${b.a ? " · " + esc(shortA(b.a)) : ""}${b.y ? " · " + b.y : ""}</div>
       ${fm.map((f) => `<button class="bx-fmt${f === pick ? " on" : ""}" data-f="${f}"><span class="ic">${f.toUpperCase()}</span><span class="mt"><b>${FMT[f][0]}</b>
@@ -548,14 +546,19 @@ async function openDownload(id) {
       <button class="bx-btn pri" style="width:100%;margin-top:6px" data-act="send" ${state === "sending" ? "disabled" : ""}>${I.dl}${state === "sending" ? "Yuborilmoqda…" : state === "ok" ? "Botga o'tish" : "Chatga yuborish"}</button>
       ${state === "ok" ? `<div class="bx-okmsg">${I.ok}Fayl bot chatiga yuborildi — oflayn ham o'qiysiz</div>` : ""}
       ${state === "queued" ? `<div class="bx-okmsg">${I.clock}Navbatda — bir necha soniyada chatga keladi</div>` : ""}`;
-    sh.querySelectorAll("[data-f]").forEach((x) => { x.onclick = () => { pick = x.dataset.f; lsSet("zk_bk_fmt", pick); haptic(); draw(sh, ""); }; });
+    sh.querySelectorAll("[data-f]").forEach((x) => { x.onclick = () => { pick = x.dataset.f; lsSet("bnt_bk_fmt", pick); haptic(); draw(sh, ""); }; });
     sh.querySelector('[data-act="send"]').onclick = async () => {
       if (state === "ok" || state === "queued") { closeSheet(); if (inTg && botName) tg.openTelegramLink(`https://t.me/${botName}`); return; }
-      if (!inTg) { toast("Ilovani bot ichidan oching"); return; }
       draw(sh, "sending");
       let r;
       try { r = await api("api/books/send", {i: b.i, f: pick}); } catch (e) { r = {ok: false, error: "net"}; }
       if (r.ok) { haptic("ok"); draw(sh, r.queued ? "queued" : "ok"); meAt = 0; return; }
+      if (!inTg && pick === "pdf") {
+        window.open(`api/books/${b.i}/pdf`, "_blank");
+        closeSheet();
+        toast("📄 PDF yuklanmoqda");
+        return;
+      }
       haptic("err");
       if (r.error === "need_start") { closeSheet(); toast("🤖 Avval botni ishga tushiring"); if (botName) tg.openTelegramLink(`https://t.me/${botName}?start=books`); return; }
       const msg = {rate: `⏳ Soatlik limit tugadi. ${Math.ceil((r.retry || 3600) / 60)} daqiqadan keyin urinib ko'ring`,
@@ -577,7 +580,7 @@ async function ensureBookLite(id) {
 }
 
 // ================================================================== 4 · O'QUVCHI
-const RS = Object.assign({fs: 18, th: "sepia", ff: "lora", lh: 1, wake: false, al: "auto"}, lsGet("zk_bk_set", {}));
+const RS = Object.assign({fs: 18, th: "sepia", ff: "lora", lh: 1, wake: false, al: "auto"}, lsGet("bnt_bk_set", {}));
 const FF = {lora: "Lora,PTSerif,Georgia,serif", man: "Man,-apple-system,sans-serif", klassik: "PTSerif,Georgia,'Times New Roman',serif"};
 const LH = [1.45, 1.65, 1.9];
 const THC = {light: "#FFFFFF", sepia: "#F6EFDF", slate: "#26302C", night: "#121110"};
@@ -610,7 +613,7 @@ function applySettings() {
   // o'zbek tilida brauzerda bo'g'in ko'chirish yo'q — ikki tomonga tekislash katta bo'shliqlar qoldiradi
   el.style.setProperty("--al", RS.al === "auto" ? (lang === "uz" ? "left" : "justify") : RS.al);
   try { tg.setHeaderColor(THC[RS.th]); tg.setBackgroundColor(THC[RS.th]); if (tg.setBottomBarColor) tg.setBottomBarColor(THC[RS.th]); } catch (e) {}
-  lsSet("zk_bk_set", RS);
+  lsSet("bnt_bk_set", RS);
 }
 function chChars(n) { return (R.toc[n] && R.toc[n].c) || 1; }
 function curPct() {
@@ -630,7 +633,7 @@ async function openReader(id, ch, off) {
   R.tot = R.scan ? (b._toc.pages || b.p || 1) : R.toc.reduce((s, c) => s + (c.c || 1), 0) || 1;
   // joy: server yoki shu qurilma — qaysi biri yangi bo'lsa
   const st = b.me || {};
-  const loc = lsGet(`zk_bk_pos_${b.i}`, null);
+  const loc = lsGet(`bnt_bk_pos_${b.i}`, null);
   let c0 = st.ch || 0, o0 = st.off || 0;
   if (loc && (!st.pct || loc.pct >= st.pct - 0.5)) { c0 = loc.ch; o0 = loc.off; }
   if (ch !== undefined && ch !== null) { c0 = ch; o0 = off || 0; }
@@ -691,7 +694,7 @@ async function loadChapter(n, where) {
   const last = n === R.toc.length - 1;
   const cleanTitle = cleanBookText(data.t || "");
   $("rdtext").innerHTML = `<div class="ch-h"><small>${n + 1}-BO'LIM · ${R.toc.length} DAN</small><b>${esc(cleanTitle)}</b></div>${paras}
-    ${last ? `<div class="end">— Tamom —<br><br>${inTg ? `Kitob sizga yoqdimi?<div class="bx-stars" style="margin-top:6px">${[1, 2, 3, 4, 5].map((s) => `<button data-rstar="${s}" style="color:var(--pacc)">☆</button>`).join("")}</div>` : ""}</div>` : ""}`;
+    ${last ? `<div class="end">— Tamom —<br><br>Kitob sizga yoqdimi?<div class="bx-stars" style="margin-top:6px">${[1, 2, 3, 4, 5].map((s) => `<button data-rstar="${s}" style="color:var(--pacc)">☆</button>`).join("")}</div></div>` : ""}`;
   $("rdc").textContent = cleanTitle;
 
   await layout(where);
@@ -757,15 +760,15 @@ function locate(pct) {
   return {ch: 0, off: 0};
 }
 function saveSoon() { clearTimeout(R.saveT); R.saveT = setTimeout(() => save(false), 2500); posLocal(); }
-function posLocal() { if (R.b) lsSet(`zk_bk_pos_${R.b.i}`, {ch: R.scan ? R.curScan - 1 : R.ch, off: curOff(), pct: curPct(), t: Date.now()}); }
+function posLocal() { if (R.b) lsSet(`bnt_bk_pos_${R.b.i}`, {ch: R.scan ? R.curScan - 1 : R.ch, off: curOff(), pct: curPct(), t: Date.now()}); }
 async function save(final) {
-  if (!R.b || !inTg) return;
+  if (!R.b) return;
   const body = {i: R.b.i, ch: R.scan ? R.curScan - 1 : R.ch, off: curOff(), pct: curPct(), secs: Math.round(R.activeSecs)};
   R.activeSecs = 0;
   if (R.b.me) Object.assign(R.b.me, {ch: body.ch, off: body.off, pct: body.pct});
   try {
     await fetch("api/books/progress", {method: "POST", keepalive: !!final, body: JSON.stringify(body),
-      headers: {"Content-Type": "application/json", "X-Init-Data": tg.initData}});
+      headers: {"Content-Type": "application/json", ...(inTg ? {"X-Init-Data": tg.initData} : {})}});
   } catch (e) {}
 }
 function heartbeat() {
@@ -847,7 +850,6 @@ function showSel() {
 }
 function hideSel() { const b = $("rdsel"); if (b) b.hidden = true; }
 async function addNote(q, note, pos = -1) {
-  if (!inTg) { toast("Ilovani bot ichidan oching"); return; }
   const r = await api("api/books/note", {i: R.b.i, ch: R.ch, q, n: note || "", pos});
   if (r.ok) {
     haptic("ok"); toast(note ? "💬 Izoh saqlandi" : "🖍 Belgilandi");
@@ -973,7 +975,7 @@ function bindReader(el) {
   document.addEventListener("visibilitychange", () => { if (document.hidden && R.on) { posLocal(); save(true); } else if (!document.hidden && R.on && RS.wake) wakeOn(); });
 }
 async function rateBook(n) {
-  if (!R.b || !inTg) return;
+  if (!R.b) return;
   const r = await api("api/books/shelf", {i: R.b.i, stars: n, done: true});
   if (r.ok) { haptic("ok"); toast(`⭐ Rahmat! ${n} yulduz`); document.querySelectorAll("[data-rstar]").forEach((x) => { x.textContent = +x.dataset.rstar <= n ? "★" : "☆"; });
     if (R.b.me) Object.assign(R.b.me, {stars: n, done: true}); meAt = 0; }
@@ -983,7 +985,7 @@ async function rateBook(n) {
 // Fayllar: LibriVox (archive.org) yoki serverdagi bk/{id}/a{n}.mp3. Joy: har 15 soniyada + pauzada (Redis + shu qurilma).
 const SPEEDS = [0.8, 1, 1.25, 1.5, 1.75, 2];
 const SLEEPS = [["0", "O'chirilgan"], ["15", "15 daqiqa"], ["30", "30 daqiqa"], ["45", "45 daqiqa"], ["60", "1 soat"], ["end", "Bob oxirida"]];
-const A = {b: null, tracks: [], n: 1, el: null, full: false, drag: false, spd: +lsGet("zk_bk_spd", 1) || 1, sleep: "0", sleepAt: 0, sleepT: 0,
+const A = {b: null, tracks: [], n: 1, el: null, full: false, drag: false, spd: +lsGet("bnt_bk_spd", 1) || 1, sleep: "0", sleepAt: 0, sleepT: 0,
   heard: 0, lastT: -1, saveT: 0, err: false, wait: false, seekTo: 0};
 const trkUrl = (u) => String(u || "").replace(/^http:\/\//, "https://");
 const curTrk = () => A.tracks.find((t) => t.n === A.n) || A.tracks[0];
@@ -1028,10 +1030,9 @@ function onATime() {
 function apSave() {
   if (!A.b || !A.el) return;
   const t = A.el.currentTime || A.seekTo || 0, ts = Math.floor(Date.now() / 1000);
-  lsSet(`zk_bk_ap_${A.b.i}`, {n: A.n, t, ts});
+  lsSet(`bnt_bk_ap_${A.b.i}`, {n: A.n, t, ts});
   if (A.b.me) A.b.me.ap = {n: A.n, t, ts};
   A.saveT = Date.now();
-  if (!inTg) return;
   const secs = Math.floor(A.heard); A.heard -= secs;
   api("api/books/audio", {i: A.b.i, n: A.n, t: Math.round(t), secs}).catch(() => {});
   meAt = 0;
@@ -1048,7 +1049,7 @@ async function playBook(id, n, t) {
   id = +id;
   if (A.b && A.b.i === id && n === undefined) { openPlayer(); if (A.el.paused) apToggle(); return; }
   let b = books.get(id);
-  if (!b || b.err || !b.tracks || (inTg && b.me === undefined)) {
+  if (!b || b.err || !b.tracks || b.me === undefined) {
     try { const r = await api(`api/books/b/${id}`); if (r.ok) books.set(id, {...r.book, _toc: b && b._toc}); } catch (e) {}
     b = books.get(id);
   }
@@ -1056,7 +1057,7 @@ async function playBook(id, n, t) {
   if (A.b && A.b.i !== id) apSave();
   A.b = b; A.tracks = b.tracks; A.heard = 0;
   if (n === undefined) {
-    const sv = b.me && b.me.ap, lc = lsGet(`zk_bk_ap_${id}`, null);
+    const sv = b.me && b.me.ap, lc = lsGet(`bnt_bk_ap_${id}`, null);
     const p = sv && lc ? ((lc.ts || 0) >= (sv.ts || 0) ? lc : sv) : sv || lc || {n: b.tracks[0].n, t: 0};
     n = p.n; t = p.t;
   }
@@ -1145,7 +1146,7 @@ function apEl() {
     else if (k === "next") apStep(1);
     else if (k === "info") { const id = A.b.i; closePlayer(); if (!isTop(id)) openBook(id); }
     else if (k === "spd") pickSheet("Tezlik", SPEEDS.map((s) => [String(s), `${String(s).replace(".", ",")}×${s === 1 ? " — oddiy" : ""}`]), String(A.spd), (v) => {
-      A.spd = +v; lsSet("zk_bk_spd", A.spd); if (A.el) A.el.playbackRate = A.spd; apFull(); });
+      A.spd = +v; lsSet("bnt_bk_spd", A.spd); if (A.el) A.el.playbackRate = A.spd; apFull(); });
     else if (k === "sleep") pickSheet("Uyqu taymeri", SLEEPS, A.sleep, (v) => { setSleep(v); if (v !== "0") toast(v === "end" ? "🌙 Bob oxirida to'xtaydi" : `🌙 ${v} daqiqadan keyin to'xtaydi`); });
     else if (k === "list") trackSheet();
   });
@@ -1228,7 +1229,7 @@ window.addEventListener("pagehide", () => { if (A.b) apSave(); });
 
 // ------------------------------------------------------------------ amallar
 async function toggleSave(id) {
-  const b = books.get(id); if (!b || !inTg) { toast("Ilovani bot ichidan oching"); return; }
+  const b = books.get(id); if (!b) return;
   const v = !(b.me && b.me.saved);
   const r = await api("api/books/shelf", {i: id, saved: v});
   if (r.ok) { b.me = Object.assign(b.me || {}, {saved: v}); haptic("ok"); toast(v ? "🔖 Javonga saqlandi" : "Javondan olib tashlandi"); meAt = 0; render(true); }
@@ -1274,7 +1275,7 @@ function bookMenu(id) {
       else {
         const body = k === "done" ? {done: !b.done} : k === "save" ? {saved: !b.saved} : {remove: true};
         const r = await api("api/books/shelf", {i: id, ...body});
-        if (r.ok) { haptic("ok"); localStorage.removeItem && k === "rm" && localStorage.removeItem(`zk_bk_pos_${id}`); books.delete(id); await loadMe(true); render(true); }
+        if (r.ok) { haptic("ok"); localStorage.removeItem && k === "rm" && localStorage.removeItem(`bnt_bk_pos_${id}`); books.delete(id); await loadMe(true); render(true); }
       }
     }; });
   });
@@ -1329,8 +1330,8 @@ function onClick(e) {
   else if (act === "smore") runSearch(false, true);
   else if (act === "abclr") { S.ab = ""; runSearch(true); }
   else if (act === "clr") { S.q = ""; runSearch(true); setTimeout(() => { const q = $("bxq"); if (q) q.focus(); }, 30); }
-  else if (act === "recclr") { lsSet("zk_bk_recent", []); render(true); }
-  else if (act === "view") { top.grid = top.grid === false; lsSet("zk_bk_grid", top.grid); render(true); }
+  else if (act === "recclr") { lsSet("bnt_bk_recent", []); render(true); }
+  else if (act === "view") { top.grid = top.grid === false; lsSet("bnt_bk_grid", top.grid); render(true); }
   else if (act === "sort") pickSheet("Saralash", SORTS, top.p.s || "pop", (k) => { top.p.s = k; top.items = null; render(true); loadList(top); });
   else if (act === "ssort") pickSheet("Saralash", SORTS, S.s, (k) => { S.s = k; runSearch(true); });
   else if (act === "lang") pickSheet("Til", [["", "Barcha tillar"], ...Object.keys(LANGS).map((k) => [k, `${LANGS[k][0]} ${LANGS[k][1]}`])], S.l, (k) => { S.l = k; runSearch(true); });

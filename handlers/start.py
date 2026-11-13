@@ -118,16 +118,17 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                 chat_id=message.chat.id,
                 code=movie_code,
                 part=part,
-                reply_to_message_id=message.message_id
+                reply_to_message_id=message.message_id,
+                require_video=True
             )
             if not delivered:
-                code_disp = f"{movie_code} ({part}-qism)" if part > 1 else movie_code
-                from handlers.movies import movie_not_found_keyboard
-                await message.answer(
-                    format_movie_not_found(code_disp),
-                    parse_mode="HTML",
-                    reply_markup=movie_not_found_keyboard(),
-                    protect_content=True
+                from handlers.movies import _send_movie_delivery_fallback
+                await _send_movie_delivery_fallback(
+                    bot=message.bot,
+                    chat_id=message.chat.id,
+                    code=movie_code,
+                    part=part,
+                    reply_to_message_id=message.message_id
                 )
             return
 
@@ -276,6 +277,77 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             await cmd_story_prompt(message, state)
             return
 
+        elif param in ("bunker", "bnk") or param.startswith(("bunker_", "bnk_")):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            room_pin = re.sub(r"^(?:bunker|bnk)_?", "", param, flags=re.IGNORECASE).strip()
+            url = f"{base_url}?m=bunker&room={room_pin}" if room_pin else f"{base_url}?m=bunker"
+            btn_text = f"☢️ Bunker xonasi (#{room_pin})" if room_pin else "☢️ Bunker o'yinini ochish"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text=btn_text, web_app=WebAppInfo(url=url))
+            ]])
+            await message.answer(
+                "☢️ <b>Bunker — Omon qolish o'yini</b>\n\n"
+                "• Do'stlar bilan xona oching yoki kod orqali kiring\n"
+                "• Rollar, kartalar va ovoz berish\n\n"
+                "O'yinni ochish uchun tugmani bosing:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
+            return
+
+        elif param in ("deliv", "dlv", "yetkazish") or param.startswith(("deliv_", "dlv_", "yetkazish_")):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            url = f"{base_url}?m=deliv"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="📦 Yetkazish Mini Appni ochish", web_app=WebAppInfo(url=url))
+            ]])
+            await message.answer(
+                "📦 <b>Bauntys Yetkazish (Deliv)</b>\n\n"
+                "• Tezkor buyurtma va kuryer xizmati\n"
+                "• Buyurtma holatini real vaqtda kuzatish\n\n"
+                "Boshlash uchun quyidagi tugmani bosing:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
+            return
+
+        elif param in ("food", "taom", "taomlar") or param.startswith(("food_", "taom_")):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            rid = re.sub(r"^(?:food|taomlar|taom)_?", "", param, flags=re.IGNORECASE).strip()
+            url = f"{base_url}?m=food&food={rid}" if rid else f"{base_url}?m=food"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🍲 Taomlar va Retseptlar", web_app=WebAppInfo(url=url))
+            ]])
+            await message.answer(
+                "🍲 <b>Bauntys Taomlar (Retseptlar & Xarid ro'yxati)</b>\n\n"
+                "• Milliy va jahon taomlari retseptlari\n"
+                "• Masalliqlar va tezkor xarid ro'yxati\n\n"
+                "Katalogni ochish uchun tugmani bosing:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
+            return
+
+        elif param in ("duel", "kattalar") or param.startswith(("duel_", "kattalar_")):
+            from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+            base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
+            url = f"{base_url}?m=duel"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="⚔️ Duel Arenasini ochish", web_app=WebAppInfo(url=url))
+            ]])
+            await message.answer(
+                "⚔️ <b>Bauntys 1v1 Duel (Shaxmat, Shashka, Viktorina)</b>\n\n"
+                "• Raqib qidirish yoki do'st bilan maxfiy kod orqali o'yin\n"
+                "• Real vaqtdagi yurishlar va natijalar\n\n"
+                "Arenaga kirish uchun tugmani bosing:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
+            return
+
         elif param in ("anon", "savol", "savollar", "ask") or param.startswith("anon_"):
             from handlers.anon_questions import cmd_anon_questions_link
             await cmd_anon_questions_link(message, state)
@@ -337,16 +409,19 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
                     chat_id=message.chat.id,
                     code=movie_code,
                     part=part,
-                    reply_to_message_id=message.message_id
+                    reply_to_message_id=message.message_id,
+                    require_video=True
                 )
                 if delivered:
                     return
                 elif cat_movie or "_" in clean_param:
-                    from handlers.movies import movie_not_found_keyboard
-                    await message.answer(
-                        format_movie_not_found(movie_code),
-                        parse_mode="HTML",
-                        reply_markup=movie_not_found_keyboard()
+                    from handlers.movies import _send_movie_delivery_fallback
+                    await _send_movie_delivery_fallback(
+                        bot=message.bot,
+                        chat_id=message.chat.id,
+                        code=movie_code,
+                        part=part,
+                        reply_to_message_id=message.message_id
                     )
                     return
             music_id = clean_param
