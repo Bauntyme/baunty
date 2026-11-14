@@ -354,25 +354,59 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
             return
 
         elif param.startswith("q_"):
-            target_id_str = param.replace("q_", "").strip()
-            if target_id_str.isdigit():
-                target_id = int(target_id_str)
-                if target_id == user.id:
-                    await message.answer("⚠️ <b>Siz o'zingizga anonim savol yubora olmaysiz!</b>", parse_mode="HTML")
-                    return
-                else:
-                    from utils.states import AnonQuestionStates
-                    from keyboards.default import cancel_keyboard
-                    await state.set_state(AnonQuestionStates.waiting_for_message)
-                    await state.update_data(anon_target_id=target_id)
-                    await message.answer(
-                        "💌 <b>Foydalanuvchiga anonim xabar yozing:</b>\n\n"
-                        "Sizning shaxsingiz 100% sir tutiladi va xabar egasiga oshkor qilinmaydi 🤫\n\n"
-                        "Xabaringizni yozing:",
-                        parse_mode="HTML",
-                        reply_markup=cancel_keyboard()
-                    )
-                    return
+            raw_token = param[2:].strip()
+            resolved = None
+            is_blocked = False
+            try:
+                async with get_session() as session:
+                    resolved = await crud.resolve_anon_target(session, raw_token)
+                    if resolved:
+                        is_blocked = await crud.is_anon_sender_blocked(
+                            session, recipient_id=resolved[0], sender_id=user.id
+                        )
+            except Exception:
+                if raw_token.isdigit():
+                    resolved = (int(raw_token), True)
+
+            if not resolved:
+                await message.answer(
+                    "⚠️ <b>Ushbu anonim savol havolasi eskirgan yoki mavjud emas.</b>",
+                    parse_mode="HTML",
+                )
+                return
+
+            target_id, is_accepting = resolved
+            if target_id == user.id:
+                await message.answer(
+                    "⚠️ <b>Siz o'zingizga anonim savol yubora olmaysiz!</b>",
+                    parse_mode="HTML",
+                )
+                return
+            if not is_accepting:
+                await message.answer(
+                    "⏸ <b>Bu foydalanuvchi hozircha anonim xabarlar qabulini vaqtincha to'xtatgan.</b>",
+                    parse_mode="HTML",
+                )
+                return
+            if is_blocked:
+                await message.answer(
+                    "🚫 <b>Siz ushbu foydalanuvchiga anonim xabar yubora olmaysiz.</b>",
+                    parse_mode="HTML",
+                )
+                return
+
+            from utils.states import AnonQuestionStates
+            from keyboards.default import cancel_keyboard
+            await state.set_state(AnonQuestionStates.waiting_for_message)
+            await state.update_data(anon_target_id=target_id)
+            await message.answer(
+                "💌 <b>Foydalanuvchiga anonim xabar yozing:</b>\n\n"
+                "Sizning shaxsingiz 100% sir tutiladi va xabar egasiga oshkor qilinmaydi 🤫\n\n"
+                "Xabaringizni yozing:",
+                parse_mode="HTML",
+                reply_markup=cancel_keyboard(),
+            )
+            return
 
         elif param.startswith("r_"):
             ref_id_str = param.replace("r_", "").strip()

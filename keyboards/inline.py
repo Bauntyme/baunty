@@ -676,3 +676,49 @@ def round_video_action_keyboard(cache_key: Optional[str] = None) -> InlineKeyboa
     return builder.as_markup()
 
 
+def anon_questions_keyboard(share_url: str, is_accepting: bool = True) -> InlineKeyboardMarkup:
+    """Anonim savollar boshqaruv klaviaturasi (5 ta qator)."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✈️ Telegramda ulashish", url=share_url)
+    )
+    builder.row(
+        InlineKeyboardButton(text="📸 Instagram story uchun rasm", callback_data="anon:ig_story_img")
+    )
+    toggle_text = "⏸ Qabulni to'xtatish" if is_accepting else "▶️ Qabulni yoqish"
+    builder.row(
+        InlineKeyboardButton(text=toggle_text, callback_data="anon:toggle_accept")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔄 Havolani yangilash", callback_data="anon:regen_confirm")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🏠 Asosiy menyu", callback_data="anon:main_menu")
+    )
+    return builder.as_markup()
+
+
+def anon_regen_confirm_keyboard() -> InlineKeyboardMarkup:
+    """Anonim savol havolasini yangilash tasdiqlash tugmalari."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✅ Ha, yangilash", callback_data="anon:regen_yes"),
+        InlineKeyboardButton(text="❌ Yo'q", callback_data="anon:regen_no"),
+    )
+    return builder.as_markup()
+
+
+def anon_incoming_keyboard(sender_id: int, is_blocked: bool = False) -> InlineKeyboardMarkup:
+    """Kelgan anonim savolga javob berish va bloklash tugmalari."""
+    builder = InlineKeyboardBuilder()
+    block_btn = (
+        InlineKeyboardButton(text="✅ Blokdan chiqarish", callback_data=f"anon:unblock:{sender_id}")
+        if is_blocked
+        else InlineKeyboardButton(text="🚫 Bloklash", callback_data=f"anon:block:{sender_id}")
+    )
+    builder.row(
+        InlineKeyboardButton(text="↩️ Anonim javob qaytarish", callback_data=f"anon_reply:{sender_id}"),
+        block_btn,
+    )
+    return builder.as_markup()
+

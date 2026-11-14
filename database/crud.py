@@ -4,6 +4,8 @@ Ma'lumotlar bazasi bilan ishlash funksiyalari (CRUD)
 import re
 import asyncio
 import logging
+import secrets
+import string
 from datetime import datetime, timedelta
 from typing import List, Optional, Tuple, Dict, Any, Set
 from sqlalchemy import select, update, delete, func, desc, or_
@@ -11,7 +13,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import (
     User, Movie, MovieFile, UserWatchProgress, SponsorChannel, DownloadLog, BotSetting,
-    AnonymousMessage, Feedback, Expense, ExpenseBudget, UserCalorieProfile,
+    AnonymousMessage, AnonQuestionProfile, AnonBlockedSender,
+    Feedback, Expense, ExpenseBudget, UserCalorieProfile,
     CalorieLogItem, MafiaGameRecord, utc_now
 )
 from utils.translit import get_both_scripts, get_actor_variants
@@ -1182,6 +1185,146 @@ async def get_anonymous_message(session: AsyncSession, msg_id: int) -> Optional[
     stmt = select(AnonymousMessage).where(AnonymousMessage.id == msg_id)
     res = await session.execute(stmt)
     return res.scalar_one_or_none()
+
+
+_ANON_TOKEN_ALPHABET = string.ascii_letters + string.digits
+
+
+def generate_anon_token(length: int = 10) -> str:
+    """Anonim savollar uchun kriptografik noyob havola tokeni yaratish (masalan: sWSam9ZaAU)."""
+    return "".join(secrets.choice(_ANON_TOKEN_ALPHABET) for _ in range(length))
+
+
+async def _allocate_unique_anon_token(session: AsyncSession, exclude_token: Optional[str] = None) -> str:
+    for _ in range(8):
+        cand = generate_anon_token(10)
+        if exclude_token and cand == exclude_token:
+            continue
+        exists_stmt = select(AnonQuestionProfile.user_id).where(AnonQuestionProfile.token == cand)
+        res = await session.execute(exists_stmt)
+        if res.scalar_one_or_none() is None:
+            return cand
+    return generate_anon_token(12)
+
+
+async def get_or_create_anon_profile(session: AsyncSession, user_id: int) -> AnonQuestionProfile:
+    """Foydalanuvchining anonim savollar profilini olish yoki yangisini yaratish."""
+    stmt = select(AnonQuestionProfile).where(AnonQuestionProfile.user_id == int(user_id))
+    res = await session.execute(stmt)
+    prof = res.scalar_one_or_none()
+    if prof:
+        return prof
+
+    token = await _allocate_unique_anon_token(session)
+    prof = AnonQuestionProfile(
+        user_id=int(user_id),
+        token=token,
+        is_accepting=True,
+        created_at=utc_now(),
+        updated_at=utc_now(),
+    )
+    session.add(prof)
+    try:
+        async with session.begin_nested():
+            await session.flush()
+        return prof
+    except IntegrityError:
+        res2 = await session.execute(stmt)
+        existing = res2.scalar_one_or_none()
+        if existing:
+            return existing
+        raise
+
+
+async def regenerate_anon_token(session: AsyncSession, user_id: int) -> AnonQuestionProfile:
+    """Eski havolani bekor qilib yangi noyob anonim savol tokenini yaratish."""
+    prof = await get_or_create_anon_profile(session, user_id)
+    new_token = await _allocate_unique_anon_token(session, exclude_token=prof.token)
+    prof.token = new_token
+    prof.updated_at = utc_now()
+    await session.flush()
+    return prof
+
+
+async def set_anon_accepting(session: AsyncSession, user_id: int, accepting: bool) -> AnonQuestionProfile:
+    """Anonim savollar qabul qilish holatini (yoqilgan / to'xtatilgan) yangilash."""
+    prof = await get_or_create_anon_profile(session, user_id)
+    prof.is_accepting = bool(accepting)
+    prof.updated_at = utc_now()
+    await session.flush()
+    return prof
+
+
+async def resolve_anon_target(session: AsyncSession, raw_token: str) -> Optional[Tuple[int, bool]]:
+    """?start=q_<token> dan qabul qiluvchi user_id va qabul holatini aniqlash."""
+    clean = str(raw_token or "").strip()
+    if clean.startswith("q_"):
+        clean = clean[2:].strip()
+    if not clean or len(clean) > 32:
+        return None
+
+    stmt = select(AnonQuestionProfile).where(AnonQuestionProfile.token == clean)
+    res = await session.execute(stmt)
+    prof = res.scalar_one_or_none()
+    if prof:
+        return (int(prof.user_id), bool(prof.is_accepting))
+
+    # Eski q_<user_id> formati faqat profil/token hali yaratilmagan foydalanuvchilar uchun ishlaydi
+    if clean.isdigit():
+        uid = int(clean)
+        prof_stmt = select(AnonQuestionProfile.user_id).where(AnonQuestionProfile.user_id == uid)
+        existing_prof = (await session.execute(prof_stmt)).scalar_one_or_none()
+        if existing_prof is None:
+            user_obj = await get_user(session, uid)
+            if user_obj:
+                return (uid, True)
+    return None
+
+
+async def get_anon_stats(session: AsyncSession, user_id: int) -> Tuple[int, int]:
+    """Qabul qilingan savollar soni va bloklangan yuboruvchilar sonini qaytarish."""
+    uid = int(user_id)
+    recv_stmt = select(func.count(AnonymousMessage.id)).where(AnonymousMessage.recipient_id == uid)
+    blk_stmt = select(func.count(AnonBlockedSender.id)).where(AnonBlockedSender.recipient_id == uid)
+    recv_count = int((await session.execute(recv_stmt)).scalar() or 0)
+    blk_count = int((await session.execute(blk_stmt)).scalar() or 0)
+    return (recv_count, blk_count)
+
+
+async def is_anon_sender_blocked(session: AsyncSession, recipient_id: int, sender_id: int) -> bool:
+    """Yuboruvchi qabul qiluvchi tomonidan bloklanganligini tekshirish."""
+    stmt = select(AnonBlockedSender.id).where(
+        AnonBlockedSender.recipient_id == int(recipient_id),
+        AnonBlockedSender.sender_id == int(sender_id),
+    )
+    res = await session.execute(stmt)
+    return res.scalar_one_or_none() is not None
+
+
+async def block_anon_sender(session: AsyncSession, recipient_id: int, sender_id: int) -> bool:
+    """Anonim yuboruvchini bloklash. Yangi blok qo'shilsa True qaytaradi."""
+    rec_id, snd_id = int(recipient_id), int(sender_id)
+    if await is_anon_sender_blocked(session, rec_id, snd_id):
+        return False
+    row = AnonBlockedSender(recipient_id=rec_id, sender_id=snd_id, created_at=utc_now())
+    session.add(row)
+    try:
+        async with session.begin_nested():
+            await session.flush()
+        return True
+    except IntegrityError:
+        return False
+
+
+async def unblock_anon_sender(session: AsyncSession, recipient_id: int, sender_id: int) -> bool:
+    """Bloklangan anonim yuboruvchini blokdan chiqarish."""
+    stmt = delete(AnonBlockedSender).where(
+        AnonBlockedSender.recipient_id == int(recipient_id),
+        AnonBlockedSender.sender_id == int(sender_id),
+    )
+    res = await session.execute(stmt)
+    await session.flush()
+    return (res.rowcount or 0) > 0
 
 
 # ==========================================

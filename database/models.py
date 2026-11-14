@@ -54,6 +54,34 @@ class AnonymousMessage(Base):
         return f"<AnonymousMessage from={self.sender_id} to={self.recipient_id}>"
 
 
+class AnonQuestionProfile(Base):
+    __tablename__ = "anon_question_profiles"
+
+    user_id = Column(BigInteger, primary_key=True, autoincrement=False)
+    token = Column(String(32), unique=True, index=True, nullable=False)
+    is_accepting = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<AnonQuestionProfile user_id={self.user_id} token={self.token} active={self.is_accepting}>"
+
+
+class AnonBlockedSender(Base):
+    __tablename__ = "anon_blocked_senders"
+    __table_args__ = (
+        UniqueConstraint("recipient_id", "sender_id", name="uq_anon_blocked_pair"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    recipient_id = Column(BigInteger, index=True, nullable=False)
+    sender_id = Column(BigInteger, index=True, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<AnonBlockedSender recipient={self.recipient_id} sender={self.sender_id}>"
+
+
 class Feedback(Base):
     __tablename__ = "feedbacks"
 
