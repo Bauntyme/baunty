@@ -348,6 +348,13 @@ class AsilmediaService:
                 if y_m:
                     y_val = int(y_m.group(1))
 
+            inferred_parts = 1
+            if is_series:
+                m_ep = re.search(r"(\d+)\s*[- ]*\s*(?:qism|seriya)", f"{raw_t} {desc}", re.I)
+                if m_ep and 1 <= int(m_ep.group(1)) <= 500:
+                    inferred_parts = int(m_ep.group(1))
+                else:
+                    inferred_parts = 2
             items.append({
                 "id": s_id,
                 "title": clean_t,
@@ -358,7 +365,7 @@ class AsilmediaService:
                 "is_series": is_series,
                 "genres": genres_list,
                 "description": desc,
-                "total_parts": 10 if is_series else 1,
+                "total_parts": inferred_parts,
                 "views": 2500,
             })
 
@@ -517,7 +524,9 @@ class AsilmediaService:
                     break
 
         signed_map: Dict[str, str] = {}
-        batch_size = 35
+        # Asilmedia fayllar-sign.php ~25 tadan ko'p URL yuborilganda bo'sh JSON qaytaradi;
+        # 18 talik paket barcha qismlar (jumladan 100+ qismli seriallar) uchun ishonchli ishlaydi.
+        batch_size = 18
         async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
             for i in range(0, len(sign_candidates), batch_size):
                 chunk = sign_candidates[i:i + batch_size]
@@ -674,20 +683,27 @@ class AsilmediaService:
                             html = await resp.text()
                             movie = self.extract_sources_from_html(html, page_url=u)
                             if movie:
-                                # Barcha am:... va tokensiz fayllar havolalarini amh_id / amh_n bilan imzolash
+                                # Barcha noyob am:... va tokensiz fayllar havolalarini amh_id / amh_n bilan imzolash
                                 unsigned_list: List[str] = []
+                                _seen_u: set[str] = set()
                                 for qurl in movie.video_sources.values():
-                                    if self.needs_fayllar_sign(qurl):
+                                    if self.needs_fayllar_sign(qurl) and qurl not in _seen_u:
+                                        _seen_u.add(qurl)
                                         unsigned_list.append(qurl)
                                 for ep in movie.episodes.values():
                                     for cand_u in [ep.url, ep.download_url] + list(ep.quality_urls.values()):
-                                        if self.needs_fayllar_sign(cand_u):
+                                        if cand_u and self.needs_fayllar_sign(cand_u) and cand_u not in _seen_u:
+                                            _seen_u.add(cand_u)
                                             unsigned_list.append(cand_u)
 
                                 if unsigned_list:
                                     sign_id = movie.amh_id or extracted_id or movie.id
+                                    # Katta seriallarda (100+ qism) barcha havolalarni birdan imzolash sahifani
+                                    # sekinlashtirmasligi uchun dastlabki 24 tasini oldindan imzolaymiz; qolganlari
+                                    # kerakli qism bosilganda amh_id/amh_n orqali lahzada imzolanadi.
+                                    upfront_list = unsigned_list[:24] if len(unsigned_list) > 24 else unsigned_list
                                     signed_map = await self.sign_fayllar_urls(
-                                        unsigned_list,
+                                        upfront_list,
                                         amh_id=sign_id,
                                         amh_n=movie.amh_n,
                                     )

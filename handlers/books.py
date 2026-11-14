@@ -107,6 +107,10 @@ def get_books_main_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="✨ She'riyat durdonalari", callback_data="book:cat:sheriyat:1"),
         InlineKeyboardButton(text="🔍 Kitob qidirish", callback_data="books:search"),
     ])
+    buttons.append([
+        InlineKeyboardButton(text="🌐 @Zakirovs_ai Kutubxonasi", url="https://t.me/Zakirovs_ai?start=kitob"),
+        InlineKeyboardButton(text="🎬 @Zakirovs_ai Kinolar", url="https://t.me/Zakirovs_ai?start=kino"),
+    ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -158,6 +162,9 @@ def format_book_item_card(book: dict) -> tuple[str, InlineKeyboardMarkup]:
     buttons.append([
         InlineKeyboardButton(text="◀️ Toifaga qaytish", callback_data=f"book:cat:{cat_code}:1"),
         InlineKeyboardButton(text="📚 Bosh menyu", callback_data="books:main"),
+    ])
+    buttons.append([
+        InlineKeyboardButton(text="🌐 @Zakirovs_ai Kutubxonasi", url="https://t.me/Zakirovs_ai?start=kitob"),
     ])
     return text, InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -238,7 +245,7 @@ def format_search_results(query: str, items: list) -> tuple[str, InlineKeyboardM
         text = (
             f"🔍 <b>«{safe_query}» bo'yicha hech qanday kitob topilmadi.</b>\n\n"
             f"Kitob nomi yoki muallifini to'g'ri yozganingizga ishonch hosil qiling, "
-            f"yoki quyidagi toifalardan birini ko'rib chiqing:"
+            f"yoki quyidagi toifalar va <b>@Zakirovs_ai</b> kutubxonasi orqali qidiring:"
         )
         return text, get_books_main_keyboard()
 

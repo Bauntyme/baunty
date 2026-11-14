@@ -16,6 +16,7 @@ if (tg) {
 }
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtHtml = (s) => esc(s).replace(/&lt;(\/?(?:b|strong|i|em|u))&gt;/gi, "<$1>");
 const haptic = (t) => { try { t === "ok" ? tg.HapticFeedback.notificationOccurred("success")
   : t === "err" ? tg.HapticFeedback.notificationOccurred("error") : tg.HapticFeedback.selectionChanged(); } catch (e) {} };
 const fmt = (n) => n >= 1e6 ? (n/1e6).toFixed(1).replace(".0","") + "M" : n >= 1e3 ? (n/1e3).toFixed(1).replace(".0","") + "K" : String(n);
@@ -233,7 +234,7 @@ function openDetail(it, push = true, requestedPart = null) {
     : `<span class="badge baunty-star-badge">${bauntyCrestSVG(12)}<span>Baunty PRO</span></span>`;
   $("info").innerHTML = `<h2>${esc(it.t)}</h2>
     <div class="meta"><span>🔑 Kod: ${it.c}</span>${ratingBadge}${it.v ? `<span>👁 ${fmt(it.v)}</span>` : ""}${totalP > 1 ? `<span>📺 ${totalP} qism</span>` : ""}</div>
-    ${desc ? `<p class="desc${desc.length > 320 ? " cut" : ""}" id="desc">${esc(desc)}</p>${desc.length > 320 ? `<button class="more" id="more">Ko'proq…</button>` : ""}` : ""}
+    ${desc ? `<p class="desc${desc.length > 320 ? " cut" : ""}" id="desc">${fmtHtml(desc)}</p>${desc.length > 320 ? `<button class="more" id="more">Ko'proq…</button>` : ""}` : ""}
     <div id="detParts"></div><div id="pmeta"></div><div class="det-acts" id="detActs"></div>`;
   renderDetailGrid(it);
   renderPartMeta(it);

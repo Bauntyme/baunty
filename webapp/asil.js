@@ -9,6 +9,7 @@ const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const fmtHtml = (s) => esc(s).replace(/&lt;(\/?(?:b|strong|i|em|u))&gt;/gi, "<$1>");
 const haptic = (t) => { try { t === "ok" ? tg.HapticFeedback.notificationOccurred("success") : t === "err" ? tg.HapticFeedback.notificationOccurred("error") : tg.HapticFeedback.selectionChanged(); } catch (e) {} };
 const T = window.ZK_T || ((u) => u);
 const NB = (n) => (+n || 0).toLocaleString("ru-RU");
@@ -535,7 +536,7 @@ function ensureDet() {
 }
 async function openItem(id) {
   ensureDet();
-  det = {id, it: null, season: 0, busy: {}};
+  det = {id, openId: id, it: null, season: 0, epPage: 0, busy: {}};
   $("asdv").innerHTML = `<div class="as-dots big"><i></i><i></i><i></i></div>`;
   requestAnimationFrame(() => $("asdet").classList.add("open"));
   document.body.classList.add("as-detopen");
@@ -556,8 +557,18 @@ function closeDet() {
   try { if (!window.ZK_canHideBack || window.ZK_canHideBack()) tg.BackButton.hide(); } catch (e) {}
   return true;
 }
-const fileBtn = (f, label, ep) => `<button class="as-f${f.ok ? "" : " off"}" data-slot="${f.s}"${ep ? ` data-part="${ep}"` : ""}${f.ok ? "" : " disabled"}>
-  <b>📥 ${esc(f.q || label || T("Fayl", "Файл", "File"))}</b><small>${f.mb ? (f.mb >= 1024 ? (f.mb / 1024).toFixed(1) + " GB" : f.mb + " MB") : ""}${f.parts > 1 ? ` · ${f.parts} ${T("bo'lak", "частей", "parts")}` : ""}${f.tr ? " · " + esc(f.tr) : ""}${f.ok ? "" : " · " + T("tayyorlanmoqda", "готовится", "preparing")}</small></button>${f.stream_url ? `<button class="as-f" data-stream="${esc(f.stream_url)}"><b>🎬 ${T("Onlayn ko'rish", "Смотреть онлайн", "Watch online")}</b><small>${esc(f.q || label || "MP4")}</small></button>` : ""}`;
+const fileBtn = (f, label, ep) => {
+  const epNum = ep || f.part || f.e || 0;
+  const title = label || f.label || f.q || T("Fayl", "Файл", "File");
+  const subParts = [
+    f.mb ? (f.mb >= 1024 ? (f.mb / 1024).toFixed(1) + " GB" : f.mb + " MB") : "",
+    (!epNum && f.parts > 1) ? `${f.parts} ${T("bo'lak", "частей", "parts")}` : "",
+    f.tr ? esc(f.tr) : "",
+    f.ok ? "" : T("tayyorlanmoqda", "готовится", "preparing"),
+  ].filter(Boolean).join(" · ");
+  return `<button class="as-f${f.ok ? "" : " off"}" data-slot="${f.s}"${epNum ? ` data-part="${epNum}"` : ""}${f.ok ? "" : " disabled"}>
+  <b>📥 ${esc(title)}</b>${subParts ? `<small>${subParts}</small>` : ""}</button>${f.stream_url ? `<button class="as-f" data-stream="${esc(f.stream_url)}"><b>🎬 ${T("Onlayn ko'rish", "Смотреть онлайн", "Watch online")}</b><small>${esc(f.q || title || "MP4")}</small></button>` : ""}`;
+};
 function paintDet() {
   const x = det.it;
   const meta = [x.y, x.dur, x.lang].filter(Boolean).map(esc).join(" · ");
@@ -565,8 +576,21 @@ function paintDet() {
   if (x.seasons) {
     const ss = x.seasons;
     const cur = ss.find((s) => s.n === det.season) || ss[0];
+    const epsAll = cur.eps || [];
+    const CHUNK = 36;
+    const totalPages = epsAll.length > 40 ? Math.ceil(epsAll.length / CHUNK) : 1;
+    const epPage = Math.min(det.epPage || 0, Math.max(0, totalPages - 1));
+    det.epPage = epPage;
+    const epsSlice = totalPages > 1 ? epsAll.slice(epPage * CHUNK, (epPage + 1) * CHUNK) : epsAll;
+    const pageTabs = totalPages > 1
+      ? `<div class="as-seas">${Array.from({length: totalPages}, (_, i) => {
+          const a = epsAll[i * CHUNK]?.e || (i * CHUNK + 1);
+          const b = epsAll[Math.min((i + 1) * CHUNK, epsAll.length) - 1]?.e || Math.min((i + 1) * CHUNK, epsAll.length);
+          return `<button data-eppage="${i}" class="${i === epPage ? "on" : ""}">${a}–${b}</button>`;
+        }).join("")}</div>` : "";
     files = `${ss.length > 1 ? `<div class="as-seas">${ss.map((s) => `<button data-season="${s.n}" class="${s.n === cur.n ? "on" : ""}">${s.n ? s.n + "-" + T("fasl", "сезон", "season") : T("Qismlar", "Серии", "Episodes")}</button>`).join("")}</div>` : ""}
-      <div class="as-eps">${cur.eps.map((e) => `<div class="as-ep"><span>${esc(e.name || e.e + "-" + T("qism", "серия", "ep."))}</span><div>${e.f.map((f) => fileBtn(f, null, e.e)).join("")}</div></div>`).join("")}</div>`;
+      ${pageTabs}
+      <div class="as-eps">${epsSlice.map((e) => `<div class="as-ep"><span>${esc(e.name || e.e + "-" + T("qism", "серия", "ep."))}</span><div>${e.f.map((f) => fileBtn(f, f.q || "1080p", e.e)).join("")}</div></div>`).join("")}</div>`;
   } else {
     files = (x.files || []).length ? `<div class="as-files">${x.files.map((f) => fileBtn(f)).join("")}</div>` : `<p class="as-note">${T("Fayl hali yuklanmagan", "Файл ещё не загружен", "No file yet")}</p>`;
   }
@@ -578,14 +602,14 @@ function paintDet() {
     ${files}
     ${x.stream_url ? `<button class="as-watch" data-stream="${esc(x.stream_url)}">🎬 ${T("Onlayn ko'rish", "Смотреть онлайн", "Watch online")}</button>` : ""}
     ${x.watch ? `<button class="as-watch" data-as="watch">▶️ ${T("Saytda tomosha qilish", "Смотреть на сайте", "Watch on the website")}</button>` : ""}
-    ${x.desc ? `<p class="as-desc">${esc(x.desc)}</p>` : ""}
-    <p class="as-src">${T("Kino kodi", "Код фильма", "Movie code")}: <b>${x.id}</b> · Bauntys Films</p></div>`;
+    ${x.desc ? `<p class="as-desc">${fmtHtml(x.desc)}</p>` : ""}
+    <p class="as-src">${T("Kino kodi", "Код фильма", "Movie code")}: <b>${esc(x.code || x.id)}</b> · Bauntys Films</p></div>`;
 }
 async function send(slot, btn, recheck, part) {
   if (!det || !det.it || det.busy[slot]) return;
   det.busy[slot] = 1; if (btn) btn.classList.add("busy");
   const p = part || 1;
-  const r = await api("api/asil/send", {id: det.it.id, slot, part: p, recheck: !!recheck});
+  const r = await api("api/asil/send", {id: det.it.code || det.it.id, cache_id: det.openId || det.id, slot, part: p, recheck: !!recheck});
   if (det) delete det.busy[slot];
   if (btn) btn.classList.remove("busy");
   if (r.ok) {
@@ -600,7 +624,7 @@ async function send(slot, btn, recheck, part) {
     const chs = r.channels || [];
     $("asdv").insertAdjacentHTML("afterbegin", `<div class="as-sub-box"><b>📢 ${T("Kanallarga obuna bo'ling", "Подпишитесь на каналы", "Subscribe to the channels")}</b>
       ${chs.map((c) => `<a class="as-chan" data-url="${esc(c.url)}">${esc(c.title)} ›</a>`).join("")}
-      <button class="cta" data-recheck="${slot}">✅ ${T("Obuna bo'ldim", "Я подписался", "I've subscribed")}</button></div>`);
+      <button class="cta" data-recheck="${slot}" data-rpart="${p}">✅ ${T("Obuna bo'ldim", "Я подписался", "I've subscribed")}</button></div>`);
     $("asdet").scrollTop = 0;
     return;
   }
@@ -627,10 +651,12 @@ function onDetClick(e) {
     send(+sl.dataset.slot, sl, false, part);
     return;
   }
+  const epP = t.closest("[data-eppage]");
+  if (epP && det) { det.epPage = +epP.dataset.eppage; haptic(); paintDet(); $("asdet").scrollTop = 180; return; }
   const se = t.closest("[data-season]");
-  if (se && det) { det.season = +se.dataset.season; haptic(); paintDet(); return; }
+  if (se && det) { det.season = +se.dataset.season; det.epPage = 0; haptic(); paintDet(); return; }
   const rc = t.closest("[data-recheck]");
-  if (rc) { const b = t.closest(".as-sub-box"); if (b) b.remove(); send(+rc.dataset.recheck, null, true); return; }
+  if (rc) { const b = t.closest(".as-sub-box"); if (b) b.remove(); const rp = rc.dataset.rpart ? +rc.dataset.rpart : 1; send(+rc.dataset.recheck, null, true, rp); return; }
   const ch = t.closest("[data-url]");
   if (ch) { try { tg.openTelegramLink(ch.dataset.url); } catch (er) { window.open(ch.dataset.url); } return; }
   const a = t.closest("[data-as]");

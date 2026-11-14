@@ -29,6 +29,9 @@ _CATALOG_CACHE: Optional[dict] = None
 _CATALOG_CACHE_BASE: Optional[str] = None
 _UNIFIED_CATALOG_CACHE: Optional[Tuple[str, float, List[Dict[str, Any]]]] = None
 _LAST_SYNC_TS: float = time.time()
+_LAST_UPSTREAM_FEED_SYNC_TS: float = 0.0
+_LAST_ZAKIROVS_SYNC_TS: float = 0.0
+_ZAKIROVS_FEED_CACHE: List[Dict[str, Any]] = []
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(1)
 
 
@@ -199,15 +202,307 @@ class MovieService:
         return None
 
     @staticmethod
+    def _parse_zakirovs_channel_html(html_text: str) -> List[Dict[str, Any]]:
+        """https://t.me/s/ZakirovsKino public sahifasidan asil_<ID> kino/serial postlarini ajratib olish."""
+        if not html_text or "tgme_widget_message_wrap" not in html_text:
+            return []
+        import html as _html_mod
+
+        parsed: List[Dict[str, Any]] = []
+        seen_codes: set[str] = set()
+        blocks = html_text.split("tgme_widget_message_wrap")
+        # Eng yangi postlar sahifa pastida bo'ladi — teskari tartibda olamiz
+        for block in reversed(blocks[1:]):
+            m_code = re.search(r"t\.me/[A-Za-z0-9_]+\?start=(?:asil|kino)_(\d+)", block, re.I)
+            if not m_code:
+                continue
+            c_str = m_code.group(1)
+            if c_str in seen_codes:
+                continue
+
+            m_txt = re.search(
+                r'<div class="tgme_widget_message_text[^"]*"[^>]*>(.*?)</div>',
+                block,
+                re.S | re.I,
+            )
+            if not m_txt:
+                continue
+            raw_html_inner = m_txt.group(1)
+            # Havolalarni (<a ...>...</a>) va boshqa teglarni tozalash, <br> ni \n ga aylantirish
+            txt_nl = re.sub(r"<br\s*/?>", "\n", raw_html_inner, flags=re.I)
+            txt_no_a = re.sub(r"<a\b[^>]*>.*?</a>", "", txt_nl, flags=re.S | re.I)
+            plain = _html_mod.unescape(re.sub(r"<[^>]+>", "", txt_no_a)).strip()
+            lines = [ln.strip() for ln in plain.splitlines() if ln.strip()]
+            if not lines:
+                continue
+
+            # Birinchi mazmunli qatordan kino nomini ajratib olish
+            title_cand = ""
+            m_b = re.search(r"<b>(.*?)</b>", raw_html_inner, re.S | re.I)
+            if m_b:
+                title_cand = _html_mod.unescape(re.sub(r"<[^>]+>", "", m_b.group(1))).strip()
+            if not title_cand or len(title_cand) < 2:
+                title_cand = lines[0]
+            # Sarlavhani emoji va yil/sifat teglaridan tozalash
+            title_cand = re.sub(r"^[\W_]+", "", title_cand, flags=re.U)
+            title_cand = re.sub(r"^(?:Premyera|PREMYERA|Yangi\s*kino|Tarjima\s*kino|Serial)\s*[:\-–—]?\s*", "", title_cand, flags=re.I).strip()
+            title_cand = re.sub(r"\s*[\(\[](?:19\d{2}|20\d{2}|HD|Full\s*HD|1080p|720p|O'zbek\s*tilida|Tarjima)[\)\]]\s*", " ", title_cand, flags=re.I).strip()
+            title_cand = MovieService.sanitize_branding(title_cand).strip(" -–—:·")
+            if not title_cand or len(title_cand) < 2:
+                continue
+
+            y_val: Optional[int] = None
+            m_y = re.search(r"(?:Yili|Year|\()\s*[:\s]*(19\d{2}|20\d{2})", plain, re.I)
+            if not m_y:
+                m_y = re.search(r"\b(20[12]\d|19[89]\d)\b", plain)
+            if m_y:
+                y_val = int(m_y.group(1))
+
+            is_series = bool(re.search(r"\b(?:serial|seriya|fasl|qism)\b", plain, re.I))
+            parts_cnt = 1
+            if is_series:
+                m_ep = re.search(r"(\d+)\s*[- ]*\s*(?:qism|seriya)", plain, re.I)
+                if m_ep and 1 <= int(m_ep.group(1)) <= 500:
+                    parts_cnt = int(m_ep.group(1))
+
+            genres = ""
+            m_g = re.search(r"(?:Janr(?:i)?)\s*[:\-]\s*([^\n]+)", plain, re.I)
+            if m_g:
+                genres = MovieService.sanitize_branding(m_g.group(1)).strip()
+
+            rating: Optional[float] = None
+            m_r = re.search(r"(?:IMDb|Reyting|Baho)\s*[:\-]\s*(\d+(?:[.,]\d+)?)", plain, re.I)
+            if m_r:
+                try:
+                    rating = float(m_r.group(1).replace(",", "."))
+                except ValueError:
+                    pass
+
+            poster = ""
+            m_img = re.search(r"tgme_widget_message_photo_wrap[^>]*background-image:\s*url\(['\"]?(https?://[^'\"\)]+)['\"]?\)", block, re.I)
+            if m_img:
+                poster = m_img.group(1)
+
+            seen_codes.add(c_str)
+            clean_desc_lines = []
+            for ln in lines[:8]:
+                s_ln = MovieService.sanitize_branding(ln)
+                if s_ln and not re.search(r"(?:t\.me/|https?://|@Baunty|bosing|obuna\s+bo'ling)", s_ln, re.I):
+                    clean_desc_lines.append(s_ln)
+            desc_body = "\n".join(clean_desc_lines[1:]).strip()
+            desc = (
+                f"🎬 <b>{title_cand}</b>"
+                + (f" ({y_val})" if y_val else "")
+                + "\n\n"
+                + (f"{desc_body}\n\n" if desc_body else (f"🎭 <b>Janr:</b> {genres}\n" if genres else ""))
+                + "📺 <b>Sifati:</b> 1080p | Full HD\n"
+                + f"🤖 <b>Tomosha qilish:</b> @{get_bot_username()}\n"
+                + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}"
+            )
+            parsed.append({
+                "c": int(c_str) if c_str.isdigit() else c_str,
+                "t": title_cand,
+                "p": parts_cnt,
+                "v": 1500,
+                "d": MovieService.sanitize_branding(desc),
+                "y": y_val,
+                "r": rating,
+                "g": genres,
+                "p_url": poster,
+                "type": "serial" if (is_series or parts_cnt > 1) else "film",
+                "_from_zakirovs_channel": True,
+            })
+        return parsed
+
+    @staticmethod
+    async def fetch_zakirovs_channel_items(
+        limit: int = 20,
+        resolve_asil: bool = True,
+        existing_by_code: Optional[Dict[str, Dict[str, Any]]] = None,
+        force: bool = False,
+    ) -> List[Dict[str, Any]]:
+        """
+        @ZakirovsKino public kanalidan yangi kinolar ro'yxatini olish va har birini
+        nomi+yili bo'yicha Asilmedia.org ning haqiqiy asil_id siga aniq bog'lash.
+        """
+        global _LAST_ZAKIROVS_SYNC_TS, _ZAKIROVS_FEED_CACHE
+        from services.asilmedia_service import asilmedia_service
+
+        now = time.time()
+        if not force and _ZAKIROVS_FEED_CACHE and (now - _LAST_ZAKIROVS_SYNC_TS) < 180:
+            return list(_ZAKIROVS_FEED_CACHE[:limit])
+
+        html_text = ""
+        try:
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+                "Accept-Language": "uz,ru;q=0.9,en;q=0.8",
+            }
+            async with aiohttp.ClientSession(headers=headers) as http_sess:
+                async with http_sess.get(
+                    "https://t.me/s/ZakirovsKino",
+                    timeout=aiohttp.ClientTimeout(total=5),
+                ) as resp:
+                    if getattr(resp, "status", 0) == 200 and hasattr(resp, "text"):
+                        html_text = await resp.text()
+        except Exception as ze:
+            logger.debug("ZakirovsKino fetch skipped/failed: %s", ze)
+            return list(_ZAKIROVS_FEED_CACHE[:limit]) if _ZAKIROVS_FEED_CACHE else []
+
+        items = MovieService._parse_zakirovs_channel_html(html_text)[:limit]
+        if not items:
+            return []
+
+        if resolve_asil:
+            unresolved = []
+            for it in items:
+                c_str = str(it.get("c"))
+                ex = (existing_by_code or {}).get(c_str) or MovieService.get_catalog_item(c_str)
+                if ex and ex.get("asil_id"):
+                    it["asil_id"] = ex["asil_id"]
+                    it["a"] = ex["asil_id"]
+                    if not it.get("p_url") and ex.get("p_url"):
+                        it["p_url"] = ex["p_url"]
+                else:
+                    unresolved.append(it)
+
+            # Har bir sinxronizatsiyada ko'pi bilan 6 ta yangi kino uchun parallel Asilmedia qidiruvi
+            sem = asyncio.Semaphore(3)
+
+            async def _bind_asil(entry: Dict[str, Any]) -> None:
+                async with sem:
+                    try:
+                        matched = await asyncio.wait_for(
+                            asilmedia_service.find_best_match(
+                                entry["t"],
+                                target_parts=int(entry.get("p") or 1),
+                                year=entry.get("y"),
+                            ),
+                            timeout=4.5,
+                        )
+                        if matched:
+                            aid = int(matched.id) if str(matched.id).isdigit() else matched.id
+                            entry["asil_id"] = aid
+                            entry["a"] = aid
+                            if matched.poster and not entry.get("p_url"):
+                                entry["p_url"] = matched.poster
+                            if matched.episodes:
+                                entry["p"] = max(int(entry.get("p") or 1), len(matched.episodes))
+                            if matched.is_series:
+                                entry["type"] = "serial"
+                            if matched.year and not entry.get("y"):
+                                entry["y"] = matched.year
+                            if matched.genres and not entry.get("g"):
+                                entry["g"] = ", ".join(matched.genres)
+                    except Exception:
+                        pass
+
+            if unresolved:
+                await asyncio.gather(*(_bind_asil(e) for e in unresolved[:6]), return_exceptions=True)
+
+        _LAST_ZAKIROVS_SYNC_TS = now
+        _ZAKIROVS_FEED_CACHE = list(items)
+        return items
+
+    @staticmethod
+    async def sync_from_zakirovs_channel(
+        session: Optional[AsyncSession] = None,
+        limit: int = 25,
+        force: bool = False,
+    ) -> int:
+        """@ZakirovsKino public kanalidagi yangi kinolarni katalog va DB ga qo'shish."""
+        global _CATALOG_CACHE, _CATALOG_CACHE_BASE, _UNIFIED_CATALOG_CACHE
+        from database.session import get_session
+
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        catalog_file = base_dir / "data" / "catalog.json"
+        existing_items: List[Dict[str, Any]] = []
+        if _CATALOG_CACHE and isinstance(_CATALOG_CACHE.get("items"), list):
+            existing_items = [dict(x) for x in _CATALOG_CACHE["items"] if isinstance(x, dict)]
+        elif catalog_file.exists():
+            try:
+                with open(catalog_file, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                    if isinstance(loaded, dict) and isinstance(loaded.get("items"), list):
+                        existing_items = [dict(x) for x in loaded["items"] if isinstance(x, dict)]
+            except Exception:
+                pass
+
+        by_code = {str(it.get("c")): it for it in existing_items if it.get("c") is not None}
+        fetched = await MovieService.fetch_zakirovs_channel_items(
+            limit=limit,
+            resolve_asil=True,
+            existing_by_code=by_code,
+            force=force,
+        )
+        if not fetched:
+            return 0
+
+        added_or_updated: List[Dict[str, Any]] = []
+        for fit in fetched:
+            clean_fit = {k: v for k, v in fit.items() if not str(k).startswith("_")}
+            c_str = str(clean_fit["c"])
+            if c_str in by_code:
+                ex = by_code[c_str]
+                changed = False
+                if clean_fit.get("asil_id") and not ex.get("asil_id"):
+                    ex["asil_id"] = clean_fit["asil_id"]
+                    ex["a"] = clean_fit["asil_id"]
+                    changed = True
+                if clean_fit.get("p_url") and not ex.get("p_url"):
+                    ex["p_url"] = clean_fit["p_url"]
+                    changed = True
+                if int(clean_fit.get("p") or 1) > int(ex.get("p") or 1):
+                    ex["p"] = clean_fit["p"]
+                    ex["type"] = clean_fit.get("type", ex.get("type", "serial"))
+                    changed = True
+                if changed:
+                    added_or_updated.append(ex)
+            else:
+                existing_items.insert(0, clean_fit)
+                by_code[c_str] = clean_fit
+                added_or_updated.append(clean_fit)
+
+        if added_or_updated:
+            _UNIFIED_CATALOG_CACHE = None
+            cat_json = {
+                "items": existing_items,
+                "channel": config.CHANNEL_USERNAME,
+                "bot": get_bot_username(),
+            }
+            if len(existing_items) >= 20 or not (_CATALOG_CACHE and len(_CATALOG_CACHE.get("items", [])) >= 20):
+                _CATALOG_CACHE = cat_json
+                _CATALOG_CACHE_BASE = str(base_dir)
+            if len(existing_items) >= 20:
+                try:
+                    catalog_file.parent.mkdir(parents=True, exist_ok=True)
+                    with open(catalog_file, "w", encoding="utf-8") as f:
+                        json.dump(cat_json, f, ensure_ascii=False, indent=2)
+                except Exception as fe:
+                    logger.debug("catalog.json update error in sync_from_zakirovs_channel: %s", fe)
+
+            try:
+                if session:
+                    await crud.sync_movies_from_catalog_data(session, added_or_updated)
+                else:
+                    async with get_session() as s:
+                        await crud.sync_movies_from_catalog_data(s, added_or_updated)
+            except Exception as dbe:
+                logger.debug("DB sync error in sync_from_zakirovs_channel: %s", dbe)
+
+        return len(added_or_updated)
+
+    @staticmethod
     async def sync_catalog_from_upstream(session: Optional[AsyncSession] = None) -> int:
         """
-        Katalog ma'lumotlarini data/catalog.json, CUSTOM_CATALOG_ITEMS, Asilmedia.org va
-        mahalliy DB bilan @BauntyCinemabot va @BauntyFilms brendi asosida sinxronlash.
+        Katalog ma'lumotlarini data/catalog.json, CUSTOM_CATALOG_ITEMS, @ZakirovsKino public tasmasi,
+        Asilmedia.org va mahalliy DB bilan @BauntyCinemabot va @BauntyFilms brendi asosida sinxronlash.
         """
-        global _CATALOG_CACHE, _CATALOG_CACHE_BASE, _UNIFIED_CATALOG_CACHE, _LAST_SYNC_TS
+        global _CATALOG_CACHE, _CATALOG_CACHE_BASE, _UNIFIED_CATALOG_CACHE, _LAST_SYNC_TS, _LAST_UPSTREAM_FEED_SYNC_TS
         from database.session import get_session
         from services.asilmedia_service import asilmedia_service
-        _LAST_SYNC_TS = time.time()
+        now = time.time()
+        _LAST_SYNC_TS = now
         _UNIFIED_CATALOG_CACHE = None
 
         raw_items: List[Dict[str, Any]] = []
@@ -232,8 +527,36 @@ class MovieService:
             except Exception as me:
                 logger.debug("Merge with existing catalog.json error: %s", me)
 
-        # 2. Agar lokal katalog juda kichik bo'lsa Asilmedia ochiq sahifalaridan to'ldirish
-        if len(raw_items) < 10:
+        by_code_map = {str(it.get("c")): it for it in raw_items if it.get("c") is not None}
+        feed_due = (len(raw_items) < 10) or ((now - _LAST_UPSTREAM_FEED_SYNC_TS) >= 180)
+
+        # 2A. @ZakirovsKino public tasmasidan yangi kinolarni avtomatik olish (asil_id bilan bog'lab)
+        if feed_due:
+            _LAST_UPSTREAM_FEED_SYNC_TS = now
+            try:
+                zak_items = await MovieService.fetch_zakirovs_channel_items(
+                    limit=20,
+                    resolve_asil=True,
+                    existing_by_code=by_code_map,
+                )
+                for zit in reversed(zak_items):
+                    clean_z = {k: v for k, v in zit.items() if not str(k).startswith("_")}
+                    c_str = str(clean_z.get("c"))
+                    if c_str in by_code_map:
+                        ex = by_code_map[c_str]
+                        if clean_z.get("asil_id") and not ex.get("asil_id"):
+                            ex["asil_id"] = clean_z["asil_id"]
+                            ex["a"] = clean_z["asil_id"]
+                        if clean_z.get("p_url") and not ex.get("p_url"):
+                            ex["p_url"] = clean_z["p_url"]
+                    else:
+                        raw_items.insert(0, clean_z)
+                        by_code_map[c_str] = clean_z
+            except Exception as ze:
+                logger.debug("ZakirovsKino feed sync error: %s", ze)
+
+        # 2B. Asilmedia ochiq sahifalaridan yangi kinolar va seriallar bilan to'ldirish
+        if feed_due:
             try:
                 batch_items = await asilmedia_service.fetch_catalog_batch(pages=1)
                 seen_codes = {str(it.get("c")) for it in raw_items}
@@ -266,6 +589,7 @@ class MovieService:
                         "i": iid,
                         "asil_id": int(iid) if str(iid).isdigit() else iid,
                         "p_url": bit.get("poster", ""),
+                        "y": y_val,
                         "type": "serial" if bit.get("is_series") else "film",
                     })
             except Exception as ae:
@@ -420,62 +744,62 @@ class MovieService:
                 if str(it.get("c")) not in seen_codes:
                     items.append(it)
 
-        # 1. To'liq yoki substring mosligi (ikkala tomonga)
-        for it in items:
-            t_raw = it.get("t", "")
-            t_norm = normalize_title(t_raw)
-            t_s = strip_apostrophe(t_norm)
-            for q in all_queries:
-                if len(q) >= 3 and len(t_norm) >= 3:
-                    if q == t_norm or q == t_s:
-                        return it
-                    if q in t_norm or q in t_s:
-                        return it
-                    if (re.search(r'\b' + re.escape(t_norm) + r'\b', q) or
-                            (t_s and re.search(r'\b' + re.escape(t_s) + r'\b', q))):
-                        return it
-                elif q and (q == t_norm or q == t_s):
-                    return it
-
-        # 1.5. Tavsif (description / d) birinchi qatori ichidagi sarlavha mosligi
-        for it in items:
-            d_raw = it.get("d", "")
-            if not d_raw:
-                continue
-            first_line = d_raw.strip().split("\n")[0]
-            d_norm = normalize_title(first_line)
-            d_s = strip_apostrophe(d_norm)
-            for q in all_queries:
-                if len(q) >= 3 and (q in d_norm or q in d_s):
-                    return it
-
-        # 2. Kalit so'zlar bo'yicha (Stop-words filtri bilan xavfsiz moslik)
         STOP_WORDS = {
             "kino", "film", "filmi", "kinosi", "premyera", "uzbek", "o'zbek",
             "tarjima", "yangi", "qism", "serial", "hd", "kodi", "barcha", "retro",
             "multfilm", "kinoqism", "qismli", "multfilmi"
         }
 
+        def has_meaningful_words(q_str: str) -> bool:
+            ws = [w for w in q_str.split() if len(w) >= 3 and w not in STOP_WORDS]
+            return bool(ws)
+
+        # Eng aniq kino nomzodini ball tizimi bilan tanlash (birinchi kelgan tasodifiy substringni emas!)
+        best_score: Tuple[float, int, int] = (-1.0, -999999, 0)
+        best_item: Optional[dict] = None
+
         for it in items:
-            t_norm = normalize_title(it.get("t", ""))
-            t_words = [w for w in t_norm.split() if len(w) >= 3 and w not in STOP_WORDS]
-            t_words_s = [strip_apostrophe(w) for w in t_words]
-            if not t_words:
-                continue
+            t_raw = it.get("t", "")
+            t_norm = normalize_title(t_raw)
+            t_s = strip_apostrophe(t_norm)
+            d_raw = it.get("d", "")
+            d_first = normalize_title(d_raw.strip().split("\n")[0]) if d_raw else ""
+            d_s = strip_apostrophe(d_first)
+            views = int(it.get("v") or 0)
 
             for q in all_queries:
-                q_words = [w for w in q.split() if len(w) >= 3 and w not in STOP_WORDS]
-                if not q_words:
-                    continue
-                q_words_s = [strip_apostrophe(w) for w in q_words]
-                matches = sum(
-                    1 for qw in q_words_s
-                    if any(word_matches(qw, tw) for tw in t_words_s)
-                )
-                if matches >= len(q_words_s) or (len(q_words_s) >= 2 and matches / len(q_words_s) >= 0.66):
-                    return it
+                tier = -1.0
+                if q == t_norm or (t_s and q == t_s):
+                    tier = 1000.0
+                elif len(q) >= 3 and len(t_norm) >= 3 and has_meaningful_words(q):
+                    if re.search(r"\b" + re.escape(q) + r"\b", t_norm) or (t_s and re.search(r"\b" + re.escape(q) + r"\b", t_s)):
+                        tier = 750.0
+                    elif (re.search(r"\b" + re.escape(t_norm) + r"\b", q) or
+                          (t_s and re.search(r"\b" + re.escape(t_s) + r"\b", q))):
+                        tier = 650.0
+                    elif q in t_norm or q in t_s:
+                        tier = 500.0 + (20.0 if t_norm.startswith(q) or t_s.startswith(q) else 0.0)
+                    elif d_first and (q in d_first or (d_s and q in d_s)):
+                        tier = 350.0
+                    else:
+                        t_words = [w for w in t_norm.split() if len(w) >= 3 and w not in STOP_WORDS]
+                        t_words_s = [strip_apostrophe(w) for w in t_words]
+                        q_words = [w for w in q.split() if len(w) >= 3 and w not in STOP_WORDS]
+                        if t_words_s and q_words:
+                            q_words_s = [strip_apostrophe(w) for w in q_words]
+                            matches = sum(1 for qw in q_words_s if any(word_matches(qw, tw) for tw in t_words_s))
+                            if matches >= len(q_words_s) or (len(q_words_s) >= 2 and matches / len(q_words_s) >= 0.66):
+                                tier = 150.0 + 100.0 * (matches / max(len(q_words_s), len(t_words_s)))
+                elif q and (q == t_norm or (t_s and q == t_s)):
+                    tier = 1000.0
 
-        return None
+                if tier >= 0:
+                    cand_score = (tier, -abs(len(t_norm) - len(q)), views)
+                    if cand_score > best_score:
+                        best_score = cand_score
+                        best_item = it
+
+        return best_item
 
     @staticmethod
     async def get_unified_catalog(session: Optional[AsyncSession] = None) -> List[Dict[str, Any]]:
@@ -1745,8 +2069,18 @@ class MovieService:
             except Exception as e:
                 logger.debug(f"Auto-upsert movie on deliver failed: {e}")
 
+        early_cached_mf = None
+        if session:
+            try:
+                early_cached_mf = await crud.get_movie_file(session, clean_code, part)
+            except Exception:
+                pass
+        has_early_cached_mf = bool(
+            early_cached_mf and MovieService.is_valid_telegram_file_id((early_cached_mf.file_id or "").strip())
+        )
+
         resolved_source = None
-        if not cat_item and not db_movie:
+        if not cat_item and not db_movie and not has_early_cached_mf:
             resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
             has_ready_media = bool(
                 resolved_source
@@ -1792,6 +2126,29 @@ class MovieService:
                 or MovieService.resolve_video_source(clean_code, part, allow_default=False) is not None
                 or (session and await crud.get_movie_file(session, clean_code, part) is not None)
             )
+            if not has_part_source:
+                asil_hint_p = MovieService._resolve_asilmedia_id_hint(clean_code, cat_item)
+                is_serial_cand = bool(
+                    asil_hint_p
+                    or (cat_item and cat_item.get("type") == "serial")
+                    or (clean_code.isdigit() and int(clean_code) >= 100)
+                )
+                if is_serial_cand:
+                    try:
+                        sync_p_res = await MovieService.sync_movie_from_asilmedia(
+                            code=clean_code,
+                            title=title,
+                            session=session,
+                        )
+                        if sync_p_res.get("success"):
+                            resolved_source = MovieService.resolve_video_source(clean_code, part, allow_default=False)
+                            synced_cnt = len(sync_p_res.get("synced_parts") or [])
+                            if synced_cnt > total_parts:
+                                total_parts = synced_cnt
+                            if resolved_source is not None:
+                                has_part_source = True
+                    except Exception as spe:
+                        logger.debug(f"Lazy part sync failed for {clean_code} part={part}: {spe}")
             if not has_part_source:
                 return False
             total_parts = max(total_parts, part)
@@ -2490,13 +2847,18 @@ class MovieService:
             except Exception as he:
                 logger.debug(f"Asilmedia hint id lookup failed for {clean_code} -> {asil_hint}: {he}")
 
-        # 2. Target_title bo'yicha lokal asilmedia_service.find_best_match
+        # 2. Target_title bo'yicha lokal asilmedia_service.find_best_match (aniq nom+yil bilan, bir so'zga tushirmasdan)
         if not asil_movie and target_title and not target_title.startswith("Kino "):
-            asil_movie = await asilmedia_service.find_best_match(target_title, target_parts=target_parts)
+            target_year = cat_item.get("y") if isinstance(cat_item, dict) else None
+            asil_movie = await asilmedia_service.find_best_match(
+                target_title, target_parts=target_parts, year=target_year
+            )
             if not asil_movie:
-                words = target_title.split()
-                if len(words) > 1:
-                    asil_movie = await asilmedia_service.find_best_match(words[0], target_parts=target_parts)
+                cleaned_t = asilmedia_service.clean_title(target_title)
+                if cleaned_t and cleaned_t.lower() != target_title.strip().lower():
+                    asil_movie = await asilmedia_service.find_best_match(
+                        cleaned_t, target_parts=target_parts, year=target_year
+                    )
 
         # 3. Kod to'g'ridan-to'g'ri Asilmedia filmi ID si bo'lsa
         if not asil_movie and clean_code.isdigit() and int(clean_code) >= 10:

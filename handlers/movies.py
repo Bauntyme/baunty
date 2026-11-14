@@ -1414,12 +1414,19 @@ async def cmd_browser(message: Message) -> None:
     # 0.5. @Zakirovs_ai bridge: Kinolar va Kitoblar integratsiyasi (/browser @Zakirovs_ai ...)
     is_zakirovs_ai = bool(re.search(r"zakirovs?_ai\b", arg, re.IGNORECASE))
     if is_zakirovs_ai:
-        clean_ai_query = re.sub(r"^(?:https?://)?(?:t\.me/)?@?zakirovs?_ai/?\s*", "", arg, flags=re.IGNORECASE).strip()
-        clean_ai_query = re.sub(r"^@\w+\s*", "", clean_ai_query).strip().lstrip("/")
+        clean_ai_query = re.sub(r"^(?:https?://)?(?:t\.me/)?@?zakirovs?_ai/?", "", arg, flags=re.IGNORECASE).strip()
+        # ?start=asil_9157 / ?start=kitob / ?start=kino chuqur havolalarini tozalash
+        m_start_q = re.match(r"^\?start=([A-Za-z0-9_]+)$", clean_ai_query, re.IGNORECASE)
+        if m_start_q:
+            clean_ai_query = m_start_q.group(1)
+        clean_ai_query = re.sub(r"^@\w+\s*", "", clean_ai_query).strip().lstrip("/?")
+        if re.match(r"^(?:asil|kino)_(\d+)$", clean_ai_query, re.IGNORECASE):
+            clean_ai_query = re.sub(r"^(?:asil|kino)_", "", clean_ai_query, flags=re.IGNORECASE)
 
         # Agar qidiruv yoki aniq so'rov berilmagan bo'lsa: /browser @Zakirovs_ai
         if not clean_ai_query:
             asyncio.create_task(movie_service.sync_catalog_from_upstream())
+            asyncio.create_task(movie_service.sync_from_zakirovs_channel())
             ai_kb = InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
@@ -1460,6 +1467,16 @@ async def cmd_browser(message: Message) -> None:
                         InlineKeyboardButton(
                             text="📚 Sara Kitoblar",
                             callback_data="books:pop"
+                        ),
+                    ],
+                    [
+                        InlineKeyboardButton(
+                            text="🌐 @Zakirovs_ai Kinolar",
+                            url="https://t.me/Zakirovs_ai?start=kino"
+                        ),
+                        InlineKeyboardButton(
+                            text="🌐 @Zakirovs_ai Kitoblar",
+                            url="https://t.me/Zakirovs_ai?start=kitob"
                         ),
                     ],
                     [
@@ -1697,6 +1714,12 @@ async def cmd_browser(message: Message) -> None:
                     InlineKeyboardButton(
                         text="📚 Kitoblar katalogi",
                         web_app=WebAppInfo(url=f"{webapp_url}?books")
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="🌐 @Zakirovs_ai da qidirish",
+                        url="https://t.me/Zakirovs_ai"
                     )
                 ]
             ]

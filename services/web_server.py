@@ -2882,34 +2882,88 @@ async def handle_asil_item(request: web.Request) -> web.Response:
 
     cat_item = MovieService.get_catalog_item(item_id)
     target_asil_id = str(cat_item.get("asil_id")) if (cat_item and cat_item.get("asil_id")) else item_id
+    code_val = str(cat_item.get("c")) if (cat_item and cat_item.get("c") is not None) else str(item_id)
+    q_code = urllib.parse.quote(code_val, safe="")
+    q_rank = {"4K": 0, "1080p": 1, "720p": 2, "480p": 3, "360p": 4}
 
     try:
         from services.asilmedia_service import asilmedia_service
         movie = await asilmedia_service.get_movie_details(target_asil_id)
         if movie:
             files = []
+            seasons_data = None
             if movie.episodes:
                 parts_cnt = len(movie.episodes)
-                for idx, (ep_num, ep) in enumerate(sorted(movie.episodes.items()), 1):
+                slot_counter = 0
+                season_buckets: Dict[int, List[Dict[str, Any]]] = {}
+                for ep_num, ep in sorted(movie.episodes.items(), key=lambda kv: int(kv[0])):
+                    ep_i = int(ep_num)
+                    ep_name = ep.label or f"{ep_i}-qism"
+                    raw_qs = [
+                        str(qk) for qk, qu in (ep.quality_urls or {}).items()
+                        if qu and qk != "primary" and not str(qk).startswith("tg_") and not asilmedia_service.is_html_wrapper_url(str(qu))
+                    ]
+                    if not raw_qs:
+                        raw_qs = [ep.quality or "1080p"]
+                    raw_qs = sorted(dict.fromkeys(raw_qs), key=lambda x: q_rank.get(x, 10))[:2]
+                    ep_files = []
+                    for qk in raw_qs:
+                        slot_counter += 1
+                        f_entry = {
+                            "s": slot_counter,
+                            "part": ep_i,
+                            "e": ep_i,
+                            "q": qk,
+                            "label": f"{ep_i}-qism" if parts_cnt > 1 else qk,
+                            "tr": "",
+                            "note": "",
+                            "mb": 0,
+                            "parts": 1,
+                            "stream_url": f"/api/asil/stream?id={q_code}&part={ep_i}&quality={urllib.parse.quote(qk, safe='')}",
+                            "ok": True,
+                        }
+                        ep_files.append(f_entry)
+                        files.append(f_entry)
+                    s_num = int(getattr(ep, "season", 1) or 1)
+                    season_buckets.setdefault(s_num, []).append({
+                        "e": ep_i,
+                        "name": ep_name,
+                        "f": ep_files,
+                    })
+                if parts_cnt > 1 or movie.is_series:
+                    multi_season = len(season_buckets) > 1
+                    seasons_data = [
+                        {"n": (s_n if multi_season else 0), "eps": eps_list}
+                        for s_n, eps_list in sorted(season_buckets.items())
+                    ]
+            else:
+                parts_cnt = 1
+                raw_qs = [
+                    str(qk) for qk, qu in (movie.video_sources or {}).items()
+                    if qu and qk != "primary" and not str(qk).startswith("tg_") and not asilmedia_service.is_html_wrapper_url(str(qu))
+                ]
+                if not raw_qs:
+                    raw_qs = ["1080p"]
+                raw_qs = sorted(dict.fromkeys(raw_qs), key=lambda x: q_rank.get(x, 10))[:4]
+                for idx, qk in enumerate(raw_qs, 1):
                     files.append({
                         "s": idx,
-                        "part": int(ep_num),
-                        "e": int(ep_num),
-                        "q": ep.quality or "1080p",
-                        "label": ep.label or f"{ep_num}-qism",
+                        "part": 1,
+                        "e": 1,
+                        "q": qk,
+                        "label": qk,
                         "tr": "",
                         "note": "",
                         "mb": 0,
-                        "parts": parts_cnt,
+                        "parts": 1,
+                        "stream_url": f"/api/asil/stream?id={q_code}&part=1&quality={urllib.parse.quote(qk, safe='')}",
                         "ok": True,
                     })
-            else:
-                files = [{"s": 1, "part": 1, "e": 1, "q": "1080p", "parts": 1, "ok": True}]
 
             item_data = {
                 "id": int(movie.id) if str(movie.id).isdigit() else movie.id,
-                "code": str(cat_item.get("c")) if cat_item else str(item_id),
-                "type": "serial" if movie.is_series else "film",
+                "code": code_val,
+                "type": "serial" if (movie.is_series or (seasons_data is not None)) else "film",
                 "t": sanitize_catalog_text((cat_item.get("t") if cat_item else None) or movie.title),
                 "alt": sanitize_catalog_text(movie.orig_title or ""),
                 "y": movie.year or (cat_item.get("y") if cat_item else None),
@@ -2923,9 +2977,12 @@ async def handle_asil_item(request: web.Request) -> web.Response:
                 "lang": "O'zbek",
                 "watch": movie.watch_url or movie.url,
                 "url": movie.url,
+                "stream_url": f"/api/asil/stream?id={q_code}&part=1",
                 "parts": max(len(movie.episodes) if movie.episodes else 1, int((cat_item or {}).get("p") or 1)),
                 "files": files
             }
+            if seasons_data is not None:
+                item_data["seasons"] = seasons_data
             clean_bytes = json.dumps({"ok": True, "item": item_data}, ensure_ascii=False).encode("utf-8")
             _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
             return web.Response(body=clean_bytes, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
@@ -2934,10 +2991,22 @@ async def handle_asil_item(request: web.Request) -> web.Response:
 
     if cat_item:
         parts_cnt = max(1, int(cat_item.get("p") or 1))
-        files = [{"s": n, "part": n, "e": n, "q": "1080p", "label": f"{n}-qism", "parts": parts_cnt, "ok": True} for n in range(1, parts_cnt + 1)]
+        files = [
+            {
+                "s": n,
+                "part": n,
+                "e": n,
+                "q": "1080p",
+                "label": f"{n}-qism" if parts_cnt > 1 else "1080p",
+                "parts": 1,
+                "stream_url": f"/api/asil/stream?id={q_code}&part={n}",
+                "ok": True,
+            }
+            for n in range(1, parts_cnt + 1)
+        ]
         item_data = {
             "id": int(cat_item["c"]) if str(cat_item.get("c", "")).isdigit() else str(cat_item.get("c", item_id)),
-            "code": str(cat_item.get("c", item_id)),
+            "code": code_val,
             "type": "serial" if parts_cnt > 1 else "film",
             "t": sanitize_catalog_text(str(cat_item.get("t") or "")),
             "alt": "",
@@ -2950,10 +3019,17 @@ async def handle_asil_item(request: web.Request) -> web.Response:
             "desc": sanitize_catalog_text(str(cat_item.get("d") or "")),
             "dur": "",
             "lang": "O'zbek",
+            "stream_url": f"/api/asil/stream?id={q_code}&part=1",
             "parts": parts_cnt,
             "files": files,
         }
-        return web.json_response({"ok": True, "item": item_data}, headers={"Access-Control-Allow-Origin": "*"})
+        if parts_cnt > 1:
+            item_data["seasons"] = [
+                {"n": 0, "eps": [{"e": n, "name": f"{n}-qism", "f": [files[n - 1]]} for n in range(1, parts_cnt + 1)]}
+            ]
+        clean_bytes = json.dumps({"ok": True, "item": item_data}, ensure_ascii=False).encode("utf-8")
+        _ASIL_API_CACHE[cache_key] = {"body": clean_bytes, "ts": now}
+        return web.Response(body=clean_bytes, content_type="application/json", headers={"Access-Control-Allow-Origin": "*"})
 
     return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
@@ -3287,7 +3363,8 @@ async def handle_asil_send(request: web.Request) -> web.Response:
     except Exception:
         body = {}
 
-    item_id = str(body.get("id") or body.get("item_id") or body.get("code") or body.get("c") or "").strip()
+    item_id = str(body.get("id") or body.get("code") or body.get("c") or body.get("item_id") or "").strip()
+    cache_id = str(body.get("cache_id") or body.get("item_id") or body.get("asil_id") or item_id).strip()
     slot = body.get("slot")
     try:
         part = int(body.get("part") or 1)
@@ -3296,16 +3373,19 @@ async def handle_asil_send(request: web.Request) -> web.Response:
     recheck = bool(body.get("recheck", False))
 
     # Agar slot berilgan bo'lsa va part aniqlanmagan (1) bo'lsa, qism raqamini slot orqali aniqlash
-    if slot is not None and part == 1 and item_id:
+    if slot is not None and part == 1 and (item_id or cache_id):
         try:
             cached_item = None
-            cache_key = f"asil:item:{item_id}"
-            if cache_key in _ASIL_API_CACHE:
-                try:
-                    raw_c = json.loads(_ASIL_API_CACHE[cache_key]["body"])
-                    cached_item = raw_c.get("item")
-                except Exception:
-                    pass
+            for cid in dict.fromkeys(x for x in (cache_id, item_id) if x):
+                cache_key = f"asil:item:{cid}"
+                if cache_key in _ASIL_API_CACHE:
+                    try:
+                        raw_c = json.loads(_ASIL_API_CACHE[cache_key]["body"])
+                        cached_item = raw_c.get("item")
+                        if cached_item:
+                            break
+                    except Exception:
+                        pass
             if cached_item:
                 found_part = None
                 if "seasons" in cached_item:

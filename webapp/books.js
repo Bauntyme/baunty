@@ -6,6 +6,7 @@ const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const fmtHtml = (s) => esc(s).replace(/&lt;(\/?(?:b|strong|i|em|u))&gt;/gi, "<$1>");
 const haptic = (t) => { try { t === "ok" ? tg.HapticFeedback.notificationOccurred("success") : t === "err" ? tg.HapticFeedback.notificationOccurred("error") : tg.HapticFeedback.selectionChanged(); } catch (e) {} };
 const lsGet = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
@@ -401,7 +402,7 @@ function bookHTML(id) {
       : `<button class="bx-btn pri" data-read="${b.i}">${I.book}${b.au ? (started ? `O'qish · ${Math.round(st.pct)}%` : "O'qish") : st.done ? "Qayta o'qish" : started ? `Davom ettirish · ${Math.round(st.pct)}%` : "O'qishni boshlash"}</button>
       ${b.au ? `<button class="bx-btn sec" data-play="${b.i}">${I.head}${here && !A.el.paused ? "Tinglanmoqda" : "Tinglash"}</button><button class="bx-btn sec ic" data-dl="${b.i}" aria-label="Yuklab olish">${I.dl}</button>`
         : `<button class="bx-btn sec" data-dl="${b.i}">${I.dl}Yuklab olish</button>`}`}</div>`;
-  if (b.desc) h += `<div class="bx-desc${b._full ? "" : " cut"}"><p>${esc(b.desc)}</p>${b.desc.length > 220 && !b._full ? `<button data-act="more-desc">Batafsil</button>` : ""}</div>`;
+  if (b.desc) h += `<div class="bx-desc${b._full ? "" : " cut"}"><p>${fmtHtml(b.desc)}</p>${b.desc.length > 220 && !b._full ? `<button data-act="more-desc">Batafsil</button>` : ""}</div>`;
   if (st.pct > 0 || st.done || ap) {
     h += `<div class="bx-h"><h2>Bahoyingiz</h2></div><div class="bx-stars">${[1, 2, 3, 4, 5].map((n) =>
       `<button class="${(st.stars || 0) >= n ? "on" : ""}" data-star="${n}" aria-label="${n} yulduz">★</button>`).join("")}</div>`;
