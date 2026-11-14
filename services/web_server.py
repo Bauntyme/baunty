@@ -3079,10 +3079,19 @@ def _build_local_colls_data() -> Dict[str, Any]:
         cid = str(it.get("c") or it.get("id") or "")
         if cid and cid not in seen_ids:
             seen_ids.add(cid)
+            raw_poster = it.get("p_url") or it.get("poster")
+            if not raw_poster:
+                p_val = it.get("p")
+                if isinstance(p_val, str) and p_val.strip() and not p_val.strip().isdigit():
+                    raw_poster = p_val.strip()
+            if not raw_poster and it.get("i"):
+                raw_poster = f"p/{it.get('i')}_s.webp"
+            if raw_poster and str(raw_poster).strip().isdigit():
+                raw_poster = ""
             all_pool.append({
                 "id": int(cid) if cid.isdigit() else cid,
                 "t": sanitize_catalog_text(it.get("t") or ""),
-                "p": it.get("p_url") or it.get("p") or "",
+                "p": str(raw_poster or ""),
                 "y": it.get("y") or 2024,
                 "imdb": it.get("imdb") or 7.5,
                 "type": it.get("type") or "film",
@@ -3106,7 +3115,13 @@ def _build_local_colls_data() -> Dict[str, Any]:
         if len(matched) < 4:
             matched.extend([it for it in all_pool if it not in matched][:6])
 
-        posters = [m["p"] for m in matched if m.get("p")][:4]
+        posters = [
+            m["p"] for m in matched
+            if m.get("p") and not str(m["p"]).strip().isdigit() and (
+                str(m["p"]).startswith(("http://", "https://", "/", "p/"))
+                or any(str(m["p"]).lower().endswith(ext) for ext in (".webp", ".jpg", ".jpeg", ".png"))
+            )
+        ][:4]
         while len(posters) < 4:
             posters.append("https://asilmedia.org/rasmlar/images/2026/04/04/image.psd.jpg")
 
@@ -3197,6 +3212,72 @@ async def handle_asil_coll(request: web.Request) -> web.Response:
         "more": False
     }
     return web.json_response(res, headers={"Access-Control-Allow-Origin": "*"})
+
+
+async def _send_too_big_movie_card(
+    bot: Any,
+    user_id: int,
+    code: str,
+    part: int,
+    stream_info: Dict[str, Any],
+) -> bool:
+    """50 MB dan katta filmlar uchun Telegram chatga onlayn tomosha va to'g'ridan-to'g'ri yuklash kartasini yuborish."""
+    if not bot or not user_id or not stream_info:
+        return False
+    stream_url = str(stream_info.get("stream_url") or "").strip()
+    quality_urls = stream_info.get("quality_urls") or {}
+    primary_dl = stream_url or next((str(v).strip() for v in quality_urls.values() if v), "")
+    if not primary_dl or not primary_dl.startswith("http"):
+        return False
+
+    try:
+        import html as _html
+        from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+
+        title = _html.escape(str(stream_info.get("title") or f"Kino #{code}"))
+        total_parts = int(stream_info.get("total_parts") or 1)
+        part_txt = f" ({part}-qism)" if total_parts > 1 or part > 1 else ""
+        webapp_base = config.webapp_url_resolved
+        rows = []
+        if webapp_base and webapp_base.startswith("https://"):
+            rows.append([
+                InlineKeyboardButton(
+                    text="🎬 WebAppda onlayn tomosha qilish",
+                    web_app=WebAppInfo(url=f"{webapp_base}?c={code}&part={part}"),
+                )
+            ])
+
+        dl_buttons = []
+        for qk in ("480p", "720p", "1080p", "4K"):
+            qu = quality_urls.get(qk)
+            if qu and str(qu).startswith("http"):
+                dl_buttons.append(InlineKeyboardButton(text=f"⬇️ {qk}", url=str(qu)))
+        if not dl_buttons:
+            dl_buttons.append(InlineKeyboardButton(text="⬇️ MP4 yuklab olish", url=primary_dl))
+        for i in range(0, len(dl_buttons), 2):
+            rows.append(dl_buttons[i:i + 2])
+
+        ch_user = (config.CHANNEL_USERNAME or "@BauntyFilms").lstrip("@")
+        rows.append([InlineKeyboardButton(text=f"🍿 @{ch_user}", url=f"https://t.me/{ch_user}")])
+
+        text = (
+            f"🎬 <b>{title}{part_txt}</b>\n\n"
+            "⚠️ <i>Ushbu video fayli Telegram Bot API (50 MB) limitidan katta bo'lgani uchun "
+            "to'g'ridan-to'g'ri fayl ko'rinishida yuborilmadi.</i>\n\n"
+            "👇 Quyidagi tugmalar orqali <b>onlayn tomosha qilishingiz</b> yoki "
+            "<b>MP4 sifatda yuklab olishingiz</b> mumkin:"
+        )
+        await bot.send_message(
+            chat_id=user_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            protect_content=True,
+        )
+        return True
+    except Exception as card_err:
+        logger.debug("Too-big Telegram fallback card send error: %s", card_err)
+        return False
 
 
 async def handle_asil_send(request: web.Request) -> web.Response:
@@ -3352,15 +3433,19 @@ async def handle_asil_send(request: web.Request) -> web.Response:
                 stream_url = (stream_info or {}).get("stream_url")
                 quality_urls = (stream_info or {}).get("quality_urls") or {}
                 if stream_url or quality_urls:
+                    chat_notified = await _send_too_big_movie_card(
+                        _bot_instance, user_id, item_id, part, stream_info or {}
+                    )
                     return web.json_response({
                         "ok": False,
                         "delivered": False,
+                        "chat_notified": chat_notified,
                         "action": "stream",
                         "error": "too_big",
                         "stream_url": stream_url or next(iter(quality_urls.values()), ""),
                         "quality_urls": quality_urls,
                         "watch_url": (stream_info or {}).get("watch_url"),
-                        "message": "Video 50 MB dan katta — Bot API orqali yuborib bo'lmaydi. Onlayn tomosha qiling.",
+                        "message": "Video 50 MB dan katta — onlayn pleyerda ko'ring (bot chatga ham havola yuborildi).",
                         "id": item_id,
                         "part": part
                     })
@@ -3550,15 +3635,19 @@ async def handle_watch(request: web.Request) -> web.Response:
             stream_url = (stream_info or {}).get("stream_url")
             quality_urls = (stream_info or {}).get("quality_urls") or {}
             if stream_url or quality_urls:
+                chat_notified = await _send_too_big_movie_card(
+                    _bot_instance, user_id, clean_code, part, stream_info or {}
+                )
                 return web.json_response({
                     "ok": False,
                     "action": "stream",
                     "url": bot_url,
+                    "chat_notified": chat_notified,
                     "error": "too_big",
                     "stream_url": stream_url or next(iter(quality_urls.values()), ""),
                     "quality_urls": quality_urls,
                     "watch_url": (stream_info or {}).get("watch_url"),
-                    "message": "Video 50 MB dan katta — Bot API orqali yuborib bo'lmaydi. Onlayn ko'rishdan foydalaning.",
+                    "message": "Video 50 MB dan katta — onlayn ko'rishdan foydalaning (bot chatga ham havola yuborildi).",
                     "delivered": False,
                     "code": clean_code,
                     "part": part

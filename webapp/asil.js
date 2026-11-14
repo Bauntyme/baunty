@@ -55,12 +55,15 @@ const ERR = (e) => ({network: T("Internet bilan muammo", "Проблема с и
 
 async function openStreamModal(url, title) {
   if (!url) { toast(ERR("video_unavailable")); return; }
+  if (!/^https?:\/\/[^/]+\/.*/i.test(url) && !url.startsWith("/")) { toast(ERR("video_unavailable")); return; }
   try {
-    const chk = await fetch(url, {method: "HEAD", headers: {"X-Init-Data": INIT || ""}});
-    const ct = (chk.headers.get("content-type") || "").toLowerCase();
-    if (!chk.ok || ct.includes("text/html") || ct.includes("application/json")) {
-      toast(ERR("video_unavailable"));
-      return;
+    if (url.startsWith("/") || url.startsWith(location.origin)) {
+      const chk = await fetch(url, {method: "HEAD", headers: {"X-Init-Data": inTg ? tg.initData : ""}});
+      const ct = (chk.headers.get("content-type") || "").toLowerCase();
+      if (!chk.ok || ct.includes("text/html") || ct.includes("application/json")) {
+        toast(ERR("video_unavailable"));
+        return;
+      }
     }
   } catch (e) {}
   let modal = document.getElementById("zkVModal");
@@ -154,7 +157,8 @@ const empty = (big, b, t) => `<div class="empty"><div class="big">${big}</div><b
 const dots = () => `<div class="as-dots"><i></i><i></i><i></i></div>`;
 const retryBtn = () => `<br><br><button class="cta" style="max-width:220px" data-as="retry">🔄 ${T("Qayta urinish", "Повторить", "Retry")}</button>`;
 const ctHTML = (c) => `<button class="as-ct" data-c="${esc(c.s)}" data-cn="${esc(c.n)}"><i>${flag(c.n)}</i><b>${esc(c.n)}</b>${c.c ? `<small>${NB(c.c)}</small>` : ""}</button>`;
-const collHTML = (c) => `<button class="as-cl" data-coll="${esc(c.s)}" data-cn="${esc(c.t)}"><div class="as-cov">${[0, 1, 2, 3].map((i) => c.cov && c.cov[i]
+const _isImgUrl = (u) => typeof u === "string" && /^(https?:\/\/|\/|p\/).+/i.test(u.trim());
+const collHTML = (c) => `<button class="as-cl" data-coll="${esc(c.s)}" data-cn="${esc(c.t)}"><div class="as-cov">${[0, 1, 2, 3].map((i) => c.cov && _isImgUrl(c.cov[i])
   ? `<img src="${esc(c.cov[i])}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : "<span></span>").join("")}</div>
   <b>${esc(c.t)}</b><small>${NB(c.c)} ${T("ta kino", "фильмов", "titles")}</small></button>`;
 const byCount = (a) => (a || []).slice().sort((x, y) => (+y.c || 0) - (+x.c || 0));

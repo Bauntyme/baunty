@@ -18,6 +18,8 @@ ALLOWED_STATUSES = {"creator", "administrator", "member", "restricted"}
 # Tezkor xotira keshi (Telegram API va DB ga ortiqcha so'rovlarni oldini olish)
 _CHANNELS_CACHE: Dict[str, Any] = {"channels": [], "ts": 0.0}
 _USER_SUB_CACHE: Dict[int, tuple[float, bool]] = {}
+_INACCESSIBLE_CHANNEL_COOLDOWN: Dict[str, float] = {}
+_INACCESSIBLE_COOLDOWN_SECONDS = 600.0
 _PENDING_START_PARAMS: Dict[int, tuple[float, str]] = {}
 _PENDING_START_TTL = 1800.0
 
@@ -56,6 +58,7 @@ def clear_subscription_cache(user_id: int | None = None) -> None:
     else:
         _CHANNELS_CACHE["ts"] = 0.0
         _USER_SUB_CACHE.clear()
+        _INACCESSIBLE_CHANNEL_COOLDOWN.clear()
 
 
 class SubscriptionMiddleware(BaseMiddleware):
@@ -130,6 +133,10 @@ class SubscriptionMiddleware(BaseMiddleware):
         from unittest.mock import MagicMock, AsyncMock
         unsubscribed = []
         for ch in channels:
+            ch_key = str(getattr(ch, "channel_id", "") or "").strip()
+            inacc_ts = _INACCESSIBLE_CHANNEL_COOLDOWN.get(ch_key)
+            if inacc_ts and (now - inacc_ts) < _INACCESSIBLE_COOLDOWN_SECONDS:
+                continue
             try:
                 member = await bot.get_chat_member(chat_id=ch.channel_id, user_id=user.id)
                 status = getattr(member, "status", None) or (member.get("status") if isinstance(member, dict) else "")
@@ -138,7 +145,14 @@ class SubscriptionMiddleware(BaseMiddleware):
                 if str(status).lower() not in ALLOWED_STATUSES:
                     unsubscribed.append(ch)
             except Exception as e:
-                logger.warning(f"Kanal obunasini tekshirishda xatolik ({ch.channel_id}): {e}")
+                err_low = str(e).lower()
+                if any(tok in err_low for tok in ("inaccessible", "not found", "kicked", "forbidden")):
+                    if len(_INACCESSIBLE_CHANNEL_COOLDOWN) > 200:
+                        _INACCESSIBLE_CHANNEL_COOLDOWN.clear()
+                    _INACCESSIBLE_CHANNEL_COOLDOWN[ch_key] = now
+                    logger.warning(f"Kanal obunasini tekshirishda xatolik ({ch.channel_id}) [10 daq keshga olindi]: {e}")
+                else:
+                    logger.warning(f"Kanal obunasini tekshirishda xatolik ({ch.channel_id}): {e}")
                 # Agar bot kanalda admin bo'lmasa yoki kanal topilmasa, foydalanuvchini to'xtatmaymiz
 
         if not unsubscribed:

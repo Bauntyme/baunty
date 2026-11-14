@@ -1992,3 +1992,92 @@ async def prune_old_game_records(session: AsyncSession, days: int = 60) -> int:
     return result.rowcount or 0
 
 
+# ==========================================
+# 🛡️ ADMIN FOYDALANUVCHI QIDIRUVI & ANALITIKA
+# ==========================================
+
+async def search_user_by_query(session: AsyncSession, query: str) -> Optional[User]:
+    """Telegram ID yoki @username bo'yicha foydalanuvchini topish."""
+    clean = (query or "").strip().lstrip("@")
+    if not clean:
+        return None
+    if clean.isdigit():
+        return await get_user(session, int(clean))
+
+    low = clean.lower()
+    stmt = select(User).where(func.lower(User.username) == low).limit(1)
+    result = await session.execute(stmt)
+    found = result.scalar_one_or_none()
+    if found:
+        return found
+
+    stmt_like = select(User).where(User.username.ilike(f"%{clean}%")).order_by(desc(User.last_active)).limit(1)
+    result_like = await session.execute(stmt_like)
+    return result_like.scalar_one_or_none()
+
+
+async def get_recent_users(session: AsyncSession, limit: int = 10) -> List[User]:
+    """Eng so'nggi ro'yxatdan o'tgan foydalanuvchilar ro'yxati."""
+    stmt = select(User).order_by(desc(User.created_at), desc(User.id)).limit(max(1, limit))
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_banned_users(session: AsyncSession, limit: int = 20) -> List[User]:
+    """Botda ban qilingan foydalanuvchilar ro'yxati."""
+    stmt = (
+        select(User)
+        .where(User.is_banned == True)
+        .order_by(desc(User.last_active), desc(User.id))
+        .limit(max(1, limit))
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_top_referrers(session: AsyncSession, limit: int = 10) -> List[User]:
+    """Eng ko'p do'st taklif qilgan TOP foydalanuvchilar."""
+    stmt = (
+        select(User)
+        .where(User.referral_count > 0)
+        .order_by(desc(User.referral_count), desc(User.referral_points), desc(User.id))
+        .limit(max(1, limit))
+    )
+    result = await session.execute(stmt)
+    return list(result.scalars().all())
+
+
+async def get_admin_extended_analytics(session: AsyncSession) -> Dict[str, Any]:
+    """Admin panel uchun kengaytirilgan analitika (anonim savollar, fikrlar, referallar, top kinolar)."""
+    cutoff_24h = utc_now() - timedelta(hours=24)
+
+    banned_res = await session.execute(select(func.count(User.id)).where(User.is_banned == True))
+    ref_sum_res = await session.execute(select(func.coalesce(func.sum(User.referral_count), 0)))
+    anon_tot_res = await session.execute(select(func.count(AnonymousMessage.id)))
+    anon_24h_res = await session.execute(
+        select(func.count(AnonymousMessage.id)).where(AnonymousMessage.created_at >= cutoff_24h)
+    )
+    anon_prof_res = await session.execute(select(func.count(AnonQuestionProfile.user_id)))
+    fb_tot_res = await session.execute(select(func.count(Feedback.id)))
+    fb_recent_res = await session.execute(
+        select(Feedback).order_by(desc(Feedback.created_at), desc(Feedback.id)).limit(5)
+    )
+    dl_24h_res = await session.execute(
+        select(func.count(DownloadLog.id)).where(DownloadLog.created_at >= cutoff_24h)
+    )
+
+    return {
+        "banned_users_count": int(banned_res.scalar() or 0),
+        "referrals_total": int(ref_sum_res.scalar() or 0),
+        "anon_total": int(anon_tot_res.scalar() or 0),
+        "anon_24h": int(anon_24h_res.scalar() or 0),
+        "anon_profiles_count": int(anon_prof_res.scalar() or 0),
+        "feedback_total": int(fb_tot_res.scalar() or 0),
+        "recent_feedbacks": list(fb_recent_res.scalars().all()),
+        "downloads_24h": int(dl_24h_res.scalar() or 0),
+        "top_movies": await get_top_movies(session, limit=5),
+        "top_referrers": await get_top_referrers(session, limit=5),
+    }
+
+
+

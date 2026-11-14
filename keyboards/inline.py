@@ -421,6 +421,14 @@ def admin_dashboard_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="🎬 Kinolar boshqaruvi", callback_data="admin:movies"),
     )
     builder.row(
+        InlineKeyboardButton(text="👥 Foydalanuvchilar", callback_data="admin:users"),
+        InlineKeyboardButton(text="🛡️ WAF & Xavfsizlik", callback_data="admin:security"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="📈 Batafsil Analitika", callback_data="admin:analytics"),
+        InlineKeyboardButton(text="🧰 Tizim & Diagnostika", callback_data="admin:diagnostics"),
+    )
+    builder.row(
         InlineKeyboardButton(text="📢 Xabarnoma yuborish", callback_data="admin:broadcast"),
         InlineKeyboardButton(text="🔒 Homiylar (Kanallar)", callback_data="admin:sponsors"),
     )
@@ -749,4 +757,78 @@ def anon_incoming_keyboard(sender_id: int, is_blocked: bool = False) -> InlineKe
         block_btn,
     )
     return builder.as_markup()
+
+
+def admin_users_menu_keyboard() -> InlineKeyboardMarkup:
+    """Admin foydalanuvchilar boshqaruvi klaviaturasi."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🔎 ID / @username qidirish", callback_data="admin:users:search"),
+        InlineKeyboardButton(text="🆕 So'nggi a'zolar", callback_data="admin:users:recent"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🚫 Ban qilinganlar", callback_data="admin:users:banned"),
+        InlineKeyboardButton(text="🏆 TOP Referallar", callback_data="admin:users:top"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"),
+    )
+    return builder.as_markup()
+
+
+def admin_user_detail_keyboard(user_id: int, is_banned: bool) -> InlineKeyboardMarkup:
+    """Aniq foydalanuvchi profili amallari klaviaturasi."""
+    builder = InlineKeyboardBuilder()
+    ban_label = "✅ Bandan chiqarish" if is_banned else "🚫 Ban qilish"
+    builder.row(
+        InlineKeyboardButton(text=ban_label, callback_data=f"admin:users:ban_toggle:{user_id}"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔎 Boshqa qidiruv", callback_data="admin:users:search"),
+        InlineKeyboardButton(text="🔙 Foydalanuvchilar", callback_data="admin:users"),
+    )
+    return builder.as_markup()
+
+
+def admin_security_keyboard(banned_count: int = 0) -> InlineKeyboardMarkup:
+    """WAF va IP xavfsizlik boshqaruv klaviaturasi."""
+    builder = InlineKeyboardBuilder()
+    if banned_count > 0:
+        builder.row(
+            InlineKeyboardButton(text=f"🔓 Barcha {banned_count} ta IP ni ochish", callback_data="admin:security:unban_all"),
+        )
+    builder.row(
+        InlineKeyboardButton(text="🔄 WAF & RateLimit tozalash", callback_data="admin:security:reset_all"),
+        InlineKeyboardButton(text="🔄 Yangilash", callback_data="admin:security"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"),
+    )
+    return builder.as_markup()
+
+
+def admin_diagnostics_keyboard() -> InlineKeyboardMarkup:
+    """Tizim, yt-dlp va media diagnostika klaviaturasi."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🎬 yt-dlp / Audius / Piped tekshiruv", callback_data="admin:diag:check_ytdlp"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🧹 Media & Stream keshini tozalash", callback_data="admin:diag:clear_media_cache"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="🖥️ Server holati", callback_data="admin:server:health"),
+        InlineKeyboardButton(text="🔙 Admin panel", callback_data="admin:menu"),
+    )
+    return builder.as_markup()
+
+
+def admin_back_keyboard(target: str = "admin:menu", label: str = "🔙 Admin panel") -> InlineKeyboardMarkup:
+    """Admin bo'limlari uchun umumiy ortga tugmasi."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text=label, callback_data=target),
+    )
+    return builder.as_markup()
+
 

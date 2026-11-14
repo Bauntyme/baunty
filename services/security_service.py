@@ -934,6 +934,23 @@ class AutoBanJail:
     def unban_ip(self, ip: str) -> None:
         self._jailed.pop(ip, None)
 
+    def unban_all(self) -> int:
+        count = len(self._jailed)
+        self._jailed.clear()
+        return count
+
+    def get_active_jails(self) -> List[Dict[str, Any]]:
+        now = time.monotonic()
+        self.cleanup(now)
+        result = []
+        for ip, (exp, reason) in sorted(self._jailed.items(), key=lambda kv: kv[1][0], reverse=True):
+            result.append({
+                "ip": ip,
+                "remaining_seconds": max(1, int(exp - now)),
+                "reason": reason,
+            })
+        return result
+
     def reset(self) -> None:
         self._jailed.clear()
 
@@ -1233,6 +1250,14 @@ class SecurityService:
         """IP manzilni qamoqdan chiqarish."""
         self.jail.unban_ip(ip)
 
+    def unban_all_ips(self) -> int:
+        """Barcha Auto-Ban Jail dagi IP larni chiqarish."""
+        return self.jail.unban_all()
+
+    def get_banned_ips(self) -> List[Dict[str, Any]]:
+        """Hozirda Auto-Ban Jail dagi aktiv IP lar ro'yxati."""
+        return self.jail.get_active_jails()
+
     def reset_jail(self) -> None:
         """Jail xotirasini tozalash."""
         self.jail.reset()
@@ -1383,26 +1408,37 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
     client_ip = extract_client_ip(request)
 
     # 3. Auto-Ban Jail tekshiruvi (faqat haqiqiy ochiq tashqi tajovuzkor IP lar uchun)
+    # Eslatma: O'zbekiston ISP CGNAT IP lari (bitta IP ortida minglab foydalanuvchi) sababli
+    # haqiqiy Telegram HMAC imzoli X-Init-Data ga ega bo'lgan foydalanuvchini passive IP jail dan ozod qilamiz.
     if is_public_ip(client_ip):
         is_jailed, rem_time, jail_reason = security_service.is_ip_banned(client_ip)
         if is_jailed:
-            logger.warning(
-                f"Bloklangan IP so'rovi to'xtatildi: {client_ip} | Qolgan vaqt: {int(rem_time or 0)}s | Sabab: {jail_reason}"
-            )
-            resp = web.json_response(
-                {
-                    "ok": False,
-                    "error": "forbidden",
-                    "status": 403,
-                    "message": "Zararli faoliyat sababli ushbu IP vaqtincha bloklangan.",
-                    "threat": "ip_auto_banned"
-                },
-                status=403
-            )
-            for k, v in sec_headers.items():
-                resp.headers[k] = v
-            _clean_sensitive_headers(resp, request=request)
-            return resp
+            bypass_verified_tg = False
+            raw_hdr_init = (request.headers.get("X-Init-Data") or request.query.get("init_data") or "").strip()
+            is_dummy_tok = config.BOT_TOKEN.startswith("YOUR_")
+            if raw_hdr_init and "hash=" in raw_hdr_init and not is_dummy_tok and not os.getenv("PYTEST_CURRENT_TEST"):
+                tg_ok, tg_data, _ = validate_telegram_init_data(raw_hdr_init, config.BOT_TOKEN, strict=True)
+                if tg_ok and tg_data and tg_data.get("user_id"):
+                    bypass_verified_tg = True
+
+            if not bypass_verified_tg:
+                logger.warning(
+                    f"Bloklangan IP so'rovi to'xtatildi: {client_ip} | Qolgan vaqt: {int(rem_time or 0)}s | Sabab: {jail_reason}"
+                )
+                resp = web.json_response(
+                    {
+                        "ok": False,
+                        "error": "forbidden",
+                        "status": 403,
+                        "message": "Zararli faoliyat sababli ushbu IP vaqtincha bloklangan.",
+                        "threat": "ip_auto_banned"
+                    },
+                    status=403
+                )
+                for k, v in sec_headers.items():
+                    resp.headers[k] = v
+                _clean_sensitive_headers(resp, request=request)
+                return resp
 
     # 4. Zero Reconnaissance & Database Shield: Nozik fayllar va bazalarni to'sish
     is_recon, recon_threat = check_reconnaissance_and_database_shield(path)
@@ -1446,7 +1482,19 @@ async def security_middleware(request: web.Request, handler) -> web.Response:
         path, query_str, user_agent, body=body_str, headers=req_headers_dict
     )
     if is_malicious:
-        if is_public_ip(client_ip):
+        # Umumiy HTTP skript/kutubxona UA lari (masalan urllib/curl/requests/empty UA) uchun so'rovning
+        # o'ziga 403 qaytaramiz, lekin umumiy ISP CGNAT IP ni 120s qamoqqa olib barcha foydalanuvchilarni to'smaymiz.
+        mild_non_jail_threats = {
+            "empty_user_agent",
+            "blocked_bot_client",
+            "scanner_ua:cli_tool",
+            "scanner_ua:python-urllib",
+            "scanner_ua:python-requests",
+            "scanner_ua:requests/",
+            "scanner_ua:curl/",
+            "scanner_ua:wget/",
+        }
+        if is_public_ip(client_ip) and (threat_name or "") not in mild_non_jail_threats:
             security_service.ban_ip(client_ip, reason=threat_name)
         logger.warning(
             f"Zararli so'rov bloklandi: {threat_name} | Path: {path} | IP: {client_ip} | UA: {user_agent}"

@@ -421,8 +421,18 @@ class MusicService:
                                     transcodings = media.get("transcodings", [])
                                     for tc in transcodings:
                                         if tc.get("format", {}).get("protocol") == "progressive":
-                                            preview = tc.get("url")
+                                            tc_u = tc.get("url")
+                                            if tc_u:
+                                                sep = "&" if "?" in tc_u else "?"
+                                                preview = f"{tc_u}{sep}client_id={cid}"
                                             break
+                                    if not preview:
+                                        for tc in transcodings:
+                                            if tc.get("url"):
+                                                tc_u = tc.get("url")
+                                                sep = "&" if "?" in tc_u else "?"
+                                                preview = f"{tc_u}{sep}client_id={cid}"
+                                                break
 
                                     tracks.append({
                                         "id": f"sc_{track_id}" if track_id else str(hash(f"{artist}_{title}")),
@@ -471,20 +481,25 @@ class MusicService:
                                 track_id = it.get("id")
                                 cover_art = it.get("artwork", {}).get("480x480") or it.get("artwork", {}).get("150x150")
                                 permalink = f"https://audius.co{it.get('permalink', '')}"
+                                stream_url = (
+                                    f"https://discoveryprovider.audius.co/v1/tracks/{track_id}/stream?app_name=baunty"
+                                    if track_id else None
+                                )
                                 tracks.append({
-                                    "id": f"sc_{track_id}" if track_id else str(hash(f"{artist}_{title}")),
+                                    "id": f"audius_{track_id}" if track_id else str(hash(f"{artist}_{title}")),
                                     "title": title,
                                     "artist": artist,
                                     "duration": dur_sec,
-                                    "preview": permalink,
+                                    "preview": stream_url or permalink,
                                     "cover": cover_art,
                                     "link": permalink,
+                                    "audius_id": track_id,
                                     "t": title,
                                     "a": artist,
                                     "d": dur_sec,
                                     "c": cover_art,
-                                    "u": permalink,
-                                    "s": "sc",
+                                    "u": stream_url or permalink,
+                                    "s": "audius",
                                     "m": 1,
                                 })
                             if tracks:
@@ -617,37 +632,39 @@ class MusicService:
         """Deezer va iTunes bo'sh bo'lganda YouTube orqali tezkor qidirish."""
         def _search():
             import yt_dlp
-            ydl_opts = {
-                "quiet": True,
-                "no_warnings": True,
+            ydl_opts = self._build_yt_dlp_opts({
                 "extract_flat": True,
                 "extractor_args": {
                     "youtube": {
-                        "player_client": ["android", "ios", "mweb"]
+                        "player_client": ["tv", "ios", "android", "mweb"]
                     }
                 },
-            }
+            })
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(f"ytsearch{limit}:{query}", download=False)
                 results = []
                 if info and "entries" in info:
                     for entry in info["entries"]:
+                        if not isinstance(entry, dict):
+                            continue
                         title = entry.get("title", "Noma'lum")
                         artist = entry.get("uploader", "YouTube")
                         duration = entry.get("duration", 0)
                         yt_id = entry.get("id")
+                        cover = f"https://i.ytimg.com/vi/{yt_id}/mqdefault.jpg" if yt_id else None
                         results.append({
                             "id": yt_id,
+                            "y": yt_id,
                             "title": title,
                             "artist": artist,
                             "duration": duration,
                             "preview": None,
-                            "cover": f"https://i.ytimg.com/vi/{yt_id}/mqdefault.jpg" if yt_id else None,
+                            "cover": cover,
                             "link": entry.get("url"),
                             "t": title,
                             "a": artist,
                             "d": duration,
-                            "c": f"https://i.ytimg.com/vi/{yt_id}/mqdefault.jpg" if yt_id else None,
+                            "c": cover,
                             "u": None,
                             "s": "yt",
                             "m": 1,
@@ -673,13 +690,169 @@ class MusicService:
             return False
         if any(bad in low for bad in [".html", "/music/", "search?"]):
             return False
+        # audius.co/<user>/<track> oddiy HTML sahifa — faqat API /stream yoki CDN audio oqimlari haqiqiy
+        if "audius.co/" in low and "/stream" not in low:
+            return False
+        if "api-v2.soundcloud.com/" in low:
+            return False
         return (
             low.endswith(".mp3")
             or low.endswith(".m4a")
             or low.endswith(".ogg")
             or low.endswith(".opus")
-            or any(cdn in low for cdn in ["dzcdn.net", "mzstatic.com", "audio-preview", "sndcdn.com", "audius", "media.soundcloud", "googlevideo.com"])
+            or "/stream" in low and ("audius.co" in low or "blocksize" in low)
+            or any(cdn in low for cdn in [
+                "dzcdn.net", "mzstatic.com", "audio-preview",
+                "cf-media.sndcdn.com", "sndcdn.com", "media.soundcloud",
+                "googlevideo.com", "cloudflarestorage.com", "blocksize"
+            ])
         )
+
+    @staticmethod
+    def _is_preview_audio_url(url: Optional[str]) -> bool:
+        """30 soniyalik preview URL mi (masalan Deezer/iTunes) yoki to'liq MP3."""
+        if not url:
+            return False
+        low = str(url).lower()
+        return any(p in low for p in ("dzcdn.net", "mzstatic.com", "audio-preview", "cdnt-preview"))
+
+    @staticmethod
+    def _build_yt_dlp_opts(extra: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """yt-dlp uchun umumiy sozlamalar (JS runtime va cookie bilan)."""
+        import shutil
+        opts: Dict[str, Any] = {
+            "quiet": True,
+            "no_warnings": True,
+            "extract_flat": False,
+            "nocheckcertificate": True,
+            "noplaylist": True,
+            "socket_timeout": 12,
+            "http_headers": {
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                ),
+            },
+        }
+        if shutil.which("node"):
+            opts["js_runtimes"] = {"node": {}}
+        elif shutil.which("deno"):
+            opts["js_runtimes"] = {"deno": {}}
+        cookies_file = media_downloader.get_cookies_file()
+        if cookies_file:
+            opts["cookiefile"] = str(cookies_file)
+        if extra:
+            opts.update(extra)
+        return opts
+
+    async def _resolve_soundcloud_stream(self, sc_url: str) -> Optional[str]:
+        """SoundCloud v2 transcoding havolasini to'g'ridan-to'g'ri MP3 CDN havolasiga aylantirish."""
+        if not sc_url or "api-v2.soundcloud.com" not in sc_url:
+            return None
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    sc_url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=aiohttp.ClientTimeout(total=4),
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        resolved = data.get("url")
+                        if resolved and isinstance(resolved, str) and resolved.startswith("http") and ".m3u8" not in resolved:
+                            return resolved
+        except Exception as e:
+            logger.debug(f"SoundCloud transcoding resolve xatosi: {e}")
+        return None
+
+    async def _search_audius_stream(self, query: str) -> Optional[str]:
+        """Audius Discovery API orqali to'liq MP3 oqim URL manzilini topish."""
+        clean_q = (query or "").strip()
+        if not clean_q:
+            return None
+        try:
+            url = f"https://discoveryprovider.audius.co/v1/tracks/search?query={urllib.parse.quote(clean_q)}&limit=5&app_name=baunty"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=aiohttp.ClientTimeout(total=4),
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        for it in data.get("data") or []:
+                            tid = it.get("id")
+                            if tid:
+                                return f"https://discoveryprovider.audius.co/v1/tracks/{tid}/stream?app_name=baunty"
+        except Exception as e:
+            logger.debug(f"Audius stream qidiruv xatosi: {e}")
+        return None
+
+    async def _resolve_audius_permalink(self, permalink_url: str) -> Optional[str]:
+        """audius.co sahifa havolasini /v1/tracks/{id}/stream ga aylantirish."""
+        if not permalink_url or "audius.co/" not in permalink_url:
+            return None
+        if "/stream" in permalink_url:
+            return permalink_url
+        try:
+            resolve_u = f"https://discoveryprovider.audius.co/v1/resolve?url={urllib.parse.quote(permalink_url)}&app_name=baunty"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    resolve_u,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=aiohttp.ClientTimeout(total=4),
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        track_data = data.get("data") or {}
+                        tid = track_data.get("id") if isinstance(track_data, dict) else None
+                        if tid:
+                            return f"https://discoveryprovider.audius.co/v1/tracks/{tid}/stream?app_name=baunty"
+        except Exception as e:
+            logger.debug(f"Audius permalink resolve xatosi: {e}")
+        return None
+
+    async def _resolve_piped_audio_stream(self, video_id: str) -> Optional[str]:
+        """YouTube bot blokirovka qilganda Piped / Invidious API orqali audio oqim URL ni olish."""
+        if not video_id or not re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+            return None
+        endpoints = [
+            f"https://api.piped.private.coffee/streams/{video_id}",
+            f"https://pipedapi.kavin.rocks/streams/{video_id}",
+            f"https://inv.nadeko.net/api/v1/videos/{video_id}",
+        ]
+
+        async def _probe(ep: str) -> Optional[str]:
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(
+                        ep,
+                        headers={"User-Agent": "Mozilla/5.0"},
+                        timeout=aiohttp.ClientTimeout(total=4),
+                    ) as resp:
+                        if resp.status != 200:
+                            return None
+                        data = await resp.json()
+                        a_streams = data.get("audioStreams") or []
+                        if a_streams:
+                            best = max(a_streams, key=lambda s: int(s.get("bitrate") or 0))
+                            if best.get("url"):
+                                return best["url"]
+                        for af in data.get("adaptiveFormats") or []:
+                            if str(af.get("type", "")).startswith("audio/") and af.get("url"):
+                                return af["url"]
+                        for fs in data.get("formatStreams") or []:
+                            if fs.get("url"):
+                                return fs["url"]
+            except Exception:
+                return None
+            return None
+
+        results = await asyncio.gather(*[_probe(ep) for ep in endpoints], return_exceptions=True)
+        for r in results:
+            if isinstance(r, str) and r.startswith("http"):
+                return r
+        return None
 
     async def play_track(
         self,
@@ -697,10 +870,20 @@ class MusicService:
         t_artist = str(artist or info.get("artist") or info.get("a") or "").strip()
         q = str(query or f"{t_artist} {t_title}").strip()
 
-        # 1. Trek obyektida tayyor haqiqiy audio URL bo'lsa
-        for key in ("preview", "url", "u", "audio_url"):
+        # 1. Trek obyektida tayyor haqiqiy audio URL bo'lsa (yoki SoundCloud/Audius transcoding bo'lsa yechish)
+        for key in ("preview", "url", "u", "audio_url", "link"):
             candidate = info.get(key)
-            if self._is_valid_audio_url(candidate):
+            if not candidate or not isinstance(candidate, str):
+                continue
+            if "api-v2.soundcloud.com" in candidate:
+                sc_stream = await self._resolve_soundcloud_stream(candidate)
+                if self._is_valid_audio_url(sc_stream):
+                    return {"ok": True, "url": sc_stream, "source": "sc"}
+            elif "audius.co/" in candidate.lower() and "/stream" not in candidate.lower():
+                au_stream = await self._resolve_audius_permalink(candidate)
+                if self._is_valid_audio_url(au_stream):
+                    return {"ok": True, "url": au_stream, "source": "audius"}
+            elif self._is_valid_audio_url(candidate):
                 return {"ok": True, "url": candidate, "source": info.get("s") or "direct"}
 
         # 2. Tarona sahifa havolasi bo'lsa, to'g'ridan-to'g'ri MP3 ni yechish
@@ -740,27 +923,34 @@ class MusicService:
                 if self._is_valid_audio_url(it):
                     return {"ok": True, "url": it, "source": "itunes"}
 
-        # 4. yt-dlp orqali YouTube audio stream URL olish (fayl yuklamasdan)
+        # 4. yt-dlp orqali YouTube audio stream URL olish (JS runtime + multi-client fallback)
         yt_id = info.get("y") or (info.get("id") if info.get("s") == "yt" else None)
         if yt_id or q:
             try:
                 import yt_dlp
-                target = f"https://www.youtube.com/watch?v={yt_id}" if yt_id and len(str(yt_id)) == 11 else f"ytsearch1:{q} audio"
+                has_yt_id = bool(yt_id and re.fullmatch(r"[A-Za-z0-9_-]{11}", str(yt_id)))
+                target = f"https://www.youtube.com/watch?v={yt_id}" if has_yt_id else f"ytsearch1:{q} audio"
 
                 def _extract_stream() -> Optional[str]:
-                    opts = {
-                        "format": "bestaudio/best",
-                        "quiet": True,
-                        "no_warnings": True,
-                        "skip_download": True,
-                        "noplaylist": True,
-                    }
-                    with yt_dlp.YoutubeDL(opts) as ydl:
-                        data = ydl.extract_info(target, download=False)
-                        if isinstance(data, dict) and data.get("entries"):
-                            data = data["entries"][0]
-                        if isinstance(data, dict) and data.get("url"):
-                            return data["url"]
+                    client_sets = [
+                        ["tv", "ios", "android", "mweb"],
+                        ["android", "web"],
+                    ]
+                    for clients in client_sets:
+                        try:
+                            opts = self._build_yt_dlp_opts({
+                                "format": "bestaudio/best",
+                                "skip_download": True,
+                                "extractor_args": {"youtube": {"player_client": clients}},
+                            })
+                            with yt_dlp.YoutubeDL(opts) as ydl:
+                                data = ydl.extract_info(target, download=False)
+                                if isinstance(data, dict) and data.get("entries"):
+                                    data = data["entries"][0]
+                                if isinstance(data, dict) and data.get("url"):
+                                    return data["url"]
+                        except Exception:
+                            continue
                     return None
 
                 stream_url = await asyncio.to_thread(_extract_stream)
@@ -768,6 +958,12 @@ class MusicService:
                     return {"ok": True, "url": stream_url, "source": "yt_dlp"}
             except Exception as e:
                 logger.debug(f"yt-dlp stream extraction xatoligi: {e}")
+
+            # 5. Agar YouTube ID ma'lum bo'lsa va yt-dlp bloklansa, Piped/Invidious audio oqimini sinash
+            if yt_id and re.fullmatch(r"[A-Za-z0-9_-]{11}", str(yt_id)):
+                piped_url = await self._resolve_piped_audio_stream(str(yt_id))
+                if piped_url:
+                    return {"ok": True, "url": piped_url, "source": "piped"}
 
         return {
             "ok": False,
@@ -795,9 +991,23 @@ class MusicService:
             track_artist = track_info.get("artist") or track_info.get("a") or ""
             yt_id = track_info.get("y") or (track_info.get("id") if track_info.get("s") == "yt" else None)
 
-        # 1. Agar to'g'ridan-to'g'ri audio URL bo'lsa (masalan Deezer preview yoki to'g'ridan-to'g'ri CDN)
-        if self._is_valid_audio_url(search_query):
-            res = await self.downloader.download_direct_audio(search_query, title=track_title)
+        # 1. Agar to'g'ridan-to'g'ri to'liq audio URL bo'lsa (30s preview bundan mustasno — uni YouTube/Tarona/Audius dan keyin ishlatamiz)
+        direct_candidate = search_query if self._is_valid_audio_url(search_query) else None
+        if not direct_candidate and track_info:
+            for k in ("url", "u", "preview", "link"):
+                v = track_info.get(k)
+                if not v or not isinstance(v, str):
+                    continue
+                if "api-v2.soundcloud.com" in v:
+                    v = await self._resolve_soundcloud_stream(v)
+                elif "audius.co/" in v.lower() and "/stream" not in v.lower():
+                    v = await self._resolve_audius_permalink(v)
+                if self._is_valid_audio_url(v) and not self._is_preview_audio_url(v):
+                    direct_candidate = v
+                    break
+
+        if direct_candidate:
+            res = await self.downloader.download_direct_audio(direct_candidate, title=track_title)
             if res.success:
                 return res
 
@@ -822,25 +1032,26 @@ class MusicService:
         if res.success and res.file_path:
             return res
 
-        # 4. Agar YouTube bot-detection / 429 tufayli ishlamasa va trekda haqiqiy audio preview bo'lsa:
-        if preview_url and str(preview_url).startswith("http"):
-            is_real_audio = (
-                str(preview_url).endswith(".mp3")
-                or str(preview_url).endswith(".m4a")
-                or any(cdn in str(preview_url) for cdn in ["dzcdn.net", "mzstatic.com", "audio-preview", "sndcdn.com", "audius", "media.soundcloud"])
-            ) and not any(page in str(preview_url) for page in ["/music/", ".html", "search?"])
-            if is_real_audio:
-                logger.info(f"YouTube xatosi, mavjud audio preview yuklanmoqda: {preview_url}")
-                direct_res = await self.downloader.download_direct_audio(str(preview_url), title=track_title)
-                if direct_res.success:
-                    return direct_res
-
-        # 5. Tarona bazasidan to'liq MP3 qidirib yuklab olish
+        # 4. Tarona bazasidan to'liq MP3 qidirib yuklab olish (30s previewdan ustun!)
         tarona_fallback = await self._download_tarona_mp3(search_query, title=track_title)
         if tarona_fallback and tarona_fallback.success:
             return tarona_fallback
 
-        # 6. Deezer qidiruvidan preview topishga urinish
+        # 5. Audius Discovery orqali to'liq MP3 zaxira qidiruvi
+        audius_url = await self._search_audius_stream(search_query)
+        if audius_url:
+            au_res = await self.downloader.download_direct_audio(audius_url, title=track_title)
+            if au_res.success:
+                return au_res
+
+        # 6. Agar YouTube / to'liq manbalar ishlamasa va trekda haqiqiy audio preview bo'lsa:
+        if preview_url and self._is_valid_audio_url(preview_url):
+            logger.info(f"To'liq manbalar ishlamadi, mavjud audio preview yuklanmoqda: {preview_url}")
+            direct_res = await self.downloader.download_direct_audio(str(preview_url), title=track_title)
+            if direct_res.success:
+                return direct_res
+
+        # 7. Deezer qidiruvidan preview topishga urinish
         try:
             deezer_tracks = await self._search_deezer(search_query, limit=1)
             if deezer_tracks and deezer_tracks[0].get("preview"):
@@ -852,7 +1063,7 @@ class MusicService:
         except Exception as e:
             logger.warning(f"Deezer fallback xatoligi: {e}")
 
-        # 5. iTunes qidiruvidan preview topishga urinish
+        # 8. iTunes qidiruvidan preview topishga urinish
         try:
             itunes_tracks = await self._search_itunes(search_query, limit=1)
             if itunes_tracks and itunes_tracks[0].get("preview"):

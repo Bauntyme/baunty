@@ -47,6 +47,14 @@ async def process_media_url(message: Message) -> None:
     if not url:
         return
 
+    if media_downloader.is_unsupported_telegram_url(url):
+        await message.reply(
+            "ℹ️ <b>Bu Telegram profil yoki kanal havolasi</b> — undan to'g'ridan-to'g'ri media yuklab bo'lmaydi.\n"
+            "Video/musiqa yuklash uchun Instagram, TikTok, YouTube yoki video post havolasini yuboring.",
+            parse_mode="HTML",
+        )
+        return
+
     platform_name = detect_platform(url)
     status_msg = await message.reply(
         f"⏳ <b>{platform_name} dan media yuklanmoqda...</b>\n<i>Iltimos, ozgina kuting...</i>",

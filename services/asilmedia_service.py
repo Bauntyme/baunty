@@ -86,7 +86,7 @@ class AsilmediaService:
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/126.0.0.0 Safari/537.36"
     )
-    DEFAULT_TIMEOUT = 10
+    DEFAULT_TIMEOUT = 6
 
     def __init__(self):
         self._cache_dir = BASE_DIR / "data" / "asilmedia_cache"
@@ -665,10 +665,11 @@ class AsilmediaService:
             if alt not in urls_to_try:
                 urls_to_try.append(alt)
 
-        for u in urls_to_try:
-            try:
-                async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
-                    async with session.get(u, timeout=aiohttp.ClientTimeout(total=self.DEFAULT_TIMEOUT)) as resp:
+        async with aiohttp.ClientSession(headers=self._get_headers(referer=self.BASE_URL)) as session:
+            for u in urls_to_try:
+                try:
+                    req_timeout = 5 if "sayt.php" in u else self.DEFAULT_TIMEOUT
+                    async with session.get(u, timeout=aiohttp.ClientTimeout(total=req_timeout)) as resp:
                         if resp.status == 200:
                             html = await resp.text()
                             movie = self.extract_sources_from_html(html, page_url=u)
@@ -753,8 +754,9 @@ class AsilmediaService:
 
                                 self._details_cache[cache_key] = (now, movie.to_dict())
                                 return movie
-            except Exception as e:
-                logger.warning(f"Asilmedia get_movie_details error for '{u}': {e}")
+                except Exception as e:
+                    err_desc = f"{type(e).__name__}: {e}".strip(": ")
+                    logger.warning(f"Asilmedia get_movie_details error for '{u}': {err_desc}")
 
         return None
 

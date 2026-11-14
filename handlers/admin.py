@@ -1706,3 +1706,451 @@ async def cmd_admin_flow(message: Message) -> None:
 
 
 
+
+
+
+# ==========================================
+# 👥 FOYDALANUVCHILAR, 🛡️ WAF, 🧰 DIAGNOSTIKA VA 📈 ANALITIKA
+# ==========================================
+
+import html as _html
+import os as _os
+import shutil as _shutil
+from keyboards.inline import (
+    admin_users_menu_keyboard,
+    admin_user_detail_keyboard,
+    admin_security_keyboard,
+    admin_diagnostics_keyboard,
+    admin_back_keyboard,
+)
+from utils.states import AdminUserStates
+from services.security_service import security_service
+
+
+async def _edit_or_reply(target: Message | CallbackQuery, text: str, reply_markup=None) -> None:
+    """Callback xabarini tahrirlash yoki yangi xabar yuborish uchun yagona yordamchi."""
+    if isinstance(target, CallbackQuery):
+        try:
+            await target.message.edit_text(text, parse_mode="HTML", reply_markup=reply_markup)
+        except Exception:
+            await target.message.answer(text, parse_mode="HTML", reply_markup=reply_markup)
+    else:
+        await target.answer(text, parse_mode="HTML", reply_markup=reply_markup)
+
+
+def _format_admin_user_card(user_obj) -> str:
+    """Admin panel uchun foydalanuvchi profil kartasini shakllantirish."""
+    full_name = _html.escape(
+        f"{user_obj.first_name or ''} {user_obj.last_name or ''}".strip() or "Noma'lum"
+    )
+    uname = f"@{_html.escape(user_obj.username)}" if user_obj.username else "<i>mavjud emas</i>"
+    status_badge = "🚫 Ban qilingan" if user_obj.is_banned else "✅ Faol"
+    admin_badge = "👑 Ha" if (user_obj.is_admin or user_obj.id in config.admin_ids) else "Yo'q"
+    created = user_obj.created_at.strftime("%Y-%m-%d %H:%M") if getattr(user_obj, "created_at", None) else "-"
+    last_act = user_obj.last_active.strftime("%Y-%m-%d %H:%M") if getattr(user_obj, "last_active", None) else "-"
+    return (
+        f"👤 <b>Foydalanuvchi profili</b>\n\n"
+        f"🆔 <b>ID:</b> <code>{user_obj.id}</code>\n"
+        f"📛 <b>Ism:</b> {full_name}\n"
+        f"🔗 <b>Username:</b> {uname}\n"
+        f"📌 <b>Holati:</b> {status_badge}\n"
+        f"🛡️ <b>Admin:</b> {admin_badge}\n"
+        f"🌐 <b>Til:</b> <code>{_html.escape(str(user_obj.language or 'uz'))}</code>\n"
+        f"🤝 <b>Referallar:</b> {user_obj.referral_count} ta (⭐ {user_obj.referral_points} ball)\n"
+        f"📅 <b>Ro'yxatdan o'tgan:</b> {created}\n"
+        f"🕒 <b>So'nggi faollik:</b> {last_act}"
+    )
+
+
+def _format_security_report() -> tuple[str, int]:
+    """WAF va AutoBan Jail holatini formatlash."""
+    banned = security_service.get_banned_ips()
+    lines = [
+        "🛡️ <b>WAF & IP Xavfsizlik Monitori</b>\n",
+        f"🔒 <b>Avto-bloklangan IP manzillar:</b> {len(banned)} ta",
+        "<i>Eslatma: Telegram Mini App (HMAC verified) foydalanuvchilari CGNAT sabab bloklanmaydi.</i>",
+    ]
+    if banned:
+        lines.append("\n<b>Faol bloklar (top 10):</b>")
+        for item in banned[:10]:
+            ip = _html.escape(str(item.get("ip", "")))
+            rem = int(item.get("remaining_seconds", 0))
+            reason = _html.escape(str(item.get("reason", ""))[:40])
+            lines.append(f"• <code>{ip}</code> — {rem}s (<i>{reason}</i>)")
+    else:
+        lines.append("\n✅ Hozircha bloklangan IP manzil yo'q.")
+    return "\n".join(lines), len(banned)
+
+
+def _format_diagnostics_report() -> str:
+    """yt-dlp, JS runtime va media keshlar holati matni."""
+    import yt_dlp.version
+    from services import web_server as ws
+    from services.asilmedia_service import asilmedia_service
+    from services.downloader import media_downloader
+
+    node_path = _shutil.which("node")
+    deno_path = _shutil.which("deno")
+    ffmpeg_ok = bool(config.ffmpeg_path)
+    cookies_ok = bool(media_downloader.get_cookies_file())
+
+    play_cnt = len(getattr(ws, "_PLAY_STREAM_CACHE", {}))
+    asil_api_cnt = len(getattr(ws, "_ASIL_API_CACHE", {}))
+    asil_det_cnt = len(getattr(asilmedia_service, "_details_cache", {}))
+    colls_cached = "Ha" if getattr(ws, "_LOCAL_COLLS_CACHE", None) else "Yo'q"
+
+    return (
+        "🧰 <b>Tizim & Media Diagnostikasi</b>\n\n"
+        f"📦 <b>yt-dlp versiyasi:</b> <code>{_html.escape(yt_dlp.version.__version__)}</code>\n"
+        f"🟨 <b>Node.js runtime:</b> {'✅ Mavjud' if node_path else '❌ Topilmadi'}\n"
+        f"🦕 <b>Deno runtime:</b> {'✅ Mavjud' if deno_path else '➖ Yo‘q'}\n"
+        f"🎞️ <b>FFmpeg:</b> {'✅ Mavjud' if ffmpeg_ok else '❌ Topilmadi'}\n"
+        f"🍪 <b>cookies.txt:</b> {'✅ Mavjud' if cookies_ok else '➖ Biriktirilmagan'}\n\n"
+        "<b>Xotira keshlari:</b>\n"
+        f"• Musiqa oqim keshi: <b>{play_cnt}</b> ta\n"
+        f"• Asilmedia API keshi: <b>{asil_api_cnt}</b> ta\n"
+        f"• Asilmedia detal keshi: <b>{asil_det_cnt}</b> ta\n"
+        f"• Lokal kolleksiyalar keshi: <b>{colls_cached}</b>"
+    )
+
+
+@router.callback_query(F.data == "admin:users")
+async def cb_admin_users(callback: CallbackQuery, state: FSMContext) -> None:
+    """Foydalanuvchilar boshqaruvi menyusi."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    await state.clear()
+    async with get_session() as session:
+        total = await crud.get_total_users_count(session)
+        today = await crud.get_today_users_count(session)
+        active = await crud.get_active_users_24h_count(session)
+    text = (
+        "👥 <b>Foydalanuvchilar boshqaruvi</b>\n\n"
+        f"• Jami a'zolar: <b>{total}</b> ta\n"
+        f"• Bugun qo'shilgan: <b>+{today}</b> ta\n"
+        f"• 24 soatlik faol: <b>{active}</b> ta\n\n"
+        "Qidirish uchun ID/@username kiriting yoki tezkor ro'yxatlarni oching (<code>/user 123456</code>):"
+    )
+    await _edit_or_reply(callback, text, reply_markup=admin_users_menu_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:users:search")
+async def cb_admin_users_search(callback: CallbackQuery, state: FSMContext) -> None:
+    """Foydalanuvchini ID yoki @username orqali qidirishga kirish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    await state.set_state(AdminUserStates.waiting_for_user_id)
+    await callback.message.answer(
+        "🔎 <b>Foydalanuvchi qidiruvi</b>\n\n"
+        "Foydalanuvchining Telegram ID raqamini yoki <code>@username</code> ini yuboring:\n"
+        "<i>Bekor qilish uchun 'Bekor qilish' tugmasini bosing.</i>",
+        parse_mode="HTML",
+        reply_markup=cancel_keyboard(),
+    )
+    await callback.answer()
+
+
+@router.message(AdminUserStates.waiting_for_user_id)
+async def process_admin_user_lookup(message: Message, state: FSMContext) -> None:
+    """Admin kiritgan ID yoki @username bo'yicha foydalanuvchini topish."""
+    if not is_admin_check(message.from_user.id):
+        await state.clear()
+        return
+    raw = (message.text or "").strip()
+    if not raw or "bekor qilish" in raw.lower():
+        await state.clear()
+        await message.answer("❌ Qidiruv bekor qilindi.", reply_markup=admin_reply_keyboard())
+        return
+
+    async with get_session() as session:
+        user_obj = await crud.search_user_by_query(session, raw)
+
+    if not user_obj:
+        await message.answer(
+            f"❌ <code>{_html.escape(raw)}</code> bo'yicha foydalanuvchi topilmadi. Qayta urinib ko'ring yoki 'Bekor qilish' ni bosing:",
+            parse_mode="HTML",
+        )
+        return
+
+    await state.clear()
+    await message.answer(
+        _format_admin_user_card(user_obj),
+        parse_mode="HTML",
+        reply_markup=admin_user_detail_keyboard(user_obj.id, user_obj.is_banned),
+    )
+
+
+@router.message(Command("user"))
+async def cmd_admin_user_lookup(message: Message) -> None:
+    """Tezkor /user <id_or_@username> buyrug'i."""
+    if not is_admin_check(message.from_user.id):
+        return
+    parts = (message.text or "").strip().split(maxsplit=1)
+    if len(parts) < 2 or not parts[1].strip():
+        await message.answer("ℹ️ Foydalanish: <code>/user 123456789</code> yoki <code>/user @username</code>", parse_mode="HTML")
+        return
+
+    async with get_session() as session:
+        user_obj = await crud.search_user_by_query(session, parts[1].strip())
+    if not user_obj:
+        await message.answer("❌ Foydalanuvchi topilmadi.")
+        return
+    await message.answer(
+        _format_admin_user_card(user_obj),
+        parse_mode="HTML",
+        reply_markup=admin_user_detail_keyboard(user_obj.id, user_obj.is_banned),
+    )
+
+
+@router.callback_query(F.data.startswith("admin:users:ban_toggle:"))
+async def cb_admin_users_ban_toggle(callback: CallbackQuery) -> None:
+    """Foydalanuvchi ban holatini almashtirish."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    uid_str = callback.data.split(":")[-1]
+    if not uid_str.isdigit():
+        await callback.answer("❌ Noto'g'ri ID", show_alert=True)
+        return
+    target_uid = int(uid_str)
+    if target_uid in config.admin_ids:
+        await callback.answer("⚠️ Adminni ban qilib bo'lmaydi!", show_alert=True)
+        return
+
+    async with get_session() as session:
+        user_obj = await crud.get_user(session, target_uid)
+        if not user_obj:
+            await callback.answer("❌ Foydalanuvchi topilmadi", show_alert=True)
+            return
+        new_status = not bool(user_obj.is_banned)
+        await crud.set_user_ban_status(session, target_uid, new_status)
+        user_obj = await crud.get_user(session, target_uid)
+
+    await _edit_or_reply(
+        callback,
+        _format_admin_user_card(user_obj),
+        reply_markup=admin_user_detail_keyboard(target_uid, bool(user_obj.is_banned)),
+    )
+    await callback.answer("🚫 Foydalanuvchi bloklandi" if new_status else "✅ Bandan chiqarildi")
+
+
+@router.callback_query(F.data == "admin:users:recent")
+async def cb_admin_users_recent(callback: CallbackQuery) -> None:
+    """Eng so'nggi qo'shilgan 10 nafar foydalanuvchi."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    async with get_session() as session:
+        users = await crud.get_recent_users(session, limit=10)
+    lines = ["🆕 <b>Eng so'nggi 10 nafar a'zo</b>\n"]
+    if not users:
+        lines.append("<i>Hozircha ma'lumot yo'q.</i>")
+    for idx, u in enumerate(users, 1):
+        name = _html.escape(u.first_name or "Noma'lum")
+        uname = f" @{_html.escape(u.username)}" if u.username else ""
+        flag = "🚫" if u.is_banned else "🟢"
+        dt = u.created_at.strftime("%m-%d %H:%M") if getattr(u, "created_at", None) else ""
+        lines.append(f"{idx}. {flag} <b>{name}</b>{uname} — <code>{u.id}</code> ({dt})")
+    await _edit_or_reply(
+        callback,
+        "\n".join(lines),
+        reply_markup=admin_back_keyboard("admin:users", "🔙 Foydalanuvchilar"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:users:banned")
+async def cb_admin_users_banned(callback: CallbackQuery) -> None:
+    """Ban qilingan foydalanuvchilar ro'yxati."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    async with get_session() as session:
+        users = await crud.get_banned_users(session, limit=20)
+    lines = ["🚫 <b>Ban qilingan foydalanuvchilar</b>\n"]
+    if not users:
+        lines.append("✅ Hozircha ban qilingan foydalanuvchilar yo'q.")
+    for idx, u in enumerate(users, 1):
+        name = _html.escape(u.first_name or "Noma'lum")
+        uname = f" @{_html.escape(u.username)}" if u.username else ""
+        lines.append(f"{idx}. <code>{u.id}</code> — {name}{uname} (<code>/unban {u.id}</code>)")
+    await _edit_or_reply(
+        callback,
+        "\n".join(lines),
+        reply_markup=admin_back_keyboard("admin:users", "🔙 Foydalanuvchilar"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:users:top")
+async def cb_admin_users_top(callback: CallbackQuery) -> None:
+    """Eng ko'p do'st taklif qilgan TOP 10 foydalanuvchi."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    async with get_session() as session:
+        users = await crud.get_top_referrers(session, limit=10)
+    lines = ["🏆 <b>TOP Referal Yetakchilari</b>\n"]
+    if not users:
+        lines.append("<i>Hozircha referallar qayd etilmagan.</i>")
+    for idx, u in enumerate(users, 1):
+        name = _html.escape(u.first_name or "Noma'lum")
+        uname = f" @{_html.escape(u.username)}" if u.username else ""
+        lines.append(
+            f"{idx}. <b>{name}</b>{uname} — <b>{u.referral_count}</b> ta (⭐ {u.referral_points} ball) | <code>{u.id}</code>"
+        )
+    await _edit_or_reply(
+        callback,
+        "\n".join(lines),
+        reply_markup=admin_back_keyboard("admin:users", "🔙 Foydalanuvchilar"),
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:security")
+async def cb_admin_security(callback: CallbackQuery) -> None:
+    """WAF & AutoBan IP monitoringi."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    text, banned_count = _format_security_report()
+    await _edit_or_reply(callback, text, reply_markup=admin_security_keyboard(banned_count))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:security:unban_all")
+async def cb_admin_security_unban_all(callback: CallbackQuery) -> None:
+    """Barcha bloklangan IP manzillarni ochish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    removed = security_service.unban_all_ips()
+    text, banned_count = _format_security_report()
+    await _edit_or_reply(callback, text, reply_markup=admin_security_keyboard(banned_count))
+    await callback.answer(f"🔓 {removed} ta IP blokdan chiqarildi!", show_alert=True)
+
+
+@router.callback_query(F.data == "admin:security:reset_all")
+async def cb_admin_security_reset_all(callback: CallbackQuery) -> None:
+    """WAF, AutoBan va RateLimiter holatlarini to'liq tozalash."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    security_service.reset()
+    text, banned_count = _format_security_report()
+    await _edit_or_reply(callback, text, reply_markup=admin_security_keyboard(banned_count))
+    await callback.answer("🔄 WAF va RateLimit keshi tozalandi!", show_alert=True)
+
+
+@router.callback_query(F.data == "admin:diagnostics")
+async def cb_admin_diagnostics(callback: CallbackQuery) -> None:
+    """Tizim, yt-dlp va kesh diagnostikasi."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    await _edit_or_reply(callback, _format_diagnostics_report(), reply_markup=admin_diagnostics_keyboard())
+    await callback.answer()
+
+
+@router.callback_query(F.data == "admin:diag:clear_media_cache")
+async def cb_admin_diag_clear_media_cache(callback: CallbackQuery) -> None:
+    """Musiqa oqimi, Asilmedia va obuna keshlarini tozalash."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    from services import web_server as ws
+    from services.asilmedia_service import asilmedia_service
+    from middlewares.subscription import clear_subscription_cache
+
+    ws.clear_asil_api_cache()
+    ws._PLAY_STREAM_CACHE.clear()
+    ws._LOCAL_COLLS_CACHE = None
+    asilmedia_service._details_cache.clear()
+    clear_subscription_cache()
+
+    await _edit_or_reply(callback, _format_diagnostics_report(), reply_markup=admin_diagnostics_keyboard())
+    await callback.answer("🧹 Barcha media va obuna keshlari tozalandi!", show_alert=True)
+
+
+@router.callback_query(F.data == "admin:diag:check_ytdlp")
+async def cb_admin_diag_check_ytdlp(callback: CallbackQuery) -> None:
+    """Tashqi musiqa va stream provayderlarini jonli tekshirish."""
+    if not is_admin_check(callback.from_user.id):
+        return
+    import aiohttp
+
+    await callback.answer("🔍 Tekshirilmoqda...")
+
+    async def _probe_http(url: str) -> str:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    timeout=aiohttp.ClientTimeout(total=3.5),
+                ) as resp:
+                    return f"✅ HTTP {resp.status}" if resp.status == 200 else f"⚠️ HTTP {resp.status}"
+        except Exception as e:
+            return f"❌ {type(e).__name__}"
+
+    audius_st, piped_st, deezer_st = await asyncio.gather(
+        _probe_http("https://discoveryprovider.audius.co/v1/tracks/search?query=konsta&limit=1&app_name=baunty"),
+        _probe_http("https://api.piped.private.coffee/streams/dQw4w9WgXcQ"),
+        _probe_http("https://api.deezer.com/search?q=konsta&limit=1"),
+    )
+
+    text = (
+        f"{_format_diagnostics_report()}\n\n"
+        "<b>Jonli API aloqa testi:</b>\n"
+        f"• Audius Discovery MP3: {audius_st}\n"
+        f"• Piped Audio Proxy: {piped_st}\n"
+        f"• Deezer Search API: {deezer_st}"
+    )
+    await _edit_or_reply(callback, text, reply_markup=admin_diagnostics_keyboard())
+
+
+@router.callback_query(F.data == "admin:analytics")
+async def cb_admin_analytics(callback: CallbackQuery) -> None:
+    """Kengaytirilgan admin analitikasi: Anonim savollar, TOP kinolar, referallar, fikrlar."""
+    if not is_admin_check(callback.from_user.id):
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    async with get_session() as session:
+        data = await crud.get_admin_extended_analytics(session)
+        total_users = await crud.get_total_users_count(session)
+        total_dl = await crud.get_total_downloads_count(session)
+
+    lines = [
+        "📈 <b>Kengaytirilgan Loyiha Analitikasi</b>\n",
+        f"👥 <b>Foydalanuvchilar:</b> {total_users} (🚫 Ban: {data['banned_users_count']})",
+        f"🤝 <b>Jami referallar:</b> {data['referrals_total']} ta",
+        f"💌 <b>Anonim savollar:</b> {data['anon_total']} ta (24s: +{data['anon_24h']} | 🔗 Havolalar: {data['anon_profiles_count']})",
+        f"📥 <b>Yuklab olishlar:</b> {total_dl} ta (24s: +{data['downloads_24h']})",
+        f"💬 <b>Fikr va shikoyatlar:</b> {data['feedback_total']} ta",
+    ]
+
+    top_movies = data.get("top_movies") or []
+    if top_movies:
+        lines.append("\n🔥 <b>TOP 5 ko'rilgan kinolar:</b>")
+        for idx, m in enumerate(top_movies, 1):
+            lines.append(
+                f"{idx}. <code>{_html.escape(str(m.code))}</code> — <b>{_html.escape(str(m.title))}</b> ({m.views_count}👁)"
+            )
+
+    top_refs = data.get("top_referrers") or []
+    if top_refs:
+        lines.append("\n🏆 <b>TOP 5 referal egalari:</b>")
+        for idx, u in enumerate(top_refs, 1):
+            uname = f"@{_html.escape(u.username)}" if u.username else _html.escape(u.first_name or str(u.id))
+            lines.append(f"{idx}. {uname} — <b>{u.referral_count}</b> ta")
+
+    recent_fb = data.get("recent_feedbacks") or []
+    if recent_fb:
+        lines.append("\n💬 <b>So'nggi fikr-mulohazalar:</b>")
+        for fb in recent_fb[:3]:
+            who = f"@{_html.escape(fb.username)}" if fb.username else f"ID {fb.user_id}"
+            msg = _html.escape(str(fb.message or "")[:80])
+            lines.append(f"• <b>{who}:</b> {msg}")
+
+    await _edit_or_reply(
+        callback,
+        "\n".join(lines),
+        reply_markup=admin_back_keyboard("admin:menu", "🔙 Admin panel"),
+    )
+    await callback.answer()
