@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import text, select, func
 from config import config
+from services.bot_identity import get_bot_username
 from database.session import get_session, engine
 from database.models import (
     User,
@@ -283,7 +284,7 @@ class TelemetryService:
 
         return {
             "name": "Bauntys Cinema Ecosystem Flow Monitor",
-            "bot_username": f"@{config.BOT_USERNAME.lstrip('@')}",
+            "bot_username": f"@{get_bot_username()}",
             "channel_username": config.CHANNEL_USERNAME,
             "uptime_seconds": int(uptime_sec),
             "uptime_str": format_uptime_string(uptime_sec),

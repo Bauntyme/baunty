@@ -19,7 +19,8 @@ router = Router(name="groups_router")
 async def cmd_groups_info(message: Message, state: FSMContext) -> None:
     """Botni guruhga qo'shish ko'rsatmasi."""
     await state.clear()
-    bot_name = config.BOT_USERNAME.lstrip('@')
+    from services.bot_identity import resolve_bot_username
+    bot_name = await resolve_bot_username(message.bot)
     add_group_url = f"https://t.me/{bot_name}?startgroup=true"
 
     text = (

@@ -98,7 +98,13 @@ def movie_item_keyboard(
 ) -> InlineKeyboardMarkup:
     """Kino xabari ostidagi tugmalar."""
     builder = InlineKeyboardBuilder()
-    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
+    from services.bot_identity import build_telegram_share_url, get_bot_username
+
+    bot_user = get_bot_username()
+    share_url = build_telegram_share_url(
+        f"https://t.me/{bot_user}?start=kino_{movie_code}",
+        f"Ajoyib kino! Botga kirib ko'ring: kod {movie_code}",
+    )
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
     # 1. Asosiy va birinchi tugma: Web App orqali onlayn tomosha qilish (Anti-Ban / DMCA-Safe HLS)
@@ -270,7 +276,13 @@ def movie_parts_keyboard(
             )
         )
 
-    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{clean_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {clean_code}"
+    from services.bot_identity import build_telegram_share_url, get_bot_username
+
+    bot_user = get_bot_username()
+    share_url = build_telegram_share_url(
+        f"https://t.me/{bot_user}?start=kino_{clean_code}",
+        f"Ajoyib kino! Botga kirib ko'ring: kod {clean_code}",
+    )
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
@@ -309,7 +321,13 @@ def movie_list_keyboard(movies: List[Movie], page: int = 0, total_pages: int = 1
 def media_download_keyboard(cache_key: str) -> InlineKeyboardMarkup:
     """Yuklab olingan video ostidagi tugmalar (Video musiqasi va Original qo'shiq)."""
     builder = InlineKeyboardBuilder()
-    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}&text=Tezkor video yuklovchi bot!"
+    from services.bot_identity import build_telegram_share_url, get_bot_username
+
+    bot_user = get_bot_username()
+    share_url = build_telegram_share_url(
+        f"https://t.me/{bot_user}",
+        "Tezkor video va musiqa yuklovchi bot!",
+    )
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
 
     builder.row(
@@ -680,7 +698,8 @@ def anon_questions_keyboard(share_url: str, is_accepting: bool = True) -> Inline
     """Anonim savollar boshqaruv klaviaturasi (5 ta qator)."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="✈️ Telegramda ulashish", url=share_url)
+        InlineKeyboardButton(text="✈️ Telegramda ulashish", url=share_url),
+        InlineKeyboardButton(text="🪄 Chiroyli karta", callback_data="anon:share_card"),
     )
     builder.row(
         InlineKeyboardButton(text="📸 Instagram story uchun rasm", callback_data="anon:ig_story_img")
@@ -694,6 +713,15 @@ def anon_questions_keyboard(share_url: str, is_accepting: bool = True) -> Inline
     )
     builder.row(
         InlineKeyboardButton(text="🏠 Asosiy menyu", callback_data="anon:main_menu")
+    )
+    return builder.as_markup()
+
+
+def anon_share_card_keyboard(link: str) -> InlineKeyboardMarkup:
+    """Do'stlarga va kanallarga forward qilish uchun chiroyli taklif kartasi tugmasi."""
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="💌 Anonim savol yozish", url=link)
     )
     return builder.as_markup()
 

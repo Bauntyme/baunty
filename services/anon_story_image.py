@@ -7,10 +7,12 @@ import os
 import logging
 from typing import Dict, Tuple
 from PIL import Image, ImageDraw, ImageFont
+from services.bot_identity import get_bot_username
 
 logger = logging.getLogger(__name__)
 
 _STORY_CARD_CACHE: Dict[str, bytes] = {}
+_SHARE_CARD_CACHE: Dict[str, bytes] = {}
 
 
 def _load_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
@@ -88,14 +90,8 @@ def _draw_envelope_badge(draw: ImageDraw.ImageDraw, cx: int, cy: int) -> None:
     draw.line([(ex1 + 4, ey1 + 5), (cx, cy + 4), (ex2 - 4, ey1 + 5)], fill=(20, 24, 56, 255), width=5)
 
 
-def generate_anon_story_image(bot_username: str = "BauntyCinemabot") -> bytes:
-    """Instagram Story (1080x1920) uchun anonim savol shablon rasmini PNG baytlarda yaratadi."""
-    clean_bot = str(bot_username or "BauntyCinemabot").strip().lstrip("@")
-    if clean_bot in _STORY_CARD_CACHE:
-        return _STORY_CARD_CACHE[clean_bot]
-
-    W, H = 1080, 1920
-    # Vertikalgradient (Samarkand dark twilight -> indigo/violet)
+def _build_twilight_canvas(W: int, H: int) -> Image.Image:
+    """Samarkand dark twilight -> indigo/violet vertikal gradient fon yaratadi."""
     top_rgb = (10, 15, 42)
     mid_rgb = (26, 19, 68)
     bot_rgb = (42, 18, 66)
@@ -114,8 +110,17 @@ def generate_anon_story_image(bot_username: str = "BauntyCinemabot") -> bytes:
             g = int(mid_rgb[1] + (bot_rgb[1] - mid_rgb[1]) * t)
             b = int(mid_rgb[2] + (bot_rgb[2] - mid_rgb[2]) * t)
         px[0, y] = (r, g, b, 255)
+    return grad.resize((W, H), Image.Resampling.BILINEAR)
 
-    img = grad.resize((W, H), Image.Resampling.BILINEAR)
+
+def generate_anon_story_image(bot_username: str = "") -> bytes:
+    """Instagram Story (1080x1920) uchun anonim savol shablon rasmini PNG baytlarda yaratadi."""
+    clean_bot = str(bot_username or get_bot_username()).strip().lstrip("@") or get_bot_username()
+    if clean_bot in _STORY_CARD_CACHE:
+        return _STORY_CARD_CACHE[clean_bot]
+
+    W, H = 1080, 1920
+    img = _build_twilight_canvas(W, H)
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     odraw = ImageDraw.Draw(overlay)
 
@@ -187,3 +192,66 @@ def generate_anon_story_image(bot_username: str = "BauntyCinemabot") -> bytes:
     png_bytes = buf.getvalue()
     _STORY_CARD_CACHE[clean_bot] = png_bytes
     return png_bytes
+
+
+def generate_anon_share_banner(bot_username: str = "") -> bytes:
+    """Do'stlarga va kanallarga ulashish uchun chiroyli 1200x675 taklif banneri yaratadi."""
+    clean_bot = str(bot_username or get_bot_username()).strip().lstrip("@") or get_bot_username()
+    if clean_bot in _SHARE_CARD_CACHE:
+        return _SHARE_CARD_CACHE[clean_bot]
+
+    W, H = 1200, 675
+    img = _build_twilight_canvas(W, H)
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    odraw = ImageDraw.Draw(overlay)
+
+    odraw.ellipse([-120, -100, 420, 440], fill=(242, 184, 75, 32))
+    odraw.ellipse([780, 260, 1340, 820], fill=(92, 107, 255, 42))
+
+    cx1, cy1, cx2, cy2 = 64, 48, W - 64, H - 48
+    odraw.rounded_rectangle([cx1 + 8, cy1 + 12, cx2 + 8, cy2 + 12], radius=40, fill=(0, 0, 0, 110))
+    odraw.rounded_rectangle(
+        [cx1, cy1, cx2, cy2],
+        radius=38,
+        fill=(18, 22, 54, 236),
+        outline=(242, 184, 75, 200),
+        width=4,
+    )
+
+    center_x = W // 2
+    _draw_envelope_badge(odraw, center_x, cy1 + 108)
+
+    f_badge = _load_font(26, bold=True)
+    f_title = _load_font(52, bold=True)
+    f_sub = _load_font(28, bold=False)
+    f_pill = _load_font(26, bold=True)
+
+    badge_txt = "ANONIM SAVOLLAR"
+    odraw.text((_text_center_x(odraw, badge_txt, f_badge, center_x), cy1 + 194), badge_txt, font=f_badge, fill=(242, 184, 75, 255))
+
+    title_txt = "Menga anonim savol yozing!"
+    odraw.text((_text_center_x(odraw, title_txt, f_title, center_x), cy1 + 258), title_txt, font=f_title, fill=(246, 238, 220, 255))
+
+    sub_txt = "Shaxsingiz 100% sir saqlanadi • Xabar darhol yetkaziladi"
+    odraw.text((_text_center_x(odraw, sub_txt, f_sub, center_x), cy1 + 338), sub_txt, font=f_sub, fill=(195, 200, 235, 240))
+
+    # Pastki CTA kapsula (matn kengligiga qarab avtomatik kengayadi)
+    pill_txt = f"Yozish uchun bosing  •  @{clean_bot}"
+    bbox = odraw.textbbox((0, 0), pill_txt, font=f_pill)
+    pill_w = bbox[2] - bbox[0]
+    half_pill = max(315, pill_w // 2 + 54)
+    px1, py1, px2, py2 = center_x - half_pill, cy2 - 122, center_x + half_pill, cy2 - 46
+    odraw.rounded_rectangle(
+        [px1, py1, px2, py2],
+        radius=38,
+        fill=(242, 184, 75, 255),
+    )
+    odraw.text((_text_center_x(odraw, pill_txt, f_pill, center_x), py1 + 22), pill_txt, font=f_pill, fill=(18, 22, 54, 255))
+
+    composed = Image.alpha_composite(img, overlay).convert("RGB")
+    buf = io.BytesIO()
+    composed.save(buf, format="PNG", optimize=True)
+    png_bytes = buf.getvalue()
+    _SHARE_CARD_CACHE[clean_bot] = png_bytes
+    return png_bytes
+

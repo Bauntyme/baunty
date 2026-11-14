@@ -36,6 +36,7 @@ from services.maintenance_service import (
     PAGE_NAMES,
 )
 from services.movie_service import movie_service
+from services.bot_identity import resolve_bot_username
 
 from utils.states import (
     MovieAddStates,
@@ -74,9 +75,10 @@ async def cmd_admin_panel(message: Message, state: FSMContext) -> None:
         total_downloads = await crud.get_total_downloads_count(session)
 
     sys_info = get_system_stats()
+    bot_name = await resolve_bot_username(message.bot)
 
     text = (
-        f"👑 <b>@{config.BOT_USERNAME.lstrip('@')} Boshqaruv Paneli</b>\n\n"
+        f"👑 <b>@{bot_name} Boshqaruv Paneli</b>\n\n"
         "📊 <b>Asosiy statistika:</b>\n"
         f"👥 Jami foydalanuvchilar: <b>{total_users:,}</b> ta\n"
         f"🆕 Bugun qo'shilganlar: <b>{today_users:,}</b> ta\n"
@@ -1100,10 +1102,11 @@ async def cb_admin_settings(callback: CallbackQuery) -> None:
 
     async with get_session() as session:
         channel_name = await crud.get_setting(session, "channel_username", config.CHANNEL_USERNAME)
+    bot_name = await resolve_bot_username(callback.bot)
 
     text = (
-        f"⚙️ <b>@{config.BOT_USERNAME.lstrip('@')} Tizim Sozlamalari:</b>\n\n"
-        f"🤖 <b>Bot nomi:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+        f"⚙️ <b>@{bot_name} Tizim Sozlamalari:</b>\n\n"
+        f"🤖 <b>Bot nomi:</b> @{bot_name}\n"
         f"🍿 <b>Rasmiy kino kanali:</b> {channel_name}\n"
         f"💾 <b>Baza turi:</b> <code>{config.DB_TYPE}</code>\n"
         f"📦 <b>Max yuklash hajmi:</b> {config.MAX_FILE_SIZE_MB} MB\n"
@@ -1176,9 +1179,10 @@ async def reply_admin_settings(message: Message) -> None:
         return
     async with get_session() as session:
         channel_name = await crud.get_setting(session, "channel_username", config.CHANNEL_USERNAME)
+    bot_name = await resolve_bot_username(message.bot)
     text = (
-        f"⚙️ <b>@{config.BOT_USERNAME.lstrip('@')} Tizim Sozlamalari:</b>\n\n"
-        f"🤖 <b>Bot nomi:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+        f"⚙️ <b>@{bot_name} Tizim Sozlamalari:</b>\n\n"
+        f"🤖 <b>Bot nomi:</b> @{bot_name}\n"
         f"🍿 <b>Rasmiy kino kanali:</b> {channel_name}\n"
         f"💾 <b>Baza turi:</b> <code>{config.DB_TYPE}</code>\n"
         f"📦 <b>Max yuklash hajmi:</b> {config.MAX_FILE_SIZE_MB} MB\n"
@@ -1549,10 +1553,11 @@ async def cmd_admin_settings(message: Message) -> None:
         return
     async with get_session() as session:
         channel_name = await crud.get_setting(session, "channel_username", config.CHANNEL_USERNAME)
+    bot_name = await resolve_bot_username(message.bot)
 
     text = (
-        f"⚙️ <b>@{config.BOT_USERNAME.lstrip('@')} Tizim Sozlamalari:</b>\n\n"
-        f"🤖 <b>Bot nomi:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+        f"⚙️ <b>@{bot_name} Tizim Sozlamalari:</b>\n\n"
+        f"🤖 <b>Bot nomi:</b> @{bot_name}\n"
         f"🍿 <b>Rasmiy kino kanali:</b> {channel_name}\n"
         f"💾 <b>Baza turi:</b> <code>{config.DB_TYPE}</code>\n"
         f"📦 <b>Max yuklash hajmi:</b> {config.MAX_FILE_SIZE_MB} MB\n"

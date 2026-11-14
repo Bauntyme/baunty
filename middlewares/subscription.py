@@ -18,6 +18,34 @@ ALLOWED_STATUSES = {"creator", "administrator", "member", "restricted"}
 # Tezkor xotira keshi (Telegram API va DB ga ortiqcha so'rovlarni oldini olish)
 _CHANNELS_CACHE: Dict[str, Any] = {"channels": [], "ts": 0.0}
 _USER_SUB_CACHE: Dict[int, tuple[float, bool]] = {}
+_PENDING_START_PARAMS: Dict[int, tuple[float, str]] = {}
+_PENDING_START_TTL = 1800.0
+
+
+def save_pending_start_param(user_id: int, param: str) -> None:
+    """Obuna tugagandan keyin davom ettirish uchun /start <param> qiymatini saqlaydi."""
+    clean = str(param or "").strip()
+    if not user_id or not clean:
+        return
+    now = time.monotonic()
+    if len(_PENDING_START_PARAMS) > 5000:
+        expired = [uid for uid, (ts, _) in _PENDING_START_PARAMS.items() if now - ts > _PENDING_START_TTL]
+        for uid in expired:
+            _PENDING_START_PARAMS.pop(uid, None)
+        if len(_PENDING_START_PARAMS) > 5000:
+            _PENDING_START_PARAMS.clear()
+    _PENDING_START_PARAMS[int(user_id)] = (now, clean)
+
+
+def pop_pending_start_param(user_id: int) -> str | None:
+    """Foydalanuvchi obunani tasdiqlagach, kutilayotgan deep-link parametrini qaytaradi."""
+    item = _PENDING_START_PARAMS.pop(int(user_id), None)
+    if not item:
+        return None
+    ts, param = item
+    if time.monotonic() - ts > _PENDING_START_TTL:
+        return None
+    return param
 
 
 def clear_subscription_cache(user_id: int | None = None) -> None:
@@ -120,6 +148,10 @@ class SubscriptionMiddleware(BaseMiddleware):
         _USER_SUB_CACHE[user.id] = (now, False)
 
         if unsubscribed:
+            if isinstance(event, Message) and event.text:
+                parts = event.text.strip().split(maxsplit=1)
+                if parts[0].split("@")[0] == "/start" and len(parts) > 1 and parts[1].strip():
+                    save_pending_start_param(user.id, parts[1].strip())
             alert_text = (
                 "⚠️ <b>Botdan to'liq foydalanish uchun quyidagi kanalga a'zo bo'ling!</b>\n\n"
                 "A'zo bo'lganingizdan so'ng, pastdagi <b>«✅ Obunani tekshirish»</b> tugmasini bosing."

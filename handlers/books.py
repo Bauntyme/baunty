@@ -20,6 +20,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKe
 
 from config import config
 from services import book_service
+from services.bot_identity import get_bot_username
 from utils.states import BookStates
 
 logger = logging.getLogger(__name__)
@@ -137,7 +138,7 @@ def format_book_item_card(book: dict) -> tuple[str, InlineKeyboardMarkup]:
         f"📄 <b>Sahifalar:</b> {pages} bet | 💾 <b>Format:</b> PDF & EPUB ({size_mb} MB)\n"
         f"⭐ <b>Reyting:</b> {rating} / 5.0\n\n"
         f"📖 <b>Qisqacha mazmuni:</b>\n<i>{safe_desc}</i>\n\n"
-        f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} • {config.CHANNEL_USERNAME}</b>"
+        f"🤖 <b>@{get_bot_username()} • {config.CHANNEL_USERNAME}</b>"
     )
 
     webapp_url = f"{config.WEBAPP_URL}?books&b={bid}" if config.WEBAPP_URL else None

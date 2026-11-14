@@ -22,8 +22,14 @@ from keyboards.inline import (
     anon_questions_keyboard,
     anon_regen_confirm_keyboard,
     anon_incoming_keyboard,
+    anon_share_card_keyboard,
 )
-from services.anon_story_image import generate_anon_story_image
+from services.anon_story_image import generate_anon_story_image, generate_anon_share_banner
+from services.bot_identity import (
+    build_telegram_share_url,
+    get_bot_username,
+    resolve_bot_username,
+)
 from utils.states import AnonQuestionStates
 
 logger = logging.getLogger(__name__)
@@ -38,14 +44,17 @@ CANCEL_WORDS = {
 
 
 def build_anon_link_and_share(bot_username: str, token: str) -> Tuple[str, str]:
-    """Shaxsiy anonim havola va URL-kodlangan Telegram ulashish havolasini yaratadi."""
-    clean_bot = str(bot_username or config.BOT_USERNAME).strip().lstrip("@")
+    """Shaxsiy anonim havola va URL-kodlangan chiroyli Telegram ulashish havolasini yaratadi."""
+    fallback_bot = get_bot_username()
+    clean_bot = str(bot_username or fallback_bot).strip().lstrip("@") or fallback_bot
     link = f"https://t.me/{clean_bot}?start=q_{token}"
-    share_text = "Menga anonim savol yoki dil so'zlaringizni yozing! Shaxsingiz sir qoladi 🤫"
-    share_url = (
-        f"https://t.me/share/url?url={urllib.parse.quote(link, safe='')}"
-        f"&text={urllib.parse.quote(share_text, safe='')}"
+    share_text = (
+        "\n💌 Menga anonim savol yoki dil so'zlaringizni yozing!\n\n"
+        "🤫 Shaxsingiz 100% sir saqlanadi — kim yozganini bilmayman.\n"
+        "✨ Istalgan savol, fikr yoki samimiy tilagingizni bemalol qoldiring!\n\n"
+        "👇 Xabar yuborish uchun yuqoridagi havolani bosing"
     )
+    share_url = build_telegram_share_url(link, share_text)
     return link, share_url
 
 
@@ -61,14 +70,15 @@ def format_anon_card_text(
     status_line = "✅ xabar qabul qilinyapti" if is_accepting else "⏸ to'xtatilgan"
     return (
         "💌 <b>Anonim savollar</b>\n\n"
-        "Sizning shaxsiy havolangiz:\n"
+        "Sizning shaxsiy havolangiz (bosib nusxa oling):\n"
         f"<code>{html.escape(link)}</code>\n\n"
-        "Uni Telegram kanalingiz, guruh yoki Instagram story'ga joylang — "
+        "Uni do'stingizga, kanalingiz, guruh yoki Instagram story'ga joylang — "
         "odamlar sizga <b>anonim savol va fikr yozadi</b>. "
         "Siz javob bera olasiz, ular kimligini bilmaysiz.\n\n"
         f"📬 Qabul qilingan: <b>{int(received_count)}</b>\n"
         f"🚫 Bloklanganlar: <b>{int(blocked_count)}</b>\n"
-        f"Holat: {status_line}"
+        f"Holat: {status_line}\n\n"
+        "<i>💡 Do'stga chiroyli taklif shaklida yuborish uchun «🪄 Chiroyli karta» tugmasini bosing.</i>"
     )
 
 
@@ -109,10 +119,21 @@ async def _edit_or_send_card(callback: CallbackQuery, text: str, reply_markup: I
     if not callback.message:
         return
     try:
-        await callback.message.edit_text(text, parse_mode="HTML", reply_markup=reply_markup)
+        await callback.message.edit_text(
+            text,
+            parse_mode="HTML",
+            reply_markup=reply_markup,
+            disable_web_page_preview=True,
+        )
     except TelegramBadRequest as err:
         if "message is not modified" not in str(err).lower():
-            await callback.message.answer(text, parse_mode="HTML", reply_markup=reply_markup, protect_content=True)
+            await callback.message.answer(
+                text,
+                parse_mode="HTML",
+                reply_markup=reply_markup,
+                disable_web_page_preview=True,
+                protect_content=True,
+            )
 
 
 def _has_supported_media(message: Message) -> bool:
@@ -127,14 +148,50 @@ def _has_supported_media(message: Message) -> bool:
 
 @router.message(Command("anon", "savol", "savollar", "ask", "q"))
 @router.message(F.text.in_(["💌 Anonim savollar", "💌 Аноним саволлар", "💌 Анонимные вопросы"]))
-async def cmd_anon_questions_link(message: Message, state: FSMContext) -> None:
+async def cmd_anon_questions_link(message: Message, state: FSMContext, user_id: int | None = None) -> None:
     """Foydalanuvchining shaxsiy anonim savollar boshqaruv kartasini ko'rsatish."""
     await state.clear()
-    user_id = message.from_user.id
-    bot_name = config.BOT_USERNAME.lstrip("@")
-    token, recv_cnt, blk_cnt, is_accepting = await _load_user_anon_state(user_id)
+    uid = int(user_id) if user_id is not None else message.from_user.id
+    bot_name = await resolve_bot_username(message.bot)
+    token, recv_cnt, blk_cnt, is_accepting = await _load_user_anon_state(uid)
     text, kb = _build_card_payload(bot_name, token, recv_cnt, blk_cnt, is_accepting)
-    await message.answer(text, parse_mode="HTML", reply_markup=kb, protect_content=True)
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=kb,
+        disable_web_page_preview=True,
+        protect_content=True,
+    )
+
+
+@router.callback_query(F.data == "anon:share_card")
+async def cb_anon_share_card(callback: CallbackQuery) -> None:
+    """Do'stlarga, guruh yoki kanalga forward qilish uchun chiroyli taklif kartasi yuborish."""
+    await callback.answer("🪄 Chiroyli taklif kartasi tayyorlanmoqda...")
+    user_id = callback.from_user.id if callback.from_user else 0
+    bot_name = await resolve_bot_username(callback.bot)
+    token, _, _, _ = await _load_user_anon_state(user_id)
+    link, _ = build_anon_link_and_share(bot_name, token)
+
+    banner_bytes = await asyncio.to_thread(generate_anon_share_banner, bot_name)
+    safe_link = html.escape(link, quote=True)
+    caption = (
+        "💌 <b>Menga anonim savol yoki dil so'zingizni yozing!</b>\n\n"
+        "🤫 <i>Shaxsingiz 100% sir saqlanadi — kim yozganini bilmayman.</i>\n"
+        "✨ Savol, maslahat yoki samimiy tilagingizni bemalol qoldiring!\n\n"
+        f"👉 <a href=\"{safe_link}\"><b>Anonim savol yozish</b></a>"
+    )
+    target_msg = callback.message
+    if not target_msg:
+        return
+    # Do'stlarga va kanallarga bemalol forward qilish uchun protect_content=False
+    await target_msg.answer_photo(
+        photo=BufferedInputFile(banner_bytes, filename="anonim_taklif.png"),
+        caption=caption,
+        parse_mode="HTML",
+        reply_markup=anon_share_card_keyboard(link),
+        protect_content=False,
+    )
 
 
 @router.callback_query(F.data == "anon:ig_story_img")
@@ -142,7 +199,7 @@ async def cb_anon_ig_story_image(callback: CallbackQuery) -> None:
     """Instagram story'ga joylash uchun rasm shabloni va 3 qadamli qo'llanma yuborish."""
     await callback.answer("🖼 Rasm tayyorlanmoqda...")
     user_id = callback.from_user.id if callback.from_user else 0
-    bot_name = config.BOT_USERNAME.lstrip("@")
+    bot_name = await resolve_bot_username(callback.bot)
     token, _, _, _ = await _load_user_anon_state(user_id)
     link, _ = build_anon_link_and_share(bot_name, token)
 
@@ -181,7 +238,7 @@ async def cb_anon_ig_story_image(callback: CallbackQuery) -> None:
 async def cb_anon_toggle_accept(callback: CallbackQuery) -> None:
     """Anonim xabarlar qabulini yoqish yoki vaqtincha to'xtatish."""
     user_id = callback.from_user.id if callback.from_user else 0
-    bot_name = config.BOT_USERNAME.lstrip("@")
+    bot_name = await resolve_bot_username(callback.bot)
 
     try:
         async with get_session() as session:
@@ -217,7 +274,7 @@ async def cb_anon_regen_cancel(callback: CallbackQuery) -> None:
     """Havolani yangilashni bekor qilib asosiy kartani qaytarish."""
     await callback.answer("Bekor qilindi")
     user_id = callback.from_user.id if callback.from_user else 0
-    bot_name = config.BOT_USERNAME.lstrip("@")
+    bot_name = await resolve_bot_username(callback.bot)
     token, recv_cnt, blk_cnt, is_accepting = await _load_user_anon_state(user_id)
     text, kb = _build_card_payload(bot_name, token, recv_cnt, blk_cnt, is_accepting)
     await _edit_or_send_card(callback, text, kb)
@@ -227,7 +284,7 @@ async def cb_anon_regen_cancel(callback: CallbackQuery) -> None:
 async def cb_anon_regen_execute(callback: CallbackQuery) -> None:
     """Yangi anonim havola yaratish va eskisini bekor qilish."""
     user_id = callback.from_user.id if callback.from_user else 0
-    bot_name = config.BOT_USERNAME.lstrip("@")
+    bot_name = await resolve_bot_username(callback.bot)
 
     try:
         async with get_session() as session:

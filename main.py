@@ -132,6 +132,8 @@ async def main() -> None:
     # Startup va shutdown hodisalari
     async def on_startup():
         logger.info("Baza va xizmatlar ishga tushirilmoqda...")
+        from services.bot_identity import sync_bot_username
+        live_username = await sync_bot_username(bot)
         await init_db()
         try:
             await set_default_commands(bot)
@@ -144,7 +146,7 @@ async def main() -> None:
         start_background_movie_preloader()
         from services.keepalive_service import start_keepalive_service
         start_keepalive_service()
-        logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{config.BOT_USERNAME}")
+        logger.info(f"Bot muvaffaqiyatli ishga tushdi: @{live_username}")
 
     async def on_shutdown():
         logger.info("Bot va web server to'xtatilmoqda...")

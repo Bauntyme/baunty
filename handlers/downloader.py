@@ -18,6 +18,7 @@ from utils.helpers import (
     safe_remove_file,
 )
 from keyboards.inline import media_download_keyboard
+from services.bot_identity import resolve_bot_username
 
 logger = logging.getLogger(__name__)
 router = Router(name="downloader_router")
@@ -67,9 +68,10 @@ async def process_media_url(message: Message) -> None:
         # Token keshga saqlash (MP3 ajratish tugmasi uchun)
         cache_key = cache_url(url)
         reply_markup = media_download_keyboard(cache_key)
+        bot_name = await resolve_bot_username(message.bot)
 
         caption = (
-            f"🎬 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n\n"
+            f"🎬 <b>@{bot_name} orqali yuklandi</b>\n\n"
             f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
         )
 
@@ -151,15 +153,16 @@ async def process_download_audio_callback(callback: CallbackQuery) -> None:
             return
 
         audio_file = FSInputFile(res.file_path)
+        bot_name = await resolve_bot_username(callback.bot)
         caption = (
-            f"🎵 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+            f"🎵 <b>@{bot_name} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
         )
 
         await callback.message.reply_audio(
             audio=audio_file,
             title=res.title or "Audio",
-            performer=f"@{config.BOT_USERNAME.lstrip('@')}",
+            performer=f"@{bot_name}",
             caption=caption,
             parse_mode="HTML"
         )

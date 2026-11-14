@@ -20,6 +20,7 @@ from database import crud
 from database.models import Movie
 from utils.helpers import format_movie_caption, format_movie_not_found
 from keyboards.inline import movie_item_keyboard, movie_parts_keyboard
+from services.bot_identity import get_bot_username
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +112,7 @@ class MovieService:
     def sanitize_branding(text: str) -> str:
         if not text:
             return ""
-        bot_clean = config.BOT_USERNAME.lstrip("@")
+        bot_clean = get_bot_username()
         channel_clean = config.CHANNEL_USERNAME.lstrip("@")
         # URLs
         text = re.sub(r'https?://t\.me/(?:Zakirovs?(?:films_bot|film_bot|Kino|_ai|_bot)?|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
@@ -251,7 +252,7 @@ class MovieService:
                         + "\n\n"
                         + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
                         + "📺 <b>Sifati:</b> 1080p | Full HD\n"
-                        + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+                        + f"🤖 <b>Tomosha qilish:</b> @{get_bot_username()}\n"
                         + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
                         + "👇 Ko'rish uchun quyidagi tugmani bosing!"
                     )
@@ -282,7 +283,7 @@ class MovieService:
         cat_json = {
             "items": raw_items,
             "channel": config.CHANNEL_USERNAME,
-            "bot": config.BOT_USERNAME.lstrip("@"),
+            "bot": get_bot_username(),
         }
         if len(raw_items) >= 20 or not (_CATALOG_CACHE and len(_CATALOG_CACHE.get("items", [])) >= 20):
             _CATALOG_CACHE = cat_json
@@ -1865,7 +1866,7 @@ class MovieService:
                     logger.debug(f"On-demand Asilmedia sync error: {se}")
 
         # Sarlavha va klaviatura (@BauntyCinemabot va @BauntyFilms brendi)
-        bot_user = f"@{config.BOT_USERNAME.lstrip('@')}"
+        bot_user = f"@{get_bot_username()}"
         channel_user = config.CHANNEL_USERNAME
 
         # Qism sarlavhasini tozalash va to'g'ri shakllantirish (takrorlanishlarni bartaraf etish)
@@ -2841,7 +2842,7 @@ class MovieService:
                 + "\n\n"
                 + (f"🎭 <b>Janr:</b> {g_val}\n" if g_val else "")
                 + "📺 <b>Sifati:</b> 1080p | Full HD\n"
-                + f"🤖 <b>Tomosha qilish:</b> @{config.BOT_USERNAME.lstrip('@')}\n"
+                + f"🤖 <b>Tomosha qilish:</b> @{get_bot_username()}\n"
                 + f"📢 <b>Kino kanalimiz:</b> {config.CHANNEL_USERNAME}\n\n"
                 + "👇 Ko'rish uchun quyidagi tugmani bosing!"
             )
@@ -2877,7 +2878,7 @@ class MovieService:
         cat_json = {
             "items": items_to_sync,
             "channel": config.CHANNEL_USERNAME,
-            "bot": config.BOT_USERNAME.lstrip("@"),
+            "bot": get_bot_username(),
         }
         if len(items_to_sync) >= 20:
             _CATALOG_CACHE = cat_json

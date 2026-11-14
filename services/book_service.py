@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from config import config
+from services.bot_identity import build_telegram_share_url, get_bot_username, resolve_bot_username
 
 logger = logging.getLogger(__name__)
 
@@ -181,7 +182,7 @@ def load_books() -> List[Dict[str, Any]]:
         item["s"] = {"pdf": size_bytes, "epub": int(size_bytes * 0.55)}
         item["m"] = "text"
         item["me"] = {"pct": 0, "done": False, "saved": False, "stars": 0, "ch": 0}
-        item["lic"] = f"Baunty Kutubxonasi — @{config.BOT_USERNAME.lstrip('@')}"
+        item["lic"] = f"Baunty Kutubxonasi — @{get_bot_username()}"
 
         norm_lat = f"{_normalize(title)} {_normalize(author)} {_normalize(desc)}"
         raw_lower = f"{title} {author} {desc}".lower()
@@ -261,7 +262,7 @@ def get_catalog(
         "items": paged,
         "total": total,
         "categories": CATEGORIES_META,
-        "bot": config.BOT_USERNAME.lstrip("@"),
+        "bot": get_bot_username(),
         "channel": config.CHANNEL_USERNAME
     }
 
@@ -734,7 +735,7 @@ def generate_dynamic_book_cover(
     if not is_thumb:
         f_foot = _get_cover_font(max(9, int(h * 0.02)), bold=False)
         draw.text((w // 2, h - int(h * 0.08)), f"★ {rating} • Oltin To'plam", fill=(180, 195, 210), font=f_foot, anchor="mm")
-        draw.text((w // 2, h - int(h * 0.045)), f"@{config.BOT_USERNAME.lstrip('@')}", fill=accent, font=f_foot, anchor="mm")
+        draw.text((w // 2, h - int(h * 0.045)), f"@{get_bot_username()}", fill=accent, font=f_foot, anchor="mm")
 
     buf = io.BytesIO()
     fmt_clean = "JPEG" if fmt.upper() in ("JPG", "JPEG") else "PNG" if fmt.upper() == "PNG" else "WEBP"
@@ -766,7 +767,7 @@ def generate_svg_book_cover(book: Dict[str, Any]) -> str:
         f'<text x="200" y="260" fill="#FFFFFF" font-family="Georgia,serif" font-size="22" font-weight="bold" text-anchor="middle">{title[:28]}</text>'
         f'<line x1="150" y1="300" x2="250" y2="300" stroke="{accent_rgb}" stroke-width="1"/>'
         f'<text x="200" y="340" fill="{accent_rgb}" font-family="sans-serif" font-size="14" font-weight="bold" text-anchor="middle">{author[:30]}</text>'
-        f'<text x="200" y="550" fill="{accent_rgb}" font-family="sans-serif" font-size="11" text-anchor="middle">@{config.BOT_USERNAME.lstrip("@")}</text>'
+        f'<text x="200" y="550" fill="{accent_rgb}" font-family="sans-serif" font-size="11" text-anchor="middle">@{get_bot_username()}</text>'
         '</svg>'
     )
 
@@ -899,7 +900,7 @@ def create_book_pdf_sample(book: Dict[str, Any]) -> bytes:
     sample = _clean_pdf_text(book.get("sample_text", desc))
     category_name = _clean_pdf_text(book.get("category_name", "Badiiy adabiyot"))
     pages = book.get("pages", 200)
-    bot_user = config.BOT_USERNAME.lstrip("@")
+    bot_user = get_bot_username()
 
     # 1. Agar ReportLab mavjud bo'lsa (Unicode TTF ro'yxatdan o'tkazish bilan)
     try:
@@ -1109,7 +1110,7 @@ def create_book_epub_sample(book: Dict[str, Any]) -> bytes:
             f'    <dc:creator>{html.escape(author)}</dc:creator>\n'
             f'    <dc:description>{html.escape(desc)}</dc:description>\n'
             '    <dc:language>uz</dc:language>\n'
-            f'    <dc:publisher>Baunty Books (@{config.BOT_USERNAME.lstrip("@")})</dc:publisher>\n'
+            f'    <dc:publisher>Baunty Books (@{get_bot_username()})</dc:publisher>\n'
             '  </metadata>\n'
             '  <manifest>\n'
             '    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>\n'
@@ -1156,7 +1157,7 @@ def create_book_epub_sample(book: Dict[str, Any]) -> bytes:
             '  <h3>Kitobdan parcha</h3>\n'
             f'  {p_tags}\n'
             '  <hr/>\n'
-            f'  <p><small>Baunty Kutubxonasi — @{config.BOT_USERNAME.lstrip("@")} | {config.CHANNEL_USERNAME}</small></p>\n'
+            f'  <p><small>Baunty Kutubxonasi — @{get_bot_username()} | {config.CHANNEL_USERNAME}</small></p>\n'
             '</body>\n'
             '</html>'
         )
@@ -1185,6 +1186,8 @@ async def deliver_book(
     short_desc = (desc[:280] + "…") if len(desc) > 280 else desc
     format_label = fmt.upper()
 
+    bot_user = await resolve_bot_username(bot)
+
     safe_title = html.escape(str(title), quote=False)
     safe_author = html.escape(str(author), quote=False)
     safe_cat_name = html.escape(str(category_name), quote=False)
@@ -1197,12 +1200,11 @@ async def deliver_book(
         f"📄 <b>Sahifalar:</b> {pages} ta | 💾 <b>Format:</b> {format_label} ({book.get('size_mb', 2.5)} MB)\n"
         f"⭐ <b>Reyting:</b> {rating} / 5.0\n\n"
         f"📖 <i>{safe_short_desc}</i>\n\n"
-        f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} • {config.CHANNEL_USERNAME}</b>"
+        f"🤖 <b>@{bot_user} • {config.CHANNEL_USERNAME}</b>"
     )
 
     from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
 
-    bot_user = config.BOT_USERNAME.lstrip("@")
     webapp_url = f"{config.WEBAPP_URL}?books&b={book['id']}" if config.WEBAPP_URL else None
 
     buttons = []
@@ -1210,8 +1212,10 @@ async def deliver_book(
         from aiogram.types import WebAppInfo
         buttons.append([InlineKeyboardButton(text="📖 Ilovada o'qish (Mutolaa)", web_app=WebAppInfo(url=webapp_url))])
 
-    quoted_text = urllib.parse.quote(f"{title} kitobini o'qish")
-    share_url = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=b_{book['id']}&text={quoted_text}"
+    share_url = build_telegram_share_url(
+        f"https://t.me/{bot_user}?start=b_{book['id']}",
+        f"{title} kitobini o'qish",
+    )
     buttons.append([
         InlineKeyboardButton(text="🔗 Do'stlarga ulashish", url=share_url),
         InlineKeyboardButton(text="📚 Barcha kitoblar", url=f"https://t.me/{bot_user}?start=books")

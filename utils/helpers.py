@@ -116,9 +116,10 @@ def format_movie_caption(movie) -> str:
         desc = movie.description[:400] + ("..." if len(movie.description) > 400 else "")
         caption += f"\n📝 <b>Tavsif:</b>\n<i>{desc}</i>\n"
 
+    from services.bot_identity import get_bot_username
     caption += (
         f"\n🍿 <b>Barcha sara kinolar:</b> {config.CHANNEL_USERNAME}\n"
-        f"🤖 <b>Botimiz:</b> @{config.BOT_USERNAME.lstrip('@')}\n\n"
+        f"🤖 <b>Botimiz:</b> @{get_bot_username()}\n\n"
         "ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi."
     )
     return caption

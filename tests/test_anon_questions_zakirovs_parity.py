@@ -308,3 +308,218 @@ async def test_anon_deep_link_paused_blocked_and_delivery_flow(db_session_factor
         m_paused = _make_msg(8002, f"/start q_{token}")
         await cmd_start(m_paused, st_sender)
         assert "to'xtatgan" in m_paused.answer.call_args.args[0].lower()
+
+
+@pytest.mark.asyncio
+async def test_stale_bot_username_correction_and_all_links(tmp_path):
+    """Eskirgan BOT_USERNAME (Bauntycinema_bot) barcha link va kartalarda tuzatilishi testi."""
+    import urllib.parse
+    from types import SimpleNamespace
+    from aiogram.types import BufferedInputFile
+
+    from handlers.anon_questions import build_anon_link_and_share, cb_anon_share_card
+    from handlers.groups import cmd_groups_info
+    from handlers.referral import cmd_referral_info
+    from handlers.tvroom import get_tvroom_keyboard
+    from keyboards.inline import anon_questions_keyboard, movie_item_keyboard
+    from services.bot_identity import (
+        get_bot_username,
+        reset_live_bot_username_cache,
+        set_live_bot_username,
+        sync_bot_username,
+    )
+
+    db_file = tmp_path / "anon_links_test.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_file.as_posix()}", future=True)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    @asynccontextmanager
+    async def fake_get_session():
+        async with session_maker() as s:
+            try:
+                yield s
+                await s.commit()
+            except Exception:
+                await s.rollback()
+                raise
+
+    orig_username = config.BOT_USERNAME
+    reset_live_bot_username_cache()
+    try:
+        # 1. Mock obyektlar jonli username sifatida qabul qilinmasligi kerak
+        assert set_live_bot_username(MagicMock()) is None
+        config.BOT_USERNAME = "Bauntycinema_bot"
+        assert get_bot_username() == "BauntyCinemabot"
+
+        # 2. Bot get_me() orqali jonli sinxronizatsiya config.BOT_USERNAME ni ham tuzatadi
+        fake_bot = SimpleNamespace(
+            get_me=AsyncMock(return_value=SimpleNamespace(username="BauntyCinemabot"))
+        )
+        synced = await sync_bot_username(fake_bot)
+        assert synced == "BauntyCinemabot"
+        assert config.BOT_USERNAME == "BauntyCinemabot"
+
+        # 3. URL encoding bilan share URL hamda barcha link generatorlar
+        link, share_url = build_anon_link_and_share(get_bot_username(), "XyZ9876543")
+        assert link == "https://t.me/BauntyCinemabot?start=q_XyZ9876543"
+        parsed_share = urllib.parse.parse_qs(urllib.parse.urlparse(share_url).query)
+        assert parsed_share["url"] == [link]
+        assert "anonim savol" in parsed_share["text"][0].lower()
+
+        kb_movie = movie_item_keyboard("101")
+        movie_urls = [b.url for row in kb_movie.inline_keyboard for b in row if b.url]
+        assert any("https%3A%2F%2Ft.me%2FBauntyCinemabot%3Fstart%3Dkino_101" in u for u in movie_urls)
+        assert all("Bauntycinema_bot" not in u for u in movie_urls)
+
+        kb_tv = get_tvroom_keyboard("4242")
+        tv_urls = [b.url for row in kb_tv.inline_keyboard for b in row if b.url]
+        assert any("https%3A%2F%2Ft.me%2FBauntyCinemabot%3Fstart%3Dtvroom_4242" in u for u in tv_urls)
+        assert all("Bauntycinema_bot" not in u for u in tv_urls)
+
+        kb_anon = anon_questions_keyboard(share_url, is_accepting=True)
+        row1_callbacks = [b.callback_data for b in kb_anon.inline_keyboard[0] if b.callback_data]
+        assert "anon:share_card" in row1_callbacks
+
+        # 4. /groups va Referral handlerlari
+        storage = MemoryStorage()
+        state = FSMContext(storage=storage, key=MagicMock())
+        m_grp = AsyncMock(spec=Message)
+        m_grp.from_user = TgUser(id=9101, is_bot=False, first_name="Ali")
+        m_grp.bot = fake_bot
+        m_grp.answer = AsyncMock()
+        await cmd_groups_info(m_grp, state)
+        grp_kb = m_grp.answer.call_args.kwargs["reply_markup"]
+        assert grp_kb.inline_keyboard[0][0].url == "https://t.me/BauntyCinemabot?startgroup=true"
+
+        with patch("handlers.referral.get_session", fake_get_session):
+            m_ref = AsyncMock(spec=Message)
+            m_ref.from_user = TgUser(id=9101, is_bot=False, first_name="Ali")
+            m_ref.bot = fake_bot
+            m_ref.answer = AsyncMock()
+            await cmd_referral_info(m_ref, state)
+            ref_kb = m_ref.answer.call_args.kwargs["reply_markup"]
+            ref_url = ref_kb.inline_keyboard[0][0].url
+            assert "BauntyCinemabot%3Fstart%3Dr_9101" in ref_url
+            assert "Bauntycinema_bot" not in ref_url
+
+        # 5. Chiroyli karta (anon:share_card) protect_content=False va 1200x675 PNG banner yuboradi
+        with patch("handlers.anon_questions.get_session", fake_get_session):
+            cb_card = AsyncMock(spec=CallbackQuery)
+            cb_card.from_user = TgUser(id=9101, is_bot=False, first_name="Ali")
+            cb_card.bot = fake_bot
+            cb_card.answer = AsyncMock()
+            cb_card.message = AsyncMock(spec=Message)
+            cb_card.message.answer_photo = AsyncMock()
+            await cb_anon_share_card(cb_card)
+
+            assert cb_card.message.answer_photo.called
+            photo_kwargs = cb_card.message.answer_photo.call_args.kwargs
+            assert photo_kwargs["protect_content"] is False
+            assert photo_kwargs["parse_mode"] == "HTML"
+            assert "https://t.me/BauntyCinemabot?start=q_" in photo_kwargs["caption"]
+            assert isinstance(photo_kwargs["photo"], BufferedInputFile)
+            banner_im = Image.open(io.BytesIO(photo_kwargs["photo"].data))
+            assert banner_im.size == (1200, 675)
+            card_btn = photo_kwargs["reply_markup"].inline_keyboard[0][0]
+            assert card_btn.url.startswith("https://t.me/BauntyCinemabot?start=q_")
+    finally:
+        config.BOT_USERNAME = orig_username
+        reset_live_bot_username_cache()
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_anon_target_normalization_and_pending_sub_resume(tmp_path):
+    """Token registr/tinish belgilaridan tozalash va obunadan keyin /start q_<token> ni tiklash testi."""
+    from types import SimpleNamespace
+    from aiogram.types import ChatMemberMember
+    from handlers.start import callback_check_subscription
+    from middlewares.subscription import SubscriptionMiddleware, pop_pending_start_param
+    from services.bot_identity import reset_live_bot_username_cache
+
+    db_file = tmp_path / "anon_sub_resume.db"
+    engine = create_async_engine(f"sqlite+aiosqlite:///{db_file.as_posix()}", future=True)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    session_maker = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+    @asynccontextmanager
+    async def fake_get_session():
+        async with session_maker() as s:
+            try:
+                yield s
+                await s.commit()
+            except Exception:
+                await s.rollback()
+                raise
+
+    reset_live_bot_username_cache()
+    try:
+        async with session_maker() as s:
+            await crud.get_or_create_user(s, user_id=7101, first_name="Owner")
+            await crud.get_or_create_user(s, user_id=8103, first_name="Sender")
+            prof = await crud.get_or_create_anon_profile(s, 7101)
+            await s.commit()
+            token = prof.token
+
+            # Registr va qo'shimcha belgilarga chidamlilik
+            assert await crud.resolve_anon_target(s, token) == (7101, True)
+            assert await crud.resolve_anon_target(s, token.lower()) == (7101, True)
+            assert await crud.resolve_anon_target(s, token.upper()) == (7101, True)
+            assert await crud.resolve_anon_target(s, f"{token}.)") == (7101, True)
+            assert await crud.resolve_anon_target(s, f"{token}&fbclid=123") == (7101, True)
+
+        sender = TgUser(id=8103, is_bot=False, first_name="Sender")
+        unsub_bot = MagicMock()
+        unsub_bot.get_me = AsyncMock(return_value=SimpleNamespace(username="BauntyCinemabot"))
+        unsub_bot.get_chat_member = AsyncMock(return_value=SimpleNamespace(status="left"))
+
+        msg_start = AsyncMock(spec=Message)
+        msg_start.from_user = sender
+        msg_start.text = f"/start q_{token}"
+        msg_start.chat = Chat(id=8103, type="private")
+        msg_start.bot = unsub_bot
+        msg_start.answer = AsyncMock()
+
+        downstream = AsyncMock()
+        mw = SubscriptionMiddleware()
+        with patch("middlewares.subscription.get_session", fake_get_session):
+            await mw(downstream, msg_start, {"event_from_user": sender, "bot": unsub_bot})
+
+        assert not downstream.called
+        assert msg_start.answer.called
+
+        # Obunadan keyin «✅ Obunani tekshirish» bosilganda saqlangan q_<token> davom etadi
+        storage = MemoryStorage()
+        st = FSMContext(storage=storage, key=MagicMock())
+
+        sub_bot = MagicMock()
+        sub_bot.get_me = AsyncMock(return_value=SimpleNamespace(username="BauntyCinemabot"))
+        sub_bot.get_chat_member = AsyncMock(
+            return_value=ChatMemberMember(status="member", user=sender)
+        )
+
+        cb_check = AsyncMock(spec=CallbackQuery)
+        cb_check.from_user = sender
+        cb_check.data = "check_subscription"
+        cb_check.bot = sub_bot
+        cb_check.answer = AsyncMock()
+        cb_check.message = AsyncMock(spec=Message)
+        cb_check.message.bot = sub_bot
+        cb_check.message.chat = Chat(id=8103, type="private")
+        cb_check.message.delete = AsyncMock()
+        cb_check.message.answer = AsyncMock()
+
+        with patch("handlers.start.get_session", fake_get_session):
+            await callback_check_subscription(cb_check, st)
+
+        assert await st.get_state() == AnonQuestionStates.waiting_for_message.state
+        assert (await st.get_data())["anon_target_id"] == 7101
+        assert "anonim" in cb_check.message.answer.call_args.args[0].lower()
+        assert pop_pending_start_param(8103) is None
+    finally:
+        reset_live_bot_username_cache()
+        await engine.dispose()
+

@@ -16,6 +16,7 @@ from database.session import get_session
 from database import crud
 from database.models import Movie
 from services.movie_service import movie_service, MovieService
+from services.bot_identity import get_bot_username, resolve_bot_username
 from keyboards.default import cancel_keyboard, main_menu_keyboard
 from keyboards.inline import (
     movie_menu_keyboard,
@@ -1349,7 +1350,7 @@ async def cmd_browser(message: Message) -> None:
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
     raw_args = message.text.split(maxsplit=1)
     arg = raw_args[1].strip() if len(raw_args) > 1 else ""
-    bot_name = config.BOT_USERNAME.lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
 
@@ -1999,7 +2000,7 @@ async def cmd_sync_movies(message: Message) -> None:
         f"✅ <b>Sinxronizatsiya muvaffaqiyatli yakunlandi!</b>\n\n"
         f"🔄 <b>Ko'rib chiqilgan/yangilangan kinolar:</b> {count} ta\n"
         f"🍿 <b>Bizning kanalimiz:</b> {config.CHANNEL_USERNAME}\n"
-        f"🤖 <b>Bizning botimiz:</b> @{config.BOT_USERNAME.lstrip('@')}",
+        f"🤖 <b>Bizning botimiz:</b> @{get_bot_username()}",
         parse_mode="HTML"
     )
 
@@ -2008,7 +2009,7 @@ async def cmd_sync_movies(message: Message) -> None:
 async def cmd_plan(message: Message) -> None:
     """/plan komandasi: Bauntys Rivojlanish Rejasi va Premium Imkoniyatlar."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
@@ -2046,7 +2047,7 @@ async def cmd_plan(message: Message) -> None:
 async def cmd_goal(message: Message) -> None:
     """/goal komandasi: Bauntys Maqsadi va Missiyasi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
@@ -2079,7 +2080,7 @@ async def cmd_goal(message: Message) -> None:
 async def cmd_boost(message: Message) -> None:
     """/boost komandasi: Bauntys Turbo Boost va Server Tezlatgichi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -2110,7 +2111,7 @@ async def cmd_boost(message: Message) -> None:
 async def cmd_chrome_devtools(message: Message) -> None:
     """/chrome-devtools komandasi: Web App DevTools va Diagnostika holati."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -2139,7 +2140,7 @@ async def cmd_chrome_devtools(message: Message) -> None:
 async def cmd_debug_optimize_lcp(message: Message) -> None:
     """/debug-optimize-lcp komandasi: Web App LCP holati va diagnostikasi."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -2164,7 +2165,7 @@ async def cmd_debug_optimize_lcp(message: Message) -> None:
 async def cmd_teamwork_preview(message: Message) -> None:
     """/teamwork-preview komandasi: Jamoaviy oldindan ko'rish va test qilish."""
     from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-    bot_name = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_name = await resolve_bot_username(message.bot)
     channel_name = config.CHANNEL_USERNAME.lstrip("@")
     webapp_url = config.WEBAPP_URL
     kb = InlineKeyboardMarkup(

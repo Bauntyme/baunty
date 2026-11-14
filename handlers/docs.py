@@ -15,6 +15,7 @@ from services.doc_service import doc_service
 from keyboards.default import cancel_keyboard, main_menu_keyboard
 from utils.states import DocsStates
 from utils.helpers import safe_remove_file
+from services.bot_identity import resolve_bot_username
 
 logger = logging.getLogger(__name__)
 router = Router(name="docs_router")
@@ -132,9 +133,10 @@ async def state_process_pdf(message: Message, state: FSMContext) -> None:
         pdf_input = FSInputFile(out_file, filename=f"{title[:25]}.pdf")
 
         safe_title = html.escape(title)
+        bot_name = await resolve_bot_username(message.bot)
         caption = (
             f"📄 <b>{safe_title}</b>\n\n"
-            f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yaratildi</b>"
+            f"🤖 <b>@{bot_name} orqali yaratildi</b>"
         )
         await message.reply_document(
             document=pdf_input,
@@ -187,10 +189,11 @@ async def state_process_img_to_pdf(message: Message, state: FSMContext) -> None:
 
         doc_service.images_to_pdf([temp_img], out_pdf)
         pdf_input = FSInputFile(out_pdf, filename="Hujjat_rasm.pdf")
+        bot_name = await resolve_bot_username(message.bot)
 
         caption = (
             "🖼 <b>Rasmdan yaratilgan PDF hujjat</b>\n\n"
-            f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali tayyorlandi</b>"
+            f"🤖 <b>@{bot_name} orqali tayyorlandi</b>"
         )
         await message.reply_document(
             document=pdf_input,

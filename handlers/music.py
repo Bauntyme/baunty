@@ -9,6 +9,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 from config import config
+from services.bot_identity import resolve_bot_username
 from database.session import get_session
 from database import crud
 from services.music_service import music_service
@@ -370,15 +371,16 @@ async def cb_download_track(callback: CallbackQuery) -> None:
                         send_url = None
 
                 if send_url:
+                    bot_name = await resolve_bot_username(callback.bot)
                     caption = (
                         f"🎵 <b>{safe_artist} - {safe_title}</b>\n\n"
-                        f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+                        f"🤖 <b>@{bot_name} orqali yuklandi</b>\n"
                         f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
                     )
                     await callback.message.reply_audio(
                         audio=send_url,
                         title=title,
-                        performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        performer=artist or f"@{bot_name}",
                         caption=caption,
                         parse_mode="HTML",
                         protect_content=True
@@ -397,16 +399,17 @@ async def cb_download_track(callback: CallbackQuery) -> None:
             return
 
         audio_file = FSInputFile(res.file_path)
+        bot_name = await resolve_bot_username(callback.bot)
         caption = (
             f"🎵 <b>{safe_artist} - {safe_title}</b>\n\n"
-            f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+            f"🤖 <b>@{bot_name} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar kanalimiz:</b> {config.CHANNEL_USERNAME}"
         )
 
         await callback.message.reply_audio(
             audio=audio_file,
             title=title,
-            performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+            performer=artist or f"@{bot_name}",
             duration=res.duration,
             caption=caption,
             parse_mode="HTML",

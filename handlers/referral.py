@@ -19,8 +19,9 @@ router = Router(name="referral_router")
 async def cmd_referral_info(message: Message, state: FSMContext) -> None:
     """Do'st taklif qilish bo'limi va statistika."""
     await state.clear()
+    from services.bot_identity import build_telegram_share_url, resolve_bot_username
     user = message.from_user
-    bot_name = config.BOT_USERNAME.lstrip('@')
+    bot_name = await resolve_bot_username(message.bot)
     ref_link = f"https://t.me/{bot_name}?start=r_{user.id}"
 
     async with get_session() as session:
@@ -36,7 +37,10 @@ async def cmd_referral_info(message: Message, state: FSMContext) -> None:
         "💡 Har bir taklif qilgan faol do'stingiz uchun sizga <b>+10 ball</b> beriladi!"
     )
 
-    share_url = f"https://t.me/share/url?url={ref_link}&text=Ajoyib kino va musiqa botini sinab ko'ring! 🎬🍿"
+    share_url = build_telegram_share_url(
+        ref_link,
+        "Ajoyib kino va musiqa botini sinab ko'ring! 🎬🍿",
+    )
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="↗️ Havolani ulashish", url=share_url)

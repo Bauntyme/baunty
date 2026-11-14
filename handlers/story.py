@@ -16,6 +16,7 @@ from keyboards.default import cancel_keyboard, main_menu_keyboard
 from keyboards.inline import story_platform_keyboard
 from utils.states import StoryStates
 from utils.helpers import safe_remove_file
+from services.bot_identity import resolve_bot_username
 
 logger = logging.getLogger(__name__)
 router = Router(name="story_router")
@@ -152,9 +153,10 @@ async def state_process_story_username(message: Message, state: FSMContext) -> N
             return
 
         safe_user = html.escape(username or "user")
+        bot_name = await resolve_bot_username(message.bot)
         caption = (
             f"👀 <b>@{safe_user} ning yangi {plat_title} hikoyasi/videosi</b>\n\n"
-            f"🤖 <b>@{config.BOT_USERNAME.lstrip('@')} orqali yuklandi</b>\n"
+            f"🤖 <b>@{bot_name} orqali yuklandi</b>\n"
             f"🍿 <b>Kinolar:</b> {config.CHANNEL_USERNAME}"
         )
 

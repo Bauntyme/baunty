@@ -48,6 +48,7 @@ from services.bunker_service import bunker_service
 from services.deliv_service import deliv_service
 from services.food_service import food_service
 from services.duel_service import duel_service
+from services.bot_identity import get_bot_username, resolve_bot_username, set_live_bot_username
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,9 @@ def set_bot_instance(bot) -> None:
     """Asosiy bot nusxasini web serverga ulash."""
     global _bot_instance
     _bot_instance = bot
+    if bot is not None:
+        me_obj = getattr(bot, "_me", None)
+        set_live_bot_username(getattr(me_obj, "username", None))
 
 
 async def handle_health(request: web.Request) -> web.Response:
@@ -518,7 +522,7 @@ def sanitize_catalog_text(text: str) -> str:
     """Barcha tashqi bot/kanal havolalarini @BauntyCinemabot va @BauntyFilms ga almashtirish."""
     if not text:
         return ""
-    bot_clean = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_clean = get_bot_username()
     channel_clean = (config.CHANNEL_USERNAME or "BauntyFilms").lstrip("@")
 
     text = re.sub(r'https?://t\.me/(?:Zakirovs?(?:films_bot|film_bot|Kino|_bot)?|dilbarzakirova)\b', f'https://t.me/{channel_clean}', text, flags=re.I)
@@ -1091,7 +1095,7 @@ async def handle_rc_asset_proxy(request: web.Request) -> web.Response:
 
 async def handle_watch_get(request: web.Request) -> web.Response:
     """Watch GET so'rovi (holat va yo'naltirish ma'lumoti)."""
-    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_username = await resolve_bot_username(_bot_instance)
     return web.json_response({
         "ok": True,
         "service": "watch",
@@ -1108,7 +1112,7 @@ async def handle_send_api(request: web.Request) -> web.Response:
         "ok": True,
         "service": "send",
         "methods": ["POST"],
-        "bot": (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+        "bot": await resolve_bot_username(_bot_instance)
     })
 
 
@@ -1120,7 +1124,7 @@ async def handle_doc_config(request: web.Request) -> web.Response:
         "max_mb": 50,
         "translate": True,
         "max_images": 50,
-        "bot": (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+        "bot": await resolve_bot_username(_bot_instance)
     })
 
 
@@ -1160,7 +1164,7 @@ async def handle_api_overview(request: web.Request) -> web.Response:
     return web.json_response({
         "ok": True,
         "service": "Bauntys API",
-        "bot": (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@"),
+        "bot": await resolve_bot_username(_bot_instance),
         "channel": config.CHANNEL_USERNAME,
         "status": "online"
     })
@@ -2621,7 +2625,7 @@ async def handle_get_catalog(request: web.Request) -> web.Response:
     # Foydalanuvchi boti va kanali bilan dinamik sinxronlash
     data["ok"] = True
     data["channel"] = config.CHANNEL_USERNAME
-    data["bot"] = config.BOT_USERNAME.lstrip("@")
+    data["bot"] = await resolve_bot_username(_bot_instance)
     data["tv"] = True
     data["tv_soon"] = False
     data["music"] = True
@@ -3262,7 +3266,7 @@ async def handle_asil_send(request: web.Request) -> web.Response:
         elif err in ("invalid_signature", "fake_init_data"):
             return web.json_response({"ok": False, "error": "auth"}, status=401)
 
-    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_username = await resolve_bot_username(_bot_instance)
     bot_url = f"https://t.me/{bot_username}?start=kino_{item_id}"
 
     if not item_id:
@@ -3480,7 +3484,7 @@ async def handle_watch(request: web.Request) -> web.Response:
     except (ValueError, TypeError):
         part = 1
 
-    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_username = await resolve_bot_username(_bot_instance)
     clean_code = code.lstrip("#№").strip()
     bot_url = f"https://t.me/{bot_username}?start=m_{clean_code}"
 
@@ -4149,20 +4153,21 @@ async def handle_music_send(request: web.Request) -> web.Response:
     from utils.helpers import safe_remove_file
 
     sent_audio = False
+    bot_name = await resolve_bot_username(_bot_instance)
     # 1. Haqiqiy MP3 faylini yuklab olib yuborish
     try:
         res = await music_service.download_track_mp3(full_query, track_info=body)
         if res.success and res.file_path and os.path.exists(res.file_path):
             caption = (
                 f"🎵 <b>{artist} - {title}</b>\n\n"
-                f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
+                f"🤖 @{bot_name} Mini App orqali yuborildi\n"
                 f"🍿 {config.CHANNEL_USERNAME}"
             )
             await _bot_instance.send_audio(
                 chat_id=chat_id,
                 audio=FSInputFile(res.file_path),
                 title=title,
-                performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                performer=artist or f"@{bot_name}",
                 duration=res.duration or duration,
                 caption=caption,
                 parse_mode="HTML"
@@ -4186,14 +4191,14 @@ async def handle_music_send(request: web.Request) -> web.Response:
             try:
                 caption = (
                     f"🎵 <b>{artist} - {title}</b>\n\n"
-                    f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi\n"
+                    f"🤖 @{bot_name} Mini App orqali yuborildi\n"
                     f"🍿 {config.CHANNEL_USERNAME}"
                 )
                 await _bot_instance.send_audio(
                     chat_id=chat_id,
                     audio=send_url,
                     title=title,
-                    performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                    performer=artist or f"@{bot_name}",
                     duration=duration,
                     caption=caption,
                     parse_mode="HTML"
@@ -4210,7 +4215,7 @@ async def handle_music_send(request: web.Request) -> web.Response:
                 text=(
                     f"🎵 <b>{artist} - {title}</b>\n\n"
                     "Ilovadan tanlangan musiqa!\n\n"
-                    f"🤖 @{config.BOT_USERNAME.lstrip('@')}\n"
+                    f"🤖 @{bot_name}\n"
                     f"🍿 {config.CHANNEL_USERNAME}"
                 ),
                 parse_mode="HTML"
@@ -5025,10 +5030,11 @@ async def handle_story_send(request: web.Request) -> web.Response:
     from utils.helpers import safe_remove_file
 
     clean_u = story_service.clean_username(u)
+    bot_name = await resolve_bot_username(_bot_instance)
     sent_any = False
     caption = (
         f"👀 <b>@{clean_u} ning hikoyasi</b>\n\n"
-        f"🤖 @{config.BOT_USERNAME.lstrip('@')} orqali yuklandi\n"
+        f"🤖 @{bot_name} orqali yuklandi\n"
         f"🍿 {config.CHANNEL_USERNAME}"
     )
 
@@ -5231,9 +5237,10 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                 )
             res = await music_service.download_track_mp3(full_query, track_info=body)
             sent_audio = False
+            bot_name = await resolve_bot_username(_bot_instance)
             caption = (
                 f"🎵 <b>{artist + ' - ' if artist else ''}{title}</b>\n\n"
-                f"🤖 @{config.BOT_USERNAME.lstrip('@')} Mini App orqali yuborildi"
+                f"🤖 @{bot_name} Mini App orqali yuborildi"
             )
             if res and getattr(res, "success", False) and getattr(res, "file_path", None):
                 from aiogram.types import FSInputFile
@@ -5243,7 +5250,7 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                         chat_id=chat_id,
                         audio=FSInputFile(res.file_path),
                         title=title,
-                        performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        performer=artist or f"@{bot_name}",
                         duration=getattr(res, "duration", None),
                         caption=caption,
                         parse_mode="HTML",
@@ -5259,7 +5266,7 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                         chat_id=chat_id,
                         audio=stream_url,
                         title=title,
-                        performer=artist or f"@{config.BOT_USERNAME.lstrip('@')}",
+                        performer=artist or f"@{bot_name}",
                         duration=int(body.get("duration") or body.get("d") or 0) or None,
                         caption=caption,
                         parse_mode="HTML",
@@ -5375,7 +5382,7 @@ async def handle_books_home(request: web.Request) -> web.Response:
         "featured": featured,
         "items": books[:30],
         "categories": book_service.CATEGORIES_META,
-        "bot": config.BOT_USERNAME.lstrip("@"),
+        "bot": await resolve_bot_username(_bot_instance),
         "channel": config.CHANNEL_USERNAME
     }
     return web.json_response(home_data, headers={"Access-Control-Allow-Origin": "*"})
@@ -5594,7 +5601,7 @@ async def handle_book_send(request: web.Request) -> web.Response:
     if not book:
         return web.json_response({"ok": False, "error": "not_found"}, status=404)
 
-    bot_username = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_username = await resolve_bot_username(_bot_instance)
     target_url = f"https://t.me/{bot_username}?start=b_{book_id}"
 
     if not user_id:

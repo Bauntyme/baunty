@@ -25,22 +25,30 @@ logger = logging.getLogger(__name__)
 router = Router(name="tvroom")
 
 
+from services.bot_identity import build_telegram_share_url, get_bot_username, resolve_bot_username
+
+
 def get_tvroom_keyboard(code: str = "") -> InlineKeyboardMarkup:
     """Tv Xona boshqaruv inline klaviaturasi — to'liq tugmalar to'plami."""
-    import urllib.parse
     base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
-    bot_user = (config.BOT_USERNAME or "BauntyCinemabot").lstrip("@")
+    bot_user = get_bot_username()
     if code:
         norm = normalize_room_code(code)
         webapp_url = f"{base_url}?m=tvroom&room={norm}"
         btn_text = f"📺 Tv Xonaga Kirish (#{code})"
         share_text = f"Do'stlar, keling birga Bauntys «Tv Xona»da #{code} xonasida 4K TV tomosha qilamiz! 🍿📺"
-        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=tvroom_{code}&text={urllib.parse.quote(share_text)}"
+        share_link = build_telegram_share_url(
+            f"https://t.me/{bot_user}?start=tvroom_{code}",
+            share_text,
+        )
     else:
         webapp_url = f"{base_url}?m=tvroom"
         btn_text = "📺 Tv Xonaga Kirish"
         share_text = "Do'stlar, keling birga Bauntys «Tv Xona»da 4K telekanal tomosha qilamiz! 🍿📺"
-        share_link = f"https://t.me/share/url?url=https://t.me/{bot_user}?start=tvroom&text={urllib.parse.quote(share_text)}"
+        share_link = build_telegram_share_url(
+            f"https://t.me/{bot_user}?start=tvroom",
+            share_text,
+        )
 
     create_url = f"{base_url}?m=tvroom&action=create"
 
@@ -72,6 +80,7 @@ def get_tvroom_keyboard(code: str = "") -> InlineKeyboardMarkup:
 ]))
 async def cmd_tvroom(message: Message) -> None:
     """Tv Xona bosh menyusi."""
+    await resolve_bot_username(message.bot)
     user = message.from_user
     user_name = user.first_name if user else "Do'stim"
     code = ""
@@ -110,6 +119,7 @@ async def cmd_tvroom(message: Message) -> None:
 
 async def handle_tvroom_start(message: Message, param: str) -> None:
     """Deep Link (/start tvroom_<code>) orqali xonaga to'g'ridan-to'g'ri ulanish."""
+    await resolve_bot_username(message.bot)
     code = param.replace("tvroom_", "").replace("tvxona_", "").replace("tv_", "").strip()
     norm = normalize_room_code(code)
     base_url = config.webapp_url_resolved or f"https://127.0.0.1:{config.PORT}"
@@ -131,6 +141,7 @@ async def handle_tvroom_start(message: Message, param: str) -> None:
 @router.callback_query(F.data == "tvroom:main")
 async def cb_tvroom_main(call: CallbackQuery) -> None:
     """Tv Xona asosiy ko'rinishiga qaytish."""
+    await resolve_bot_username(call.bot)
     text = (
         "📺 <b>Bauntys «Tv Xona» — Tomosha Party</b>\n\n"
         "Do'stlaringiz bilan birgalikda sevimli telekanallarni tomosha qiling, "

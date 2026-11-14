@@ -1135,7 +1135,11 @@ async function load() {
   skeleton();
   try {
     const r = await (await fetch("api/catalog", {cache: "no-cache"})).json();
-    items = r.items || []; channel = r.channel || ""; botName = r.bot || "";
+    items = r.items || []; channel = r.channel || ""; botName = r.bot || botName || "";
+    if (r.bot) {
+      window.BOT_USERNAME = r.bot;
+      window.ZK_BOT = r.bot;
+    }
     window.ZK_MAINTENANCE = r.maintenance || null;
     tvSoon = !!r.tv_soon;
     ASIL = !!(r.asil && window.ZAsil);

@@ -1260,12 +1260,19 @@ async def resolve_anon_target(session: AsyncSession, raw_token: str) -> Optional
     clean = str(raw_token or "").strip()
     if clean.startswith("q_"):
         clean = clean[2:].strip()
+    if "&" in clean:
+        clean = clean.split("&", 1)[0].strip()
+    clean = clean.rstrip(".,;:!?)\"'`")
     if not clean or len(clean) > 32:
         return None
 
     stmt = select(AnonQuestionProfile).where(AnonQuestionProfile.token == clean)
     res = await session.execute(stmt)
     prof = res.scalar_one_or_none()
+    if not prof and not clean.isdigit():
+        stmt_ci = select(AnonQuestionProfile).where(func.lower(AnonQuestionProfile.token) == clean.lower())
+        res_ci = await session.execute(stmt_ci)
+        prof = res_ci.scalar_one_or_none()
     if prof:
         return (int(prof.user_id), bool(prof.is_accepting))
 
