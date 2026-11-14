@@ -43,7 +43,7 @@ const I = {
 };
 
 const LANGS = {uz: ["🇺🇿", "O'zbek", "o'zbek tilida"], ru: ["🇷🇺", "Русский", "rus tilida"], en: ["🇬🇧", "English", "ingliz tilida"]};
-const GEN = {roman: ["📖", "Roman"], sheriyat: ["🪶", "She'riyat"], hikoya: ["✍️", "Hikoya"], tarix: ["🏛", "Tarix"], drama: ["🎭", "Drama"],
+const GEN = {badiiy: ["📖", "Badiiy"], roman: ["📖", "Roman"], sheriyat: ["🪶", "She'riyat"], hikoya: ["✍️", "Hikoya"], tarix: ["🏛", "Tarix"], drama: ["🎭", "Drama"],
   bolalar: ["🧸", "Bolalar"], sarguzasht: ["🧭", "Sarguzasht"], detektiv: ["🔎", "Detektiv"], fantastika: ["🚀", "Fantastika"],
   falsafa: ["💭", "Falsafa"], diniy: ["🕌", "Diniy"], ilmiy: ["🔬", "Ilmiy"], psixologiya: ["🧠", "Psixologiya"], biznes: ["💼", "Biznes"],
   boshqa: ["📚", "Boshqa"]};
@@ -401,7 +401,7 @@ function bookHTML(id) {
     <div class="bx-cta">${aud ? `<button class="bx-btn pri" data-play="${b.i}">${I.head}${listenTxt}</button>`
       : `<button class="bx-btn pri" data-read="${b.i}">${I.book}${b.au ? (started ? `O'qish · ${Math.round(st.pct)}%` : "O'qish") : st.done ? "Qayta o'qish" : started ? `Davom ettirish · ${Math.round(st.pct)}%` : "O'qishni boshlash"}</button>
       ${b.au ? `<button class="bx-btn sec" data-play="${b.i}">${I.head}${here && !A.el.paused ? "Tinglanmoqda" : "Tinglash"}</button><button class="bx-btn sec ic" data-dl="${b.i}" aria-label="Yuklab olish">${I.dl}</button>`
-        : `<button class="bx-btn sec" data-dl="${b.i}">${I.dl}Yuklab olish</button>`}`}</div>`;
+        : `<button class="bx-btn sec" data-dl="${b.i}">${I.dl}Yuklab olish</button>`}`}</div>${!aud && (b.src === "ziyouz" || b.pdf_url || (b.f && b.f.includes("pdf"))) ? `<div class="bx-cta" style="margin-top:-8px"><button class="bx-btn sec" style="flex:1" data-pdf="${b.i}">📄 ${b.src === "ziyouz" ? "To'liq PDF ochish" : "PDF ko'rinishda ochish"}${b.sz ? " · " + String(b.sz).replace(".", ",") + " MB" : ""}</button></div>` : ""}`;
   if (b.desc) h += `<div class="bx-desc${b._full ? "" : " cut"}"><p>${fmtHtml(b.desc)}</p>${b.desc.length > 220 && !b._full ? `<button data-act="more-desc">Batafsil</button>` : ""}</div>`;
   if (st.pct > 0 || st.done || ap) {
     h += `<div class="bx-h"><h2>Bahoyingiz</h2></div><div class="bx-stars">${[1, 2, 3, 4, 5].map((n) =>
@@ -535,6 +535,24 @@ function pickSheet(title, opts, cur, cb) {
 }
 
 // ------------------------------------------------------------------ 8 · Yuklab olish
+function openBookPdf(bookId) {
+  const u = new URL(`api/books/${encodeURIComponent(bookId)}/pdf`, location.href).href;
+  try {
+    if (inTg && tg && typeof tg.openLink === "function") { tg.openLink(u); return; }
+  } catch (e) {}
+  window.open(u, "_blank");
+}
+if (!window._bntPdfBound) {
+  window._bntPdfBound = true;
+  document.addEventListener("click", (e) => {
+    const pdfBtn = e.target && e.target.closest ? e.target.closest("[data-pdf]") : null;
+    if (!pdfBtn) return;
+    e.preventDefault();
+    haptic();
+    openBookPdf(pdfBtn.dataset.pdf);
+  });
+}
+
 async function openDownload(id) {
   const b = await ensureBookLite(id); if (!b) { toast("⚠️ Kitob topilmadi"); return; }
   const fm = (b.f || []).filter((f) => FMT[f]);
@@ -545,6 +563,7 @@ async function openDownload(id) {
       ${fm.map((f) => `<button class="bx-fmt${f === pick ? " on" : ""}" data-f="${f}"><span class="ic">${f.toUpperCase()}</span><span class="mt"><b>${FMT[f][0]}</b>
         <i>${b.s && b.s[f] ? mb(b.s[f]) + " · " : ""}${FMT[f][1]}</i></span><span class="rd"></span></button>`).join("")}
       <button class="bx-btn pri" style="width:100%;margin-top:6px" data-act="send" ${state === "sending" ? "disabled" : ""}>${I.dl}${state === "sending" ? "Yuborilmoqda…" : state === "ok" ? "Botga o'tish" : "Chatga yuborish"}</button>
+      ${(fm.includes("pdf") || b.pdf_url || b.src === "ziyouz") ? `<button class="bx-btn sec" style="width:100%;margin-top:8px" data-pdf="${b.i}">📄 To'liq PDF brauzerda ochish</button>` : ""}
       ${state === "ok" ? `<div class="bx-okmsg">${I.ok}Fayl bot chatiga yuborildi — oflayn ham o'qiysiz</div>` : ""}
       ${state === "queued" ? `<div class="bx-okmsg">${I.clock}Navbatda — bir necha soniyada chatga keladi</div>` : ""}`;
     sh.querySelectorAll("[data-f]").forEach((x) => { x.onclick = () => { pick = x.dataset.f; lsSet("bnt_bk_fmt", pick); haptic(); draw(sh, ""); }; });
@@ -555,7 +574,7 @@ async function openDownload(id) {
       try { r = await api("api/books/send", {i: b.i, f: pick}); } catch (e) { r = {ok: false, error: "net"}; }
       if (r.ok) { haptic("ok"); draw(sh, r.queued ? "queued" : "ok"); meAt = 0; return; }
       if (!inTg && pick === "pdf") {
-        window.open(`api/books/${b.i}/pdf`, "_blank");
+        openBookPdf(b.i);
         closeSheet();
         toast("📄 PDF yuklanmoqda");
         return;
@@ -694,7 +713,10 @@ async function loadChapter(n, where) {
   }).join("");
   const last = n === R.toc.length - 1;
   const cleanTitle = cleanBookText(data.t || "");
-  $("rdtext").innerHTML = `<div class="ch-h"><small>${n + 1}-BO'LIM · ${R.toc.length} DAN</small><b>${esc(cleanTitle)}</b></div>${paras}
+  const pdfCta = (R.b && (R.b.src === "ziyouz" || R.b.pdf_url) && R.toc.length <= 1)
+    ? `<div style="margin-top:16px"><button class="bx-btn pri" style="width:100%" data-pdf="${R.b.i}">📄 To'liq PDF faylni ochish</button></div>`
+    : "";
+  $("rdtext").innerHTML = `<div class="ch-h"><small>${n + 1}-BO'LIM · ${R.toc.length} DAN</small><b>${esc(cleanTitle)}</b></div>${paras}${pdfCta}
     ${last ? `<div class="end">— Tamom —<br><br>Kitob sizga yoqdimi?<div class="bx-stars" style="margin-top:6px">${[1, 2, 3, 4, 5].map((s) => `<button data-rstar="${s}" style="color:var(--pacc)">☆</button>`).join("")}</div></div>` : ""}`;
   $("rdc").textContent = cleanTitle;
 

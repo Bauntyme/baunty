@@ -802,9 +802,22 @@ class AsilmediaService:
 
         # 2. Tavsif, Janr, Yil
         desc = ""
-        desc_el = soup.find(class_=re.compile(r"fs-description|description|story", re.I))
-        if desc_el:
-            desc = desc_el.get_text(strip=True)
+        for cand_el in (
+            soup.find(itemprop="description"),
+            soup.find(class_=re.compile(r"(?:^|\b)(?:fs-description|fullstory-desc|movie-desc|full-text)(?:\b|$)", re.I)),
+            soup.find("div", class_=re.compile(r"description", re.I)),
+        ):
+            if cand_el:
+                cand_txt = re.sub(r"\s+", " ", cand_el.get_text(" ", strip=True)).strip()
+                if cand_txt and not cand_txt.lower().startswith(("bosh sahifa", "sevimlilar")):
+                    desc = cand_txt
+                    break
+        if not desc:
+            og_desc = soup.find("meta", attrs={"name": "description"}) or soup.find("meta", property="og:description")
+            if og_desc and og_desc.get("content"):
+                cand_txt = re.sub(r"\s+", " ", og_desc.get("content")).strip()
+                if not cand_txt.lower().startswith(("bosh sahifa", "sevimlilar")):
+                    desc = cand_txt
 
         genres = []
         for g_a in soup.find_all("a", href=re.compile(r"xfsearch/genre", re.I)):

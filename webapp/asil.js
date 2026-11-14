@@ -9,7 +9,13 @@ const tg = window.Telegram && Telegram.WebApp;
 const inTg = !!(tg && tg.initData);
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const fmtHtml = (s) => esc(s).replace(/&lt;(\/?(?:b|strong|i|em|u))&gt;/gi, "<$1>");
+const fmtHtml = (s) => {
+  const txt = String(s == null ? "" : s)
+    .replace(/&amp;([a-z#0-9]+;)/gi, "&$1")
+    .replace(/&lt;(\/?(?:b|strong|i|em|u|br))(?:\s[^&]*?)?&gt;/gi, "<$1>")
+    .replace(/<br\s*\/?>/gi, "\n");
+  return esc(txt).replace(/&lt;(\/?(?:b|strong|i|em|u))&gt;/gi, "<$1>");
+};
 const haptic = (t) => { try { t === "ok" ? tg.HapticFeedback.notificationOccurred("success") : t === "err" ? tg.HapticFeedback.notificationOccurred("error") : tg.HapticFeedback.selectionChanged(); } catch (e) {} };
 const T = window.ZK_T || ((u) => u);
 const NB = (n) => (+n || 0).toLocaleString("ru-RU");
@@ -54,19 +60,26 @@ const ERR = (e) => ({network: T("Internet bilan muammo", "Проблема с и
   auth: T("Ilovani bot ichida oching", "Откройте приложение в боте", "Open the app inside the bot"),
   banned: T("Siz botdan bloklangansiz", "Вы заблокированы", "You are blocked")}[e] || T("Xatolik — qayta urinib ko'ring", "Ошибка — попробуйте снова", "Error — try again"));
 
-async function openStreamModal(url, title) {
-  if (!url) { toast(ERR("video_unavailable")); return; }
-  if (!/^https?:\/\/[^/]+\/.*/i.test(url) && !url.startsWith("/")) { toast(ERR("video_unavailable")); return; }
-  try {
-    if (url.startsWith("/") || url.startsWith(location.origin)) {
-      const chk = await fetch(url, {method: "HEAD", headers: {"X-Init-Data": inTg ? tg.initData : ""}});
-      const ct = (chk.headers.get("content-type") || "").toLowerCase();
-      if (!chk.ok || ct.includes("text/html") || ct.includes("application/json")) {
-        toast(ERR("video_unavailable"));
-        return;
+async function openStreamModal(url, title, watchFallback) {
+  const fbUrl = watchFallback || (det && det.it && det.it.watch) || "";
+  if (!url && !fbUrl) { toast(ERR("video_unavailable")); return; }
+  let useEmbed = false;
+  if (!url || (!/^https?:\/\/[^/]+\/.*/i.test(url) && !url.startsWith("/"))) {
+    if (fbUrl && /^https?:\/\//i.test(fbUrl)) useEmbed = true;
+    else { toast(ERR("video_unavailable")); return; }
+  }
+  if (!useEmbed) {
+    try {
+      if (url.startsWith("/") || url.startsWith(location.origin)) {
+        const chk = await fetch(url, {method: "HEAD", headers: {"X-Init-Data": inTg ? tg.initData : ""}});
+        const ct = (chk.headers.get("content-type") || "").toLowerCase();
+        if (!chk.ok || ct.includes("text/html") || ct.includes("application/json")) {
+          if (fbUrl && /^https?:\/\//i.test(fbUrl)) useEmbed = true;
+          else { toast(ERR("video_unavailable")); return; }
+        }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
   let modal = document.getElementById("zkVModal");
   if (!modal) {
     modal = document.createElement("div");
@@ -74,22 +87,34 @@ async function openStreamModal(url, title) {
     modal.className = "zk-vmodal";
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
-    modal.innerHTML = `<div class="zk-vbox"><div class="zk-vh"><b id="zkVTtl"></b><button type="button" id="zkVX" aria-label="Yopish">✕</button></div><video id="zkVVid" class="zk-vvid" controls playsinline preload="metadata"></video><div class="zk-vfoot"><span>Bauntys Player</span><a id="zkVExt" href="#" target="_blank" rel="noopener" style="color:var(--zk-acc,#F2B84B);text-decoration:none;font-weight:700">↗</a></div></div>`;
+    modal.innerHTML = `<div class="zk-vbox"><div class="zk-vh"><b id="zkVTtl"></b><button type="button" id="zkVX" aria-label="Yopish">✕</button></div><video id="zkVVid" class="zk-vvid" controls playsinline preload="metadata"></video><iframe id="zkVIfr" class="zk-vvid" style="display:none;border:0;min-height:260px;width:100%" allowfullscreen allow="autoplay; fullscreen; picture-in-picture"></iframe><div class="zk-vfoot"><span>Bauntys Player</span><a id="zkVExt" href="#" target="_blank" rel="noopener" style="color:var(--zk-acc,#F2B84B);text-decoration:none;font-weight:700">↗</a></div></div>`;
     document.body.appendChild(modal);
     const close = () => {
       const v = document.getElementById("zkVVid");
-      if (v) { try { v.pause(); } catch (e) {} v.removeAttribute("src"); v.load(); }
+      const ifr = document.getElementById("zkVIfr");
+      if (v) { try { v.pause(); } catch (e) {} v.removeAttribute("src"); v.load(); v.style.display = ""; }
+      if (ifr) { ifr.removeAttribute("src"); ifr.style.display = "none"; }
       modal.hidden = true;
     };
     modal.addEventListener("click", (ev) => { if (ev.target === modal || ev.target.closest("#zkVX")) close(); });
     addEventListener("keydown", (ev) => { if (ev.key === "Escape" && !modal.hidden) close(); });
   }
-  const ttl = document.getElementById("zkVTtl"), vid = document.getElementById("zkVVid"), ext = document.getElementById("zkVExt");
+  const ttl = document.getElementById("zkVTtl"), vid = document.getElementById("zkVVid"), ifr = document.getElementById("zkVIfr"), ext = document.getElementById("zkVExt");
   if (ttl) ttl.textContent = title || "Bauntys";
-  if (ext) { ext.href = url; ext.textContent = T("Yangi oynada", "Открыть отдельно", "Open externally") + " ↗"; }
+  const extHref = useEmbed ? fbUrl : (url || fbUrl);
+  if (ext) { ext.href = extHref; ext.textContent = T("Yangi oynada", "Открыть отдельно", "Open externally") + " ↗"; }
   modal.hidden = false;
+  const showEmbed = () => {
+    if (!ifr || !fbUrl) { toast(ERR("video_unavailable")); return; }
+    if (vid) { try { vid.pause(); } catch (e) {} vid.removeAttribute("src"); vid.style.display = "none"; }
+    ifr.style.display = "block";
+    ifr.src = fbUrl;
+  };
+  if (useEmbed) { showEmbed(); return; }
+  if (ifr) { ifr.removeAttribute("src"); ifr.style.display = "none"; }
   if (vid) {
-    vid.onerror = () => toast(ERR("video_unavailable"));
+    vid.style.display = "";
+    vid.onerror = () => { if (fbUrl && /^https?:\/\//i.test(fbUrl)) showEmbed(); else toast(ERR("video_unavailable")); };
     vid.src = url;
     try { await vid.play(); } catch (e) {}
   }
@@ -559,10 +584,11 @@ function closeDet() {
 }
 const fileBtn = (f, label, ep) => {
   const epNum = ep || f.part || f.e || 0;
-  const title = label || f.label || f.q || T("Fayl", "Файл", "File");
+  const title = f.label || label || (epNum ? `${epNum}-${T("qism", "серия", "ep.")}` : "") || f.q || T("Fayl", "Файл", "File");
   const subParts = [
+    f.q && title !== f.q && !String(title).includes(String(f.q)) ? esc(f.q) : "",
     f.mb ? (f.mb >= 1024 ? (f.mb / 1024).toFixed(1) + " GB" : f.mb + " MB") : "",
-    (!epNum && f.parts > 1) ? `${f.parts} ${T("bo'lak", "частей", "parts")}` : "",
+    (!epNum && f.parts > 1) ? `${f.parts} ${T("bo'lak", "част.", "parts")}` : "",
     f.tr ? esc(f.tr) : "",
     f.ok ? "" : T("tayyorlanmoqda", "готовится", "preparing"),
   ].filter(Boolean).join(" · ");
@@ -592,7 +618,7 @@ function paintDet() {
       ${pageTabs}
       <div class="as-eps">${epsSlice.map((e) => `<div class="as-ep"><span>${esc(e.name || e.e + "-" + T("qism", "серия", "ep."))}</span><div>${e.f.map((f) => fileBtn(f, f.q || "1080p", e.e)).join("")}</div></div>`).join("")}</div>`;
   } else {
-    files = (x.files || []).length ? `<div class="as-files">${x.files.map((f) => fileBtn(f)).join("")}</div>` : `<p class="as-note">${T("Fayl hali yuklanmagan", "Файл ещё не загружен", "No file yet")}</p>`;
+    files = (x.files || []).length ? `<div class="as-files">${x.files.map((f, idx) => fileBtn(f, f.label || f.q || "1080p", f.part || f.e || (x.files.length > 1 && !(f.label || "").trim() ? idx + 1 : 0))).join("")}</div>` : `<p class="as-note">${T("Fayl hali yuklanmagan", "Файл ещё не загружен", "No file yet")}</p>`;
   }
   $("asdv").innerHTML = `<div class="hero">${x.p ? `<div class="blur" style="background-image:url('${esc(x.p)}')"></div>` : ""}${posterHTML(x)}</div>
     <div class="as-body"><h1>${esc(x.t)}</h1>${x.alt ? `<p class="as-alt">${esc(x.alt)}</p>` : ""}

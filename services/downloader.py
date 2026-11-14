@@ -317,13 +317,14 @@ class MediaDownloader:
         file_prefix = str(uuid.uuid4())[:8]
         clean_url = url.strip()
 
-        # To'g'ridan-to'g'ri MP3/audio havola bo'lsa (masalan Deezer preview yoki Audius/CDN stream)
+        # To'g'ridan-to'g'ri MP3/audio havola bo'lsa (Hitmotop / Uzhits / Tarona / Deezer / Audius)
+        parsed_u = urllib.parse.urlparse(clean_url)
+        low_u = clean_url.lower()
+        path_low = (parsed_u.path or "").lower()
         if clean_url.startswith("http") and (
-            clean_url.endswith(".mp3")
-            or clean_url.endswith(".m4a")
-            or "preview" in clean_url
-            or "deezer" in clean_url
-            or ("audius.co/" in clean_url and "/stream" in clean_url)
+            path_low.endswith((".mp3", ".m4a", ".ogg", ".opus", ".aac"))
+            or any(h in low_u for h in ("preview", "deezer", "hitmotop", "uzhits", "muzfm", "tarona"))
+            or ("audius.co/" in low_u and "/stream" in low_u)
         ):
             direct_res = self._download_direct_stream(clean_url, is_audio=True, file_prefix=file_prefix)
             if direct_res and direct_res.success:
@@ -494,11 +495,13 @@ class MediaDownloader:
         max_bytes = config.MAX_FILE_SIZE_MB * 1024 * 1024
 
         try:
+            pu = urllib.parse.urlparse(url)
             req = urllib.request.Request(
                 url,
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-                    "Accept": "*/*"
+                    "Accept": "*/*",
+                    "Referer": f"{pu.scheme}://{pu.netloc}/" if pu.netloc else "",
                 }
             )
             with urllib.request.urlopen(req, timeout=20) as resp:

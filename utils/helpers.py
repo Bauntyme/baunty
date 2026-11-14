@@ -3,6 +3,7 @@ Yordamchi funksiyalar va vositalar
 """
 import re
 import os
+import html
 import time
 import hashlib
 import shutil
@@ -99,13 +100,15 @@ def detect_platform(url: str) -> str:
 
 def format_movie_caption(movie) -> str:
     """Kino haqidagi to'liq ma'lumot xabari."""
-    genres_str = movie.genres if movie.genres else "Noma'lum"
-    year_str = str(movie.year) if movie.year else "Noma'lum"
-    rating_str = f"⭐ {movie.rating}/10" if movie.rating else "⭐ Baholanmagan"
+    title_safe = html.escape(str(getattr(movie, "title", "") or "Kino"), quote=False)
+    code_safe = html.escape(str(getattr(movie, "code", "") or ""), quote=False)
+    genres_str = html.escape(str(movie.genres if movie.genres else "Noma'lum"), quote=False)
+    year_str = html.escape(str(movie.year) if movie.year else "Noma'lum", quote=False)
+    rating_str = html.escape(f"⭐ {movie.rating}/10" if movie.rating else "⭐ Baholanmagan", quote=False)
 
     caption = (
-        f"🎬 <b>{movie.title}</b>\n\n"
-        f"🔢 <b>Kino kodi:</b> <code>{movie.code}</code>\n"
+        f"🎬 <b>{title_safe}</b>\n\n"
+        f"🔢 <b>Kino kodi:</b> <code>{code_safe}</code>\n"
         f"🎭 <b>Janri:</b> {genres_str}\n"
         f"📅 <b>Yili:</b> {year_str}\n"
         f"⭐ <b>Reyting:</b> {rating_str}\n"
@@ -113,13 +116,16 @@ def format_movie_caption(movie) -> str:
     )
 
     if movie.description:
-        desc = movie.description[:400] + ("..." if len(movie.description) > 400 else "")
-        caption += f"\n📝 <b>Tavsif:</b>\n<i>{desc}</i>\n"
+        clean_desc = re.sub(r"<[^>]+>", "", html.unescape(str(movie.description)))
+        desc = clean_desc[:400] + ("..." if len(clean_desc) > 400 else "")
+        caption += f"\n📝 <b>Tavsif:</b>\n<i>{html.escape(desc, quote=False)}</i>\n"
 
     from services.bot_identity import get_bot_username
+    ch_safe = html.escape(str(config.CHANNEL_USERNAME or ""), quote=False)
+    bot_safe = html.escape(str(get_bot_username() or ""), quote=False)
     caption += (
-        f"\n🍿 <b>Barcha sara kinolar:</b> {config.CHANNEL_USERNAME}\n"
-        f"🤖 <b>Botimiz:</b> @{get_bot_username()}\n\n"
+        f"\n🍿 <b>Barcha sara kinolar:</b> {ch_safe}\n"
+        f"🤖 <b>Botimiz:</b> @{bot_safe}\n\n"
         "ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi."
     )
     return caption
@@ -127,11 +133,13 @@ def format_movie_caption(movie) -> str:
 
 def format_movie_not_found(code: str) -> str:
     """Kino topilmaganda yuboriladigan xabar."""
+    code_safe = html.escape(str(code or ""), quote=False)
+    ch_safe = html.escape(str(config.CHANNEL_USERNAME or ""), quote=False)
     return (
-        f"❌ Kechirasiz, <code>{code}</code> kodli kino topilmadi!\n\n"
+        f"❌ Kechirasiz, <code>{code_safe}</code> kodli kino topilmadi!\n\n"
         f"💡 <b>Kino kodini qayerdan olish mumkin?</b>\n"
         f"🍿 Bizning rasmiy kanalimizdan barcha eng so'nggi kinolar va ularning kodlarini topishingiz mumkin:\n"
-        f"👉 {config.CHANNEL_USERNAME}\n\n"
+        f"👉 {ch_safe}\n\n"
         f"Iltimos, kodni to'g'ri kiritganingizni tekshirib, qayta urinib ko'ring."
     )
 

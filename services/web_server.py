@@ -609,6 +609,65 @@ _BOOK_404_CACHE: Dict[str, float] = {}
 _RC_CACHE: Dict[str, Tuple[bytes, str, str]] = {}
 
 
+def _resolve_catalog_item_any(stem: str) -> Optional[Dict[str, Any]]:
+    """Katalogdan rasm nomi bo'yicha (c, i, a, asil_id) mos yozuvni topish."""
+    from services import movie_service as ms_mod
+    from services.movie_service import MovieService
+    raw = str(stem or "").strip()
+    if not raw:
+        return None
+    stripped = re.sub(r"_(?:s|l)$", "", raw, flags=re.I)
+    for key in (raw, stripped):
+        item = MovieService.get_catalog_item(key)
+        if item:
+            return item
+    cache = MovieService._ensure_catalog_cache() or ms_mod._CATALOG_CACHE or {}
+    items = cache.get("items", []) if isinstance(cache, dict) else []
+    target_ids = {raw, stripped}
+    for entry in items:
+        if isinstance(entry, dict) and any(str(entry.get(k) or "").strip() in target_ids for k in ("c", "i", "a", "asil_id")):
+            return entry
+    return None
+
+
+def _generate_fallback_poster_webp(title: str, code: str) -> bytes:
+    """Poster topilmaganda chiroyli WebP poster yaratish (404 o'rniga)."""
+    import io
+    from PIL import Image, ImageDraw
+    w, h = 360, 520
+    img = Image.new("RGB", (w, h), (16, 21, 36))
+    draw = ImageDraw.Draw(img)
+    for y in range(h):
+        r = int(18 + (y / h) * 16)
+        g = int(24 + (y / h) * 10)
+        b = int(46 + (y / h) * 28)
+        draw.line([(0, y), (w, y)], fill=(r, g, b))
+    draw.rectangle([20, 20, w - 20, h - 20], outline=(242, 184, 75), width=2)
+    label_lines = []
+    words = (title or "BAUNTY FILMS").split()
+    cur = ""
+    for wd in words[:10]:
+        if len(cur) + len(wd) + 1 <= 18:
+            cur = f"{cur} {wd}".strip()
+        else:
+            if cur:
+                label_lines.append(cur)
+            cur = wd
+    if cur:
+        label_lines.append(cur)
+    if not label_lines:
+        label_lines = ["BAUNTY FILMS"]
+    y0 = 180
+    for ln in label_lines[:4]:
+        draw.text((w // 2, y0), ln, fill=(248, 250, 252), anchor="mm")
+        y0 += 32
+    if code:
+        draw.text((w // 2, h - 68), f"#{code}", fill=(242, 184, 75), anchor="mm")
+    buf = io.BytesIO()
+    img.save(buf, format="WEBP", quality=82)
+    return buf.getvalue()
+
+
 async def handle_poster_proxy(request: web.Request) -> web.Response:
     """Kino posterlarini keshlab uzatish (mahalliy katalog, Asilmedia CDN va in-memory kesh)."""
     filename = request.match_info.get("filename", "")
@@ -659,19 +718,40 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
 
     # 3. Katalog yoki Asilmedia CDN manzilidan poster olish
     stem = os.path.splitext(clean_name)[0].strip()
+    base_stem = re.sub(r"_(?:s|l)$", "", stem, flags=re.I)
+    cat_item = None
     poster_url = ""
     try:
-        cat_item = MovieService.get_catalog_item(stem)
+        cat_item = _resolve_catalog_item_any(stem)
         if cat_item:
+            # Agar katalogdagi Haqiqiy kodi (c) lokal diskda bo'lsa, darhol o'shani qaytarish
+            real_code = str(cat_item.get("c") or "").strip()
+            if real_code:
+                for cand_name in (f"{real_code}_s.webp", f"{real_code}.webp", f"{real_code}_l.webp"):
+                    cand_path = posters_dir / cand_name
+                    if cand_path.exists() and cand_path.is_file() and cand_path.stat().st_size > 200:
+                        data = await asyncio.to_thread(cand_path.read_bytes)
+                        etag = f'"{hashlib.md5(data).hexdigest()[:16]}"'
+                        _POSTER_CACHE[clean_name] = (data, etag)
+                        return web.Response(
+                            body=data,
+                            content_type="image/webp",
+                            headers={
+                                "Cache-Control": "public, max-age=604800, immutable",
+                                "Access-Control-Allow-Origin": "*",
+                                "ETag": etag,
+                            },
+                        )
             poster_url = str(cat_item.get("p_url") or cat_item.get("poster") or "").strip()
-            if not poster_url and cat_item.get("asil_id"):
+            aid_val = str(cat_item.get("asil_id") or "").strip()
+            if not poster_url and aid_val.isdigit():
                 from services.asilmedia_service import asilmedia_service
-                am = await asilmedia_service.get_movie_details(str(cat_item["asil_id"]))
+                am = await asyncio.wait_for(asilmedia_service.get_movie_details(aid_val), timeout=3.5)
                 if am and am.poster:
                     poster_url = am.poster
-        elif stem.isdigit():
+        elif base_stem.isdigit() and len(base_stem) <= 7:
             from services.asilmedia_service import asilmedia_service
-            am = await asilmedia_service.get_movie_details(stem)
+            am = await asyncio.wait_for(asilmedia_service.get_movie_details(base_stem), timeout=3.5)
             if am and am.poster:
                 poster_url = am.poster
     except Exception:
@@ -680,8 +760,9 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
     if poster_url.startswith("http") and "sslip.io" not in poster_url.lower():
         try:
             import aiohttp
-            async with aiohttp.ClientSession() as session:
-                async with session.get(poster_url, timeout=aiohttp.ClientTimeout(total=3.0, connect=1.5)) as resp:
+            req_headers = {"User-Agent": "Mozilla/5.0", "Referer": "https://asilmedia.org/"}
+            async with aiohttp.ClientSession(headers=req_headers) as session:
+                async with session.get(poster_url, timeout=aiohttp.ClientTimeout(total=3.5, connect=1.5)) as resp:
                     if resp.status == 200:
                         content = await resp.read()
                         if content and len(content) > 200:
@@ -701,6 +782,24 @@ async def handle_poster_proxy(request: web.Request) -> web.Response:
                             )
         except Exception as e:
             logger.debug(f"Posterni CDN dan yuklab bo'lmadi ({clean_name}): {e}")
+
+    # 4. Zaxira WebP poster (brauzerda singan rasm / 404 bo'lmasligi uchun)
+    try:
+        fb_title = str((cat_item or {}).get("t") or "Bauntys Films")
+        fb_code = str((cat_item or {}).get("c") or base_stem)
+        fb_bytes = await asyncio.to_thread(_generate_fallback_poster_webp, fb_title, fb_code)
+        etag = f'"{hashlib.md5(fb_bytes).hexdigest()[:16]}"'
+        return web.Response(
+            body=fb_bytes,
+            content_type="image/webp",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Access-Control-Allow-Origin": "*",
+                "ETag": etag,
+            },
+        )
+    except Exception:
+        pass
 
     return web.Response(status=404, text="Poster topilmadi")
 
@@ -931,7 +1030,7 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
             }
         )
 
-    # 4. Agar fayl topilmasa va tail toc.json yoki c{n}.json bo'lsa — kitob matnidan avtomatik generatsiya
+    # 4. Agar fayl topilmasa va tail toc.json yoki c{n}.json bo'lsa — Ziyouz real PDF matni yoki kitob tavsifidan generatsiya
     m_toc = re.match(r"^(\d+)/toc\.json$", tail)
     m_ch = re.match(r"^(\d+)/c(\d+)\.json$", tail)
     if m_toc or m_ch:
@@ -939,6 +1038,49 @@ async def handle_book_asset_proxy(request: web.Request) -> web.Response:
         bid = m_toc.group(1) if m_toc else m_ch.group(1)
         book = book_service.get_book_by_id(bid)
         if book:
+            if book.get("src") == "ziyouz" or book.get("download_url"):
+                from services.ziyouz_service import ziyouz_service
+                z_data = await ziyouz_service.get_book_chapters_data(bid)
+                if z_data:
+                    chapters = z_data.get("chapters") or []
+                    if m_toc:
+                        toc_list = [
+                            {
+                                "t": ch.get("t") or f"{idx + 1}-bo'lim",
+                                "c": max(250, len(ch.get("text") or "")),
+                            }
+                            for idx, ch in enumerate(chapters)
+                        ]
+                        toc_data = {
+                            "ok": True,
+                            "mode": "text",
+                            "pages": z_data.get("pages") or book.get("p") or 120,
+                            "toc": toc_list,
+                        }
+                        c_bytes = json.dumps(toc_data, ensure_ascii=False).encode("utf-8")
+                        return web.Response(
+                            body=c_bytes,
+                            content_type="application/json",
+                            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400"},
+                        )
+                    elif m_ch:
+                        ch_num = max(1, int(m_ch.group(2)))
+                        ch_obj = chapters[min(ch_num - 1, len(chapters) - 1)] if chapters else {}
+                        raw_txt = str(ch_obj.get("text") or "").replace("\r\n", "\n")
+                        paras = [p.strip() for p in re.split(r"\n\s*\n", raw_txt) if p.strip()]
+                        if len(paras) <= 1:
+                            paras = [p.strip() for p in raw_txt.split("\n") if p.strip()] or [raw_txt or "Matn mavjud emas."]
+                        ch_data = {
+                            "t": ch_obj.get("t") or f"{ch_num}-bo'lim",
+                            "h": f"«{book.get('t') or 'Kitob'}» — {book.get('a') or 'Muallif'}",
+                            "p": paras,
+                        }
+                        c_bytes = json.dumps(ch_data, ensure_ascii=False).encode("utf-8")
+                        return web.Response(
+                            body=c_bytes,
+                            content_type="application/json",
+                            headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=86400"},
+                        )
             if m_toc:
                 pages = book.get("pages") or book.get("p") or 120
                 toc_data = {
@@ -3160,7 +3302,9 @@ def _build_local_colls_data() -> Dict[str, Any]:
                 p_val = it.get("p")
                 if isinstance(p_val, str) and p_val.strip() and not p_val.strip().isdigit():
                     raw_poster = p_val.strip()
-            if not raw_poster and it.get("i"):
+            if not raw_poster and it.get("c"):
+                raw_poster = f"p/{it.get('c')}_s.webp"
+            elif not raw_poster and it.get("i"):
                 raw_poster = f"p/{it.get('i')}_s.webp"
             if raw_poster and str(raw_poster).strip().isdigit():
                 raw_poster = ""
@@ -3323,21 +3467,35 @@ async def _send_too_big_movie_card(
                 )
             ])
 
+        import html as _html
         dl_buttons = []
+        base_http = webapp_base.rstrip("/") if webapp_base and webapp_base.startswith("https://") else ""
+        q_code_enc = urllib.parse.quote(str(code), safe="")
         for qk in ("480p", "720p", "1080p", "4K"):
             qu = quality_urls.get(qk)
             if qu and str(qu).startswith("http"):
-                dl_buttons.append(InlineKeyboardButton(text=f"⬇️ {qk}", url=str(qu)))
+                btn_url = (
+                    f"{base_http}/api/asil/stream?id={q_code_enc}&part={part}&quality={urllib.parse.quote(qk, safe='')}&dl=1"
+                    if base_http and "fayllar" in str(qu).lower()
+                    else str(qu)
+                )
+                dl_buttons.append(InlineKeyboardButton(text=f"⬇️ {qk}", url=btn_url))
         if not dl_buttons:
-            dl_buttons.append(InlineKeyboardButton(text="⬇️ MP4 yuklab olish", url=primary_dl))
+            fb_url = (
+                f"{base_http}/api/asil/stream?id={q_code_enc}&part={part}&dl=1"
+                if base_http and "fayllar" in str(primary_dl).lower()
+                else primary_dl
+            )
+            dl_buttons.append(InlineKeyboardButton(text="⬇️ MP4 yuklab olish", url=fb_url))
         for i in range(0, len(dl_buttons), 2):
             rows.append(dl_buttons[i:i + 2])
 
         ch_user = (config.CHANNEL_USERNAME or "@BauntyFilms").lstrip("@")
         rows.append([InlineKeyboardButton(text=f"🍿 @{ch_user}", url=f"https://t.me/{ch_user}")])
 
+        safe_title = _html.escape(str(title or "Kino"), quote=False)
         text = (
-            f"🎬 <b>{title}{part_txt}</b>\n\n"
+            f"🎬 <b>{safe_title}{part_txt}</b>\n\n"
             "⚠️ <i>Ushbu video fayli Telegram Bot API (50 MB) limitidan katta bo'lgani uchun "
             "to'g'ridan-to'g'ri fayl ko'rinishida yuborilmadi.</i>\n\n"
             "👇 Quyidagi tugmalar orqali <b>onlayn tomosha qilishingiz</b> yoki "
@@ -3570,12 +3728,13 @@ async def handle_asil_send(request: web.Request) -> web.Response:
 
 async def handle_asil_stream(request: web.Request) -> web.Response:
     """
-    Kino yoki serial qismini to'g'ridan-to'g'ri o'ynatish / stream qilish (Web App pleyeri uchun).
-    Parametrlar: id (kino ID), part (qism raqami, default 1), quality (sifat, default '1080p')
+    Kino yoki serial qismini to'g'ridan-to'g'ri o'ynatish / proksi stream qilish (Web App pleyeri uchun).
+    Parametrlar: id (kino ID), part (qism raqami, default 1), quality (sifat, default '1080p'), dl (yuklash=1)
     """
     item_id = request.query.get("id") or request.query.get("code") or ""
     part_str = request.query.get("part", "1")
     quality = request.query.get("quality", "1080p")
+    is_dl = str(request.query.get("dl") or "").strip().lower() in ("1", "true", "yes")
     try:
         part = int(part_str)
     except (ValueError, TypeError):
@@ -3591,43 +3750,93 @@ async def handle_asil_stream(request: web.Request) -> web.Response:
         if cand.exists() and cand.stat().st_size >= 10 * 1024 * 1024:
             return web.FileResponse(cand)
 
-    # 2. Yagona katalog / Asilmedia orqali imzolangan MP4 oqim havolasini olish
+    # 2. Yagona katalog / Asilmedia orqali imzolangan MP4 oqim havolasini olish va Referer + Range bilan proksi qilish
     try:
+        from services.asilmedia_service import asilmedia_service
         stream_info = await MovieService.get_movie_stream_info(clean_id, part=part)
         if stream_info:
             q_urls = stream_info.get("quality_urls") or {}
-            chosen = q_urls.get(quality) or stream_info.get("stream_url") or stream_info.get("watch_url")
-            if chosen and str(chosen).startswith("http"):
-                chosen_url = str(chosen).strip()
-                from services.asilmedia_service import asilmedia_service
+            cand_urls: List[str] = []
+            for u in (
+                [q_urls.get(quality), stream_info.get("stream_url")]
+                + [q_urls.get(qk) for qk in ("1080p", "720p", "480p", "4K", "360p")]
+            ):
+                us = str(u or "").strip()
+                if us.startswith("http") and us not in cand_urls and not asilmedia_service.is_html_wrapper_url(us):
+                    cand_urls.append(us)
+
+            upstream_headers = {
+                "User-Agent": getattr(asilmedia_service, "USER_AGENT", "Mozilla/5.0"),
+                "Referer": "https://asilmedia.org/",
+                "Origin": "https://asilmedia.org",
+            }
+            if request.headers.get("Range"):
+                upstream_headers["Range"] = request.headers["Range"]
+
+            is_head = request.method.upper() == "HEAD"
+
+            for raw_url in cand_urls:
+                chosen_url = raw_url
                 if asilmedia_service.is_token_expired(chosen_url) or asilmedia_service.needs_fayllar_sign(chosen_url):
                     re_url = await asilmedia_service.resolve_stream_url(chosen_url, news_id=clean_id, force_refresh=True)
                     if re_url:
                         chosen_url = re_url
 
-                if "fayllar" in chosen_url.lower():
-                    needs_re_sign = False
+                for attempt in range(2):
                     try:
-                        probe_timeout = aiohttp.ClientTimeout(total=2.5, connect=1.5, sock_read=1.5)
-                        probe_headers = {"User-Agent": getattr(asilmedia_service, "USER_AGENT", "Mozilla/5.0")}
-                        async with aiohttp.ClientSession(timeout=probe_timeout, headers=probe_headers) as probe_session:
-                            async with probe_session.head(
-                                chosen_url,
-                                allow_redirects=True
-                            ) as probe_resp:
-                                if probe_resp.status in (410, 403):
-                                    needs_re_sign = True
+                        timeout = aiohttp.ClientTimeout(total=None if not is_head else 6, connect=6, sock_read=30)
+                        async with aiohttp.ClientSession(timeout=timeout) as up_sess:
+                            req_fn = up_sess.head if is_head else up_sess.get
+                            async with req_fn(chosen_url, headers=upstream_headers, allow_redirects=True) as up_resp:
+                                if up_resp.status in (403, 410) and attempt == 0:
+                                    re_url = await asilmedia_service.resolve_stream_url(chosen_url, news_id=clean_id, force_refresh=True)
+                                    if re_url and re_url != chosen_url:
+                                        chosen_url = re_url
+                                        continue
+                                if up_resp.status not in (200, 206):
+                                    break
+
+                                ct = (up_resp.headers.get("Content-Type") or "video/mp4").split(";")[0].strip()
+                                if "text/html" in ct.lower():
+                                    break
+                                if ct == "application/octet-stream":
+                                    ct = "video/mp4"
+
+                                resp_headers = {
+                                    "Accept-Ranges": up_resp.headers.get("Accept-Ranges", "bytes"),
+                                    "Access-Control-Allow-Origin": "*",
+                                    "Cache-Control": "no-store",
+                                }
+                                for hk in ("Content-Length", "Content-Range"):
+                                    if up_resp.headers.get(hk):
+                                        resp_headers[hk] = up_resp.headers[hk]
+                                if is_dl:
+                                    resp_headers["Content-Disposition"] = f'attachment; filename="movie_{clean_id}_{part}.mp4"'
+
+                                if is_head:
+                                    return web.Response(status=up_resp.status, content_type=ct, headers=resp_headers)
+
+                                stream_resp = web.StreamResponse(status=up_resp.status, headers={**resp_headers, "Content-Type": ct})
+                                await stream_resp.prepare(request)
+                                try:
+                                    async for chunk in up_resp.content.iter_chunked(65536):
+                                        await stream_resp.write(chunk)
+                                except (ConnectionResetError, asyncio.CancelledError, aiohttp.ClientConnectionError):
+                                    pass
+                                finally:
+                                    try:
+                                        await stream_resp.write_eof()
+                                    except Exception:
+                                        pass
+                                return stream_resp
                     except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
-                        logger.debug("handle_asil_stream: Fayllar probe network error: %s", exc)
-                    except Exception as exc:
-                        logger.debug("handle_asil_stream: unexpected probe error: %s", exc)
+                        logger.debug("handle_asil_stream upstream error (%s): %s", chosen_url[:60], exc)
+                        break
 
-                    if needs_re_sign:
-                        re_url = await asilmedia_service.resolve_stream_url(chosen_url, news_id=clean_id, force_refresh=True)
-                        if re_url:
-                            chosen_url = re_url
-
-                raise web.HTTPFound(chosen_url)
+            # Faqat HTML pleyer sahifasi bo'lsa fallback redirect
+            watch_url = stream_info.get("watch_url")
+            if watch_url and str(watch_url).startswith("http") and not cand_urls:
+                raise web.HTTPFound(str(watch_url))
     except web.HTTPFound:
         raise
     except Exception as e:
@@ -5479,25 +5688,56 @@ async def handle_books_catalog(request: web.Request) -> web.Response:
         offset = 0
 
     from services import book_service
-    data = book_service.get_catalog(category=category, query=query, lang=lang, limit=limit, offset=offset)
+    if query:
+        from services.ziyouz_service import ziyouz_service
+        z_items, z_total = ziyouz_service.search(
+            query=query,
+            genre=category or "",
+            lang=lang or "",
+            limit=limit,
+            offset=offset,
+        )
+        local_off = max(0, offset - z_total)
+        local_lim = max(0, limit - len(z_items))
+        local_data = book_service.get_catalog(category=category, query=query, lang=lang, limit=local_lim or limit, offset=local_off)
+        combined = [book_service._normalize_book_card(it) for it in z_items]
+        if local_lim > 0:
+            combined.extend(book_service._normalize_book_card(it) for it in local_data.get("items", []))
+        data = {
+            "ok": True,
+            "items": combined[:limit],
+            "total": z_total + local_data.get("total", 0),
+            "categories": book_service.CATEGORIES_META,
+            "bot": await resolve_bot_username(_bot_instance),
+            "channel": config.CHANNEL_USERNAME,
+        }
+    else:
+        data = book_service.get_catalog(category=category, query=query, lang=lang, limit=limit, offset=offset)
     return web.json_response(data, headers={"Access-Control-Allow-Origin": "*"})
 
 
 async def handle_books_home(request: web.Request) -> web.Response:
-    """Kutubxona bosh sahifasi (Featured, Top, Janrlar, To'plamlar va Tillarga bo'lingan)."""
+    """Kutubxona bosh sahifasi (Ziyouz real o'zbek kutubxonasi + mahalliy katalog)."""
     from services import book_service
+    from services.ziyouz_service import ziyouz_service
     books = book_service.load_books()
-    total = len(books)
+    z_count = ziyouz_service.count()
+    total = len(books) + z_count
 
     uz_books = [b for b in books if b.get("l") == "uz" or b.get("lang") == "uz"]
     ru_books = [b for b in books if b.get("l") == "ru" or b.get("lang") == "ru"]
     en_books = [b for b in books if b.get("l") == "en" or b.get("lang") == "en"]
 
-    featured = [b for b in books if b.get("popular") or b.get("views", 0) > 40000][:10]
-    if not featured:
-        featured = books[:10]
+    z_top_raw, _ = ziyouz_service.search(sort="top", limit=16)
+    z_top = [book_service._normalize_book_card(b) for b in z_top_raw]
 
-    top = sorted(books, key=lambda x: (x.get("rating", 0), x.get("views", 0)), reverse=True)[:10]
+    local_featured = [book_service._normalize_book_card(b) for b in books if b.get("popular") or b.get("views", 0) > 40000][:6]
+    if not local_featured:
+        local_featured = [book_service._normalize_book_card(b) for b in books[:6]]
+    featured = (z_top[:6] + local_featured)[:12]
+
+    local_top = [book_service._normalize_book_card(b) for b in sorted(books, key=lambda x: (x.get("rating", 0), x.get("views", 0)), reverse=True)[:6]]
+    top = (z_top[6:12] + local_top)[:12]
 
     shelves = [
         {"k": "featured", "t": "🔥 Sara elektron kitoblar", "items": featured},
@@ -5509,17 +5749,24 @@ async def handle_books_home(request: web.Request) -> web.Response:
         cid = cat["id"]
         cname = cat["name"]
         cat_items = [b for b in books if b.get("category") == cid or b.get("g") == cid]
-        if cat_items:
-            genres.append({"g": cid, "n": len(cat_items)})
-            shelves.append({"k": f"genre:{cid}", "t": cname, "items": cat_items[:12]})
+        z_genre_key = cid
+        z_cat_raw, z_cat_total = ziyouz_service.search(genre=z_genre_key, sort="top", limit=6)
+        if z_cat_total == 0 and cid in ("roman", "drama"):
+            z_cat_raw, z_cat_total = ziyouz_service.search(genre="badiiy", sort="top", limit=6)
+            if cid == "drama":
+                z_cat_raw = z_cat_raw[6:12]
+        if cat_items or z_cat_raw:
+            genres.append({"g": cid, "n": len(cat_items) + z_cat_total})
+            mixed = [book_service._normalize_book_card(b) for b in z_cat_raw[:6]] + [book_service._normalize_book_card(b) for b in cat_items[:6]]
+            shelves.append({"k": f"genre:{cid}", "t": cname, "items": mixed[:12]})
 
     collections = [
         {
             "k": "uz",
             "t": "O'zbek adabiyoti durdonalari",
             "flag": "🇺🇿",
-            "d": "Mumtoz va zamonaviy o'zbek asarlari, qadriyatlar va xalq merosi",
-            "n": len(uz_books)
+            "d": "Mumtoz va zamonaviy o'zbek asarlari, qadriyatlar va xalq merosi (Ziyouz PDF)",
+            "n": len(uz_books) + z_count
         },
         {
             "k": "biznes",
@@ -5541,7 +5788,7 @@ async def handle_books_home(request: web.Request) -> web.Response:
         "ok": True,
         "total": total,
         "langs": {
-            "uz": len(uz_books),
+            "uz": len(uz_books) + z_count,
             "ru": len(ru_books),
             "en": len(en_books)
         },
@@ -5549,7 +5796,7 @@ async def handle_books_home(request: web.Request) -> web.Response:
         "genres": genres,
         "collections": collections,
         "featured": featured,
-        "items": books[:30],
+        "items": (z_top + [book_service._normalize_book_card(b) for b in books[:18]])[:30],
         "categories": book_service.CATEGORIES_META,
         "bot": await resolve_bot_username(_bot_instance),
         "channel": config.CHANNEL_USERNAME
@@ -5676,11 +5923,13 @@ async def handle_books_admin_delete(request: web.Request) -> web.Response:
 
 
 async def handle_books_search(request: web.Request) -> web.Response:
-    """Kitoblarni tezkor qidirish API (Upstream 3390+ kitoblar va mahalliy zaxira)."""
+    """Kitoblarni tezkor qidirish API (Ziyouz 9,976+ real PDF va mahalliy 3,390 katalog)."""
     q = request.query.get("q", "").strip()
-    genre = request.query.get("g") or request.query.get("category")
-    lang = request.query.get("l") or request.query.get("lang")
-    sort = request.query.get("s") or request.query.get("sort") or "pop"
+    genre = (request.query.get("g") or request.query.get("category") or "").strip()
+    lang = (request.query.get("l") or request.query.get("lang") or "").strip()
+    sort = (request.query.get("s") or request.query.get("sort") or "pop").strip()
+    ab = (request.query.get("ab") or "").strip().upper()
+    fmt_filter = (request.query.get("f") or "").strip().lower()
     try:
         limit = int(request.query.get("limit") or request.query.get("n") or 30)
     except (ValueError, TypeError):
@@ -5690,43 +5939,75 @@ async def handle_books_search(request: web.Request) -> web.Response:
     except (ValueError, TypeError):
         offset = 0
 
-    items = []
-    total = 0
-
     from services import book_service
-    cat_res = book_service.get_catalog(
-        category=genre,
-        query=q,
-        lang=lang,
-        limit=limit,
-        offset=offset
-    )
-    local_items = cat_res.get("items", [])
-    total = cat_res.get("total", len(local_items))
-    if sort == "az":
-        local_items = sorted(local_items, key=lambda x: (x.get("title") or x.get("t") or ""))
-    elif sort == "rate":
-        local_items = sorted(local_items, key=lambda x: (x.get("rating") or x.get("r") or 0), reverse=True)
-    elif sort == "new":
-        local_items = sorted(local_items, key=lambda x: (x.get("year") or x.get("y") or 0), reverse=True)
+    from services.ziyouz_service import ziyouz_service
 
+    def _sort_key_list(seq, sort_mode):
+        if sort_mode == "az":
+            return sorted(seq, key=lambda x: (x.get("title") or x.get("t") or "").lower())
+        if sort_mode == "rate":
+            return sorted(seq, key=lambda x: (x.get("rating") or x.get("r") or 0), reverse=True)
+        if sort_mode == "new":
+            return sorted(seq, key=lambda x: (x.get("year") or x.get("y") or 0), reverse=True)
+        if sort_mode == "short":
+            return sorted(seq, key=lambda x: (x.get("pages") or x.get("p") or 999))
+        return seq
+
+    # Mahalliy katalogdan to'liq qatorlarni olish (ab/sort bilan aniq sahifalash uchun)
+    local_all = book_service.get_catalog(
+        category=genre or None,
+        query=q or None,
+        lang=lang or None,
+        limit=10000,
+        offset=0,
+    ).get("items", [])
+
+    # Ziyouz natijalari (agar faqat epub/fb2/txt so'ralmagan bo'lsa)
+    use_ziyouz = fmt_filter in ("", "all", "pdf")
+    if use_ziyouz:
+        z_genre = "badiiy" if genre in ("roman", "badiiy") else genre
+        z_items_all, _ = ziyouz_service.search(
+            query=q,
+            genre=z_genre,
+            lang=lang,
+            sort=sort if sort in ("new", "az") else "top",
+            limit=12000,
+            offset=0,
+        )
+        # Roman janri so'ralsa va aniq "roman" bo'lmasa badiiydan ko'rsatamiz
+        if not z_items_all and genre:
+            z_items_all, _ = ziyouz_service.search(query=q, genre=genre, lang=lang, limit=12000, offset=0)
+    else:
+        z_items_all = []
+
+    if ab:
+        local_all = [b for b in local_all if str(b.get("t") or b.get("title") or "").strip().upper().startswith(ab)]
+        z_items_all = [b for b in z_items_all if str(b.get("t") or "").strip().upper().startswith(ab)]
+
+    if sort in ("az", "rate", "new", "short"):
+        local_all = _sort_key_list(local_all, sort)
+        z_items_all = _sort_key_list(z_items_all, sort)
+
+    if lang.lower() in ("ru", "en") and not q:
+        merged = list(local_all) + list(z_items_all)
+    else:
+        merged = list(z_items_all) + list(local_all)
+
+    if fmt_filter and fmt_filter != "all":
+        merged = [
+            b for b in merged
+            if fmt_filter in ([str(x).lower() for x in b.get("f", [])] if isinstance(b.get("f"), list) else [str(b.get("format", "pdf")).lower()])
+        ]
+
+    total = len(merged)
+    page_raw = merged[offset: offset + limit]
     items = []
-    for it in local_items:
-        b = dict(it)
-        # Dual schema: ham tests uchun id, title, author, ham webapp uchun i, t, a
-        b["id"] = str(b.get("i", b.get("id", "")))
-        b["title"] = b.get("t", b.get("title", ""))
-        b["author"] = b.get("a", b.get("author", ""))
-        b["category"] = b.get("g", b.get("category", "badiiy"))
-        b["i"] = b.get("i") or (int(b["id"]) if str(b["id"]).isdigit() else 0)
-        b["t"] = b["title"]
-        b["a"] = b["author"]
-        b["g"] = b["category"]
-        b["c"] = b.get("c", 0)
-        b["p"] = b.get("p", b.get("pages", 120))
-        b["l"] = b.get("l", b.get("lang", "uz"))
-        b["f"] = b.get("f") or ["pdf", "epub"]
-        b["s"] = b.get("s") or {"pdf": int(b.get("size_mb", 2.5) * 1048576), "epub": int(b.get("size_mb", 2.5) * 524288)}
+    for it in page_raw:
+        b = book_service._normalize_book_card(it)
+        b["c"] = b.get("c") or 1
+        if not b.get("s"):
+            sz_mb = float(b.get("size_mb") or 2.5)
+            b["s"] = {"pdf": int(sz_mb * 1048576), "epub": int(sz_mb * 524288)}
         items.append(b)
 
     return web.json_response({"ok": True, "items": items, "total": total}, headers={"Access-Control-Allow-Origin": "*"})
@@ -5746,7 +6027,7 @@ async def handle_book_detail(request: web.Request) -> web.Response:
     book = book_service.get_book_by_id(book_id)
     if not book:
         return web.json_response({"ok": False, "error": "not_found"}, status=404, headers=headers)
-    book_out = dict(book)
+    book_out = book_service._normalize_book_card(book)
     book_out["me"] = book_service.get_user_book_me(uid, book_out.get("i") or book_id)
     return web.json_response({"ok": True, "book": book_out}, headers=headers)
 
@@ -5817,20 +6098,29 @@ async def handle_book_send(request: web.Request) -> web.Response:
 
 
 async def handle_book_pdf(request: web.Request) -> web.Response:
-    """Kitob PDF mutolaa faylini yuklab berish."""
+    """Kitob PDF mutolaa faylini yuklab berish (Ziyouz haqiqiy PDF yoki namuna)."""
     book_id = request.match_info.get("id", "").strip()
     from services import book_service
     book = book_service.get_book_by_id(book_id)
     if not book:
         return web.Response(status=404, text="Kitob topilmadi")
-    pdf_bytes = book_service.create_book_pdf_sample(book)
-    safe_title = re.sub(r'[^\w\s-]', '', book.get('title', 'kitob')).strip()
+
+    pdf_bytes = None
+    if book.get("src") == "ziyouz" or book.get("download_url"):
+        from services.ziyouz_service import ziyouz_service
+        pdf_bytes = await ziyouz_service.fetch_pdf_bytes(book, timeout_s=35.0)
+    if not pdf_bytes:
+        pdf_bytes = book_service.create_book_pdf_sample(book)
+
+    raw_title = str(book.get("title") or book.get("t") or "kitob")
+    safe_title = re.sub(r'[^A-Za-z0-9_-]+', '_', raw_title).strip('_')[:64] or f"book_{book_id}"
     return web.Response(
         body=pdf_bytes,
         content_type="application/pdf",
         headers={
             "Content-Disposition": f'inline; filename="{safe_title}.pdf"',
-            "Access-Control-Allow-Origin": "*"
+            "Access-Control-Allow-Origin": "*",
+            "Cache-Control": "public, max-age=86400",
         }
     )
 

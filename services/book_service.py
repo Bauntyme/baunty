@@ -581,44 +581,86 @@ async def async_get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
 get_book_by_id_async = async_get_book_by_id
 
 
+def _normalize_book_card(it: Dict[str, Any]) -> Dict[str, Any]:
+    """Kitob lug'atini dual-schema ko'rinishiga keltirish."""
+    b = dict(it)
+    b["id"] = str(b.get("i") or b.get("id", ""))
+    b["title"] = b.get("t") or b.get("title", "")
+    b["author"] = b.get("a") or b.get("author", "")
+    b["category"] = b.get("g") or b.get("category", "badiiy")
+    b["i"] = b.get("i") or (int(b["id"]) if str(b.get("id", "")).isdigit() else 0)
+    b["t"] = b["title"]
+    b["a"] = b["author"]
+    b["g"] = b["category"]
+    cover_val = (b.get("cover") or b.get("poster") or b.get("image") or b.get("img") or "").strip()
+    b["cover"] = cover_val
+    b["poster"] = cover_val
+    b["image"] = cover_val
+    b["img"] = cover_val
+    b["c"] = b.get("c") or 1
+    b["cover_url"] = cover_val or f"/bk/{b['id']}/cover_l.webp"
+    b["cover_thumb"] = f"/bk/{b['id']}/cover_s.webp"
+    b["p"] = b.get("p") or b.get("pages", 100)
+    b["l"] = b.get("l") or b.get("lang", "uz")
+    raw_f = b.get("f")
+    if isinstance(raw_f, list):
+        b["f"] = [str(x).lower() for x in raw_f if x]
+    elif isinstance(raw_f, str) and raw_f.strip():
+        b["f"] = [raw_f.strip().lower()]
+    else:
+        b["f"] = [str(b.get("format", "pdf")).lower()]
+    if not b.get("s") and b.get("size_mb"):
+        sz_b = max(65536, int(float(b["size_mb"]) * 1048576))
+        b["s"] = {fmt_k: sz_b for fmt_k in b["f"]}
+    return b
+
+
 def get_book_by_id(book_id: str | int) -> Optional[Dict[str, Any]]:
-    """Kitobni ID orqali olish (mahalliy 3390 kitoblar keshidan darhol <1ms qaytarish)."""
+    """Kitobni ID orqali olish (mahalliy 3390 katalog + Ziyouz kutubxonasidan)."""
     load_books()
     raw = str(book_id).strip()
     bid = re.sub(r'^(?:book_|books_|b_|kitob_)', '', raw).strip()
-    return _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
+    hit = _BOOKS_BY_ID.get(bid) or _BOOKS_BY_ID.get(raw)
+    if hit:
+        return hit
+    try:
+        from services.ziyouz_service import ziyouz_service
+        return ziyouz_service.get_by_id(bid) or ziyouz_service.get_by_id(raw)
+    except Exception:
+        return None
 
 
 def search_books(query: str, limit: int = 25) -> List[Dict[str, Any]]:
-    """Kitoblarni tezkor qidirish (dual-schema: ham i, t, a, ham id, title, author bilan)."""
+    """Kitoblarni tezkor qidirish (Ziyouz real kutubxonasi + mahalliy 3390 katalog)."""
     if not query:
         return []
-    res = get_catalog(query=query, limit=limit)
-    items = res.get("items", [])
-    normalized = []
-    for it in items:
-        b = dict(it)
-        b["id"] = str(b.get("i") or b.get("id", ""))
-        b["title"] = b.get("t") or b.get("title", "")
-        b["author"] = b.get("a") or b.get("author", "")
-        b["category"] = b.get("g") or b.get("category", "badiiy")
-        b["i"] = b.get("i") or (int(b["id"]) if str(b.get("id", "")).isdigit() else 0)
-        b["t"] = b["title"]
-        b["a"] = b["author"]
-        b["g"] = b["category"]
-        cover_val = (b.get("cover") or b.get("poster") or b.get("image") or b.get("img") or "").strip()
-        b["cover"] = cover_val
-        b["poster"] = cover_val
-        b["image"] = cover_val
-        b["img"] = cover_val
-        b["c"] = 1
-        b["cover_url"] = cover_val or f"/bk/{b['id']}/cover_l.webp"
-        b["cover_thumb"] = f"/bk/{b['id']}/cover_s.webp"
-        b["p"] = b.get("p") or b.get("pages", 100)
-        b["l"] = b.get("l") or b.get("lang", "uz")
-        b["f"] = b.get("f") or [b.get("format", "pdf").lower()]
-        normalized.append(b)
-    return normalized
+    combined: List[Dict[str, Any]] = []
+    seen_ids: set[str] = set()
+
+    try:
+        from services.ziyouz_service import ziyouz_service
+        z_items, _ = ziyouz_service.search(query=query, limit=limit)
+        for it in z_items:
+            norm = _normalize_book_card(it)
+            sid = norm["id"]
+            if sid not in seen_ids:
+                seen_ids.add(sid)
+                combined.append(norm)
+    except Exception as exc:
+        logger.debug("Ziyouz search xatosi: %s", exc)
+
+    if len(combined) < limit:
+        res = get_catalog(query=query, limit=limit)
+        for it in res.get("items", []):
+            norm = _normalize_book_card(it)
+            sid = norm["id"]
+            if sid not in seen_ids:
+                seen_ids.add(sid)
+                combined.append(norm)
+                if len(combined) >= limit:
+                    break
+
+    return combined[:limit]
 
 
 BOOK_PALETTES = [
@@ -1177,43 +1219,62 @@ async def deliver_book(
     if not book:
         return {"ok": False, "error": "not_found"}
 
-    title = book.get("title", "Kitob")
-    author = book.get("author", "Noma'lum muallif")
-    category_name = book.get("category_name", "Badiiy adabiyot")
-    pages = book.get("pages", 200)
-    rating = book.get("rating", 4.9)
-    desc = book.get("description", "")
+    bid_str = str(book.get("id") or book.get("i") or book_id)
+    title = str(book.get("title") or book.get("t") or "Kitob")
+    author = str(book.get("author") or book.get("a") or "Noma'lum muallif")
+    category_name = str(book.get("category_name") or book.get("gn") or "Badiiy adabiyot")
+    pages = book.get("pages") or book.get("p") or 200
+    rating = book.get("rating") or book.get("r") or 4.9
+    desc = str(book.get("description") or book.get("d") or "")
     short_desc = (desc[:280] + "…") if len(desc) > 280 else desc
-    format_label = fmt.upper()
 
     bot_user = await resolve_bot_username(bot)
 
-    safe_title = html.escape(str(title), quote=False)
-    safe_author = html.escape(str(author), quote=False)
-    safe_cat_name = html.escape(str(category_name), quote=False)
-    safe_short_desc = html.escape(str(short_desc), quote=False)
+    safe_title = html.escape(title[:140], quote=False)
+    safe_author = html.escape(author[:80], quote=False)
+    safe_cat_name = html.escape(category_name[:60], quote=False)
+    safe_short_desc = html.escape(short_desc, quote=False)
+
+    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
+
+    # Ziyouz haqiqiy PDF kitoblarini avval to'liq holda yuklab olishga harakat qilamiz
+    clean_ext = "epub" if str(fmt).lower() == "epub" else "pdf"
+    real_pdf_bytes: Optional[bytes] = None
+    dl_url = str(book.get("download_url") or "").strip()
+    is_ziyouz = book.get("src") == "ziyouz" or bool(dl_url)
+    if is_ziyouz and clean_ext == "pdf":
+        try:
+            from services.ziyouz_service import ziyouz_service
+            fetched = await ziyouz_service.fetch_pdf_bytes(book, timeout_s=35.0)
+            if fetched and len(fetched) <= 48 * 1024 * 1024:
+                real_pdf_bytes = fetched
+        except Exception as exc_pdf:
+            logger.debug("Ziyouz real PDF fetch xatosi (%s): %s", bid_str, exc_pdf)
+
+    actual_mb = round(len(real_pdf_bytes) / 1048576, 2) if real_pdf_bytes else book.get("size_mb", 2.5)
+    format_label = "PDF" if real_pdf_bytes else fmt.upper()
 
     caption = (
         f"📚 <b>{safe_title}</b>\n\n"
         f"✍️ <b>Muallif:</b> {safe_author}\n"
         f"📂 <b>Toifa:</b> {safe_cat_name}\n"
-        f"📄 <b>Sahifalar:</b> {pages} ta | 💾 <b>Format:</b> {format_label} ({book.get('size_mb', 2.5)} MB)\n"
+        f"📄 <b>Sahifalar:</b> {pages} ta | 💾 <b>Format:</b> {format_label} ({actual_mb} MB)\n"
         f"⭐ <b>Reyting:</b> {rating} / 5.0\n\n"
         f"📖 <i>{safe_short_desc}</i>\n\n"
         f"🤖 <b>@{bot_user} • {config.CHANNEL_USERNAME}</b>"
     )
 
-    from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, BufferedInputFile
-
-    webapp_url = f"{config.WEBAPP_URL}?books&b={book['id']}" if config.WEBAPP_URL else None
+    webapp_url = f"{config.WEBAPP_URL}?books&b={bid_str}" if config.WEBAPP_URL else None
 
     buttons = []
     if webapp_url:
         from aiogram.types import WebAppInfo
         buttons.append([InlineKeyboardButton(text="📖 Ilovada o'qish (Mutolaa)", web_app=WebAppInfo(url=webapp_url))])
+    if dl_url.startswith("http"):
+        buttons.append([InlineKeyboardButton(text="📥 To'liq PDF yuklab olish", url=dl_url)])
 
     share_url = build_telegram_share_url(
-        f"https://t.me/{bot_user}?start=b_{book['id']}",
+        f"https://t.me/{bot_user}?start=b_{bid_str}",
         f"{title} kitobini o'qish",
     )
     buttons.append([
@@ -1222,15 +1283,17 @@ async def deliver_book(
     ])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
 
-    # Faylni formatga qarab generatsiya qilish (PDF yoki EPUB)
+    # Faylni yuborish (Ziyouz haqiqiy PDF yoki EPUB/PDF namuna)
     try:
-        clean_ext = "epub" if str(fmt).lower() == "epub" else "pdf"
-        if clean_ext == "epub":
+        if real_pdf_bytes:
+            doc_bytes = real_pdf_bytes
+            clean_ext = "pdf"
+        elif clean_ext == "epub":
             doc_bytes = create_book_epub_sample(book)
         else:
             doc_bytes = create_book_pdf_sample(book)
 
-        safe_filename = re.sub(r'[^\w\s-]', '', f"{title} - {author}").strip() + f".{clean_ext}"
+        safe_filename = (re.sub(r'[^\w\s-]', '', f"{title} - {author}").strip()[:64] or f"book_{bid_str}") + f".{clean_ext}"
         input_file = BufferedInputFile(doc_bytes, filename=safe_filename)
 
         thumb_bytes = get_book_thumbnail_bytes(book)

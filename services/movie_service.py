@@ -112,6 +112,49 @@ class MovieService:
     """Kinolar bilan ishlash logikasi."""
 
     @staticmethod
+    def _strip_html_plain(text: str) -> str:
+        """Telegram HTML teglarini oddiy matnga o'tkazish (entity xatoligidan himoya)."""
+        import html as _html
+        raw = str(text or "")
+        cleaned = re.sub(r"<[^>]+>", "", raw)
+        return _html.unescape(cleaned)
+
+    @staticmethod
+    async def _send_with_telegram_fallback(
+        send_fn,
+        *,
+        text_key: str = "caption",
+        **kwargs,
+    ):
+        """
+        Telegram yuborish xatolarida (javob xabari topilmasa yoki HTML entity buzilsa)
+        parametrni tozalab qayta yuboradi.
+        """
+        attempt_kwargs = dict(kwargs)
+        for _ in range(3):
+            try:
+                return await send_fn(**attempt_kwargs)
+            except Exception as exc:
+                err_low = str(exc).lower()
+                changed = False
+                if attempt_kwargs.get("reply_to_message_id") and "message to be replied not found" in err_low:
+                    attempt_kwargs["reply_to_message_id"] = None
+                    changed = True
+                if attempt_kwargs.get("parse_mode") and (
+                    "can't parse entities" in err_low
+                    or "parse entities" in err_low
+                    or "unexpected end tag" in err_low
+                    or "can't find end tag" in err_low
+                ):
+                    attempt_kwargs["parse_mode"] = None
+                    if text_key in attempt_kwargs and attempt_kwargs[text_key]:
+                        attempt_kwargs[text_key] = MovieService._strip_html_plain(attempt_kwargs[text_key])
+                    changed = True
+                if not changed:
+                    raise
+        return await send_fn(**attempt_kwargs)
+
+    @staticmethod
     def sanitize_branding(text: str) -> str:
         if not text:
             return ""
@@ -2356,25 +2399,65 @@ class MovieService:
         if not quality_val:
             quality_val = "1080p | Full HD (4K Ultra HD)"
 
+        import html as _html
+        def _clean_field(val, max_len: int = 120) -> str:
+            txt = re.sub(r"<[^>]+>", " ", _html.unescape(str(val or ""))).strip()
+            txt = re.sub(r"\s+", " ", txt)
+            if max_len and len(txt) > max_len:
+                txt = txt[:max_len].rstrip() + "..."
+            return _html.escape(txt, quote=False)
+
         part_tag = f" ({part}-qism)" if (part and part > 1) or total_parts > 1 else ""
-        rating_disp = str(cat_item.get('r')) if cat_item and cat_item.get('r') else (str(db_movie.rating) if db_movie and db_movie.rating else '7.5')
-        dur_disp = str(cat_item.get('d')) if cat_item and cat_item.get('d') else "120 daqiqa"
+        rating_disp = _clean_field(
+            cat_item.get("r") if cat_item and cat_item.get("r")
+            else (db_movie.rating if db_movie and db_movie.rating else "7.5"),
+            20,
+        )
+        raw_dur = ""
+        if cat_item:
+            raw_dur = str(cat_item.get("dur") or cat_item.get("duration") or "").strip()
+        if not raw_dur and db_movie and getattr(db_movie, "duration", None):
+            raw_dur = str(db_movie.duration).strip()
+        if not raw_dur and clean_d:
+            m_dur = re.search(
+                r"(?:Davomiyligi|Vaqti|Duration)\s*[:\-]?\s*([^\n\r<]{2,35})",
+                clean_d,
+                re.I,
+            ) or re.search(r"\b(\d{1,3}\s*(?:daqiqa|min|minut|soat(?:\s+\d+\s*(?:daqiqa|min))?))\b", clean_d, re.I)
+            if m_dur:
+                raw_dur = m_dur.group(1).strip()
+        if not raw_dur or "<" in raw_dur or len(raw_dur) > 40:
+            raw_dur = "120 daqiqa"
+        dur_disp = _clean_field(raw_dur, 40)
+
+        safe_title = _clean_field(display_title, 180)
+        safe_orig = _clean_field(orig_name, 140)
+        safe_year = _clean_field(year_val, 30)
+        safe_genres = _clean_field(genres_val, 140)
+        safe_country = _clean_field(country_val, 80)
+        safe_quality = _clean_field(quality_val, 60)
+        safe_code = _html.escape(str(clean_code or ""), quote=False)
+        safe_channel = _html.escape(str(channel_user or ""), quote=False)
+        safe_bot = _html.escape(str(bot_user or ""), quote=False)
+        safe_disclaimer = _html.escape(str(INDEXER_DISCLAIMER or ""), quote=False)
 
         card_lines = [
-            f"🎬 <b>{display_title}</b>{part_tag} (4K Ultra HD)",
-            f"{year_val} · {dur_disp} · O'zbek tilida · {genres_val} · IMDb: {rating_disp} · Kod: {clean_code}",
-            f"🌐 <b>Original nomi:</b> {orig_name}",
-            f"📅 <b>Yili:</b> {year_val}",
-            f"🎭 <b>Janr:</b> {genres_val}",
-            f"🌍 <b>Davlat:</b> {country_val}",
-            f"📺 <b>Sifati:</b> {quality_val}",
+            f"🎬 <b>{safe_title}</b>{part_tag} (4K Ultra HD)",
+            f"{safe_year} · {dur_disp} · O'zbek tilida · {safe_genres} · IMDb: {rating_disp} · Kod: {safe_code}",
+            f"🌐 <b>Original nomi:</b> {safe_orig}",
+            f"📅 <b>Yili:</b> {safe_year}",
+            f"🎭 <b>Janr:</b> {safe_genres}",
+            f"🌍 <b>Davlat:</b> {safe_country}",
+            f"📺 <b>Sifati:</b> {safe_quality}",
         ]
 
-        card_lines.append(f"\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}")
-        card_lines.append(f"🤖 Bot: {bot_user}\n")
-        card_lines.append(INDEXER_DISCLAIMER)
+        card_lines.append(f"\n📢 Homiy kanal: {safe_channel}  🍿 Kinolarimiz: {safe_channel}")
+        card_lines.append(f"🤖 Bot: {safe_bot}\n")
+        card_lines.append(safe_disclaimer)
 
         caption = "\n".join(card_lines)
+        if len(caption) > 1000:
+            caption = caption[:990].rsplit("\n", 1)[0] + "\n..."
 
         watch_online_url = None
         download_online_url = None
@@ -2429,17 +2512,19 @@ class MovieService:
             if target_file_id and MovieService.is_valid_telegram_file_id(target_file_id):
                 try:
                     if target_file_type == "document":
-                        await bot.send_document(
+                        await MovieService._send_with_telegram_fallback(
+                            bot.send_document,
                             chat_id=chat_id,
                             document=target_file_id,
                             caption=caption,
                             parse_mode="HTML",
                             reply_markup=reply_markup,
                             reply_to_message_id=reply_to_message_id,
-                            protect_content=True
+                            protect_content=True,
                         )
                     else:
-                        await bot.send_video(
+                        await MovieService._send_with_telegram_fallback(
+                            bot.send_video,
                             chat_id=chat_id,
                             video=target_file_id,
                             caption=caption,
@@ -2448,7 +2533,7 @@ class MovieService:
                             supports_streaming=True,
                             reply_markup=reply_markup,
                             reply_to_message_id=reply_to_message_id,
-                            protect_content=True
+                            protect_content=True,
                         )
                     if db_movie:
                         await crud.increment_movie_views(session, db_movie.id)
@@ -2457,39 +2542,6 @@ class MovieService:
                     return True
                 except Exception as e:
                     err_str = str(e).lower()
-                    if "message to be replied not found" in err_str and reply_to_message_id:
-                        try:
-                            if target_file_type == "document":
-                                await bot.send_document(
-                                    chat_id=chat_id,
-                                    document=target_file_id,
-                                    caption=caption,
-                                    parse_mode="HTML",
-                                    reply_markup=reply_markup,
-                                    reply_to_message_id=None,
-                                    protect_content=True
-                                )
-                            else:
-                                await bot.send_video(
-                                    chat_id=chat_id,
-                                    video=target_file_id,
-                                    caption=caption,
-                                    parse_mode="HTML",
-                                    duration=target_duration,
-                                    supports_streaming=True,
-                                    reply_markup=reply_markup,
-                                    reply_to_message_id=None,
-                                    protect_content=True
-                                )
-                            if db_movie:
-                                await crud.increment_movie_views(session, db_movie.id)
-                            await session.commit()
-                            video_sent = True
-                            return True
-                        except Exception as retry_err:
-                            e = retry_err
-                            err_str = str(retry_err).lower()
-
                     if any(tok in err_str for tok in ("wrong file identifier", "file_id", "wrong remote file id")):
                         logger.warning(f"Baza/Cloud videosining file_id si eskirgan ({e}), tozalanmoqda.")
                         try:
@@ -2619,33 +2671,18 @@ class MovieService:
                             display_title=display_title
                         )
                     else:
-                        try:
-                            sent_msg = await bot.send_video(
-                                chat_id=chat_id,
-                                video=target_video,
-                                caption=caption,
-                                parse_mode="HTML",
-                                duration=cand.get("duration"),
-                                supports_streaming=True,
-                                reply_markup=reply_markup,
-                                reply_to_message_id=reply_to_message_id,
-                                protect_content=True
-                            )
-                        except Exception as lve:
-                            if reply_to_message_id and "message to be replied not found" in str(lve).lower():
-                                sent_msg = await bot.send_video(
-                                    chat_id=chat_id,
-                                    video=target_video,
-                                    caption=caption,
-                                    parse_mode="HTML",
-                                    duration=cand.get("duration"),
-                                    supports_streaming=True,
-                                    reply_markup=reply_markup,
-                                    reply_to_message_id=None,
-                                    protect_content=True
-                                )
-                            else:
-                                raise
+                        sent_msg = await MovieService._send_with_telegram_fallback(
+                            bot.send_video,
+                            chat_id=chat_id,
+                            video=target_video,
+                            caption=caption,
+                            parse_mode="HTML",
+                            duration=cand.get("duration"),
+                            supports_streaming=True,
+                            reply_markup=reply_markup,
+                            reply_to_message_id=reply_to_message_id,
+                            protect_content=True,
+                        )
 
                     if sent_msg:
                         # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish
@@ -2724,70 +2761,40 @@ class MovieService:
 
         if poster_path.exists():
             try:
-                await bot.send_photo(
+                await MovieService._send_with_telegram_fallback(
+                    bot.send_photo,
                     chat_id=chat_id,
                     photo=FSInputFile(poster_path),
                     caption=caption,
                     parse_mode="HTML",
                     reply_markup=reply_markup,
                     reply_to_message_id=reply_to_message_id,
-                    protect_content=True
+                    protect_content=True,
                 )
                 if db_movie:
                     await crud.increment_movie_views(session, db_movie.id)
                 await session.commit()
                 return True
             except Exception as ep:
-                if reply_to_message_id and "message to be replied not found" in str(ep).lower():
-                    try:
-                        await bot.send_photo(
-                            chat_id=chat_id,
-                            photo=FSInputFile(poster_path),
-                            caption=caption,
-                            parse_mode="HTML",
-                            reply_markup=reply_markup,
-                            reply_to_message_id=None,
-                            protect_content=True
-                        )
-                        if db_movie:
-                            await crud.increment_movie_views(session, db_movie.id)
-                        await session.commit()
-                        return True
-                    except Exception as ep_retry:
-                        ep = ep_retry
                 logger.warning(f"Poster yuborib bo'lmadi ({ep}), matn yuboriladi.")
 
         # 3. Matnli xabar ko'rinishida yuborish
         try:
-            await bot.send_message(
+            await MovieService._send_with_telegram_fallback(
+                bot.send_message,
+                text_key="text",
                 chat_id=chat_id,
                 text=caption,
                 parse_mode="HTML",
                 reply_markup=reply_markup,
                 reply_to_message_id=reply_to_message_id,
-                protect_content=True
+                protect_content=True,
             )
             if db_movie:
                 await crud.increment_movie_views(session, db_movie.id)
             await session.commit()
             return True
         except Exception as em:
-            if reply_to_message_id and "message to be replied not found" in str(em).lower():
-                try:
-                    await bot.send_message(
-                        chat_id=chat_id,
-                        text=caption,
-                        parse_mode="HTML",
-                        reply_markup=reply_markup,
-                        reply_to_message_id=None,
-                        protect_content=True
-                    )
-                    if db_movie:
-                        await crud.increment_movie_views(session, db_movie.id)
-                    await session.commit()
-                    return True
-                except Exception as em_retry:
-                    em = em_retry
             logger.error(f"Xabar yuborib bo'lmadi: {em}")
             return False
 
