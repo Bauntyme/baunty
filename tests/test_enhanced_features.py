@@ -8,6 +8,7 @@ Kengaytirilgan imkoniyatlar uchun to'liq testlar:
 import pytest
 import re
 import json
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 from aiohttp.test_utils import TestClient, TestServer
 from services.web_server import create_web_app, set_bot_instance
@@ -27,6 +28,46 @@ async def test_story_api_endpoints():
     server = TestServer(app)
     client = TestClient(server)
     await client.start_server()
+
+    prev_cache = story_service._profile_cache.get("cristiano")
+    prev_ts = story_service._cache_ts.get("cristiano")
+    prev_cache_tg = story_service._profile_cache.get("tg_kunuz")
+    prev_ts_tg = story_service._cache_ts.get("tg_kunuz")
+    story_service._profile_cache["cristiano"] = {
+        "ok": True,
+        "name": "cristiano",
+        "pic": "https://fayllar.com/cristiano_avatar.jpg",
+        "verified": True,
+        "items": [
+            {
+                "id": "cristiano_1",
+                "k": "image",
+                "t": "https://fayllar.com/cristiano_thumb.jpg",
+                "u": "https://fayllar.com/cristiano_story.jpg",
+                "d": 5,
+                "ts": 1700000000,
+            }
+        ],
+    }
+    story_service._profile_cache["tg_kunuz"] = {
+        "ok": True,
+        "name": "Kun.uz",
+        "pic": "https://fayllar.com/kunuz_avatar.jpg",
+        "pending": False,
+        "items": [
+            {
+                "id": "tg_kunuz_1",
+                "k": "video",
+                "t": "https://fayllar.com/kunuz_thumb.jpg",
+                "u": "https://fayllar.com/kunuz_story.mp4",
+                "d": 15,
+                "ts": 1700000000,
+            }
+        ],
+    }
+    now_ts = time.time()
+    story_service._cache_ts["cristiano"] = now_ts
+    story_service._cache_ts["tg_kunuz"] = now_ts
 
     try:
         # 1. /api/story/me
@@ -81,45 +122,32 @@ async def test_story_api_endpoints():
         mock_bot.send_video = AsyncMock(return_value=True)
         set_bot_instance(mock_bot)
 
-        prev_cache = story_service._profile_cache.get("cristiano")
-        prev_ts = story_service._cache_ts.get("cristiano")
-        story_service._profile_cache["cristiano"] = {
-            "ok": True,
-            "name": "cristiano",
-            "pic": "https://fayllar.com/cristiano_avatar.jpg",
-            "verified": True,
-            "items": [
-                {
-                    "id": "cristiano_1",
-                    "k": "image",
-                    "t": "https://fayllar.com/cristiano_thumb.jpg",
-                    "u": "https://fayllar.com/cristiano_story.jpg",
-                    "d": 5,
-                    "ts": 1700000000,
-                }
-            ],
-        }
-        try:
-            resp_send = await client.post(
-                "/api/story/send",
-                json={"u": "cristiano", "user_id": 12345678},
-                headers={"X-Init-Data": "user=%7B%22id%22%3A12345678%7D"}
-            )
-            assert resp_send.status == 200
-            assert mock_bot.send_photo.called or mock_bot.send_video.called
-        finally:
-            if prev_cache is None:
-                story_service._profile_cache.pop("cristiano", None)
-            else:
-                story_service._profile_cache["cristiano"] = prev_cache
-            if prev_ts is None:
-                story_service._cache_ts.pop("cristiano", None)
-            else:
-                story_service._cache_ts["cristiano"] = prev_ts
-            set_bot_instance(None)
+        resp_send = await client.post(
+            "/api/story/send",
+            json={"u": "cristiano", "user_id": 12345678},
+            headers={"X-Init-Data": "user=%7B%22id%22%3A12345678%7D"}
+        )
+        assert resp_send.status == 200
+        assert mock_bot.send_photo.called or mock_bot.send_video.called
         data_send = await resp_send.json()
         assert data_send.get("ok") is True
     finally:
+        if prev_cache is None:
+            story_service._profile_cache.pop("cristiano", None)
+        else:
+            story_service._profile_cache["cristiano"] = prev_cache
+        if prev_ts is None:
+            story_service._cache_ts.pop("cristiano", None)
+        else:
+            story_service._cache_ts["cristiano"] = prev_ts
+        if prev_cache_tg is None:
+            story_service._profile_cache.pop("tg_kunuz", None)
+        else:
+            story_service._profile_cache["tg_kunuz"] = prev_cache_tg
+        if prev_ts_tg is None:
+            story_service._cache_ts.pop("tg_kunuz", None)
+        else:
+            story_service._cache_ts["tg_kunuz"] = prev_ts_tg
         set_bot_instance(None)
         await client.close()
 
@@ -224,47 +252,48 @@ async def test_deliver_movie_part1_variants_lookup():
 
 
 def test_movie_parts_keyboard_pagination():
-    """Ko'p qismli seriallar uchun 20 tadan sahifalash va Telegram 100-tugma cheklovi testi."""
-    # 256 qismli serial uchun tugmalar
+    """Ko'p qismli seriallar uchun 5 ustunli, 50 tadan sahifalash va Telegram 100-tugma cheklovi testi."""
+    # 256 qismli serial uchun tugmalar (50 tadan 6 sahifa: 0..5)
     kb_p0 = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=1, page=0)
     buttons_p0 = [btn for row in kb_p0.inline_keyboard for btn in row]
-    # Telegram inline keyboard limit 100 dan ancha kam bo'lishi kerak
-    assert len(buttons_p0) <= 25
+    # Telegram inline keyboard limit 100 ga qat'iy rioya qilishi kerak
+    assert len(buttons_p0) <= 100
     part_buttons = [b for b in buttons_p0 if b.callback_data and b.callback_data.startswith("watch_part:")]
-    assert len(part_buttons) == 20
-    assert part_buttons[0].text == "▶️ 1"
-    assert part_buttons[-1].text == "20"
+    assert len(part_buttons) >= 50
+    assert any(b.text == "▶️ 1" for b in part_buttons)
+    assert any(b.text == "50" for b in part_buttons)
 
-    # Keyingi sahifaga o'tish tugmasi mavjudligi
-    nav_next = [b for b in buttons_p0 if b.callback_data == "parts_page:289:1"]
-    assert len(nav_next) == 1
+    # In-place pagination pills mavjudligi (page 0 faol)
+    pills_p0 = [b for b in buttons_p0 if b.callback_data and b.callback_data.startswith("parts_page:289:")]
+    assert len(pills_p0) == 6
+    assert any("• 1–50" in b.text for b in pills_p0)
 
-    # O'rta sahifa (page=1 -> 21 dan 40 gacha)
-    kb_p1 = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=25, page=1)
+    # O'rta sahifa (page=1 -> 51 dan 100 gacha, current_part=55)
+    kb_p1 = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=55, page=1)
     buttons_p1 = [btn for row in kb_p1.inline_keyboard for btn in row]
     part_buttons_p1 = [b for b in buttons_p1 if b.callback_data and b.callback_data.startswith("watch_part:")]
-    assert len(part_buttons_p1) == 20
-    assert part_buttons_p1[0].text == "21"
-    assert part_buttons_p1[4].text == "▶️ 25"
+    assert len(part_buttons_p1) >= 50
+    assert any(b.text == "51" for b in part_buttons_p1)
+    assert any(b.text == "▶️ 55" for b in part_buttons_p1)
+    assert any(b.text == "100" for b in part_buttons_p1)
 
-    nav_prev = [b for b in buttons_p1 if b.callback_data == "parts_page:289:0"]
-    nav_next2 = [b for b in buttons_p1 if b.callback_data == "parts_page:289:2"]
-    assert len(nav_prev) == 1
-    assert len(nav_next2) == 1
+    pills_p1 = [b for b in buttons_p1 if b.callback_data and b.callback_data.startswith("parts_page:289:")]
+    assert len(pills_p1) == 6
+    assert any("• 51–100" in b.text for b in pills_p1)
 
-    # Oxirgi sahifa (page=12 -> 241 dan 256 gacha, jami 16 ta qism)
-    kb_last = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=250, page=12)
+    # Oxirgi sahifa (page=5 -> 251 dan 256 gacha, jami 6 ta qism + 1 ta shortcut)
+    kb_last = movie_parts_keyboard(movie_code="289", total_parts=256, current_part=250, page=5)
     buttons_last = [btn for row in kb_last.inline_keyboard for btn in row]
-    part_buttons_last = [b for b in buttons_last if b.callback_data and b.callback_data.startswith("watch_part:")]
-    assert len(part_buttons_last) == 16
-    assert part_buttons_last[0].text == "241"
-    assert part_buttons_last[-1].text == "256"
+    part_buttons_last = [b for b in buttons_last if b.callback_data and b.callback_data.startswith("watch_part:289:")]
+    assert len(part_buttons_last) == 7  # 1 ta Davom ettirish + 6 ta qism
+    grid_buttons_last = [b for b in part_buttons_last if not b.text.startswith("Davom ettirish")]
+    assert len(grid_buttons_last) == 6
+    assert grid_buttons_last[0].text == "251"
+    assert grid_buttons_last[-1].text == "256"
 
-    # Oxirgi sahifada oldingi tugma bor, keyingi tugma yo'q
-    nav_prev_last = [b for b in buttons_last if b.callback_data == "parts_page:289:11"]
-    assert len(nav_prev_last) == 1
-    nav_next_none = [b for b in buttons_last if b.callback_data and b.callback_data.startswith("parts_page:289:13")]
-    assert len(nav_next_none) == 0
+    pills_last = [b for b in buttons_last if b.callback_data and b.callback_data.startswith("parts_page:289:")]
+    assert len(pills_last) == 6
+    assert any("• 251–256" in b.text for b in pills_last)
 
 
 def test_story_username_and_url_preservation():

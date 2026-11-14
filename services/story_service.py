@@ -18,6 +18,51 @@ from services.downloader import MediaDownloader, DownloadResult, media_downloade
 logger = logging.getLogger(__name__)
 
 
+def normalize_and_validate_media_url(url: str, base_domain: str = "t.me") -> Optional[str]:
+    """
+    Media URL'ni tekshiradi, normallashtiradi va emoji/stiker havolalarini filtrlaydi.
+    - Emoji URLs: //telegram.org/img/emoji/..., /img/emoji/, /emoji/
+    - Stiker yoki tgme ichki resurslari: /stickers/, tgme_widget, website_icon
+    - Protocol-relative URL'larni 'https:' bilan normallashtiradi
+    - Yaroqsiz yoki bo'sh bo'lsa None qaytaradi.
+    """
+    if not url or not isinstance(url, str):
+        return None
+    cleaned = url.strip()
+    if not cleaned:
+        return None
+
+    cleaned_lower = cleaned.lower()
+
+    # 1. Emoji havolalarini rad etish
+    if (
+        "telegram.org/img/emoji" in cleaned_lower
+        or "/img/emoji" in cleaned_lower
+        or "/emoji/" in cleaned_lower
+        or ("emoji" in cleaned_lower and ("telegram" in cleaned_lower or "tg" in cleaned_lower))
+    ):
+        return None
+
+    # 2. Stiker yoki tgme UI resurslarini rad etish
+    if (
+        "telegram.org/img/stickers" in cleaned_lower
+        or "/stickers/" in cleaned_lower
+        or "website_icon" in cleaned_lower
+        or "tgme" in cleaned_lower
+    ):
+        return None
+
+    # 3. Protocol-relative URL normallashtirish: //... -> https://...
+    if cleaned.startswith("//"):
+        cleaned = f"https:{cleaned}"
+    elif cleaned.startswith("/"):
+        cleaned = f"https://{base_domain}{cleaned}"
+    elif not cleaned.startswith("http://") and not cleaned.startswith("https://"):
+        cleaned = f"https://{cleaned}"
+
+    return cleaned
+
+
 class StoryService:
     """Instagram va Telegram hikoyalarini (stories) anonim yuklab olish servisi."""
 
@@ -65,52 +110,60 @@ class StoryService:
             error="Hikoyalar (story) topilmadi yoki profil yopiq."
         )
 
+    def normalize_and_validate_media_url(self, url: str, base_domain: str = "t.me") -> Optional[str]:
+        """Media URL sanitizatsiya va normalizatsiyasi."""
+        return normalize_and_validate_media_url(url, base_domain)
+
     async def fetch_stories(self, target: str, limit: int = 5, platform: str = "auto") -> List[DownloadResult]:
         """
         Instagram yoki Telegram hikoyalarini (rasm va videolar) yuklab oladi.
         Bir nechta story bo'lsa, ularning ro'yxatini qaytaradi.
         """
-        target_clean = str(target or "").strip()
+        try:
+            target_clean = str(target or "").strip()
 
-        # Telegram hikoyalari
-        if platform == "tg" or "t.me/" in target_clean or "telegram.me/" in target_clean:
-            return await self.fetch_telegram_stories(target_clean, limit=limit)
+            # Telegram hikoyalari
+            if platform == "tg" or "t.me/" in target_clean or "telegram.me/" in target_clean:
+                return await self.fetch_telegram_stories(target_clean, limit=limit)
 
-        # 1. Agar to'g'ridan-to'g'ri story ID si bo'lgan havola bo'lsa
-        if "instagram.com/stories/" in target_clean and re.search(r"stories/[^/]+/\d+", target_clean):
-            res = await self.downloader.download_video(target_clean)
+            # 1. Agar to'g'ridan-to'g'ri story ID si bo'lgan havola bo'lsa
+            if "instagram.com/stories/" in target_clean and re.search(r"stories/[^/]+/\d+", target_clean):
+                res = await self.downloader.download_video(target_clean)
+                if res.success:
+                    return [res]
+
+            username = self.clean_username(target)
+            if not username:
+                return [DownloadResult(success=False, error="Instagram foydalanuvchi nomi noto'g'ri kiritildi.")]
+
+            # 2. Ochiq web-viewer va zaxira API orqali hikoyalarni qidirish
+            results = await self._fetch_stories_via_public_endpoints(username, limit=limit)
+            if results:
+                return results
+
+            # 3. yt-dlp orqali story URL sini sinab ko'rish
+            story_url = f"https://www.instagram.com/stories/{username}/"
+            res = await self.downloader.download_video(story_url)
             if res.success:
                 return [res]
 
-        username = self.clean_username(target)
-        if not username:
-            return [DownloadResult(success=False, error="Instagram foydalanuvchi nomi noto'g'ri kiritildi.")]
+            # Agar story 429 (Too Many Requests) yoki yopiq hisob bersa, qayta profile_url orqali 429 olmaslik
+            if res.error and ("429" in res.error or "Too Many Requests" in res.error or "yopiq" in res.error.lower() or "private" in res.error.lower()):
+                return [res]
 
-        # 2. Ochiq web-viewer va zaxira API orqali hikoyalarni qidirish
-        results = await self._fetch_stories_via_public_endpoints(username, limit=limit)
-        if results:
-            return results
+            # 4. Agar story bo'lmasa, profilning eng yangi reels yoki postini yuklab berish
+            profile_url = f"https://www.instagram.com/{username}/"
+            logger.info(f"Story topilmadi, profile orqali harakat qilinmoqda: {profile_url}")
+            res_profile = await self.downloader.download_video(profile_url)
+            if res_profile.success:
+                return [res_profile]
+            elif res_profile.error:
+                return [res_profile]
 
-        # 3. yt-dlp orqali story URL sini sinab ko'rish
-        story_url = f"https://www.instagram.com/stories/{username}/"
-        res = await self.downloader.download_video(story_url)
-        if res.success:
-            return [res]
-
-        # Agar story 429 (Too Many Requests) yoki yopiq hisob bersa, qayta profile_url orqali 429 olmaslik
-        if res.error and ("429" in res.error or "Too Many Requests" in res.error or "yopiq" in res.error.lower()):
-            return [res]
-
-        # 4. Agar story bo'lmasa, profilning eng yangi reels yoki postini yuklab berish
-        profile_url = f"https://www.instagram.com/{username}/"
-        logger.info(f"Story topilmadi, profile orqali harakat qilinmoqda: {profile_url}")
-        res_profile = await self.downloader.download_video(profile_url)
-        if res_profile.success:
-            return [res_profile]
-        elif res_profile.error:
-            return [res_profile]
-
-        return []
+            return []
+        except Exception as e:
+            logger.warning(f"fetch_stories umumiy xatoligi: {e}")
+            return [DownloadResult(success=False, error=f"Hikoyalarni yuklashda xatolik: {e}")]
 
     async def fetch_telegram_stories(self, target: str, limit: int = 5) -> List[DownloadResult]:
         """
@@ -145,14 +198,16 @@ class StoryService:
 
                         media_urls = []
                         for vm in reversed(video_matches):
-                            if vm not in [m[0] for m in media_urls]:
-                                media_urls.append((vm, False))
+                            clean_vm = normalize_and_validate_media_url(vm)
+                            if clean_vm and clean_vm not in [m[0] for m in media_urls]:
+                                media_urls.append((clean_vm, False))
                             if len(media_urls) >= limit:
                                 break
                         if len(media_urls) < limit:
                             for pm in reversed(photo_matches):
-                                if pm not in [m[0] for m in media_urls] and "tgme" not in pm:
-                                    media_urls.append((pm, True))
+                                clean_pm = normalize_and_validate_media_url(pm)
+                                if clean_pm and clean_pm not in [m[0] for m in media_urls]:
+                                    media_urls.append((clean_pm, True))
                                 if len(media_urls) >= limit:
                                     break
 
@@ -176,10 +231,13 @@ class StoryService:
             logger.debug(f"Telegram fetch xatoligi: {e}")
 
         # yt-dlp fallback
-        tg_url = f"https://t.me/s/{username}"
-        res = await self.downloader.download_video(tg_url)
-        if res.success:
-            return [res]
+        try:
+            tg_url = f"https://t.me/s/{username}"
+            res = await self.downloader.download_video(tg_url)
+            if res.success:
+                return [res]
+        except Exception as e:
+            logger.debug(f"Telegram yt-dlp fallback xatoligi: {e}")
 
         return []
 
@@ -251,16 +309,20 @@ class StoryService:
         items = []
 
         # Stories ro'yxatini shakllantirish
+        stories = []
         try:
             stories = await self.fetch_stories(clean_u, limit=6)
             for idx, st in enumerate(stories, 1):
+                # Filter out items with empty URLs (not st.direct_url)
+                if not st or not st.direct_url or not str(st.direct_url).strip():
+                    continue
                 ext = Path(st.file_path).suffix.lower() if st.file_path else ".mp4"
                 is_video = ext not in [".jpg", ".jpeg", ".png", ".webp"]
                 items.append({
                     "id": f"{clean_u}_{idx}_{int(now)}",
                     "k": "video" if is_video else "image",
                     "t": st.thumbnail or avatar_url,
-                    "u": st.direct_url or "",
+                    "u": str(st.direct_url).strip(),
                     "d": st.duration or (15 if is_video else 5),
                     "ts": int(now - idx * 3600),
                 })
@@ -269,9 +331,25 @@ class StoryService:
 
         # Agar real vaqtda faol story topilmasa, yolg'on namuna video bermasdan bo'sh ro'yxat qaytaramiz
         if not items:
+            err_code = "story_not_found"
+            try:
+                for st in (stories or []):
+                    if not st.success and st.error:
+                        e_str = str(st.error).lower()
+                        if "yopiq" in e_str or "private" in e_str:
+                            err_code = "private"
+                            break
+                        elif "429" in e_str or "rate" in e_str or "too many" in e_str:
+                            err_code = "rate"
+                            break
+                        elif "topilmadi" in e_str or "not found" in e_str:
+                            err_code = "not_found"
+                            break
+            except Exception:
+                pass
             return {
                 "ok": False,
-                "error": "story_not_found",
+                "error": err_code,
                 "name": clean_u,
                 "pic": avatar_url,
                 "verified": False,
@@ -320,27 +398,36 @@ class StoryService:
                             ch_title = tm.group(1).strip()
                         pm = re.search(r'<img class="tgme_page_photo_image" src="([^"]+)"', html)
                         if pm:
-                            avatar_url = pm.group(1).strip()
+                            av = pm.group(1).strip()
+                            if av.startswith("//"):
+                                av = f"https:{av}"
+                            avatar_url = av
                         videos = re.findall(r'<video[^>]+src="([^">]+)"', html)
                         photos = re.findall(r'background-image:url\(\'([^\']+)\'\)', html)
                         idx = 1
-                        for v in reversed(videos[-3:]):
-                            items.append({
-                                "id": f"tg_{clean_u}_{idx}_{int(now)}",
-                                "k": "video",
-                                "t": avatar_url,
-                                "u": v,
-                                "d": 15,
-                                "ts": int(now - idx * 1800),
-                            })
-                            idx += 1
-                        for p in reversed(photos[-2:]):
-                            if "tgme" not in p:
+                        seen_urls = set()
+                        for v in reversed(videos[-5:]):
+                            clean_v = normalize_and_validate_media_url(v)
+                            if clean_v and clean_v not in seen_urls:
+                                seen_urls.add(clean_v)
+                                items.append({
+                                    "id": f"tg_{clean_u}_{idx}_{int(now)}",
+                                    "k": "video",
+                                    "t": avatar_url,
+                                    "u": clean_v,
+                                    "d": 15,
+                                    "ts": int(now - idx * 1800),
+                                })
+                                idx += 1
+                        for p in reversed(photos[-5:]):
+                            clean_p = normalize_and_validate_media_url(p)
+                            if clean_p and clean_p not in seen_urls:
+                                seen_urls.add(clean_p)
                                 items.append({
                                     "id": f"tg_{clean_u}_{idx}_{int(now)}",
                                     "k": "image",
-                                    "t": p,
-                                    "u": p,
+                                    "t": clean_p,
+                                    "u": clean_p,
                                     "d": 5,
                                     "ts": int(now - idx * 3600),
                                 })
@@ -353,19 +440,7 @@ class StoryService:
         except Exception:
             pass
 
-        if not items:
-            items = [
-                {
-                    "id": f"tg_{clean_u}_1",
-                    "k": "video",
-                    "t": avatar_url,
-                    "u": "",
-                    "d": 10,
-                    "ts": int(now - 3600),
-                    "a": 1,
-                }
-            ]
-
+        # Eliminate ghost items! Never return dummy items with empty URLs ("u": "")
         data = {
             "ok": True,
             "name": ch_title,

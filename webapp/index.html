@@ -419,6 +419,24 @@ body.seg4 .seg button{padding:7px 12px;font-size:14px}
 #zkintro.zi-short .zi-cap,#zkintro.zi-short .zi-dots{display:none}
 #zkintro.zi-static .zi-sf,#zkintro.zi-static .zi-w,#zkintro.zi-static .zi-b{opacity:1}
 #zkintro.zi-static .zi-ol,#zkintro.zi-static .zi-cap,#zkintro.zi-static .zi-dots{display:none}
+#zkintro.zi-choose{display:flex;align-items:center;justify-content:center;padding:24px 18px}
+#zkintro.zi-choose .zi-c,#zkintro.zi-choose .zi-end{display:none}
+#zkintro .zi-pick{position:relative;z-index:2;width:100%;max-width:380px;display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center}
+#zkintro .zi-phead{margin-bottom:6px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#zkintro .zi-pbadge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(242,184,75,.14);border:1px solid rgba(242,184,75,.42);color:#F2B84B;font:800 11.5px/1 Manrope,system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+#zkintro .zi-phead h2{margin:0;font:800 24px/1.18 Unb,Manrope,system-ui,sans-serif;color:#F6EEDC}
+#zkintro .zi-phead p{margin:0;font:500 13.5px/1.4 Manrope,system-ui,sans-serif;color:rgba(246,238,220,.68)}
+#zkintro .zi-opts{display:flex;flex-direction:column;gap:12px;width:100%}
+#zkintro .zi-opt{display:flex;align-items:center;gap:14px;width:100%;padding:16px;border-radius:20px;border:1.5px solid rgba(246,238,220,.2);background:rgba(14,19,48,.86);color:#F6EEDC;text-align:left;cursor:pointer;font-family:inherit;transition:transform .14s ease,border-color .16s ease,box-shadow .16s ease;box-shadow:0 12px 30px rgba(0,0,0,.42)}
+#zkintro .zi-opt[data-pick="kr"]{border-color:rgba(242,184,75,.68);background:linear-gradient(145deg,rgba(242,184,75,.16),rgba(14,19,48,.92));box-shadow:0 12px 32px rgba(0,0,0,.48),0 0 24px rgba(242,184,75,.16)}
+#zkintro .zi-opt:active{transform:scale(.98)}
+#zkintro .zi-oic{width:46px;height:46px;flex:none;border-radius:14px;display:grid;place-items:center;font-size:22px;background:rgba(255,255,255,.08)}
+#zkintro .zi-opt[data-pick="kr"] .zi-oic{background:linear-gradient(135deg,#FFF1BA,#F2B84B);color:#2A1500}
+#zkintro .zi-otx{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}
+#zkintro .zi-otx b{font:800 16.5px/1.2 Manrope,system-ui,sans-serif;color:#fff}
+#zkintro .zi-otx small{font:500 12.5px/1.35 Manrope,system-ui,sans-serif;color:rgba(246,238,220,.72)}
+#zkintro .zi-oarr{font-size:20px;font-weight:700;color:rgba(242,184,75,.9);flex:none}
+#zkintro .zi-pfoot{margin-top:4px;font:600 12px/1.4 Manrope,system-ui,sans-serif;color:rgba(246,238,220,.5)}
 </style>
 </head>
 <body class="zk" data-zkm="kino">

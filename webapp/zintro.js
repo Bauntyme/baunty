@@ -19,12 +19,65 @@
     if (/nosplash/.test(q)) { root.parentNode.removeChild(root); return; }
     var RM = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var LITE = !!window.ZK_LITE, WEAK = !!window.ZK_WEAK || LITE;
-    if (RM || LITE) { kill(); return; }
     var lang = "uz";
     try { lang = localStorage.getItem("zk_lang") || ""; } catch (e) {}
     if (!lang) { try { lang = (Telegram.WebApp.initDataUnsafe.user.language_code || "").slice(0, 2); } catch (e) {} }
     lang = lang === "ru" || lang === "en" ? lang : "uz";
     var T3 = function (u, r, e) { return lang === "ru" ? r : lang === "en" ? e : u; };
+    var chosen = !!window.ZK_UI_CHOSEN;
+    try { if (!chosen && localStorage.getItem("zk_ui")) chosen = true; } catch (e) {}
+    var introForced = false;
+    try { introForced = /introfull/.test(q) || localStorage.getItem("zk_intro_again") === "1"; } catch (e) {}
+    if (!chosen && !introForced) {
+      root.className = "zi-choose";
+      var box = document.createElement("div");
+      box.className = "zi-pick";
+      box.innerHTML =
+        '<div class="zi-phead">' +
+          '<span class="zi-pbadge">Bauntys</span>' +
+          '<h2>' + T3("Qaysi ko\'rinish sizga qulay?", "Какой режим удобнее?", "Choose your experience") + '</h2>' +
+          '<p>' + T3("Tanlang va darhol kiring — keyin istalgan vaqt almashtirasiz", "Выберите и войдите мгновенно — переключить можно позже", "Tap a mode to enter immediately — switch anytime") + '</p>' +
+        '</div>' +
+        '<div class="zi-opts">' +
+          '<button type="button" class="zi-opt" data-pick="kr">' +
+            '<span class="zi-oic">✨</span>' +
+            '<span class="zi-otx"><b>Kreativ</b><small>' + T3("Koinot foni, yulduzlar va jonli animatsiyalar", "Космический фон, звёзды и анимации", "Space theme, stars & animations") + '</small></span>' +
+            '<span class="zi-oarr">›</span>' +
+          '</button>' +
+          '<button type="button" class="zi-opt" data-pick="lite">' +
+            '<span class="zi-oic">⚡</span>' +
+            '<span class="zi-otx"><b>Oddiy</b><small>' + T3("Yengil va juda tez, batareyani tejaydi", "Лёгкий и быстрый режим, экономит заряд", "Light, fast & battery-friendly") + '</small></span>' +
+            '<span class="zi-oarr">›</span>' +
+          '</button>' +
+        '</div>' +
+        '<div class="zi-pfoot">' + T3(WEAK ? "Telefoningiz uchun ⚡ Oddiy tavsiya etiladi" : "Tezkor ishlash uchun ⚡ Oddiy rejimni ham tanlashingiz mumkin", WEAK ? "Для вашего устройства советуем ⚡ Oddiy" : "Для максимальной скорости выберите ⚡ Oddiy", WEAK ? "⚡ Oddiy is recommended for your device" : "Pick ⚡ Oddiy anytime for maximum speed") + '</div>';
+      root.appendChild(box);
+      var pickMode = function (mode) {
+        var wantLite = mode === "lite";
+        try {
+          localStorage.setItem("zk_ui", wantLite ? "lite" : "kr");
+          localStorage.setItem("zk_intro3", "1");
+        } catch (e2) {}
+        window.ZK_LITE = wantLite;
+        window.ZK_UI_CHOSEN = true;
+        try {
+          document.documentElement.classList.toggle("zk-lite", wantLite);
+          document.body.classList.toggle("lite", wantLite);
+        } catch (e3) {}
+        try { document.dispatchEvent(new CustomEvent("zk:ui-change", {detail: {lite: wantLite, mode: wantLite ? "lite" : "kr"}})); } catch (e4) {}
+        kill();
+      };
+      var btns = box.querySelectorAll("[data-pick]");
+      for (var bi = 0; bi < btns.length; bi++) {
+        (function (btn) {
+          btn.onclick = function (e) { if (e && e.stopPropagation) e.stopPropagation(); pickMode(btn.getAttribute("data-pick")); };
+        })(btns[bi]);
+      }
+      var skip0 = $("zi-skip");
+      if (skip0) { skip0.textContent = T3("⚡ Tez kirish ›", "⚡ Быстрый вход ›", "⚡ Quick enter ›"); skip0.onclick = function () { pickMode("lite"); }; }
+      return;
+    }
+    if (RM || (LITE && !introForced)) { kill(); return; }
     var CAPS = [
       [T3("Bu — <i>Bauntys</i> yulduzi", "Это — звезда <i>Bauntys</i>", "This is the <i>Bauntys</i> star"),
        T3("Oddiy yulduz emas: ichida 3 ta ma'no yashiringan", "Не простая звезда: внутри спрятаны 3 смысла", "Not just a star: it hides 3 meanings")],
@@ -52,7 +105,7 @@
     try { if (/introfull/.test(q) || localStorage.getItem("zk_intro_again") === "1") { full = true; localStorage.removeItem("zk_intro_again"); } } catch (e) {}
     fullRun = full;
     if (!full) root.className += " zi-short";
-    timers.push(setTimeout(kill, full ? 25000 : 6000));
+    timers.push(setTimeout(kill, full ? 25000 : 1200));
 
     var COLS = ["#ffa50f", "#8fe600", "#b000ff", "#127fff", "#ff5a00", "#ff00b4", "#00e5ff", "#00fb76", "#f00000"];
     var DPR = WEAK ? 1 : Math.min(2, window.devicePixelRatio || 1);
@@ -201,7 +254,7 @@
       if (!cv) return;
       var ctx = cv.getContext("2d"), W = cv.width = Math.round(innerWidth * DPR), H = cv.height = Math.round(innerHeight * DPR), t0 = Date.now();
       var neb = nebula(W, H), gl = glare(), sts = [], big = [], mt = [], em = [], SC = ["#ffffff", "#cfe0ff", "#a9c8ff", "#fff1d6", "#ffd9b0", "#ffc7a8"], i;
-      var NS = WEAK ? 140 : 320, NB = WEAK ? 10 : 22, NR = WEAK ? 6 : 10, NSH = WEAK ? 6 : 14, EMX = WEAK ? 90 : 260;
+      var NS = WEAK ? 140 : 320, NB = WEAK ? 10 : 22, NR = WEAK ? 6 : 10, NSH = WEAK ? 6 : 14, EMX = WEAK ? 35 : 80;
       for (i = 0; i < NS; i++) sts.push({v: (.15 + Math.random() * .55) * DPR, x: Math.random() * W, y: Math.random() * H, r: (Math.random() < .85 ? Math.random() * 1.1 + .4 : Math.random() * 1.8 + 1.2) * DPR, c: SC[Math.random() * SC.length | 0], p: Math.random() * 6.3, s: .5 + Math.random() * 2.5});
       for (i = 0; i < NB; i++) big.push({v: (.3 + Math.random() * .4) * DPR, x: Math.random() * W, y: Math.random() * H, z: (10 + Math.random() * 26) * DPR, p: Math.random() * 6.3, s: .6 + Math.random() * 1.6});
       var SZ = [130, 60, 90, 45, 150, 70, 100, 55, 120, 80], k2 = Math.min(1, innerWidth / 390) * DPR;

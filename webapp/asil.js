@@ -142,7 +142,7 @@ function flag(name) { const n = norm(name); for (const f of FL) if (f[0].test(n)
 
 // ------------------------------------------------------------------ kartochkalar
 const posterHTML = (x) => `<div class="pst">${x.p ? `<img src="${esc(x.p)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">` : `<div class="ph">${esc(x.t)}</div>`}
-  ${x.imdb ? `<span class="badge as-imdb baunty-star-badge"><svg class="baunty-star-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 1.5l2.6 6.9 6.9 2.6-6.9 2.6L12 20.5l-2.6-6.9L2.5 11l6.9-2.6z"/></svg><span>${esc(x.imdb)}</span></span>` : ""}${x.type === "serial" ? `<span class="parts">${T("Serial", "Сериал", "Series")}</span>` : ""}${x.ok === false ? `<span class="seen as-soon">⏳</span>` : ""}</div>`;
+  ${x.imdb ? `<span class="badge as-imdb baunty-star-badge"><svg class="baunty-star-svg baunty-crest-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M3 18.2h18V20H3v-1.8zm1-2.2L2.2 6.8l5.3 3.7L12 3.8l4.5 6.7 5.3-3.7L20 16H4zm6.4-5.7v4.3l4.1-2.15-4.1-2.15z"/></svg><span>${esc(x.imdb)}</span></span>` : ""}${x.type === "serial" ? `<span class="parts">${T("Serial", "Сериал", "Series")}</span>` : ""}${x.ok === false ? `<span class="seen as-soon">⏳</span>` : ""}</div>`;
 const cardHTML = (x) => `<button class="card" data-aid="${x.id}">${posterHTML(x)}<div class="ttl">${esc(x.t)}</div>
   <div class="as-sub">${[x.y, (x.g || [])[0]].filter(Boolean).map(esc).join(" · ")}</div></button>`;
 const allBtn = (go, typ) => `<button class="as-all" data-go="${go}"${typ ? ` data-gtyp="${typ}"` : ""}>${T("Hammasi", "Все", "All")} ›</button>`;

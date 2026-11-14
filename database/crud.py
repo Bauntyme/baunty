@@ -3,17 +3,20 @@ Ma'lumotlar bazasi bilan ishlash funksiyalari (CRUD)
 """
 import re
 import asyncio
+import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple, Dict, Any
+from typing import List, Optional, Tuple, Dict, Any, Set
 from sqlalchemy import select, update, delete, func, desc, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.models import (
-    User, Movie, MovieFile, SponsorChannel, DownloadLog, BotSetting,
+    User, Movie, MovieFile, UserWatchProgress, SponsorChannel, DownloadLog, BotSetting,
     AnonymousMessage, Feedback, Expense, ExpenseBudget, UserCalorieProfile,
     CalorieLogItem, MafiaGameRecord, utc_now
 )
 from utils.translit import get_both_scripts, get_actor_variants
+
+logger = logging.getLogger(__name__)
 
 
 # ==========================================
@@ -436,16 +439,10 @@ async def set_movie_video(
         )
         session.add(movie)
         await session.flush()
-        return movie
 
     if fid_str:
         is_new_url = fid_str.startswith("http://") or fid_str.startswith("https://")
-        curr_is_real_fid = bool(
-            movie.file_id
-            and not (movie.file_id.startswith("http://") or movie.file_id.startswith("https://"))
-            and not any(s in movie.file_id.lower() for s in ["sample", "test", "mock", "placeholder", "fake"])
-            and len(movie.file_id) >= 20
-        )
+        curr_is_real_fid = _is_real_telegram_file_id(movie.file_id)
         if not (is_new_url and curr_is_real_fid):
             movie.file_id = fid_str
 
@@ -462,11 +459,12 @@ async def set_movie_video(
                 if len(parts_split) == 2 and parts_split[1].isdigit():
                     b_code = parts_split[0]
                     m_part = int(parts_split[1])
+            save_fid = movie.file_id if (is_new_url and curr_is_real_fid) else fid_str
             await save_movie_file(
                 session=session,
                 movie_code=b_code,
                 part=m_part,
-                file_id=fid_str,
+                file_id=save_fid,
                 file_type=file_type,
                 duration=dur_val,
                 file_size=fsize_val
@@ -483,6 +481,20 @@ async def set_movie_video(
         movie.file_size = fsize_val
     await session.flush()
     return movie
+
+
+def _is_real_telegram_file_id(fid: Optional[str]) -> bool:
+    """Tekshirish: string haqiqiy Telegram Cloud file_id mi (stream URL yoki placeholder emas)."""
+    if not fid:
+        return False
+    s = str(fid).strip()
+    if s.startswith("http://") or s.startswith("https://"):
+        return False
+    if s.startswith("<") or s.lower() in ("none", "null", "false", "0"):
+        return False
+    if any(w in s.lower() for w in ["sample", "test", "mock", "placeholder", "fake"]):
+        return False
+    return len(s) >= 20
 
 
 async def save_movie_file(
@@ -516,8 +528,38 @@ async def save_movie_file(
     if not fid_str or fid_str.startswith("<") or fid_str.lower() in ("none", "null"):
         fid_str = ""
 
+    is_stream_url = bool(fid_str and (fid_str.startswith("http://") or fid_str.startswith("https://")))
+
+    async def _sync_to_movies_table(effective_fid: Optional[str] = None) -> None:
+        target_fid = effective_fid or fid_str
+        if not target_fid:
+            return
+        try:
+            target_codes = []
+            if m_part == 1:
+                target_codes.append(clean_code)
+                target_codes.append(f"{clean_code}_1")
+            else:
+                target_codes.append(f"{clean_code}_{m_part}")
+
+            for t_code in target_codes:
+                m_row = await get_movie_by_code(session, t_code)
+                if m_row:
+                    m_curr_has_real = _is_real_telegram_file_id(m_row.file_id)
+                    t_is_stream = bool(target_fid and (target_fid.startswith("http://") or target_fid.startswith("https://")))
+                    if not (t_is_stream and m_curr_has_real):
+                        m_row.file_id = target_fid
+                    m_row.file_type = file_type
+                    if dur_val is not None:
+                        m_row.duration = dur_val
+                    if fsize_val is not None:
+                        m_row.file_size = fsize_val
+        except Exception as sync_err:
+            logger.debug(f"Dual-table sync to movies table in save_movie_file: {sync_err}")
+
     if mf:
-        if fid_str:
+        curr_has_real_fid = _is_real_telegram_file_id(mf.file_id)
+        if fid_str and not (is_stream_url and curr_has_real_fid):
             mf.file_id = fid_str
         mf.file_type = file_type
         if dur_val is not None:
@@ -526,9 +568,18 @@ async def save_movie_file(
             mf.file_size = fsize_val
         if quality:
             mf.quality = quality
+        sync_fid = mf.file_id if curr_has_real_fid else fid_str
+        await _sync_to_movies_table(effective_fid=sync_fid)
         await session.flush()
         return mf
     else:
+        # Yangi MovieFile yozuvi yaratishda agar stream URL kelsa va movies jadvalida haqiqiy file_id bo'lsa, o'shandan foydalanish
+        if is_stream_url:
+            m_existing = await get_movie_by_code(session, clean_code)
+            if m_existing and _is_real_telegram_file_id(m_existing.file_id):
+                fid_str = m_existing.file_id
+                is_stream_url = False
+
         new_mf = MovieFile(
             movie_code=clean_code,
             part=m_part,
@@ -543,10 +594,15 @@ async def save_movie_file(
             async with session.begin_nested():
                 session.add(new_mf)
                 await session.flush()
+            await _sync_to_movies_table(effective_fid=fid_str)
             return new_mf
         except IntegrityError:
             # Parallel sinxronizatsiya sababli movie_file yaratilgan
-            for _ in range(5):
+            for _ in range(10):
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
                 stmt = (
                     select(MovieFile)
                     .where(MovieFile.movie_code == clean_code, MovieFile.part == m_part)
@@ -558,7 +614,8 @@ async def save_movie_file(
                     break
                 await asyncio.sleep(0.05)
             if mf:
-                if fid_str:
+                curr_has_real_fid = _is_real_telegram_file_id(mf.file_id)
+                if fid_str and not (is_stream_url and curr_has_real_fid):
                     mf.file_id = fid_str
                 mf.file_type = file_type
                 if dur_val is not None:
@@ -567,6 +624,8 @@ async def save_movie_file(
                     mf.file_size = fsize_val
                 if quality:
                     mf.quality = quality
+                sync_fid = mf.file_id if curr_has_real_fid else fid_str
+                await _sync_to_movies_table(effective_fid=sync_fid)
                 await session.flush()
                 return mf
             raise
@@ -592,6 +651,72 @@ async def get_movie_file(
     )
     res = await session.execute(stmt)
     return res.scalars().first()
+
+
+async def record_user_watched_episode(
+    session: AsyncSession,
+    user_id: int,
+    movie_code: str,
+    part: int = 1,
+) -> None:
+    """Foydalanuvchi ko'rgan/yuklab olgan kino yoki serial qismini saqlash."""
+    clean_code = str(movie_code).strip().lstrip("#№")
+    m_part = int(part) if part is not None else 1
+    m_match = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
+    if m_match and m_part == 1:
+        clean_code = m_match.group(1)
+        m_part = int(m_match.group(2))
+    u_id = int(user_id)
+
+    stmt = select(UserWatchProgress).where(
+        UserWatchProgress.user_id == u_id,
+        UserWatchProgress.movie_code == clean_code,
+        UserWatchProgress.part == m_part,
+    )
+    res = await session.execute(stmt)
+    record = res.scalars().first()
+    if record:
+        record.updated_at = utc_now()
+        await session.flush()
+    else:
+        new_record = UserWatchProgress(
+            user_id=u_id,
+            movie_code=clean_code,
+            part=m_part,
+            updated_at=utc_now(),
+        )
+        try:
+            async with session.begin_nested():
+                session.add(new_record)
+                await session.flush()
+        except IntegrityError:
+            res = await session.execute(stmt)
+            rec = res.scalars().first()
+            if rec:
+                rec.updated_at = utc_now()
+                await session.flush()
+
+
+async def get_user_watched_episodes(
+    session: AsyncSession,
+    user_id: int,
+    movie_code: str,
+) -> Set[int]:
+    """Foydalanuvchi ko'rgan barcha qismlar raqamlari to'plamini (set) qaytarish."""
+    clean_code = str(movie_code).strip().lstrip("#№")
+    m_match = re.match(r"^(\d+)[\s_\-pP]+(?:qism|part)?(\d+)$", clean_code, re.IGNORECASE)
+    if m_match:
+        clean_code = m_match.group(1)
+    u_id = int(user_id)
+
+    stmt = select(UserWatchProgress.part).where(
+        UserWatchProgress.user_id == u_id,
+        UserWatchProgress.movie_code == clean_code,
+    )
+    res = await session.execute(stmt)
+    parts = res.scalars().all()
+    return set(parts)
+
 
 
 async def sync_movie_asilmedia_parts(

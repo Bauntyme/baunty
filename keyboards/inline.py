@@ -1,7 +1,7 @@
 """
 InlineKeyboardMarkup klaviaturalari (Xabarlar ostidagi tugmalar)
 """
-from typing import List, Optional
+from typing import List, Optional, Set, Union
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config import config
@@ -146,75 +146,131 @@ def movie_parts_keyboard(
     total_parts: int,
     current_part: int = 1,
     page: Optional[int] = None,
-    per_page: int = 20,
+    per_page: int = 50,
+    watched_parts: Optional[Union[Set[int], List[int]]] = None,
+    webapp_url: Optional[str] = None,
     watch_url: Optional[str] = None,
-    download_url: Optional[str] = None
+    download_url: Optional[str] = None,
+    window_threshold: int = 20,
 ) -> InlineKeyboardMarkup:
-    """Ko'p qismli seriallar uchun qismlar tugmalari ([1] [2] ... [N]) va ulashish.
-    Telegram 100-tugma cheklovidan oshib ketmasligi uchun 20 tadan sahifalarga ajratiladi.
+    """Ko'p qismli seriallar uchun 5 ustunli qismlar tugmalari ([1] [2] ... [50]),
+    ko'rilganlik belgisi (✓), davom ettirish tugmasi va in-place range pagination pills.
     """
     builder = InlineKeyboardBuilder()
 
-    # Sahifani avtomatik hisoblash (agar berilmagan bo'lsa)
-    if page is None:
-        page = max(0, (current_part - 1) // per_page) if current_part > 0 else 0
+    clean_code = str(movie_code).strip().lstrip("#№")[:40]
+    total_p = max(1, int(total_parts))
+    cur_p = max(1, int(current_part)) if current_part else 1
+    per_p = max(1, int(per_page))
 
-    total_pages = max(1, (total_parts + per_page - 1) // per_page)
+    # Sahifani hisoblash (agar berilmagan bo'lsa, current_part joylashgan sahifa)
+    if page is None:
+        page = max(0, (cur_p - 1) // per_p)
+
+    total_pages = max(1, (total_p + per_p - 1) // per_p)
     if page >= total_pages:
         page = total_pages - 1
+    if page < 0:
+        page = 0
 
-    start_part = page * per_page + 1
-    end_part = min(total_parts, (page + 1) * per_page)
+    watched_set = set(watched_parts or [])
+
+    # 1. Next-episode shortcut button at the top:
+    # [Davom ettirish: {next_p}-qism] yoki [Qayta ko'rish: 1-qism]
+    next_p = None
+    for p_num in range(1, total_p + 1):
+        if p_num not in watched_set:
+            next_p = p_num
+            break
+
+    if next_p is not None:
+        shortcut_text = f"Davom ettirish: {next_p}-qism"
+        shortcut_cb = f"watch_part:{clean_code}:{next_p}"
+    else:
+        shortcut_text = "Qayta ko'rish: 1-qism"
+        shortcut_cb = f"watch_part:{clean_code}:1"
+
+    builder.row(InlineKeyboardButton(text=shortcut_text, callback_data=shortcut_cb))
+
+    # 2. 5 ustunli qismlar to'plami (5 cols x 10 rows = 50 max)
+    start_part = page * per_p + 1
+    end_part = min(total_p, (page + 1) * per_p)
 
     row = []
     for p in range(start_part, end_part + 1):
-        btn_text = f"▶️ {p}" if p == current_part else str(p)
-        row.append(InlineKeyboardButton(text=btn_text, callback_data=f"watch_part:{movie_code}:{p}"))
+        if p == cur_p:
+            btn_text = f"▶️ {p}"
+        elif p in watched_set:
+            btn_text = f"✓ {p}"
+        else:
+            btn_text = str(p)
+        row.append(InlineKeyboardButton(text=btn_text, callback_data=f"watch_part:{clean_code}:{p}"))
         if len(row) == 5:
             builder.row(*row)
             row = []
     if row:
         builder.row(*row)
 
-    # Agar qismlar 20 tadan ko'p bo'lsa, sahifalar navigatsiyasi
+    # 3. In-place range pagination pills below grid:
+    # Masalan, 139 qism uchun: [ • 1–50 ], [ 51–100 ], [ 101–139 ]
+    # Ultra-long series windowing: when total_pages > window_threshold, window pills around page
+    # (page - 3 to page + 3, plus first and last page) so total buttons never exceed 100.
     if total_pages > 1:
-        nav_row = []
-        if page > 0:
-            prev_label = f"⬅️ { (page-1)*per_page + 1 }–{ page*per_page }"
-            nav_row.append(InlineKeyboardButton(text=prev_label, callback_data=f"parts_page:{movie_code}:{page-1}"))
-        if page < total_pages - 1:
-            next_label = f"{ (page+1)*per_page + 1 }–{ min(total_parts, (page+2)*per_page) } ➡️"
-            nav_row.append(InlineKeyboardButton(text=next_label, callback_data=f"parts_page:{movie_code}:{page+1}"))
-        if nav_row:
-            builder.row(*nav_row)
+        pill_buttons = []
+        if total_pages > window_threshold:
+            win_start = max(0, page - 3)
+            win_end = min(total_pages, page + 4)
+            page_indices = sorted(set([0, total_pages - 1] + list(range(win_start, win_end))))
+        else:
+            page_indices = list(range(total_pages))
 
-    target_start = f"{movie_code}_{current_part}" if current_part > 1 else movie_code
-    app_url = config.webapp_url_resolved
+        for p_idx in page_indices:
+            p_start = p_idx * per_p + 1
+            p_end = min(total_p, (p_idx + 1) * per_p)
+            if p_idx == page:
+                pill_text = f"• {p_start}–{p_end}"
+            else:
+                pill_text = f"{p_start}–{p_end}"
+            pill_buttons.append(
+                InlineKeyboardButton(
+                    text=pill_text,
+                    callback_data=f"parts_page:{clean_code}:{p_idx}"
+                )
+            )
 
+        # Chunk pills into rows of up to 3 or 4 pills
+        chunk_size = 3 if len(pill_buttons) > 3 else len(pill_buttons)
+        for i in range(0, len(pill_buttons), chunk_size):
+            builder.row(*pill_buttons[i:i + chunk_size])
+
+    # 4. [🎬 Katalogda ochish] WebApp button
+    app_url = webapp_url or config.webapp_url_resolved
     if app_url and app_url.startswith("https://"):
         from aiogram.types import WebAppInfo
         builder.row(
             InlineKeyboardButton(
-                text="▶️ Onlayn tomosha qilish",
-                web_app=WebAppInfo(url=f"{app_url}?c={movie_code}&part={current_part}")
+                text="🎬 Katalogda ochish",
+                web_app=WebAppInfo(url=f"{app_url}?c={clean_code}&part={cur_p}")
             )
         )
     else:
         builder.row(
             InlineKeyboardButton(
-                text="▶️ Onlayn tomosha qilish",
-                callback_data=f"watch_part:{movie_code}:{current_part}"
-            )
-        )
-    if download_url or total_parts <= 20:
-        builder.row(
-            InlineKeyboardButton(
-                text="📥 Yuklab olish",
-                callback_data=f"download_movie:{movie_code}:{current_part}"
+                text="🎬 Katalogda ochish",
+                callback_data=f"get_movie:{clean_code}"
             )
         )
 
-    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{movie_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {movie_code}"
+    # 5. Yuklab olish va ulashish tugmalari
+    if download_url or total_p <= per_p:
+        builder.row(
+            InlineKeyboardButton(
+                text="📥 Yuklab olish",
+                callback_data=f"download_movie:{clean_code}:{cur_p}"
+            )
+        )
+
+    share_url = f"https://t.me/share/url?url=https://t.me/{config.BOT_USERNAME.lstrip('@')}?start=kino_{clean_code}&text=Ajoyib kino! Botga kirib ko'ring: kod {clean_code}"
     channel_url = f"https://t.me/{config.CHANNEL_USERNAME.lstrip('@')}"
     builder.row(
         InlineKeyboardButton(text="↗️ Do'stlarga ulashish", url=share_url),
@@ -482,19 +538,22 @@ def admin_settings_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
-def story_platform_keyboard() -> InlineKeyboardMarkup:
+def story_platform_keyboard(webapp_url: Optional[str] = None) -> InlineKeyboardMarkup:
     """Anonim story platformasini tanlash: Telegram yoki Instagram."""
     builder = InlineKeyboardBuilder()
     builder.row(
-        InlineKeyboardButton(text="✈️ Telegram Story", callback_data="story_platform:tg"),
-        InlineKeyboardButton(text="📸 Instagram Story", callback_data="story_platform:ig"),
+        InlineKeyboardButton(text="📱 Telegram story", callback_data="story_platform:tg"),
+        InlineKeyboardButton(text="📸 Instagram story", callback_data="story_platform:ig"),
     )
-    app_url = config.webapp_url_resolved
+    app_url = webapp_url if webapp_url is not None else config.webapp_url_resolved
     if app_url and app_url.startswith("https://"):
         from aiogram.types import WebAppInfo
         builder.row(
             InlineKeyboardButton(text="📱 Mini Appda ko'rish", web_app=WebAppInfo(url=f"{app_url}#story"))
         )
+    builder.row(
+        InlineKeyboardButton(text="⬅️ Asosiy menyu", callback_data="story_platform:menu"),
+    )
     return builder.as_markup()
 
 
@@ -590,4 +649,30 @@ def admin_maintenance_page_detail_keyboard(page_id: str, is_active: bool) -> Inl
         InlineKeyboardButton(text="🔙 Sahifalar ro'yxatiga qaytish", callback_data="admin:maint:pages")
     )
     return builder.as_markup()
+
+
+def round_video_options_keyboard(mute: bool = False) -> InlineKeyboardMarkup:
+    """Dumaloq video tayyorlash sozlamalari (Ovozni o'chirish/yoqish va bekor qilish)."""
+    builder = InlineKeyboardBuilder()
+    mute_text = "🔇 Ovoz: O'chirilgan" if mute else "🔊 Ovoz: Yoqilgan"
+    builder.row(
+        InlineKeyboardButton(text=mute_text, callback_data="round:toggle_mute"),
+        InlineKeyboardButton(text="❌ Bekor qilish", callback_data="round:cancel"),
+    )
+    return builder.as_markup()
+
+
+def round_video_action_keyboard(cache_key: Optional[str] = None) -> InlineKeyboardMarkup:
+    """Dumaloq video tayyor bo'lgandan keyingi amallar (MP3 ajratish, yangi video)."""
+    builder = InlineKeyboardBuilder()
+    if cache_key:
+        builder.row(
+            InlineKeyboardButton(text="🎵 Musiqasini (MP3) yuklab olish", callback_data=f"round:mp3:{cache_key}"),
+        )
+    builder.row(
+        InlineKeyboardButton(text="🔄 Yangi video yuborish", callback_data="round:again"),
+        InlineKeyboardButton(text="🔙 Bosh menyu", callback_data="round:menu"),
+    )
+    return builder.as_markup()
+
 

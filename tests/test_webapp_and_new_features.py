@@ -3,12 +3,14 @@ Mini App web serveri, yangi API lar va yangi bot handlerlari uchun testlar
 """
 import pytest
 import os
+import time
 from aiohttp.test_utils import TestClient, TestServer
 from database.session import init_db, get_session
 from database.models import User
 from database import crud
 from services.web_server import create_web_app
 from services.doc_service import doc_service
+from services.story_service import story_service
 from utils.translit import cyrillic_to_latin, latin_to_cyrillic, get_both_scripts
 
 
@@ -241,6 +243,26 @@ async def test_webapp_story_and_docs_api():
     client = TestClient(server)
     await client.start_server()
 
+    prev_cache = story_service._profile_cache.get("uzb_kino")
+    prev_ts = story_service._cache_ts.get("uzb_kino")
+    story_service._profile_cache["uzb_kino"] = {
+        "ok": True,
+        "name": "uzb_kino",
+        "pic": "https://fayllar.com/uzb_kino.jpg",
+        "verified": False,
+        "items": [
+            {
+                "id": "uzb_1",
+                "k": "video",
+                "t": "https://fayllar.com/thumb.jpg",
+                "u": "https://fayllar.com/story.mp4",
+                "d": 15,
+                "ts": 1700000000,
+            }
+        ],
+    }
+    story_service._cache_ts["uzb_kino"] = time.time()
+
     try:
         # Story
         resp_story = await client.get("/api/story?username=uzb_kino")
@@ -255,6 +277,14 @@ async def test_webapp_story_and_docs_api():
         doc_data = await resp_doc.json()
         assert "Салом" in doc_data["result"]
     finally:
+        if prev_cache is None:
+            story_service._profile_cache.pop("uzb_kino", None)
+        else:
+            story_service._profile_cache["uzb_kino"] = prev_cache
+        if prev_ts is None:
+            story_service._cache_ts.pop("uzb_kino", None)
+        else:
+            story_service._cache_ts["uzb_kino"] = prev_ts
         await client.close()
 
 

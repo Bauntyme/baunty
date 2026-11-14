@@ -378,7 +378,7 @@ async function toggleWatch() {
 }
 function watchHTML() {
   const w = me.watch;
-  return `${segHTML()}<div class="sx-top"><div class="sx-ttl">Kuzatuv ro'yxati</div>
+  return `${rootHead()}<div class="sx-top"><div class="sx-ttl">Kuzatuv ro'yxati</div>
     <button class="sx-ib" data-tab="home" aria-label="Profil qo'shish">${I.plus}</button></div>
     <div style="padding:0 18px;color:var(--mute);font-size:13px">Yangi story chiqsa, bot sizga yozadi · ${w.length}/${me.max}</div>
     ${w.length ? `<div class="sx-list" style="margin-top:12px">${w.map((x) => `<div class="sx-li"><button style="display:contents" data-open="${x.p}:${esc(x.u)}">${ring(x.p, x.title || x.u, "")}
@@ -401,7 +401,7 @@ async function watchAct(spec, act, on) {
 // ------------------------------------------------------------------ yuklanganlar
 function savedHTML() {
   const s = saved();
-  return `${segHTML()}<div class="sx-top"><div class="sx-ttl">Yuklanganlar</div>${s.length ? '<button class="sx-link" data-clearsaved>Tozalash</button>' : ""}</div>
+  return `${rootHead()}<div class="sx-top"><div class="sx-ttl">Yuklanganlar</div>${s.length ? '<button class="sx-link" data-clearsaved>Tozalash</button>' : ""}</div>
     <div style="padding:0 18px;color:var(--mute);font-size:13px">Chatga yuborilgan story'lar tarixi — fayllar bot chatida turadi</div>
     ${s.length ? `<div class="sx-list" style="margin-top:12px">${s.map((x) => `<button class="sx-li" data-open="${x.p}:${esc(x.u)}">${ring(x.p, x.name || x.u, "")}
       <span class="t"><b>${esc(x.name || x.u)}${x.hl ? " · " + esc(x.hl) : ""}</b><span>${x.n} ta story · ${ago(x.at)}</span></span>

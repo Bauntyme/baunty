@@ -83,9 +83,23 @@ async def main() -> None:
     logger = logging.getLogger("main")
     logger.info("Bauntyfilms_bot va Mini App ishga tushirilmoqda...")
 
+    # Mahalliy Telegram Bot API Server (2000 MB gacha video yuklash) sozlamasi
+    bot_session = None
+    local_api_url = config.local_bot_api_url_resolved
+    if local_api_url:
+        from aiogram.client.session.aiohttp import AiohttpSession
+        from aiogram.client.telegram import TelegramAPIServer
+        server = TelegramAPIServer.from_base(local_api_url, is_local=True)
+        bot_session = AiohttpSession(api=server)
+        logger.info(
+            f"Mahalliy Telegram Bot API Server faollashtirildi: {local_api_url} "
+            f"(2000 MB yuklash limiti, is_local=True)"
+        )
+
     # Bot ob'ekti (protect_content=True orqali barcha media va xabarlar forwardi to'liq yopiladi)
     bot = Bot(
         token=config.BOT_TOKEN,
+        session=bot_session,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML, protect_content=True)
     )
 

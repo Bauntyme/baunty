@@ -110,6 +110,23 @@ class MovieFile(Base):
         return f"<MovieFile movie_code={self.movie_code} part={self.part}>"
 
 
+class UserWatchProgress(Base):
+    __tablename__ = "user_watch_progress"
+    __table_args__ = (
+        UniqueConstraint("user_id", "movie_code", "part", name="uq_user_watch_progress_user_code_part"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, index=True, nullable=False)
+    movie_code = Column(String(64), index=True, nullable=False)
+    part = Column(Integer, default=1, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    def __repr__(self):
+        return f"<UserWatchProgress user_id={self.user_id} movie_code={self.movie_code} part={self.part}>"
+
+
+
 class SponsorChannel(Base):
     __tablename__ = "sponsor_channels"
 

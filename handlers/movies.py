@@ -7,6 +7,7 @@ import math
 import re
 from typing import Optional, Tuple
 from aiogram import Router, F
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import StateFilter, Command, CommandObject
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.fsm.context import FSMContext
@@ -21,6 +22,7 @@ from keyboards.inline import (
     genres_keyboard,
     movie_list_keyboard,
     movie_item_keyboard,
+    movie_parts_keyboard,
 )
 from utils.states import MovieSearchStates
 from utils.helpers import format_movie_not_found
@@ -77,14 +79,27 @@ async def _send_movie_delivery_fallback(
 
     if not cat_item and not db_movie and not stream_info:
         code_disp = f"{clean_c} ({part}-qism)" if part > 1 else clean_c
-        await bot.send_message(
-            chat_id=chat_id,
-            text=format_movie_not_found(code_disp),
-            parse_mode="HTML",
-            reply_markup=movie_not_found_keyboard(),
-            reply_to_message_id=reply_to_message_id,
-            protect_content=True,
-        )
+        try:
+            await bot.send_message(
+                chat_id=chat_id,
+                text=format_movie_not_found(code_disp),
+                parse_mode="HTML",
+                reply_markup=movie_not_found_keyboard(),
+                reply_to_message_id=reply_to_message_id,
+                protect_content=True,
+            )
+        except TelegramBadRequest as err:
+            if "message to be replied not found" in str(err).lower():
+                await bot.send_message(
+                    chat_id=chat_id,
+                    text=format_movie_not_found(code_disp),
+                    parse_mode="HTML",
+                    reply_markup=movie_not_found_keyboard(),
+                    reply_to_message_id=None,
+                    protect_content=True,
+                )
+            else:
+                raise
         return
 
     raw_title = (
@@ -137,14 +152,27 @@ async def _send_movie_delivery_fallback(
             "👇 <b>WebAppda tomosha qilish</b> tugmasi orqali ochib ko'ring:"
         )
 
-    await bot.send_message(
-        chat_id=chat_id,
-        text=body,
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
-        reply_to_message_id=reply_to_message_id,
-        protect_content=True,
-    )
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=body,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+            reply_to_message_id=reply_to_message_id,
+            protect_content=True,
+        )
+    except TelegramBadRequest as err:
+        if "message to be replied not found" in str(err).lower():
+            await bot.send_message(
+                chat_id=chat_id,
+                text=body,
+                parse_mode="HTML",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
+                reply_to_message_id=None,
+                protect_content=True,
+            )
+        else:
+            raise
 
 
 @router.message(Command("kino", "movie", "film", "kod", "code"))
@@ -179,6 +207,13 @@ async def cmd_movies_menu(message: Message, state: FSMContext, command: Optional
             code, part = (extracted_code, 1) if extracted_code else (None, 1)
 
         if code:
+            if message.from_user:
+                try:
+                    async with get_session() as session:
+                        await crud.record_user_watched_episode(session, message.from_user.id, code, part)
+                        await session.commit()
+                except Exception as e:
+                    logger.debug(f"Error recording watched episode: {e}")
             delivered = await movie_service.deliver_movie(
                 bot=message.bot,
                 chat_id=message.chat.id,
@@ -454,6 +489,13 @@ async def cb_get_movie_by_code(callback: CallbackQuery) -> None:
     """Ro'yxatdan tanlangan kinoni yuborish."""
     code = callback.data.split("get_movie:")[-1]
     await callback.answer("🎬 Kino yuklanmoqda...")
+    if callback.from_user:
+        try:
+            async with get_session() as session:
+                await crud.record_user_watched_episode(session, callback.from_user.id, code, 1)
+                await session.commit()
+        except Exception as e:
+            logger.debug(f"Error recording watched episode: {e}")
     delivered = await movie_service.deliver_movie(
         bot=callback.bot,
         chat_id=callback.message.chat.id,
@@ -481,6 +523,13 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
     code = parts[1]
     part = int(parts[2])
     await callback.answer(f"📺 {part}-qism yuklanmoqda...")
+    if callback.from_user:
+        try:
+            async with get_session() as session:
+                await crud.record_user_watched_episode(session, callback.from_user.id, code, part)
+                await session.commit()
+        except Exception as e:
+            logger.debug(f"Error recording watched episode: {e}")
     delivered = await movie_service.deliver_movie(
         bot=callback.bot,
         chat_id=callback.message.chat.id,
@@ -499,7 +548,7 @@ async def cb_watch_part(callback: CallbackQuery) -> None:
 
 @router.callback_query(F.data.startswith("parts_page:"))
 async def cb_parts_page(callback: CallbackQuery) -> None:
-    """Ko'p qismli seriallar qismlar sahifasini o'zgartirish."""
+    """Ko'p qismli seriallar qismlar sahifasini o'zgartirish (in-place markup tahrirlash)."""
     parts = callback.data.split(":")
     code = parts[1]
     page = int(parts[2])
@@ -509,7 +558,31 @@ async def cb_parts_page(callback: CallbackQuery) -> None:
     if cat_item:
         total_parts = int(cat_item.get("p", 1))
 
-    markup = movie_parts_keyboard(code, total_parts=total_parts, current_part=1, page=page)
+    watched_parts = set()
+    try:
+        async with get_session() as session:
+            if callback.from_user:
+                watched_parts = await crud.get_user_watched_episodes(session, callback.from_user.id, code)
+            if total_parts <= 1:
+                from sqlalchemy import select, func
+                from database.models import MovieFile
+                res = await session.execute(
+                    select(func.max(MovieFile.part)).where(MovieFile.movie_code == code.lstrip("#№"))
+                )
+                max_p = res.scalar()
+                if max_p and max_p > 1:
+                    total_parts = max_p
+    except Exception as e:
+        logger.debug(f"Error fetching watched episodes in cb_parts_page: {e}")
+
+    markup = movie_parts_keyboard(
+        code,
+        total_parts=total_parts,
+        current_part=1,
+        page=page,
+        per_page=50,
+        watched_parts=watched_parts
+    )
     try:
         await callback.message.edit_reply_markup(reply_markup=markup)
         await callback.answer()

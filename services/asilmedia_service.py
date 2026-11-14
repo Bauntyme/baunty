@@ -412,15 +412,59 @@ class AsilmediaService:
         return False
 
     @staticmethod
-    def needs_fayllar_sign(url: Optional[str]) -> bool:
-        """am:<id>:<hash> yoki tokensiz fayllar havolasi imzolashga muhtojligini aniqlash."""
+    @staticmethod
+    def strip_fayllar_token(url: Optional[str]) -> str:
+        """Fayllar CDN URL dan token va expires parametrlarini olib tashlash."""
+        if not url:
+            return ""
+        s = str(url).strip()
+        parsed = urllib.parse.urlparse(s)
+        if not parsed.query:
+            return s
+        qs_pairs = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        filtered = [(k, v) for k, v in qs_pairs if k.lower() not in ("token", "expires", "st", "e")]
+        new_query = urllib.parse.urlencode(filtered)
+        return urllib.parse.urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment
+        ))
+
+    @staticmethod
+    def is_token_expired(url: Optional[str]) -> bool:
+        """Havoladagi token muddati (expires) o'tganligini tekshirish."""
+        if not url:
+            return False
+        parsed = urllib.parse.urlparse(str(url))
+        qs = dict(urllib.parse.parse_qsl(parsed.query))
+        expires = qs.get("expires") or qs.get("e")
+        if expires and str(expires).isdigit():
+            import time
+            return int(expires) <= int(time.time()) + 30
+        return False
+
+    @staticmethod
+    def needs_fayllar_sign(url: Optional[str], force: bool = False) -> bool:
+        """am:<id>:<hash> yoki tokensiz/muddati o'tgan fayllar havolasi imzolashga muhtojligini aniqlash."""
         if not url:
             return False
         s = str(url).strip()
         if re.match(r"^am:\d+:", s, re.I):
             return True
         low = s.lower()
-        return ("fayllar.com" in low or "fayllar1.ru" in low or "fayllar" in low) and "token=" not in low
+        is_fayllar = ("fayllar.com" in low or "fayllar1.ru" in low or "fayllar" in low)
+        if not is_fayllar:
+            return False
+        if force:
+            return True
+        if "token=" not in low:
+            return True
+        if AsilmediaService.is_token_expired(s):
+            return True
+        return False
 
     @staticmethod
     def extract_amh_params(html: str) -> Tuple[Optional[str], Optional[str]]:
@@ -442,19 +486,25 @@ class AsilmediaService:
         urls: List[str],
         amh_id: Optional[Union[str, int]] = None,
         amh_n: Optional[str] = None,
+        force: bool = False,
     ) -> Dict[str, str]:
         """am:<id>:<hash> va tokensiz fayllar havolalarini Asilmedia tokeni bilan imzolash."""
         if not urls:
             return {}
         seen: set[str] = set()
         sign_candidates: List[str] = []
+        raw_to_cand: Dict[str, str] = {}
         for u in urls:
             su = str(u or "").strip()
-            if not su or su in seen:
+            if not su:
                 continue
-            if self.needs_fayllar_sign(su):
-                seen.add(su)
-                sign_candidates.append(su)
+            cand = self.strip_fayllar_token(su) if "token=" in su.lower() else su
+            raw_to_cand[su] = cand
+            if cand in seen:
+                continue
+            if force or self.needs_fayllar_sign(su, force=force):
+                seen.add(cand)
+                sign_candidates.append(cand)
         if not sign_candidates:
             return {}
 
@@ -490,6 +540,10 @@ class AsilmediaService:
                                         sv = str(v or "").strip()
                                         if sv.startswith("http") and not self.is_html_wrapper_url(sv) and not sv.startswith("am:"):
                                             signed_map[str(k)] = sv
+                                    # Map original raw URLs back to signed URLs
+                                    for r_u, c_u in raw_to_cand.items():
+                                        if c_u in signed_map:
+                                            signed_map[r_u] = signed_map[c_u]
                                     if any(u in signed_map for u in chunk):
                                         break
                     except Exception as e:
@@ -502,8 +556,9 @@ class AsilmediaService:
         news_id: Optional[Union[str, int]] = None,
         amh_id: Optional[str] = None,
         amh_n: Optional[str] = None,
+        force_refresh: bool = False,
     ) -> Optional[str]:
-        """am:... yoki tokensiz fayllar havolasini bevosita imzolangan MP4 CDN URL ga aylantirish."""
+        """am:... yoki tokensiz/eskirgan fayllar havolasini bevosita imzolangan MP4 CDN URL ga aylantirish."""
         raw = str(raw_url or "").strip()
         if not raw or self.is_html_wrapper_url(raw):
             return None
@@ -514,7 +569,8 @@ class AsilmediaService:
             if m_am:
                 nid = m_am.group(1)
 
-        if self.needs_fayllar_sign(raw):
+        needs_sign = force_refresh or self.needs_fayllar_sign(raw, force=force_refresh)
+        if needs_sign:
             if (not amh_id or not amh_n) and nid:
                 # Keshdan amh_id / amh_n bor-yo'qligini tekshirish
                 clean_nid = re.search(r"(\d+)", nid)
@@ -545,8 +601,15 @@ class AsilmediaService:
                             except Exception as e:
                                 logger.debug(f"resolve_stream_url HTML fetch error ({purl}): {e}")
 
-            signed_map = await self.sign_fayllar_urls([raw], amh_id=amh_id or nid, amh_n=amh_n)
-            resolved = signed_map.get(raw)
+            clean_raw = self.strip_fayllar_token(raw) if "token=" in raw.lower() else raw
+            if force_refresh:
+                try:
+                    signed_map = await self.sign_fayllar_urls([clean_raw], amh_id=amh_id or nid, amh_n=amh_n, force=True)
+                except TypeError:
+                    signed_map = await self.sign_fayllar_urls([clean_raw], amh_id=amh_id or nid, amh_n=amh_n)
+            else:
+                signed_map = await self.sign_fayllar_urls([clean_raw], amh_id=amh_id or nid, amh_n=amh_n)
+            resolved = signed_map.get(clean_raw) or signed_map.get(raw)
             if resolved and resolved.startswith("http") and not self.is_html_wrapper_url(resolved) and not resolved.startswith("am:"):
                 return resolved
             return None
@@ -1220,7 +1283,21 @@ class AsilmediaService:
             async with aiohttp.ClientSession(headers=headers) as session:
                 client_timeout = aiohttp.ClientTimeout(total=None, sock_connect=15, sock_read=30)
                 async with session.get(encoded_url, timeout=client_timeout) as resp:
-                    if resp.status not in (200, 206):
+                    if resp.status in (410, 403):
+                        logger.warning(f"Video yuklashda HTTP {resp.status} (token eskirgan): {encoded_url}, qayta imzolanmoqda...")
+                        clean_url = self.strip_fayllar_token(target_url)
+                        re_signed = await self.resolve_stream_url(clean_url, force_refresh=True)
+                        if re_signed and re_signed != target_url:
+                            logger.info(f"Yangi imzolangan URL olindi: {re_signed}, qayta yuklanmoqda...")
+                            return await self.download_video_stream(
+                                url=re_signed,
+                                destination_path=destination_path,
+                                max_bytes=max_bytes,
+                                timeout=timeout
+                            )
+                        logger.warning(f"Qayta imzolash muvaffaqiyatsiz bo'ldi HTTP {resp.status}")
+                        return None
+                    elif resp.status not in (200, 206):
                         logger.warning(f"Video yuklashda HTTP {resp.status}: {encoded_url}")
                         return None
 
@@ -1332,3 +1409,5 @@ class AsilmediaService:
 
 # Singleton nusxa
 asilmedia_service = AsilmediaService()
+strip_fayllar_token = AsilmediaService.strip_fayllar_token
+needs_fayllar_sign = AsilmediaService.needs_fayllar_sign

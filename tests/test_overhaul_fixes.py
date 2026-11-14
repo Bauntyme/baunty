@@ -97,14 +97,15 @@ def make_callback_query(data="test:data", user_id=12345, first_name="TestUser"):
 # 1. MOVIE KEYBOARD TESTS
 # =====================================================================
 def test_movie_parts_keyboard_no_raw_popup_and_exact_parts():
-    """movie_parts_keyboard must not produce raw external popups and must have exact 20 parts."""
+    """movie_parts_keyboard must not produce raw external popups and must show all 50 parts."""
     kb = movie_parts_keyboard(movie_code="777", total_parts=50, current_part=1, page=0)
     buttons = [btn for row in kb.inline_keyboard for btn in row]
 
-    part_buttons = [b for b in buttons if b.callback_data and b.callback_data.startswith("watch_part:")]
-    assert len(part_buttons) == 20
-    assert part_buttons[0].text == "▶️ 1"
-    assert part_buttons[-1].text == "20"
+    # Grid buttons (excluding top shortcut button at buttons[0])
+    grid_buttons = [b for b in buttons[1:] if b.callback_data and b.callback_data.startswith("watch_part:777:")]
+    assert len(grid_buttons) == 50
+    assert grid_buttons[0].text == "▶️ 1"
+    assert grid_buttons[-1].text == "50"
 
     # Make sure no raw external non-telegram URL exists
     for b in buttons:

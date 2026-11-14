@@ -3,7 +3,7 @@ Bauntys Bot - Asosiy konfiguratsiya moduli
 """
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     BOT_TOKEN: str = Field(default="9047244772:AAHevPLbK9Uz_NQ0AtcemQqpA0C5OgXtkgw")
     BOT_USERNAME: str = Field(default="BauntyCinemabot")
     CHANNEL_USERNAME: str = Field(default="@BauntyFilms")
+
+    # Mahalliy Telegram Bot API Server (2000 MB gacha video yuklash)
+    LOCAL_BOT_API_URL: Optional[str] = Field(default=None)
+    BOT_API_SERVER: Optional[str] = Field(default=None)
 
     # Adminlar
     ADMIN_IDS_RAW: str = Field(default="", alias="ADMIN_IDS")
@@ -40,6 +44,51 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
+
+    def model_post_init(self, __context: Any) -> None:
+        resolved = self.local_bot_api_url_resolved
+        if resolved:
+            if not self.LOCAL_BOT_API_URL:
+                self.LOCAL_BOT_API_URL = resolved
+            if not self.BOT_API_SERVER:
+                self.BOT_API_SERVER = resolved
+
+    @property
+    def local_bot_api_url_resolved(self) -> Optional[str]:
+        """Mahalliy Bot API Server URLini aniqlaydi (LOCAL_BOT_API_URL yoki BOT_API_SERVER)."""
+        url = (
+            self.LOCAL_BOT_API_URL
+            or self.BOT_API_SERVER
+            or os.getenv("LOCAL_BOT_API_URL")
+            or os.getenv("BOT_API_SERVER")
+        )
+        if url and str(url).strip():
+            clean_url = str(url).strip()
+            if not clean_url.startswith("http://") and not clean_url.startswith("https://"):
+                clean_url = f"http://{clean_url}"
+            return clean_url.rstrip("/")
+        return None
+
+    @property
+    def is_local_bot_api(self) -> bool:
+        """Mahalliy Telegram Bot API Server sozlanganligini tekshiradi."""
+        return bool(self.local_bot_api_url_resolved)
+
+    @property
+    def max_upload_bytes(self) -> int:
+        """Maksimal ruxsat etilgan video yuklash hajmi (baytlarda):
+        Mahalliy Bot API Server mavjud bo'lsa 2000 MB (2000 * 1024 * 1024),
+        aks holda standart 50 MB limit.
+        """
+        if self.is_local_bot_api:
+            return 2000 * 1024 * 1024
+        limit_mb = self.MAX_FILE_SIZE_MB if (self.MAX_FILE_SIZE_MB and self.MAX_FILE_SIZE_MB > 0) else 50
+        return limit_mb * 1024 * 1024
+
+    @property
+    def max_upload_mb(self) -> int:
+        """Maksimal ruxsat etilgan video yuklash hajmi MB da."""
+        return self.max_upload_bytes // (1024 * 1024)
 
     @property
     def webapp_url_resolved(self) -> str:

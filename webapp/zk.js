@@ -257,7 +257,7 @@ const sky = (() => {
   let sized = false;
   return {
     resize(lowPower) { size(lowPower); sized = true; },
-    draw(now, dt, mf) {
+    draw(now, dt, mf, cooling) {
       if (!x) return;
       if (!sized) size(false);
       x.globalCompositeOperation = "source-over"; x.globalAlpha = 1; x.clearRect(0, 0, w, h);
@@ -269,24 +269,25 @@ const sky = (() => {
       for (const o of big) { o.y += o.v * dt; o.x -= o.v * .3 * dt; if (o.y > h + 20) { o.y = -20; o.x = Math.random() * w * 1.15; }
         x.globalAlpha = (.5 + .5 * Math.sin(o.p + k / 1000 * o.s)) * (1 - mf * .4); x.drawImage(glare, o.x - o.z / 2, o.y - o.z / 2, o.z, o.z); }
       if (!nextShoot) { nextShoot = k + 2500; nextRock = k + 5000; }
-      if (k > nextShoot) { shoot(k); nextShoot = k + 4000 + Math.random() * 4000; }
-      if (mf < .5 && k > nextRock) { rock(k); nextRock = k + 7000 + Math.random() * 6000; }
+      if (!cooling && k > nextShoot) { shoot(k); nextShoot = k + 4000 + Math.random() * 4000; }
+      if (!cooling && mf < .5 && k > nextRock) { rock(k); nextRock = k + 7000 + Math.random() * 6000; }
+      const maxEm = cooling ? 18 : 42;
       for (let i = mt.length - 1; i >= 0; i--) { const o = mt[i];
         o.x += o.vx * dt; o.y += o.vy * dt; const n = Math.hypot(o.vx, o.vy), ux = o.vx / n, uy = o.vy / n;
         if (o.rock) {
           if (o.y > h + o.sz * 3 || o.x < -o.sz * 4) { mt.splice(i, 1); continue; }
           const L = o.sz * 3.2, R = o.sz * .42, px = -uy, py = ux, fl = 1 + .12 * Math.sin(k / 40 + i);
-          for (const [wk, lk, c0, c1] of [[1, 1, "rgba(255,70,0,.5)", "rgba(120,20,0,0)"], [.7, .75, "rgba(255,170,40,.7)", "rgba(255,90,0,0)"], [.38, .45, "rgba(255,250,210,.95)", "rgba(255,200,90,0)"]]) {
-            const ww = R * wk * fl, len = L * lk * fl, tx = o.x - ux * len, ty = o.y - uy * len, g = x.createLinearGradient(o.x, o.y, tx, ty);
-            g.addColorStop(0, c0); g.addColorStop(1, c1); x.globalAlpha = 1; x.fillStyle = g; x.beginPath(); x.moveTo(o.x + px * ww, o.y + py * ww);
-            x.quadraticCurveTo(o.x - ux * len * .45 + px * ww * .55, o.y - uy * len * .45 + py * ww * .55, tx, ty);
-            x.quadraticCurveTo(o.x - ux * len * .45 - px * ww * .55, o.y - uy * len * .45 - py * ww * .55, o.x - px * ww, o.y - py * ww);
-            x.arc(o.x, o.y, ww, Math.atan2(-py, -px), Math.atan2(py, px), false); x.fill();
-          }
-          const hg = x.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.sz * 1.1); hg.addColorStop(0, "rgba(255,170,60,.5)"); hg.addColorStop(1, "rgba(255,80,0,0)");
-          x.fillStyle = hg; x.beginPath(); x.arc(o.x, o.y, o.sz * 1.1, 0, 7); x.fill();
-          if (em.length < 120) em.push({x: o.x - ux * R, y: o.y - uy * R, vx: o.vx * .15 + (Math.random() - .5) * d, vy: o.vy * .15 + (Math.random() - .5) * d, l: 1, r: (1 + Math.random() * 1.8) * d});
-          x.globalCompositeOperation = "source-over"; x.save(); x.translate(o.x, o.y); x.rotate(o.rot + o.vr * (k - o.t0) / 16);
+          const tailLen = L * fl, tx = o.x - ux * tailLen, ty = o.y - uy * tailLen;
+          const tg = x.createLinearGradient(o.x, o.y, tx, ty);
+          tg.addColorStop(0, "rgba(255,215,120,.88)"); tg.addColorStop(.32, "rgba(255,115,24,.58)"); tg.addColorStop(1, "rgba(140,24,0,0)");
+          const ww = R * fl;
+          x.globalAlpha = 1; x.fillStyle = tg; x.beginPath(); x.moveTo(o.x + px * ww, o.y + py * ww);
+          x.quadraticCurveTo(o.x - ux * tailLen * .45 + px * ww * .55, o.y - uy * tailLen * .45 + py * ww * .55, tx, ty);
+          x.quadraticCurveTo(o.x - ux * tailLen * .45 - px * ww * .55, o.y - uy * tailLen * .45 - py * ww * .55, o.x - px * ww, o.y - py * ww);
+          x.arc(o.x, o.y, ww, Math.atan2(-py, -px), Math.atan2(py, px), false); x.fill();
+          x.globalAlpha = .52; x.drawImage(glare, o.x - o.sz * .85, o.y - o.sz * .85, o.sz * 1.7, o.sz * 1.7);
+          if (!cooling && em.length < maxEm) em.push({x: o.x - ux * R, y: o.y - uy * R, vx: o.vx * .15 + (Math.random() - .5) * d, vy: o.vy * .15 + (Math.random() - .5) * d, l: 1, r: (1 + Math.random() * 1.8) * d});
+          x.globalCompositeOperation = "source-over"; x.globalAlpha = 1; x.save(); x.translate(o.x, o.y); x.rotate(o.rot + o.vr * (k - o.t0) / 16);
           if (ROCK.complete && ROCK.naturalWidth) x.drawImage(ROCK, -o.sz / 2, -o.sz * .56, o.sz, o.sz * 1.12);
           x.restore(); x.globalCompositeOperation = "lighter";
         } else {
@@ -298,8 +299,9 @@ const sky = (() => {
           x.drawImage(glare, o.x - 6 * d, o.y - 6 * d, 12 * d, 12 * d);
         }
       }
-      for (let i = em.length - 1; i >= 0; i--) { const p = em[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.l -= .025 * dt; if (p.l <= 0) { em.splice(i, 1); continue; }
-        x.globalAlpha = p.l; x.fillStyle = p.l > .6 ? "#ffe08a" : "#ff6a1a"; x.beginPath(); x.arc(p.x, p.y, p.r * p.l, 0, 7); x.fill(); }
+      if (em.length > maxEm) em.splice(0, em.length - maxEm);
+      for (let i = em.length - 1; i >= 0; i--) { const p = em[i]; p.x += p.vx * dt; p.y += p.vy * dt; p.l -= .03 * dt; if (p.l <= 0) { em.splice(i, 1); continue; }
+        x.globalAlpha = p.l; x.fillStyle = p.l > .6 ? "#ffe08a" : "#ff6a1a"; x.fillRect(p.x - p.r * p.l, p.y - p.r * p.l, p.r * p.l * 2, p.r * p.l * 2); }
       x.globalCompositeOperation = "source-over";
     },
   };
@@ -319,12 +321,16 @@ let ripple = {x: 0, y: 0, t0: -99}, tiltT = {x: 0, y: 0}, tiltC = {x: 0, y: 0}, 
 const poke = () => { touched = performance.now(); };
 ["pointerdown", "pointermove", "keydown"].forEach((ev) => addEventListener(ev, poke, {passive: true}));
 let scrollT = -1e9;
-addEventListener("scroll", () => { poke(); scrollT = performance.now(); }, {passive: true, capture: true});
+addEventListener("scroll", () => { poke(); scrollT = performance.now(); if (slow > 0 && slow < 20) slow = 0; }, {passive: true, capture: true});
 addEventListener("pointerdown", (e) => {
   ripple = {x: (e.clientX - W / 2) / H, y: (H / 2 - e.clientY) / H, t0: performance.now() / 1000};
 }, {passive: true});
 addEventListener("pointermove", (e) => { tiltT = {x: (e.clientX / W - .5) * 2, y: (e.clientY / H - .5) * 2}; }, {passive: true});
 addEventListener("resize", resize);
+document.addEventListener("zk:ui-change", (ev) => {
+  const isLite = !!(ev && ev.detail && ev.detail.lite);
+  if (!isLite) { slow = 0; last = performance.now(); dirty = true; resize(); }
+});
 resize();
 
 const covered = () => document.hidden ||
@@ -336,19 +342,21 @@ const covered = () => document.hidden ||
 let last = 0, frames = 0;
 function frame(now) {
   requestAnimationFrame(frame);
+  if (window.ZK_LITE || body.classList.contains("lite")) { last = now; return; }
   const m = modeNow();
   if (m !== lastMode) { lastMode = m; applyMode(m); if (!ok) drawNebulaFallback(m); dirty = true; }
-  if (covered()) return;
-  if (now - scrollT < 260) return;
+  if (covered()) { last = now; return; }
+  if (now - scrollT < 140) { last = now; return; }
   const moving = !RM;
-  if (!moving && !dirty && now - ripple.t0 * 1000 > 2500) return;
+  if (!moving && !dirty && now - ripple.t0 * 1000 > 2500) { last = now; return; }
+  const cooling = now - scrollT < 550;
   const gap = (now - touched < 8000 ? 33 : 80) * (slow > 20 ? 1.8 : 1);
   if (now - last < gap) return;
-  if (last && now - last < 400) { if (now - last > gap + 45) { if (++slow === 21) resize(); } else if (slow > 0 && slow < 20) slow--; }
-  const dt = Math.min(4, (now - last) / 16.7); last = now;
+  if (last && now - scrollT > 1200 && now - last < 400) { if (now - last > gap + 45) { if (++slow === 21) resize(); } else if (slow > 0 && slow < 20) slow--; }
+  const dt = last ? Math.min(1.5, Math.max(.4, (now - last) / 16.7)) : 1; last = now;
   for (let k = 0; k < 3; k++) for (let j = 0; j < 3; j++) colC[k][j] += (colT[k][j] - colC[k][j]) * Math.min(1, .05 * dt);
   mfC += (mfT - mfC) * Math.min(1, .05 * dt);
-  sky.draw(now, dt, mfC);
+  sky.draw(now, dt, mfC, cooling);
   if (!ok) return;
   tiltC.x += (tiltT.x - tiltC.x) * .05 * dt; tiltC.y += (tiltT.y - tiltC.y) * .05 * dt;
   const ts = now / 1000;
@@ -426,7 +434,11 @@ function flowScan() {
         c.classList.toggle("zk-mid", a < .5);
       });
     };
-    row.addEventListener("scroll", () => requestAnimationFrame(upd), {passive: true});
+    let raf = 0;
+    row.addEventListener("scroll", () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; upd(); });
+    }, {passive: true});
     requestAnimationFrame(upd);
   });
 }

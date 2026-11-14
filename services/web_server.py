@@ -14,6 +14,7 @@ import urllib.parse
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Tuple
+import aiohttp
 from aiohttp import web
 from config import config, BASE_DIR
 from database.session import get_session
@@ -3428,7 +3429,36 @@ async def handle_asil_stream(request: web.Request) -> web.Response:
             q_urls = stream_info.get("quality_urls") or {}
             chosen = q_urls.get(quality) or stream_info.get("stream_url") or stream_info.get("watch_url")
             if chosen and str(chosen).startswith("http"):
-                raise web.HTTPFound(chosen)
+                chosen_url = str(chosen).strip()
+                from services.asilmedia_service import asilmedia_service
+                if asilmedia_service.is_token_expired(chosen_url) or asilmedia_service.needs_fayllar_sign(chosen_url):
+                    re_url = await asilmedia_service.resolve_stream_url(chosen_url, news_id=clean_id, force_refresh=True)
+                    if re_url:
+                        chosen_url = re_url
+
+                if "fayllar" in chosen_url.lower():
+                    needs_re_sign = False
+                    try:
+                        probe_timeout = aiohttp.ClientTimeout(total=2.5, connect=1.5, sock_read=1.5)
+                        probe_headers = {"User-Agent": getattr(asilmedia_service, "USER_AGENT", "Mozilla/5.0")}
+                        async with aiohttp.ClientSession(timeout=probe_timeout, headers=probe_headers) as probe_session:
+                            async with probe_session.head(
+                                chosen_url,
+                                allow_redirects=True
+                            ) as probe_resp:
+                                if probe_resp.status in (410, 403):
+                                    needs_re_sign = True
+                    except (aiohttp.ClientError, asyncio.TimeoutError) as exc:
+                        logger.debug("handle_asil_stream: Fayllar probe network error: %s", exc)
+                    except Exception as exc:
+                        logger.debug("handle_asil_stream: unexpected probe error: %s", exc)
+
+                    if needs_re_sign:
+                        re_url = await asilmedia_service.resolve_stream_url(chosen_url, news_id=clean_id, force_refresh=True)
+                        if re_url:
+                            chosen_url = re_url
+
+                raise web.HTTPFound(chosen_url)
     except web.HTTPFound:
         raise
     except Exception as e:
@@ -3891,7 +3921,7 @@ async def handle_get_movie_detail(request: web.Request) -> web.Response:
             movie = await crud.get_movie_by_code(session, code)
             if movie:
                 db_files = await crud.get_movie_files(session, movie.id) if hasattr(crud, "get_movie_files") else []
-                max_file_part = max((getattr(f, "part_number", 1) or 1 for f in db_files), default=1)
+                max_file_part = max((getattr(f, "part", None) or getattr(f, "part_number", 1) or 1 for f in db_files), default=1)
                 total_parts = max(cat_parts, max_file_part, 1 if movie.file_id else 0, 1)
                 resp = {
                     "ok": True,
@@ -5154,12 +5184,42 @@ async def handle_send_to_chat(request: web.Request) -> web.Response:
                     "message": f"«{title}» chatga yuborildi!"
                 })
             else:
-                return web.json_response({
-                    "ok": False,
-                    "delivered": False,
-                    "error": "video_unavailable",
-                    "message": "Video mavjud emas yoki yetkazib bo'lmadi"
-                }, status=404)
+                cat_item = MovieService.get_catalog_item(clean_code)
+                stream_info = None
+                try:
+                    stream_info = await MovieService.get_movie_stream_info(clean_code, part=req_part)
+                except Exception:
+                    stream_info = None
+                db_movie = None
+                try:
+                    async with get_session() as session:
+                        db_movie = await crud.get_movie_by_code(session, clean_code)
+                except Exception:
+                    db_movie = None
+
+                if cat_item or stream_info or db_movie:
+                    from handlers.movies import _send_movie_delivery_fallback
+                    if _bot_instance and chat_id:
+                        await _send_movie_delivery_fallback(
+                            bot=_bot_instance,
+                            chat_id=chat_id,
+                            code=clean_code,
+                            part=req_part,
+                        )
+                    return web.json_response({
+                        "success": True,
+                        "ok": True,
+                        "delivered": False,
+                        "action": "fallback_card",
+                        "message": "Video hajmi katta bo'lgani sababli tomosha qilish havolasi chatga yuborildi!"
+                    })
+                else:
+                    return web.json_response({
+                        "ok": False,
+                        "delivered": False,
+                        "error": "video_unavailable",
+                        "message": "Video mavjud emas yoki yetkazib bo'lmadi"
+                    }, status=404)
         elif action_type == "music":
             title = str(body.get("title") or body.get("t") or "Musiqa")
             artist = str(body.get("artist") or body.get("a") or "")

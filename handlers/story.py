@@ -38,15 +38,35 @@ async def cmd_story_prompt(message: Message, state: FSMContext) -> None:
     text = (
         "👀 <b>Anonim Story ko'rish va yuklash!</b>\n\n"
         "Qaysi ijtimoiy tarmoqdagi hikoyalarni (stories) ko'rmoqchisiz? Tanlang:\n\n"
-        "✈️ <b>Telegram Story</b> — Telegram kanal yoki profil hikoyalari\n"
-        "📸 <b>Instagram Story</b> — Ochiq Instagram profil hikoyalari\n\n"
+        "📱 <b>Telegram story</b> — Telegram kanal yoki profil hikoyalari\n"
+        "📸 <b>Instagram story</b> — Ochiq Instagram profil hikoyalari\n\n"
         "🔒 <b>To'liq anonim:</b> Profil egasi siz uning hikoyasini ko'rganingizni bilmaydi.\n"
         "⚡️ <b>Tezkor yuklash:</b> Rasm va video formatidagi barcha faol hikoyalar yetkaziladi."
     )
     await message.answer(text, parse_mode="HTML", reply_markup=story_platform_keyboard())
 
 
-@router.callback_query(F.data.startswith("story_platform:"))
+@router.callback_query(F.data == "story_platform:menu")
+async def cb_story_platform_menu(callback: CallbackQuery, state: FSMContext) -> None:
+    """Asosiy menyuga qaytish."""
+    await state.clear()
+    await callback.answer()
+    user_id = callback.from_user.id if callback.from_user else 0
+    is_admin = config.is_admin(user_id)
+    try:
+        if callback.message:
+            await callback.message.delete()
+    except Exception:
+        pass
+    if callback.message:
+        await callback.message.answer(
+            "🏠 <b>Asosiy menyu:</b>",
+            parse_mode="HTML",
+            reply_markup=main_menu_keyboard(is_admin=is_admin)
+        )
+
+
+@router.callback_query(F.data.in_(["story_platform:tg", "story_platform:ig"]))
 async def cb_story_platform(callback: CallbackQuery, state: FSMContext) -> None:
     """Telegram yoki Instagram platformasi tanlanganda."""
     plat = callback.data.split(":")[1]
@@ -55,7 +75,7 @@ async def cb_story_platform(callback: CallbackQuery, state: FSMContext) -> None:
 
     if plat == "tg":
         text = (
-            "✈️ <b>Anonim Telegram Story yuklash!</b>\n\n"
+            "📱 <b>Anonim Telegram story yuklash!</b>\n\n"
             "Telegram kanal yoki foydalanuvchi nomini yozing:\n"
             "<i>Masalan: <code>kunuz</code>, <code>@durov</code> yoki <code>https://t.me/kunuz</code></i>\n\n"
             "🔒 <b>To'liq anonim:</b> Kanal yoki profil egasi bilmaydi.\n"
@@ -63,7 +83,7 @@ async def cb_story_platform(callback: CallbackQuery, state: FSMContext) -> None:
         )
     else:
         text = (
-            "📸 <b>Anonim Instagram Story yuklash!</b>\n\n"
+            "📸 <b>Anonim Instagram story yuklash!</b>\n\n"
             "Instagram foydalanuvchi nomini yoki profil havolasini yozing:\n"
             "<i>Masalan: <code>cristiano</code> yoki <code>@leomessi</code></i>\n\n"
             "🔒 <b>To'liq anonim:</b> Profil egasi bilmaydi.\n"

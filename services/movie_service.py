@@ -5,10 +5,11 @@ import os
 import re
 import time
 import json
+import uuid
 import asyncio
 import aiohttp
 import logging
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, List, Tuple, Dict, Any, Union
 from pathlib import Path
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup, FSInputFile
@@ -24,11 +25,22 @@ logger = logging.getLogger(__name__)
 
 # Kesh
 _CATALOG_CACHE: Optional[dict] = None
+_CATALOG_CACHE_BASE: Optional[str] = None
 _UNIFIED_CATALOG_CACHE: Optional[Tuple[str, float, List[Dict[str, Any]]]] = None
 _LAST_SYNC_TS: float = time.time()
 _DOWNLOAD_SEMAPHORE = asyncio.Semaphore(1)
 
-MAX_TELEGRAM_UPLOAD_BYTES = 50 * 1024 * 1024
+
+def get_max_upload_bytes() -> int:
+    """Maksimal ruxsat etilgan video yuklash hajmini aniqlaydi (50 MB yoki mahalliy Bot API Serverda 2000 MB)."""
+    return getattr(config, "max_upload_bytes", 50 * 1024 * 1024)
+
+
+MAX_TELEGRAM_UPLOAD_BYTES = get_max_upload_bytes()
+
+INDEXER_DISCLAIMER: str = (
+    "ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi."
+)
 
 ASILMEDIA_ID_MAP: Dict[str, str] = {
     "101": "17638",
@@ -191,7 +203,7 @@ class MovieService:
         Katalog ma'lumotlarini data/catalog.json, CUSTOM_CATALOG_ITEMS, Asilmedia.org va
         mahalliy DB bilan @BauntyCinemabot va @BauntyFilms brendi asosida sinxronlash.
         """
-        global _CATALOG_CACHE, _UNIFIED_CATALOG_CACHE, _LAST_SYNC_TS
+        global _CATALOG_CACHE, _CATALOG_CACHE_BASE, _UNIFIED_CATALOG_CACHE, _LAST_SYNC_TS
         from database.session import get_session
         from services.asilmedia_service import asilmedia_service
         _LAST_SYNC_TS = time.time()
@@ -274,6 +286,7 @@ class MovieService:
         }
         if len(raw_items) >= 20 or not (_CATALOG_CACHE and len(_CATALOG_CACHE.get("items", [])) >= 20):
             _CATALOG_CACHE = cat_json
+            _CATALOG_CACHE_BASE = str(base_dir)
         if len(raw_items) >= 20:
             try:
                 catalog_file.parent.mkdir(parents=True, exist_ok=True)
@@ -328,15 +341,22 @@ class MovieService:
 
     @staticmethod
     def _ensure_catalog_cache() -> Optional[dict]:
-        """Kesh bo'sh yoki to'liq bo'lmaganda diskdagi haqiqiy catalog.json ni yuklash."""
-        global _CATALOG_CACHE
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if (_CATALOG_CACHE is None or len(_CATALOG_CACHE.get("items", [])) < 20) and catalog_path.exists():
+        """Kesh bo'sh, bazaviy katalog papkasi o'zgarganda yoki to'liq bo'lmaganda catalog.json ni yuklash."""
+        global _CATALOG_CACHE, _CATALOG_CACHE_BASE
+        base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
+        base_key = str(base_dir)
+        catalog_path = base_dir / "data" / "catalog.json"
+        if catalog_path.exists() and (
+            _CATALOG_CACHE is None
+            or _CATALOG_CACHE_BASE != base_key
+            or len(_CATALOG_CACHE.get("items", [])) < 20
+        ):
             try:
                 with open(catalog_path, "r", encoding="utf-8") as f:
                     loaded_cat = json.load(f)
                     if isinstance(loaded_cat, dict) and loaded_cat.get("items"):
                         _CATALOG_CACHE = loaded_cat
+                        _CATALOG_CACHE_BASE = base_key
             except Exception:
                 pass
         return _CATALOG_CACHE
@@ -464,7 +484,7 @@ class MovieService:
         code_part kabi qism qatorlarini alohida yuqori daraja kartochkasi sifatida chiqarmaydi,
         aksincha asosiy kino kodi uchun aniq 'p' (qismlar soni) ni hisoblaydi.
         """
-        global _CATALOG_CACHE, _UNIFIED_CATALOG_CACHE
+        global _CATALOG_CACHE, _CATALOG_CACHE_BASE, _UNIFIED_CATALOG_CACHE
         base_dir = getattr(app_config, "BASE_DIR", BASE_DIR)
         base_key = str(base_dir)
         now_ts = time.time()
@@ -475,13 +495,7 @@ class MovieService:
             and (now_ts - _UNIFIED_CATALOG_CACHE[1]) < 45.0
         ):
             return [dict(x) for x in _UNIFIED_CATALOG_CACHE[2]]
-        catalog_path = base_dir / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
-            try:
-                with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
-            except Exception:
-                pass
+        MovieService._ensure_catalog_cache()
 
         unified: Dict[str, Dict[str, Any]] = {}
         order: List[str] = []
@@ -807,14 +821,7 @@ class MovieService:
         """Katalogdan aktyor nomi bo'yicha kinolarni qidirish (Lotin + Kirill)."""
         if not actor_query or len(actor_query.strip()) < 2:
             return []
-        global _CATALOG_CACHE
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
-            try:
-                with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
-            except Exception:
-                pass
+        MovieService._ensure_catalog_cache()
 
         from utils.translit import get_actor_variants
 
@@ -841,14 +848,7 @@ class MovieService:
     @staticmethod
     def search_catalog_by_year(year: int, limit: int = 10) -> List[Dict[str, Any]]:
         """Katalogdan yil bo'yicha kinolarni qidirish."""
-        global _CATALOG_CACHE
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
-            try:
-                with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
-            except Exception:
-                pass
+        MovieService._ensure_catalog_cache()
 
         y_str = str(year).strip()
         items = list(CUSTOM_CATALOG_ITEMS)
@@ -869,14 +869,7 @@ class MovieService:
     @staticmethod
     def get_catalog_top(limit: int = 10) -> List[Dict[str, Any]]:
         """Katalogdan eng ko'p ko'rilgan (views_count / 'v') top kinolarni olish."""
-        global _CATALOG_CACHE
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
-            try:
-                with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
-            except Exception:
-                pass
+        MovieService._ensure_catalog_cache()
 
         items = list(CUSTOM_CATALOG_ITEMS)
         seen_codes = {str(it.get("c")) for it in items}
@@ -892,14 +885,7 @@ class MovieService:
     def get_catalog_random() -> Optional[Dict[str, Any]]:
         """Katalogdan tasodifiy kinoni olish."""
         import random
-        global _CATALOG_CACHE
-        catalog_path = BASE_DIR / "data" / "catalog.json"
-        if _CATALOG_CACHE is None and catalog_path.exists():
-            try:
-                with open(catalog_path, "r", encoding="utf-8") as f:
-                    _CATALOG_CACHE = json.load(f)
-            except Exception:
-                pass
+        MovieService._ensure_catalog_cache()
 
         items = list(CUSTOM_CATALOG_ITEMS)
         seen_codes = {str(it.get("c")) for it in items}
@@ -1183,6 +1169,38 @@ class MovieService:
         return True
 
     @staticmethod
+    def format_concise_movie_caption(
+        title: str,
+        year: Optional[Union[int, str]] = None,
+        duration: Optional[Union[int, str]] = None,
+        language: Optional[str] = None,
+        genres: Optional[str] = None,
+        rating: Optional[Union[float, str]] = None,
+        code: Optional[str] = None,
+        part: Optional[int] = None,
+    ) -> str:
+        """Kino va serial qismlari uchun qisqa va aniq ma'lumot sarlavhasi:
+        {Title}
+        {Year} · {Duration} · {Language} · {Genres} · IMDb: {Rating} · Kod: {Code}
+        """
+        clean_title = str(title or "Kino").strip()
+        if part and int(part) > 1:
+            clean_title = f"{clean_title} ({part}-qism)"
+        y_str = str(year).strip() if year else "2024"
+        if isinstance(duration, (int, float)) and duration > 0:
+            d_min = int(duration) // 60
+            d_str = f"{d_min} daqiqa"
+        elif duration:
+            d_str = str(duration).strip()
+        else:
+            d_str = "120 daqiqa"
+        l_str = str(language or "O'zbek tilida").strip()
+        g_str = str(genres or "Barcha").strip()
+        r_str = str(rating).strip() if rating else "7.5"
+        c_str = str(code or "").strip().lstrip("#№")
+        return f"{clean_title}\n{y_str} · {d_str} · {l_str} · {g_str} · IMDb: {r_str} · Kod: {c_str}"
+
+    @staticmethod
     async def download_and_upload_media_on_demand(
         bot: Bot,
         chat_id: int,
@@ -1204,14 +1222,19 @@ class MovieService:
         from services.asilmedia_service import asilmedia_service
 
         async with _DOWNLOAD_SEMAPHORE:
+            if caption and INDEXER_DISCLAIMER not in caption:
+                caption = f"{caption}\n\n{INDEXER_DISCLAIMER}"
+            elif not caption:
+                caption = f"🎬 #{code} - {display_title or code}\n\n{INDEXER_DISCLAIMER}"
+
             # 1. Navbat ichida keshni qayta tekshirish (agar parallel so'rov allaqachon yuklagan bo'lsa)
             if session:
                 try:
                     cached_mf = await crud.get_movie_file(session, code, part)
                     if cached_mf and MovieService.is_valid_telegram_file_id(cached_mf.file_id):
                         try:
-                            ftype = cached_mf.file_type or "video"
-                            if ftype == "document":
+                            mf_ftype = getattr(cached_mf, "file_type", "video") or "video"
+                            if mf_ftype == "document":
                                 return await bot.send_document(
                                     chat_id=chat_id,
                                     document=cached_mf.file_id,
@@ -1233,9 +1256,40 @@ class MovieService:
                                 protect_content=True
                             )
                         except Exception as cache_send_err:
-                            logger.warning(f"Cached movie_file file_id yuborilmadi ({cache_send_err}), tozalanmoqda.")
-                            cached_mf.file_id = ""
-                            await session.commit()
+                            err_str = str(cache_send_err).lower()
+                            if "message to be replied not found" in err_str and reply_to_message_id:
+                                try:
+                                    if mf_ftype == "document":
+                                        return await bot.send_document(
+                                            chat_id=chat_id,
+                                            document=cached_mf.file_id,
+                                            caption=caption,
+                                            parse_mode="HTML",
+                                            reply_markup=reply_markup,
+                                            reply_to_message_id=None,
+                                            protect_content=True
+                                        )
+                                    return await bot.send_video(
+                                        chat_id=chat_id,
+                                        video=cached_mf.file_id,
+                                        caption=caption,
+                                        parse_mode="HTML",
+                                        duration=cached_mf.duration or duration,
+                                        supports_streaming=True,
+                                        reply_markup=reply_markup,
+                                        reply_to_message_id=None,
+                                        protect_content=True
+                                    )
+                                except Exception as retry_err:
+                                    cache_send_err = retry_err
+                                    err_str = str(retry_err).lower()
+
+                            if any(tok in err_str for tok in ("wrong file identifier", "file_id", "wrong remote file id")):
+                                logger.warning(f"Cached movie_file file_id yuborilmadi ({cache_send_err}), tozalanmoqda.")
+                                cached_mf.file_id = ""
+                                await session.commit()
+                            else:
+                                logger.warning(f"Cached movie_file yuborishda kontekst xatosi ({cache_send_err}), file_id o'chirilmaydi.")
 
                     p_code = f"{code}_{part}" if part > 1 else code
                     cached_m = await crud.get_movie_by_code(session, p_code)
@@ -1264,9 +1318,40 @@ class MovieService:
                                 protect_content=True
                             )
                         except Exception as db_send_err:
-                            logger.warning(f"Cached db movie file_id yuborilmadi ({db_send_err}), tozalanmoqda.")
-                            cached_m.file_id = ""
-                            await session.commit()
+                            err_str = str(db_send_err).lower()
+                            if "message to be replied not found" in err_str and reply_to_message_id:
+                                try:
+                                    if m_ftype == "document":
+                                        return await bot.send_document(
+                                            chat_id=chat_id,
+                                            document=cached_m.file_id,
+                                            caption=caption,
+                                            parse_mode="HTML",
+                                            reply_markup=reply_markup,
+                                            reply_to_message_id=None,
+                                            protect_content=True
+                                        )
+                                    return await bot.send_video(
+                                        chat_id=chat_id,
+                                        video=cached_m.file_id,
+                                        caption=caption,
+                                        parse_mode="HTML",
+                                        duration=cached_m.duration or duration,
+                                        supports_streaming=True,
+                                        reply_markup=reply_markup,
+                                        reply_to_message_id=None,
+                                        protect_content=True
+                                    )
+                                except Exception as retry_err:
+                                    db_send_err = retry_err
+                                    err_str = str(retry_err).lower()
+
+                            if any(tok in err_str for tok in ("wrong file identifier", "file_id", "wrong remote file id")):
+                                logger.warning(f"Cached db movie file_id yuborilmadi ({db_send_err}), tozalanmoqda.")
+                                cached_m.file_id = ""
+                                await session.commit()
+                            else:
+                                logger.warning(f"Cached db movie yuborishda kontekst xatosi ({db_send_err}), file_id o'chirilmaydi.")
                 except Exception as ce:
                     logger.debug(f"Double-check cache error: {ce}")
 
@@ -1291,7 +1376,7 @@ class MovieService:
             # 2. Vaqtinchalik fayl yo'li
             v_dir = getattr(app_config, "BASE_DIR", BASE_DIR) / "data" / "videos"
             v_dir.mkdir(parents=True, exist_ok=True)
-            temp_file = v_dir / f"temp_download_{code}_{part}.mp4"
+            temp_file = v_dir / f"temp_download_{code}_{part}_{uuid.uuid4().hex[:8]}.mp4"
             temp_file.unlink(missing_ok=True)
 
             try:
@@ -1312,12 +1397,14 @@ class MovieService:
                             logger.warning(f"Yuklash manzili HTML/matn ({ctype}): {resolved_url}")
                             return None
 
+                        max_upload_limit = get_max_upload_bytes()
                         clen_raw = resp_headers.get("Content-Length")
                         if clen_raw is not None and str(clen_raw).isdigit():
                             cl_bytes = int(clen_raw)
-                            if cl_bytes > MAX_TELEGRAM_UPLOAD_BYTES:
+                            if cl_bytes > max_upload_limit:
+                                max_limit_mb = max_upload_limit // (1024 * 1024)
                                 logger.info(
-                                    f"Kino #{code} (qism={part}) hajmi {cl_bytes // (1024 * 1024)} MB > 50 MB TG limiti, WebApp/direct oqimga yo'naltiriladi."
+                                    f"Kino #{code} (qism={part}) hajmi {cl_bytes // (1024 * 1024)} MB > {max_limit_mb} MB TG limiti, WebApp/direct oqimga yo'naltiriladi."
                                 )
                                 return None
 
@@ -1335,8 +1422,9 @@ class MovieService:
                                         break
                                     valid_header = True
                                 total_bytes += len(chunk)
-                                if total_bytes > MAX_TELEGRAM_UPLOAD_BYTES:
-                                    logger.info(f"Yuklanayotgan oqim 50 MB TG limitidan oshdi, to'xtatildi: {resolved_url}")
+                                if total_bytes > max_upload_limit:
+                                    max_limit_mb = max_upload_limit // (1024 * 1024)
+                                    logger.info(f"Yuklanayotgan oqim {max_limit_mb} MB TG limitidan oshdi, to'xtatildi: {resolved_url}")
                                     valid_header = False
                                     break
                                 f.write(chunk)
@@ -1345,7 +1433,7 @@ class MovieService:
                             temp_file.unlink(missing_ok=True)
                             return None
 
-                if not temp_file.exists() or temp_file.stat().st_size < 100 * 1024 or temp_file.stat().st_size > MAX_TELEGRAM_UPLOAD_BYTES:
+                if not temp_file.exists() or temp_file.stat().st_size < 100 * 1024 or temp_file.stat().st_size > max_upload_limit:
                     logger.warning(f"Downloaded file invalid size: {resolved_url}")
                     temp_file.unlink(missing_ok=True)
                     return None
@@ -1369,22 +1457,60 @@ class MovieService:
                     if sent_msg:
                         user_delivered = True
                 except Exception as ve:
-                    logger.warning(f"send_video with FSInputFile failed ({ve}), attempting send_document fallback")
-                    media_input = FSInputFile(temp_file)
-                    try:
-                        sent_msg = await bot.send_document(
-                            chat_id=chat_id,
-                            document=media_input,
-                            caption=caption,
-                            parse_mode="HTML",
-                            reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id,
-                            protect_content=True
-                        )
-                        if sent_msg:
-                            user_delivered = True
-                    except Exception as de:
-                        logger.error(f"send_document fallback failed: {de}")
+                    ve_str = str(ve).lower()
+                    if "message to be replied not found" in ve_str and reply_to_message_id:
+                        try:
+                            media_input = FSInputFile(temp_file)
+                            sent_msg = await bot.send_video(
+                                chat_id=chat_id,
+                                video=media_input,
+                                caption=caption,
+                                parse_mode="HTML",
+                                duration=duration,
+                                supports_streaming=True,
+                                reply_markup=reply_markup,
+                                reply_to_message_id=None,
+                                protect_content=True
+                            )
+                            if sent_msg:
+                                user_delivered = True
+                        except Exception as ve_retry:
+                            ve = ve_retry
+                    if not user_delivered:
+                        logger.warning(f"send_video with FSInputFile failed ({ve}), attempting send_document fallback")
+                        media_input = FSInputFile(temp_file)
+                        try:
+                            sent_msg = await bot.send_document(
+                                chat_id=chat_id,
+                                document=media_input,
+                                caption=caption,
+                                parse_mode="HTML",
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
+                            )
+                            if sent_msg:
+                                user_delivered = True
+                        except Exception as de:
+                            de_str = str(de).lower()
+                            if "message to be replied not found" in de_str and reply_to_message_id:
+                                try:
+                                    media_input = FSInputFile(temp_file)
+                                    sent_msg = await bot.send_document(
+                                        chat_id=chat_id,
+                                        document=media_input,
+                                        caption=caption,
+                                        parse_mode="HTML",
+                                        reply_markup=reply_markup,
+                                        reply_to_message_id=None,
+                                        protect_content=True
+                                    )
+                                    if sent_msg:
+                                        user_delivered = True
+                                except Exception as de_retry:
+                                    logger.error(f"send_document fallback retry failed: {de_retry}")
+                            else:
+                                logger.error(f"send_document fallback failed: {de}")
 
                 storage_msg = None
                 if not user_delivered and config.STORAGE_CHANNEL_ID and str(config.STORAGE_CHANNEL_ID).strip():
@@ -1395,7 +1521,7 @@ class MovieService:
                             storage_msg = await bot.send_video(
                                 chat_id=storage_id,
                                 video=media_input,
-                                caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                caption=f"🎬 #{code} - {display_title or code} (Part {part})\n\n{INDEXER_DISCLAIMER}",
                                 duration=duration,
                                 supports_streaming=True,
                                 protect_content=True
@@ -1407,7 +1533,7 @@ class MovieService:
                                 storage_msg = await bot.send_document(
                                     chat_id=storage_id,
                                     document=media_input,
-                                    caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                    caption=f"🎬 #{code} - {display_title or code} (Part {part})\n\n{INDEXER_DISCLAIMER}",
                                     protect_content=True
                                 )
                             except Exception as se_doc:
@@ -1462,14 +1588,14 @@ class MovieService:
                                             await bot.send_document(
                                                 chat_id=storage_id,
                                                 document=new_fid,
-                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})\n\n{INDEXER_DISCLAIMER}",
                                                 protect_content=True
                                             )
                                         else:
                                             await bot.send_video(
                                                 chat_id=storage_id,
                                                 video=new_fid,
-                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})",
+                                                caption=f"🎬 #{code} - {display_title or code} (Part {part})\n\n{INDEXER_DISCLAIMER}",
                                                 duration=dur_val,
                                                 supports_streaming=True,
                                                 protect_content=True
@@ -1684,15 +1810,40 @@ class MovieService:
         cached_ftype = cached_mf.file_type if cached_mf else "video"
 
         has_cached_mf = MovieService.is_valid_telegram_file_id(cached_fid)
-        if has_cached_mf and cached_mf and getattr(cached_mf, "duration", None) is not None and cached_mf.duration <= 60:
-            has_cached_mf = False
 
         db_fid = (db_movie.file_id or "").strip() if db_movie else ""
         has_db_fid = bool(
             db_movie and MovieService.is_valid_telegram_file_id(db_fid) and (part == 1 or db_movie.code != clean_code)
         )
-        if has_db_fid and db_movie and getattr(db_movie, "duration", None) is not None and db_movie.duration <= 60:
-            has_db_fid = False
+
+        # Dual-table sinxronizatsiya: Agar bittasida file_id bo'lsa, ikkinchisiga ham keshlab qo'yish
+        if has_cached_mf and db_movie and not MovieService.is_valid_telegram_file_id(db_movie.file_id):
+            if part == 1 or db_movie.code != clean_code:
+                db_movie.file_id = cached_fid
+                if getattr(cached_mf, "file_type", None):
+                    db_movie.file_type = cached_mf.file_type
+                if getattr(cached_mf, "file_size", None):
+                    db_movie.file_size = cached_mf.file_size
+                if getattr(cached_mf, "duration", None):
+                    db_movie.duration = cached_mf.duration
+
+        if has_db_fid and (not cached_mf or not MovieService.is_valid_telegram_file_id(cached_fid)):
+            try:
+                cached_mf = await crud.save_movie_file(
+                    session=session,
+                    movie_code=clean_code,
+                    part=part,
+                    file_id=db_fid,
+                    file_type=getattr(db_movie, "file_type", "video") or "video",
+                    file_size=getattr(db_movie, "file_size", None),
+                    duration=getattr(db_movie, "duration", None),
+                    quality="1080p",
+                )
+                cached_fid = db_fid
+                cached_ftype = getattr(db_movie, "file_type", "video") or "video"
+                has_cached_mf = True
+            except Exception:
+                pass
 
         has_real_video = has_cached_mf or has_db_fid
 
@@ -1847,8 +1998,13 @@ class MovieService:
         if not quality_val:
             quality_val = "1080p | Full HD (4K Ultra HD)"
 
+        part_tag = f" ({part}-qism)" if (part and part > 1) or total_parts > 1 else ""
+        rating_disp = str(cat_item.get('r')) if cat_item and cat_item.get('r') else (str(db_movie.rating) if db_movie and db_movie.rating else '7.5')
+        dur_disp = str(cat_item.get('d')) if cat_item and cat_item.get('d') else "120 daqiqa"
+
         card_lines = [
-            f"🎬 <b>{display_title}</b> (4K Ultra HD)",
+            f"🎬 <b>{display_title}</b>{part_tag} (4K Ultra HD)",
+            f"{year_val} · {dur_disp} · O'zbek tilida · {genres_val} · IMDb: {rating_disp} · Kod: {clean_code}",
             f"🌐 <b>Original nomi:</b> {orig_name}",
             f"📅 <b>Yili:</b> {year_val}",
             f"🎭 <b>Janr:</b> {genres_val}",
@@ -1856,25 +2012,9 @@ class MovieService:
             f"📺 <b>Sifati:</b> {quality_val}",
         ]
 
-        if clean_d:
-            desc_body = re.sub(r'📢\s*Homiy kanal:.*$', '', clean_d, flags=re.DOTALL | re.IGNORECASE).strip()
-            desc_body = re.sub(r'🤖\s*Bot:.*$', '', desc_body, flags=re.DOTALL | re.IGNORECASE).strip()
-            desc_body = re.sub(r'^(?:📖\s*)?Film haqida:\s*', '', desc_body, flags=re.IGNORECASE).strip()
-            desc_body = re.sub(r'^(?:📖\s*)?Serial haqida:\s*', '', desc_body, flags=re.IGNORECASE).strip()
-            desc_body = re.sub(r'🎭\s*Janr:.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
-            desc_body = re.sub(r'🌍\s*(?:Davlat|Mamlakat):.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
-            desc_body = re.sub(r'📅\s*Yil:.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
-            desc_body = re.sub(r'📺\s*Sifati?:.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
-            desc_body = re.sub(r'👇.*$', '', desc_body, flags=re.MULTILINE | re.IGNORECASE)
-            desc_body = re.sub(r'\n{3,}', '\n\n', desc_body).strip()
-            if desc_body:
-                if len(desc_body) > 350:
-                    desc_body = desc_body[:350].strip() + "..."
-                card_lines.append(f"\n📝 <b>Tavsif:</b>\n<i>{desc_body}</i>")
-
         card_lines.append(f"\n📢 Homiy kanal: {channel_user}  🍿 Kinolarimiz: {channel_user}")
         card_lines.append(f"🤖 Bot: {bot_user}\n")
-        card_lines.append("ℹ️ Ushbu bot qidiruv indeksi sifatida ishlaydi. Fayllar Telegram serverlarida saqlanmaydi.")
+        card_lines.append(INDEXER_DISCLAIMER)
 
         caption = "\n".join(card_lines)
 
@@ -1888,7 +2028,7 @@ class MovieService:
             if download_online_url and ("sayt.php" in str(download_online_url) or not str(download_online_url).startswith("http")):
                 download_online_url = None
 
-        if not watch_online_url and clean_code.isdigit():
+        if not has_real_video and not watch_online_url and clean_code.isdigit():
             try:
                 from services.asilmedia_service import asilmedia_service
                 tg_inf = await asilmedia_service.get_telegram_media_info(clean_code)
@@ -1899,11 +2039,19 @@ class MovieService:
                 pass
 
         if total_parts > 1:
+            watched_eps = set()
+            if chat_id and chat_id > 0:
+                try:
+                    watched_eps = await crud.get_user_watched_episodes(session, chat_id, clean_code)
+                except Exception:
+                    pass
             reply_markup = movie_parts_keyboard(
                 clean_code,
                 total_parts=total_parts,
                 current_part=part,
-                page=max(0, (part - 1) // 20),
+                page=max(0, (part - 1) // 50),
+                per_page=50,
+                watched_parts=watched_eps,
                 watch_url=watch_online_url,
                 download_url=download_online_url
             )
@@ -1950,15 +2098,52 @@ class MovieService:
                     video_sent = True
                     return True
                 except Exception as e:
-                    logger.warning(f"Baza/Cloud videosini yuborib bo'lmadi ({e}), eskirgan file_id tozalanib zaxira tekshiriladi.")
-                    try:
-                        if cached_mf and cached_mf.file_id == target_file_id:
-                            cached_mf.file_id = ""
-                        if db_movie and db_movie.file_id == target_file_id:
-                            db_movie.file_id = ""
-                        await session.commit()
-                    except Exception:
-                        pass
+                    err_str = str(e).lower()
+                    if "message to be replied not found" in err_str and reply_to_message_id:
+                        try:
+                            if target_file_type == "document":
+                                await bot.send_document(
+                                    chat_id=chat_id,
+                                    document=target_file_id,
+                                    caption=caption,
+                                    parse_mode="HTML",
+                                    reply_markup=reply_markup,
+                                    reply_to_message_id=None,
+                                    protect_content=True
+                                )
+                            else:
+                                await bot.send_video(
+                                    chat_id=chat_id,
+                                    video=target_file_id,
+                                    caption=caption,
+                                    parse_mode="HTML",
+                                    duration=target_duration,
+                                    supports_streaming=True,
+                                    reply_markup=reply_markup,
+                                    reply_to_message_id=None,
+                                    protect_content=True
+                                )
+                            if db_movie:
+                                await crud.increment_movie_views(session, db_movie.id)
+                            await session.commit()
+                            video_sent = True
+                            return True
+                        except Exception as retry_err:
+                            e = retry_err
+                            err_str = str(retry_err).lower()
+
+                    if any(tok in err_str for tok in ("wrong file identifier", "file_id", "wrong remote file id")):
+                        logger.warning(f"Baza/Cloud videosining file_id si eskirgan ({e}), tozalanmoqda.")
+                        try:
+                            if cached_mf and cached_mf.file_id == target_file_id:
+                                cached_mf.file_id = ""
+                            if db_movie and db_movie.file_id == target_file_id:
+                                db_movie.file_id = ""
+                            await session.commit()
+                        except Exception:
+                            pass
+                    else:
+                        logger.warning(f"Video yuborishda kontekst xatosi ({e}), file_id o'chirilmaydi.")
 
         if not video_sent:
             from services.asilmedia_service import asilmedia_service
@@ -2076,17 +2261,33 @@ class MovieService:
                             display_title=display_title
                         )
                     else:
-                        sent_msg = await bot.send_video(
-                            chat_id=chat_id,
-                            video=target_video,
-                            caption=caption,
-                            parse_mode="HTML",
-                            duration=cand.get("duration"),
-                            supports_streaming=True,
-                            reply_markup=reply_markup,
-                            reply_to_message_id=reply_to_message_id,
-                            protect_content=True
-                        )
+                        try:
+                            sent_msg = await bot.send_video(
+                                chat_id=chat_id,
+                                video=target_video,
+                                caption=caption,
+                                parse_mode="HTML",
+                                duration=cand.get("duration"),
+                                supports_streaming=True,
+                                reply_markup=reply_markup,
+                                reply_to_message_id=reply_to_message_id,
+                                protect_content=True
+                            )
+                        except Exception as lve:
+                            if reply_to_message_id and "message to be replied not found" in str(lve).lower():
+                                sent_msg = await bot.send_video(
+                                    chat_id=chat_id,
+                                    video=target_video,
+                                    caption=caption,
+                                    parse_mode="HTML",
+                                    duration=cand.get("duration"),
+                                    supports_streaming=True,
+                                    reply_markup=reply_markup,
+                                    reply_to_message_id=None,
+                                    protect_content=True
+                                )
+                            else:
+                                raise
 
                     if sent_msg:
                         # Telegram tomonidan berilgan haqiqiy file_id ni bazada saqlab qolish
@@ -2104,34 +2305,33 @@ class MovieService:
                                 p_code = f"{clean_code}_{part}" if part > 1 else clean_code
                                 ftype = "video" if getattr(sent_msg, "video", None) else "document"
 
-                                if (dur_val is None or dur_val >= 120) and (fsize_val is None or fsize_val >= 100 * 1024):
-                                    try:
-                                        saved_m = await crud.set_movie_video(
-                                            session=session,
-                                            code=p_code,
-                                            file_id=new_fid,
-                                            file_type=ftype,
-                                            duration=dur_val,
-                                            file_size=fsize_val,
-                                            title=display_title
-                                        )
-                                        await crud.save_movie_file(
-                                            session=session,
-                                            movie_code=clean_code,
-                                            part=part,
-                                            file_id=new_fid,
-                                            file_type=ftype,
-                                            duration=dur_val,
-                                            file_size=fsize_val,
-                                            quality="1080p"
-                                        )
-                                        if not db_movie:
-                                            db_movie = saved_m
-                                        if db_movie and (db_movie.code == p_code or part == 1):
-                                            db_movie.file_id = new_fid
-                                            db_movie.file_type = ftype
-                                    except Exception as se:
-                                        logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
+                                try:
+                                    saved_m = await crud.set_movie_video(
+                                        session=session,
+                                        code=p_code,
+                                        file_id=new_fid,
+                                        file_type=ftype,
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        title=display_title
+                                    )
+                                    await crud.save_movie_file(
+                                        session=session,
+                                        movie_code=clean_code,
+                                        part=part,
+                                        file_id=new_fid,
+                                        file_type=ftype,
+                                        duration=dur_val,
+                                        file_size=fsize_val,
+                                        quality="1080p"
+                                    )
+                                    if not db_movie:
+                                        db_movie = saved_m
+                                    if db_movie and (db_movie.code == p_code or part == 1):
+                                        db_movie.file_id = new_fid
+                                        db_movie.file_type = ftype
+                                except Exception as se:
+                                    logger.debug(f"Yangi file_id saqlashda xatolik: {se}")
 
                         if db_movie:
                             await crud.increment_movie_views(session, db_movie.id)
@@ -2180,6 +2380,23 @@ class MovieService:
                 await session.commit()
                 return True
             except Exception as ep:
+                if reply_to_message_id and "message to be replied not found" in str(ep).lower():
+                    try:
+                        await bot.send_photo(
+                            chat_id=chat_id,
+                            photo=FSInputFile(poster_path),
+                            caption=caption,
+                            parse_mode="HTML",
+                            reply_markup=reply_markup,
+                            reply_to_message_id=None,
+                            protect_content=True
+                        )
+                        if db_movie:
+                            await crud.increment_movie_views(session, db_movie.id)
+                        await session.commit()
+                        return True
+                    except Exception as ep_retry:
+                        ep = ep_retry
                 logger.warning(f"Poster yuborib bo'lmadi ({ep}), matn yuboriladi.")
 
         # 3. Matnli xabar ko'rinishida yuborish
@@ -2197,6 +2414,22 @@ class MovieService:
             await session.commit()
             return True
         except Exception as em:
+            if reply_to_message_id and "message to be replied not found" in str(em).lower():
+                try:
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=caption,
+                        parse_mode="HTML",
+                        reply_markup=reply_markup,
+                        reply_to_message_id=None,
+                        protect_content=True
+                    )
+                    if db_movie:
+                        await crud.increment_movie_views(session, db_movie.id)
+                    await session.commit()
+                    return True
+                except Exception as em_retry:
+                    em = em_retry
             logger.error(f"Xabar yuborib bo'lmadi: {em}")
             return False
 
@@ -2573,7 +2806,7 @@ class MovieService:
         Asilmedia.org ochiq API va sahifalari orqali batch sinxronlash, data/catalog.json va
         SQLite 'movies' jadvalini to'liq yangilash hamda video manbalarini boyitish.
         """
-        global _CATALOG_CACHE, _UNIFIED_CATALOG_CACHE
+        global _CATALOG_CACHE, _CATALOG_CACHE_BASE, _UNIFIED_CATALOG_CACHE
         _UNIFIED_CATALOG_CACHE = None
         from services.asilmedia_service import asilmedia_service
         from database.session import get_session
@@ -2648,6 +2881,7 @@ class MovieService:
         }
         if len(items_to_sync) >= 20:
             _CATALOG_CACHE = cat_json
+            _CATALOG_CACHE_BASE = str(getattr(app_config, "BASE_DIR", BASE_DIR))
             try:
                 with open(catalog_path, "w", encoding="utf-8") as f:
                     json.dump(cat_json, f, ensure_ascii=False, indent=2)

@@ -14,11 +14,13 @@ body.zk{background:transparent!important;color:var(--zk-cream);font-family:var(-
   --bg:#0B1028;--bg2:rgba(246,238,220,.08);--card:rgba(246,238,220,.08);--text:var(--zk-cream);--hint:var(--zk-mute);
   --accent:var(--zk-acc);--accent-text:var(--zk-ink);--link:var(--zk-acc);--sep:var(--zk-line);--shade:rgba(246,238,220,.08)}
 #zkbg{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;z-index:0;display:block;pointer-events:none;
+  transform:translate3d(0,0,0);will-change:transform;contain:strict;backface-visibility:hidden;
   background:radial-gradient(90% 60% at 15% 5%,rgba(200,52,76,.33),transparent 70%),radial-gradient(80% 60% at 95% 70%,rgba(36,64,200,.33),transparent 70%),var(--zk-night)}
-#zksky{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;z-index:0;display:block;pointer-events:none}
+#zksky{position:fixed;inset:0;width:100vw;height:100vh;height:100lvh;z-index:0;display:block;pointer-events:none;
+  transform:translate3d(0,0,0);will-change:transform;contain:strict;backface-visibility:hidden}
 body.lite #zksky,body.lite #zkbg,html.zk-lite #zkbg,html.zk-lite #zksky{display:none!important}
-body.zk>.top,body.zk>main{position:relative;z-index:2}
-body.zk>.top{position:sticky}
+body.zk>main{position:relative;z-index:2}
+body.zk>.top{position:sticky;z-index:1000}
 .zk :focus-visible{outline:2px solid var(--zk-acc);outline-offset:2px}
 
 /* ---------- kirish ekrani fallback (#zksplash + #zkintro) ---------- */
@@ -181,12 +183,12 @@ body.zk>.top{position:sticky}
   background:rgba(14,19,48,.88)!important;color:var(--zk-acc,#F2B84B)!important;border:1px solid rgba(242,184,75,.38)!important;
   box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 0 10px rgba(242,184,75,.14)!important;font-weight:800!important;border-radius:8px!important}
 .baunty-star-badge,.badge.as-imdb,.badge.baunty-star,.baunty-rating-badge,.baunty-vip-badge{
-  background:linear-gradient(135deg,#FFE8A3 0%,#F2B84B 50%,#C98A1E 100%)!important;color:#2A1500!important;
+  background:linear-gradient(135deg,#FFF1BA 0%,#F2B84B 52%,#C58318 100%)!important;color:#2A1500!important;
   font-family:var(--zk-fb,-apple-system,sans-serif)!important;font-weight:850!important;font-size:11px!important;line-height:1!important;
-  padding:4px 8px!important;border-radius:8px!important;border:1px solid rgba(255,255,255,.55)!important;
-  box-shadow:0 0 14px rgba(242,184,75,.65),0 3px 8px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.75)!important;
-  letter-spacing:.3px!important;display:inline-flex!important;align-items:center!important;gap:4px!important;position:relative!important;z-index:2!important}
-.baunty-star-svg,.baunty-star-ico{width:12px!important;height:12px!important;flex-shrink:0!important;display:inline-block!important;vertical-align:middle!important}
+  padding:4px 8px!important;border-radius:7px!important;border:1px solid rgba(255,248,220,.65)!important;
+  box-shadow:0 0 14px rgba(242,184,75,.65),0 3px 9px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.78)!important;
+  letter-spacing:.32px!important;display:inline-flex!important;align-items:center!important;gap:4px!important;position:relative!important;z-index:2!important}
+.baunty-star-svg,.baunty-star-ico{width:12px!important;height:12px!important;flex-shrink:0!important;display:inline-block!important;vertical-align:middle!important;filter:drop-shadow(0 1px 1px rgba(42,21,0,.32))!important}
 .baunty-vip-badge{padding:5px 12px!important;border-radius:999px!important;font-size:11.5px!important;letter-spacing:.6px!important;text-transform:uppercase!important}
 .fav.baunty-fav-star,.zk .fav{
   background:linear-gradient(135deg,#FFE8A3 0%,#F2B84B 50%,#C98A1E 100%)!important;color:#2A1500!important;
